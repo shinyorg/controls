@@ -12,6 +12,7 @@ public class FontSizePickerButton : ContentView
     readonly Border popupBorder;
     readonly FontSizePicker picker;
     readonly Grid overlay;
+    readonly Button doneButton;
 
     bool isOpen;
 
@@ -49,14 +50,14 @@ public class FontSizePickerButton : ContentView
         };
         picker.FontSizeChanged += OnPickerFontSizeChanged;
 
-        var doneButton = new Button
+        doneButton = new Button
         {
-            Text = "Done",
             CornerRadius = 8,
             HeightRequest = 36,
             HorizontalOptions = LayoutOptions.Fill,
             Margin = new Thickness(12, 0, 12, 12)
         }.Neutralize().WithFontSize(ShinyThemeKeys.Type.BodyMediumSize);
+        doneButton.SetBinding(Button.TextProperty, new Binding(nameof(DoneText), source: this));
         doneButton.SetDynamicResource(Button.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
         doneButton.SetDynamicResource(Button.BackgroundColorProperty, ShinyThemeKeys.Color.Primary);
         doneButton.Clicked += (_, _) => Close();
@@ -189,6 +190,18 @@ public class FontSizePickerButton : ContentView
     {
         get => (ICommand?)GetValue(FontSizeChangedCommandProperty);
         set => SetValue(FontSizeChangedCommandProperty, value);
+    }
+
+    public static readonly BindableProperty DoneTextProperty = BindableProperty.Create(
+        nameof(DoneText),
+        typeof(string),
+        typeof(FontSizePickerButton),
+        "Done");
+
+    public string DoneText
+    {
+        get => (string)GetValue(DoneTextProperty);
+        set => SetValue(DoneTextProperty, value);
     }
 
     public event EventHandler<double>? FontSizeChanged;

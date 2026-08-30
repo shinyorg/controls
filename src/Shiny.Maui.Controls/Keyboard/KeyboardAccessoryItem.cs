@@ -100,7 +100,9 @@ public class KeyboardDismissItem : KeyboardAccessoryItem
 {
     public KeyboardDismissItem()
     {
-        Text = "Done";
+        if (string.IsNullOrEmpty(Text))
+            Text = "Done";
+
         this.SetDynamicResource(FontSizeProperty, Themes.ShinyThemeKeys.Type.BodyLargeSize);
         SetDynamicResource(ToolColorProperty, Themes.ShinyThemeKeys.Color.Primary);
         Clicked += OnClicked;

@@ -58,6 +58,12 @@ public class DurationPickerCell : CellBase
     public static readonly BindableProperty MinuteIntervalProperty = BindableProperty.Create(
         nameof(MinuteInterval), typeof(int), typeof(DurationPickerCell), 5);
 
+    public static readonly BindableProperty DoneTextProperty = BindableProperty.Create(
+        nameof(DoneText), typeof(string), typeof(DurationPickerCell), "Done");
+
+    public static readonly BindableProperty CancelTextProperty = BindableProperty.Create(
+        nameof(CancelText), typeof(string), typeof(DurationPickerCell), "Cancel");
+
     public TimeSpan? Duration
     {
         get => (TimeSpan?)GetValue(DurationProperty);
@@ -104,6 +110,18 @@ public class DurationPickerCell : CellBase
     {
         get => (int)GetValue(MinuteIntervalProperty);
         set => SetValue(MinuteIntervalProperty, value);
+    }
+
+    public string DoneText
+    {
+        get => (string)GetValue(DoneTextProperty);
+        set => SetValue(DoneTextProperty, value);
+    }
+
+    public string CancelText
+    {
+        get => (string)GetValue(CancelTextProperty);
+        set => SetValue(CancelTextProperty, value);
     }
 
     protected override View? CreateAccessoryView()
@@ -192,7 +210,8 @@ public class DurationPickerCell : CellBase
         minuteUnit.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
         pickerGrid.Add(minuteUnit, 3);
 
-        var doneButton = new Button { Text = "Done", HorizontalOptions = LayoutOptions.Fill }.Neutralize();
+        var doneButton = new Button { HorizontalOptions = LayoutOptions.Fill }.Neutralize();
+        doneButton.SetBinding(Button.TextProperty, new Binding(nameof(DoneText), source: this));
         doneButton.Clicked += (_, _) =>
         {
             var hours = hourPicker.SelectedIndex >= 0 ? hourPicker.SelectedIndex : 0;
@@ -212,9 +231,9 @@ public class DurationPickerCell : CellBase
 
         var cancelButton = new Button
         {
-            Text = "Cancel",
             HorizontalOptions = LayoutOptions.Fill
         }.Neutralize();
+        cancelButton.SetBinding(Button.TextProperty, new Binding(nameof(CancelText), source: this));
         cancelButton.SetDynamicResource(Button.BackgroundColorProperty, ShinyThemeKeys.Color.SecondaryContainer);
         cancelButton.SetDynamicResource(Button.TextColorProperty, ShinyThemeKeys.Color.OnSecondaryContainer);
         cancelButton.Clicked += (_, _) => panel!.IsOpen = false;
