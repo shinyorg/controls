@@ -107,11 +107,14 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
 
     public Task StopAsync(CancellationToken ct = default)
     {
-        this.sessionQueue.DispatchAsync(() =>
-        {
-            if (this.session is { Running: true })
-                this.session.StopRunning();
-        });
+        this.OnSessionQueue(
+            () =>
+            {
+                if (this.session is { Running: true })
+                    this.session.StopRunning();
+            },
+            "The camera could not be stopped"
+        );
         return Task.CompletedTask;
     }
 
@@ -251,7 +254,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
     // ---- property mappers ----
 
     static partial void MapFacing(CameraViewHandler handler, CameraView view)
-        => handler.sessionQueue.DispatchAsync(handler.ReconfigureInput);
+        => handler.OnSessionQueue(handler.ReconfigureInput, "The camera could not be changed");
 
     static partial void MapIsActive(CameraViewHandler handler, CameraView view)
     {
@@ -295,7 +298,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
     // reconfiguration, not a recording setting. Refused mid-recording: changing the preset renegotiates the
     // active format underneath a running AVAssetWriter or movie output, which corrupts the file being written.
     static partial void MapVideoQuality(CameraViewHandler handler, CameraView view)
-        => handler.sessionQueue.DispatchAsync(handler.ApplyVideoSettings);
+        => handler.OnSessionQueue(handler.ApplyVideoSettings, "The capture settings could not be applied");
 
 
     void ApplyVideoSettings()
@@ -430,6 +433,29 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
 
 
     // ---- internals ----
+
+    /// <summary>
+    /// Runs work on the session queue with the failure reported rather than thrown.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ Load-bearing, not tidiness. An exception that escapes a <c>DispatchAsync</c> block has no
+    /// caller to travel to - GCD invokes the block from a worker thread with nothing above it - so
+    /// the runtime treats it as unhandled and aborts the process. A camera that cannot reconfigure
+    /// itself must degrade to a message on the view, never to a crash.
+    /// </remarks>
+    void OnSessionQueue(Action work, string whatFailed)
+        => this.sessionQueue.DispatchAsync(() =>
+        {
+            try
+            {
+                work();
+            }
+            catch (Exception ex)
+            {
+                this.MainThread(() => this.MaybeVirtualView?.OnCameraError(whatFailed, ex));
+            }
+        });
+
 
     void ConfigureSession()
     {
@@ -1089,7 +1115,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
 
     void TeardownSession()
     {
-        this.sessionQueue.DispatchAsync(() =>
+        this.OnSessionQueue(() =>
         {
             if (this.session == null)
                 return;
@@ -1125,7 +1151,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
             this.appAudioSession = null;
             this.overlayRecorder = null;
             this.device = null;
-        });
+        }, "The camera could not be shut down cleanly");
     }
 
 

@@ -43,6 +43,23 @@ static class ApplePhotoQuality
     /// </summary>
     public static void ConfigureOutput(AVCapturePhotoOutput output, AVCaptureDevice? device)
     {
+        // The whole body, not only the individual sets. Everything here is a request for headroom
+        // the device may not have, it is called from the session queue where an escaping exception
+        // is a process abort, and a camera that could not raise its photo ceiling should take
+        // smaller photos rather than not start.
+        try
+        {
+            ConfigureCore(output, device);
+        }
+        catch (Exception)
+        {
+            // the output keeps whatever ceiling it already had
+        }
+    }
+
+
+    static void ConfigureCore(AVCapturePhotoOutput output, AVCaptureDevice? device)
+    {
         // Always the most expensive rung, regardless of the current PhotoQuality — see the class remarks.
         // Apple's guidance is to declare this before the session runs, so it is the ceiling that has to be
         // generous, not the per-shot setting.
@@ -96,6 +113,26 @@ static class ApplePhotoQuality
         if (quality == PhotoQuality.Session)
             return settings; // whatever the session is sized for, which is the pre-PhotoQuality behaviour
 
+        try
+        {
+            Raise(settings, output, device, quality);
+        }
+        catch (Exception)
+        {
+            // A capture at the session's own size is a far better outcome than a failed one, and
+            // this runs on the capture path where the caller is a shutter press.
+        }
+        return settings;
+    }
+
+
+    static void Raise(
+        AVCapturePhotoSettings settings,
+        AVCapturePhotoOutput output,
+        AVCaptureDevice? device,
+        PhotoQuality quality
+    )
+    {
         var wanted = quality == PhotoQuality.Highest
             ? AVCapturePhotoQualityPrioritization.Quality
             : AVCapturePhotoQualityPrioritization.Balanced;
@@ -114,13 +151,12 @@ static class ApplePhotoQuality
             if (MaxDimensions(device) is { } dims && Fits(dims, output.MaxPhotoDimensions))
                 settings.MaxPhotoDimensions = dims;
 
-            return settings;
+            return;
         }
 
 #pragma warning disable CA1416, CA1422
         settings.IsHighResolutionPhotoEnabled = output.IsHighResolutionCaptureEnabled;
 #pragma warning restore CA1416, CA1422
-        return settings;
     }
 
 
