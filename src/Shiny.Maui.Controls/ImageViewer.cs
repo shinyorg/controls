@@ -454,7 +454,7 @@ public partial class ImageViewer : ContentView, IDisposable
         if (footerView != null) fadeTargets.Add(footerView);
 
         foreach (var v in fadeTargets) v.Opacity = 0;
-        await Task.WhenAll(fadeTargets.Select(v => v.FadeTo(1, AnimationDuration)));
+        await Task.WhenAll(fadeTargets.Select(v => v.FadeToAsync(1, AnimationDuration)));
 
         isAnimating = false;
         Raise(Opened, OpenedCommand);
@@ -469,7 +469,7 @@ public partial class ImageViewer : ContentView, IDisposable
         if (headerView != null) fadeTargets.Add(headerView);
         if (footerView != null) fadeTargets.Add(footerView);
 
-        await Task.WhenAll(fadeTargets.Select(v => v.FadeTo(0, AnimationDuration)));
+        await Task.WhenAll(fadeTargets.Select(v => v.FadeToAsync(0, AnimationDuration)));
 
         if (UseFeedback)
             FeedbackHelper.Execute(this, "Closed");
@@ -607,8 +607,8 @@ public partial class ImageViewer : ContentView, IDisposable
         yOffset = ty;
 
         await Task.WhenAll(
-            overlayImage.ScaleTo(targetScale, AnimationDuration, Easing.CubicOut),
-            overlayImage.TranslateTo(tx, ty, AnimationDuration, Easing.CubicOut)
+            overlayImage.ScaleToAsync(targetScale, AnimationDuration, Easing.CubicOut),
+            overlayImage.TranslateToAsync(tx, ty, AnimationDuration, Easing.CubicOut)
         );
 
         if (!overlayImage.GestureRecognizers.Contains(panGesture))
@@ -623,8 +623,8 @@ public partial class ImageViewer : ContentView, IDisposable
         overlayImage.GestureRecognizers.Remove(panGesture);
 
         await Task.WhenAll(
-            overlayImage.ScaleTo(1, AnimationDuration, Easing.CubicOut),
-            overlayImage.TranslateTo(0, 0, AnimationDuration, Easing.CubicOut)
+            overlayImage.ScaleToAsync(1, AnimationDuration, Easing.CubicOut),
+            overlayImage.TranslateToAsync(0, 0, AnimationDuration, Easing.CubicOut)
         );
 
         currentScale = 1;

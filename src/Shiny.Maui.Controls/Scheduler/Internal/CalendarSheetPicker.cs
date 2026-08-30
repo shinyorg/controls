@@ -380,7 +380,7 @@ class CalendarSheetPicker : ContentView
                 {
                     var idx = r * 7 + c;
                     if (r < rowsNeeded)
-                        cellBorders[idx].FadeTo(show ? 1 : 0, 200, Easing.CubicInOut);
+                        cellBorders[idx].FadeToAsync(show ? 1 : 0, 200, Easing.CubicInOut);
                 }
                 calendarGrid.RowDefinitions[r].Height = show ? new GridLength(RowHeight) : new GridLength(0);
             }
@@ -421,7 +421,7 @@ class CalendarSheetPicker : ContentView
                 if (visible)
                 {
                     if (animate)
-                        cellBorders[idx].FadeTo(1, 200, Easing.CubicInOut);
+                        cellBorders[idx].FadeToAsync(1, 200, Easing.CubicInOut);
                     else
                         cellBorders[idx].Opacity = 1;
                 }
