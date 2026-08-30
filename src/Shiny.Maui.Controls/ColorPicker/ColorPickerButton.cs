@@ -10,8 +10,10 @@ public class ColorPickerButton : ContentView
     readonly Label buttonLabel;
     readonly ColorPicker picker;
     readonly Grid overlayGrid;
+    readonly Button doneButton;
 
     bool isOpen;
+    Color openedColor;
 
     public ColorPickerButton()
     {
@@ -43,14 +45,14 @@ public class ColorPickerButton : ContentView
         picker = new ColorPicker();
         picker.ColorChanged += OnPickerColorChanged;
 
-        var doneButton = new Button
+        doneButton = new Button
         {
-            Text = "Done",
             CornerRadius = 8,
             HeightRequest = 36,
             HorizontalOptions = LayoutOptions.Fill,
             Margin = new Thickness(12, 0, 12, 12)
         }.Neutralize().WithFontSize(ShinyThemeKeys.Type.BodyMediumSize);
+        doneButton.SetBinding(Button.TextProperty, new Binding(nameof(DoneText), source: this));
         doneButton.SetDynamicResource(Button.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
         doneButton.SetDynamicResource(Button.BackgroundColorProperty, ShinyThemeKeys.Color.Primary);
         doneButton.Clicked += (_, _) => Close();
@@ -79,7 +81,7 @@ public class ColorPickerButton : ContentView
         };
         backdrop.SetDynamicResource(BoxView.ColorProperty, ShinyThemeKeys.Color.Scrim);
         var backdropTap = new TapGestureRecognizer();
-        backdropTap.Tapped += (_, _) => Close();
+        backdropTap.Tapped += (_, _) => CancelAndClose();
         backdrop.GestureRecognizers.Add(backdropTap);
 
         overlayGrid = new Grid
@@ -199,6 +201,18 @@ public class ColorPickerButton : ContentView
         set => SetValue(ColorChangedCommandProperty, value);
     }
 
+    public static readonly BindableProperty DoneTextProperty = BindableProperty.Create(
+        nameof(DoneText),
+        typeof(string),
+        typeof(ColorPickerButton),
+        "Done");
+
+    public string DoneText
+    {
+        get => (string)GetValue(DoneTextProperty);
+        set => SetValue(DoneTextProperty, value);
+    }
+
     public event EventHandler<Color>? ColorChanged;
 
     // Methods
@@ -218,6 +232,7 @@ public class ColorPickerButton : ContentView
         if (isOpen) return;
         isOpen = true;
 
+        openedColor = SelectedColor;
         picker.SelectedColor = SelectedColor;
 
         // Inject the overlay into the page's content
@@ -242,8 +257,24 @@ public class ColorPickerButton : ContentView
     void Close()
     {
         if (!isOpen) return;
-        isOpen = false;
 
+        isOpen = false;
+        RemoveOverlay();
+    }
+
+    void CancelAndClose()
+    {
+        if (!isOpen) return;
+
+        if (SelectedColor != openedColor)
+            SetValue(SelectedColorProperty, openedColor);
+
+        isOpen = false;
+        RemoveOverlay();
+    }
+
+    void RemoveOverlay()
+    {
         // Remove the overlay — clean break, no stale state
         if (overlayGrid.Parent is Layout parent)
         {

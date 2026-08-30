@@ -58,6 +58,27 @@ public class DurationPicker : ContentView
     public static readonly BindableProperty MinuteIntervalProperty = BindableProperty.Create(
         nameof(MinuteInterval), typeof(int), typeof(DurationPicker), 5);
 
+    public static readonly BindableProperty TitleProperty = BindableProperty.Create(
+        nameof(Title), typeof(string), typeof(DurationPicker), "Select Duration");
+
+    public static readonly BindableProperty HourUnitTextProperty = BindableProperty.Create(
+        nameof(HourUnitText), typeof(string), typeof(DurationPicker), "hr");
+
+    public static readonly BindableProperty MinuteUnitTextProperty = BindableProperty.Create(
+        nameof(MinuteUnitText), typeof(string), typeof(DurationPicker), "min");
+
+    public static readonly BindableProperty HoursPickerTitleProperty = BindableProperty.Create(
+        nameof(HoursPickerTitle), typeof(string), typeof(DurationPicker), "Hours");
+
+    public static readonly BindableProperty MinutesPickerTitleProperty = BindableProperty.Create(
+        nameof(MinutesPickerTitle), typeof(string), typeof(DurationPicker), "Minutes");
+
+    public static readonly BindableProperty DoneTextProperty = BindableProperty.Create(
+        nameof(DoneText), typeof(string), typeof(DurationPicker), "Done");
+
+    public static readonly BindableProperty CancelTextProperty = BindableProperty.Create(
+        nameof(CancelText), typeof(string), typeof(DurationPicker), "Cancel");
+
     public TimeSpan? Duration
     {
         get => (TimeSpan?)GetValue(DurationProperty);
@@ -110,6 +131,48 @@ public class DurationPicker : ContentView
     {
         get => (int)GetValue(MinuteIntervalProperty);
         set => SetValue(MinuteIntervalProperty, value);
+    }
+
+    public string Title
+    {
+        get => (string)GetValue(TitleProperty);
+        set => SetValue(TitleProperty, value);
+    }
+
+    public string HourUnitText
+    {
+        get => (string)GetValue(HourUnitTextProperty);
+        set => SetValue(HourUnitTextProperty, value);
+    }
+
+    public string MinuteUnitText
+    {
+        get => (string)GetValue(MinuteUnitTextProperty);
+        set => SetValue(MinuteUnitTextProperty, value);
+    }
+
+    public string HoursPickerTitle
+    {
+        get => (string)GetValue(HoursPickerTitleProperty);
+        set => SetValue(HoursPickerTitleProperty, value);
+    }
+
+    public string MinutesPickerTitle
+    {
+        get => (string)GetValue(MinutesPickerTitleProperty);
+        set => SetValue(MinutesPickerTitleProperty, value);
+    }
+
+    public string DoneText
+    {
+        get => (string)GetValue(DoneTextProperty);
+        set => SetValue(DoneTextProperty, value);
+    }
+
+    public string CancelText
+    {
+        get => (string)GetValue(CancelTextProperty);
+        set => SetValue(CancelTextProperty, value);
     }
 
     public event EventHandler<TimeSpan>? DurationSelected;
@@ -208,13 +271,13 @@ public class DurationPicker : ContentView
 
         var hourPicker = new Picker
         {
-            Title = "Hours",
+            Title = HoursPickerTitle,
             HorizontalOptions = LayoutOptions.Fill
         };
 
         var minutePicker = new Picker
         {
-            Title = "Minutes",
+            Title = MinutesPickerTitle,
             HorizontalOptions = LayoutOptions.Fill
         };
 
@@ -247,7 +310,7 @@ public class DurationPicker : ContentView
         pickerGrid.Add(hourPicker, 0);
         var hourUnit = new Label
         {
-            Text = "hr",
+            Text = HourUnitText,
             VerticalOptions = LayoutOptions.Center
         };
         hourUnit.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
@@ -255,7 +318,7 @@ public class DurationPicker : ContentView
         pickerGrid.Add(minutePicker, 2);
         var minuteUnit = new Label
         {
-            Text = "min",
+            Text = MinuteUnitText,
             VerticalOptions = LayoutOptions.Center
         };
         minuteUnit.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
@@ -263,7 +326,7 @@ public class DurationPicker : ContentView
 
         var doneButton = new Button
         {
-            Text = "Done",
+            Text = DoneText,
             HorizontalOptions = LayoutOptions.Fill
         }.Neutralize();
 
@@ -283,7 +346,7 @@ public class DurationPicker : ContentView
 
         var cancelButton = new Button
         {
-            Text = "Cancel",
+            Text = CancelText,
             HorizontalOptions = LayoutOptions.Fill
         }.Neutralize();
         cancelButton.SetDynamicResource(Button.BackgroundColorProperty, ShinyThemeKeys.Color.SecondaryContainer);
@@ -310,7 +373,7 @@ public class DurationPicker : ContentView
             {
                 new Label
                 {
-                    Text = "Select Duration",
+                    Text = Title,
                     FontSize = 18,
                     FontAttributes = FontAttributes.Bold,
                     HorizontalTextAlignment = TextAlignment.Center
