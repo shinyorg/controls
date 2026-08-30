@@ -10,6 +10,7 @@ public class ColorPickerButton : ContentView
     readonly Label buttonLabel;
     readonly ColorPicker picker;
     readonly Grid overlayGrid;
+    readonly Button doneButton;
 
     bool isOpen;
 
@@ -43,14 +44,14 @@ public class ColorPickerButton : ContentView
         picker = new ColorPicker();
         picker.ColorChanged += OnPickerColorChanged;
 
-        var doneButton = new Button
+        doneButton = new Button
         {
-            Text = "Done",
             CornerRadius = 8,
             HeightRequest = 36,
             HorizontalOptions = LayoutOptions.Fill,
             Margin = new Thickness(12, 0, 12, 12)
         }.Neutralize().WithFontSize(ShinyThemeKeys.Type.BodyMediumSize);
+        doneButton.SetBinding(Button.TextProperty, new Binding(nameof(DoneText), source: this));
         doneButton.SetDynamicResource(Button.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
         doneButton.SetDynamicResource(Button.BackgroundColorProperty, ShinyThemeKeys.Color.Primary);
         doneButton.Clicked += (_, _) => Close();
@@ -197,6 +198,18 @@ public class ColorPickerButton : ContentView
     {
         get => (ICommand?)GetValue(ColorChangedCommandProperty);
         set => SetValue(ColorChangedCommandProperty, value);
+    }
+
+    public static readonly BindableProperty DoneTextProperty = BindableProperty.Create(
+        nameof(DoneText),
+        typeof(string),
+        typeof(ColorPickerButton),
+        "Done");
+
+    public string DoneText
+    {
+        get => (string)GetValue(DoneTextProperty);
+        set => SetValue(DoneTextProperty, value);
     }
 
     public event EventHandler<Color>? ColorChanged;
