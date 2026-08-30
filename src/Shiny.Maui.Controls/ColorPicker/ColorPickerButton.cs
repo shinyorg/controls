@@ -13,6 +13,7 @@ public class ColorPickerButton : ContentView
     readonly Button doneButton;
 
     bool isOpen;
+    Color openedColor;
 
     public ColorPickerButton()
     {
@@ -80,7 +81,7 @@ public class ColorPickerButton : ContentView
         };
         backdrop.SetDynamicResource(BoxView.ColorProperty, ShinyThemeKeys.Color.Scrim);
         var backdropTap = new TapGestureRecognizer();
-        backdropTap.Tapped += (_, _) => Close();
+        backdropTap.Tapped += (_, _) => CancelAndClose();
         backdrop.GestureRecognizers.Add(backdropTap);
 
         overlayGrid = new Grid
@@ -231,6 +232,7 @@ public class ColorPickerButton : ContentView
         if (isOpen) return;
         isOpen = true;
 
+        openedColor = SelectedColor;
         picker.SelectedColor = SelectedColor;
 
         // Inject the overlay into the page's content
@@ -255,8 +257,24 @@ public class ColorPickerButton : ContentView
     void Close()
     {
         if (!isOpen) return;
-        isOpen = false;
 
+        isOpen = false;
+        RemoveOverlay();
+    }
+
+    void CancelAndClose()
+    {
+        if (!isOpen) return;
+
+        if (SelectedColor != openedColor)
+            SetValue(SelectedColorProperty, openedColor);
+
+        isOpen = false;
+        RemoveOverlay();
+    }
+
+    void RemoveOverlay()
+    {
         // Remove the overlay — clean break, no stale state
         if (overlayGrid.Parent is Layout parent)
         {
