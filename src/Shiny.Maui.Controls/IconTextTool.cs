@@ -161,7 +161,8 @@ public abstract class IconTextTool : ContentView
     void OnTapped(object? sender, TappedEventArgs e)
     {
         this.Invoke();
-        this.FlashPress();
+        if (this.IsEnabled)
+            this.FlashPress();
     }
 
     // Fire-and-forget press feedback. Deliberately runs after Invoke so the command is not delayed by
