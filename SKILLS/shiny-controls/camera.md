@@ -177,6 +177,26 @@ IReadOnlyList<CameraInfo> cameras = await this.Camera.GetAvailableCamerasAsync()
 this.Camera.CameraId = cameras.First(c => c.Name.Contains("USB")).Id;   // null => fall back to Facing
 ```
 
+### Photo quality
+
+Stills default to `PhotoQuality.Highest` — the device's **full sensor resolution** at the platform's best quality — and this is **independent of `VideoQuality`**. Before this existed the still rode the session preset, so the default 1080p session handed back a ~2MP photo from a 12MP sensor with no way to ask for more.
+
+```csharp
+// the default; nothing to set for a full-resolution photo
+var photo = await this.Camera.CapturePhotoAsync();
+
+// a picture that is an input to something else rather than a photograph -
+// scanning, a thumbnail, a frame posted to a service
+this.Camera.PhotoQuality = PhotoQuality.Session;   // preview-sized, instant, smallest
+
+// full resolution but shutter-first, for hand-held or burst-ish use
+this.Camera.PhotoQuality = PhotoQuality.Balanced;
+
+this.Camera.PhotoJpegQuality = 0.95;               // 0.0-1.0, clamped; default 0.9
+```
+
+The rung is read **per capture** on Apple and Windows, so it can be changed live — including from off the view (a setting, or a remote control endpoint) — with no session reconfiguration and no preview blink. Android is the exception: CameraX fixes the capture mode when `ImageCapture` is built, so a change rebinds the use cases and, like `VideoQuality`, is **ignored while a recording is running**.
+
 ## Frame Analysis (the differentiator)
 
 Set **one** `IFrameAnalyzer` on `Camera.Analyzer` (swap it any time; `null` clears). The pipeline streams frames off the UI thread with drop-on-busy back-pressure. The analyzer **always draws its bounding boxes**, but **only delivers a result while it is _armed_** — so you get live boxes without a flood of events. **Arm with `Camera.Scan()` / `Camera.ScanCommand`**; the next confirmed detection is delivered once, then the analyzer goes quiet until armed again (single-shot). To keep scanning, an `OnDetected` handler returns `true` (see below).
@@ -777,6 +797,8 @@ Blazor mirrors the MAUI single-analyzer shape: assign a typed **`Analyzer`** (to
 | `LastAnalyzerResult` | `object?` | `null` | The active analyzer's latest **ungated** result (updated every frame), handed to draw effects as `ctx.AnalyzerResult` |
 | `ShowDetectionOverlay` | `bool` | `true` | Surface overlay boxes for the overlay |
 | `Analyzer` | `IFrameAnalyzer?` | `null` | The single frame analyzer (content property) — assign/swap live; toggle via its `IsEnabled` |
+| `PhotoQuality` | `PhotoQuality` | `Highest` | How much the device spends on a still: `Session` (whatever the session is already sized for — the pre-1.3 behaviour, fastest and smallest), `Balanced` (full sensor resolution, fast shutter), `Highest` (full sensor at the platform's best quality — multi-frame fusion on Apple, `CAPTURE_MODE_MAXIMIZE_QUALITY` on CameraX). **Independent of `VideoQuality`** — a 1080p session still takes a full-resolution photo. Applied per capture on Apple/Windows (no reconfiguration); rebinds the CameraX use cases on Android, and is ignored there while recording |
+| `PhotoJpegQuality` | `double` | `0.9` | JPEG compression for captured stills, 0.0-1.0, clamped. Read at capture time. Only consulted when this control does the encoding: on Apple an unfiltered capture is returned exactly as the platform encoded it, so it applies there only to the re-encode that `Effects`/`Filter` force |
 | `VideoQuality` | `VideoQuality` | `High` | Target capture resolution: `Lowest`/`Low` (480p)/`Medium` (720p)/`High` (1080p)/`UltraHigh` (4K)/`Highest`. Session-level — changing it reconfigures the camera; unsupported rungs fall back to the nearest supported one |
 | `VideoBitrate` | `int?` | `null` | Target encoding bitrate in bits/sec; `null` = platform default for the resolution |
 | `VideoFrameRate` | `int?` | `null` | Target capture frame rate; `null` = platform default. Clamped to what the device's active format supports |
@@ -808,6 +830,8 @@ Blazor mirrors the MAUI single-analyzer shape: assign a typed **`Analyzer`** (to
 - Use `QRCodeView`/`BarcodeView` from `Shiny.Maui.Controls.Barcodes` to *render* (generate) a code; use the CameraView `BarcodeAnalyzer` to *scan* one. They are different packages for different jobs.
 
 ## Common Pitfalls
+
+- **`PhotoQuality` and `VideoQuality` are different knobs, and `Highest` is not free.** A full-sensor capture takes noticeably longer than a preview-sized one — tens to hundreds of milliseconds on `Highest`, where Apple fuses several exposures and CameraX runs its maximise-quality path. That is the right trade for a shutter press and the wrong one for a scanner or a thumbnail: set `PhotoQuality.Session` for those. On Apple there is also a ceiling worth knowing about — the still can only be as large as the **active format** supports, and the active format is chosen by the session preset, so a device that restricts stills on a low preset caps out lower; raising `VideoQuality` raises that ceiling. Windows `PhotoQuality.Session` is the old behaviour and is a grab of the **preview frame**, not a real capture; the other two rungs go to the device's photo stream.
 
 - **Analyzer geometry maps cleanly into the recorded frame.** `OverlayBox` / `RecognizedText.BoundingBox` are normalized upright coordinates and `IVideoOverlayRenderer` draws in encoded-frame pixel space, so drawing a detection into the recording is `box.X * context.Width`, `box.Y * context.Height`. That is only correct because the analyzed frame and the encoded frame share a field of view: on iOS/macOS they are literally the same sample buffer, and on Android the handler binds a shared **`ViewPort`** whenever `ImageAnalysis` and `VideoCapture` are bound together (without it CameraX sizes analysis 4:3 and the recorder 16:9, and a box would sit visibly off the thing it is boxing). The ViewPort is applied *only* in that combined case, so no existing single-use-case setup has its recorded field of view moved.
 - **Android: video + analyzer together works, but costs `ImageCapture`** — `Preview + VideoCapture + ImageAnalysis` is a guaranteed CameraX combination at LIMITED hardware level, so recording while an analyzer runs is supported (a dash cam reading signs or plates off its own feed). A *fourth* use case needs LEVEL_3, which most phones are not, so `ImageCapture` is dropped for the duration of a recording that has an enabled analyzer attached — `CapturePhotoAsync` throws a message saying exactly that, and photo capture returns automatically when the recording stops. Outside a recording, nothing changes: analyzer + `ImageCapture` bind together as before.

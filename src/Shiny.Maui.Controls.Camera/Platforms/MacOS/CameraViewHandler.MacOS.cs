@@ -101,11 +101,12 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
         if (this.photoOutput == null)
             throw new InvalidOperationException("Camera is not running");
 
-        var settings = AVCapturePhotoSettings.Create();
+        var settings = ApplePhotoQuality.CreateSettings(this.photoOutput, this.device, this.VirtualView.PhotoQuality);
         var del = new PhotoCaptureDelegate
         {
             // apply the same effects as the live preview so the captured still matches what the user sees
-            Filters = AppleCameraFilters.Create(this.VirtualView.EffectChain)
+            Filters = AppleCameraFilters.Create(this.VirtualView.EffectChain),
+            JpegQuality = this.VirtualView.EncoderJpegQuality
         };
         this.photoOutput.CapturePhoto(settings, del);
         return del.Task;
@@ -213,6 +214,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
     static partial void MapTorch(CameraViewHandler handler, CameraView view) { /* macOS cameras lack torch */ }
     static partial void MapFlashMode(CameraViewHandler handler, CameraView view) { }
 
+    // As on iOS: the photo output's ceiling covers every rung, so the choice is made per capture.
+    static partial void MapPhotoQuality(CameraViewHandler handler, CameraView view) { /* applied at capture time */ }
+
     static partial void MapZoom(CameraViewHandler handler, CameraView view) { /* macOS cameras lack zoom */ }
 
     static partial void MapScaleMode(CameraViewHandler handler, CameraView view)
@@ -250,6 +254,11 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
             s.SessionPreset = preset;
             s.CommitConfiguration();
         }
+
+        // The still dimensions the photo output may ask for belong to the active format, which the preset
+        // above may just have changed.
+        if (this.photoOutput is { } photo)
+            ApplePhotoQuality.ConfigureOutput(photo, this.device);
     }
 
 
@@ -299,6 +308,10 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
         this.photoOutput = new AVCapturePhotoOutput();
         if (this.session.CanAddOutput(this.photoOutput))
             this.session.AddOutput(this.photoOutput);
+
+        // After AddOutput: the dimension ceiling is a question about this output on this session, and it
+        // answers nothing until the output is attached.
+        ApplePhotoQuality.ConfigureOutput(this.photoOutput, this.device);
 
         this.dataOutput = new AVCaptureVideoDataOutput { AlwaysDiscardsLateVideoFrames = true };
         if (this.session.CanAddOutput(this.dataOutput))
@@ -433,6 +446,13 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
         }
         this.AddVideoInput();
         this.session.CommitConfiguration();
+
+        // A different camera is a different active format, so the photo output's ceiling has to be
+        // re-declared against it. Unlike the Apple handler this one does not route through
+        // ApplyVideoSettings, so it is asked for directly. Macs swap between a built-in FaceTime camera, a
+        // Continuity iPhone and USB capture devices whose still capabilities differ enormously.
+        if (this.photoOutput is { } photo)
+            ApplePhotoQuality.ConfigureOutput(photo, this.device);
 
         this.MainThread(() =>
         {

@@ -74,6 +74,52 @@ public partial class CameraView
         propertyChanged: (b, _, _) => ((CameraView)b).RebuildEffectChain());
 
     /// <summary>
+    /// How much the device should spend on a still capture. Default <see cref="Camera.PhotoQuality.Highest"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberately independent of <see cref="VideoQuality"/>. The session preset sizes video frames and the
+    /// preview; this sizes what <see cref="CapturePhotoAsync"/> hands back, and on every platform the still
+    /// pipeline can reach past the session's video resolution to the full sensor. Before this property
+    /// existed the two were the same knob, so the default 1080p session produced a 2MP photo — see
+    /// <see cref="Camera.PhotoQuality"/> for why that is the wrong default for a photograph.
+    /// </para>
+    /// <para>
+    /// Applied at capture time on Apple and Windows, so a change takes effect on the next shot with no
+    /// session reconfiguration and no preview hiccup. Android is the exception: CameraX fixes the capture
+    /// mode when <c>ImageCapture</c> is built, so a change there rebinds the use cases, and — like
+    /// <see cref="VideoQuality"/> — is ignored while a recording is running.
+    /// </para>
+    /// <para>
+    /// There is a ceiling on Apple worth knowing about: the still can only be as large as the <i>active
+    /// format</i> supports, and the active format is chosen by the session preset. On current phones a 1080p
+    /// format still offers full-sensor stills, which is how capturing a photo mid-recording works at all, but
+    /// a device that restricts it will cap out lower. Raising <see cref="VideoQuality"/> raises that ceiling.
+    /// </para>
+    /// </remarks>
+    public static readonly BindableProperty PhotoQualityProperty = BindableProperty.Create(
+        nameof(PhotoQuality), typeof(PhotoQuality), typeof(CameraView), PhotoQuality.Highest);
+
+    /// <summary>
+    /// JPEG compression quality for captured stills, from 0.0 (smallest) to 1.0 (best). Default 0.9.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only reaches the encoder when this control is the one encoding. On Apple an unfiltered capture is
+    /// returned as the platform encoded it and this value is not consulted; it applies to the re-encode that
+    /// happens when <see cref="Effects"/> or <see cref="Filter"/> are set, which previously ran at ImageIO's
+    /// unspecified default. Android passes it to CameraX and Windows to the JPEG encoder, so both honour it
+    /// on every capture.
+    /// </para>
+    /// <para>
+    /// Values outside 0.0-1.0 are clamped rather than throwing: this is a dial, and a capture failing because
+    /// a binding produced 1.2 would be the worse outcome.
+    /// </para>
+    /// </remarks>
+    public static readonly BindableProperty PhotoJpegQualityProperty = BindableProperty.Create(
+        nameof(PhotoJpegQuality), typeof(double), typeof(CameraView), 0.9d);
+
+    /// <summary>
     /// Target capture resolution for video recording. Default <see cref="Camera.VideoQuality.High"/> (1080p).
     /// </summary>
     /// <remarks>
@@ -303,6 +349,38 @@ public partial class CameraView
     {
         get => (CameraFilter)this.GetValue(FilterProperty);
         set => this.SetValue(FilterProperty, value);
+    }
+
+    /// <inheritdoc cref="PhotoQualityProperty"/>
+    public PhotoQuality PhotoQuality
+    {
+        get => (PhotoQuality)this.GetValue(PhotoQualityProperty);
+        set => this.SetValue(PhotoQualityProperty, value);
+    }
+
+    /// <inheritdoc cref="PhotoJpegQualityProperty"/>
+    public double PhotoJpegQuality
+    {
+        get => (double)this.GetValue(PhotoJpegQualityProperty);
+        set => this.SetValue(PhotoJpegQualityProperty, value);
+    }
+
+    /// <summary>
+    /// <see cref="PhotoJpegQuality"/> clamped to the 0.0-1.0 the encoders accept.
+    /// </summary>
+    /// <remarks>
+    /// NaN is sent back to the default rather than clamped, because <c>Math.Clamp</c> passes it through — both
+    /// comparisons against a NaN are false — and an encoder handed NaN does something unhelpful and
+    /// platform-specific. A binding that produces one is a bug in the caller, but the sane recovery is the
+    /// default quality, not a zero-quality photo.
+    /// </remarks>
+    internal float EncoderJpegQuality
+    {
+        get
+        {
+            var quality = this.PhotoJpegQuality;
+            return double.IsNaN(quality) ? 0.9f : (float)Math.Clamp(quality, 0d, 1d);
+        }
     }
 
     /// <inheritdoc cref="VideoQualityProperty"/>

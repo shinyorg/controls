@@ -121,7 +121,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
         if (this.photoOutput == null)
             throw new InvalidOperationException("Camera is not running");
 
-        var settings = AVCapturePhotoSettings.Create();
+        var settings = ApplePhotoQuality.CreateSettings(this.photoOutput, this.device, this.VirtualView.PhotoQuality);
         settings.FlashMode = this.VirtualView.FlashMode switch
         {
             CameraFlashMode.On => AVCaptureFlashMode.On,
@@ -132,7 +132,8 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
         var del = new PhotoCaptureDelegate
         {
             // apply the same effects as the live preview so the captured still matches what the user sees
-            Filters = AppleCameraFilters.Create(this.VirtualView.EffectChain)
+            Filters = AppleCameraFilters.Create(this.VirtualView.EffectChain),
+            JpegQuality = this.VirtualView.EncoderJpegQuality
         };
         this.photoOutput.CapturePhoto(settings, del);
         return del.Task;
@@ -265,6 +266,10 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
 
     static partial void MapFlashMode(CameraViewHandler handler, CameraView view) { /* applied at capture time */ }
 
+    // Read when the shutter fires, and the output's ceiling was declared generously enough to cover every
+    // rung when the session was configured - so moving between them needs nothing applied ahead of time.
+    static partial void MapPhotoQuality(CameraViewHandler handler, CameraView view) { /* applied at capture time */ }
+
     static partial void MapZoom(CameraViewHandler handler, CameraView view)
         => handler.ApplyZoom(view.Zoom);
 
@@ -308,6 +313,12 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
 
         this.ApplyFrameRate();
         this.ApplyMovieOutputBitrate();
+
+        // The preset above may have moved the active format, and the still dimensions the photo output is
+        // allowed to ask for are a property of that format. ReconfigureInput routes through here too, so a
+        // lens swap re-declares the ceiling for the new device as well.
+        if (this.photoOutput is { } photo)
+            ApplePhotoQuality.ConfigureOutput(photo, this.device);
     }
 
 
@@ -442,6 +453,11 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
         this.photoOutput = new AVCapturePhotoOutput();
         if (this.session.CanAddOutput(this.photoOutput))
             this.session.AddOutput(this.photoOutput);
+
+        // After AddOutput, and for the same reason ApplyCaptureFormat is: the photo output's dimension
+        // ceiling is a question about this output attached to this session, and it answers nothing until it
+        // is. Re-applied by ApplyVideoSettings whenever the preset moves the active format underneath it.
+        ApplePhotoQuality.ConfigureOutput(this.photoOutput, this.device);
 
         this.dataOutput = new AVCaptureVideoDataOutput { AlwaysDiscardsLateVideoFrames = true };
         if (this.session.CanAddOutput(this.dataOutput))

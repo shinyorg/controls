@@ -461,6 +461,16 @@ public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLa
     }
 
 
+    // Capture mode and the resolution selector are baked into ImageCapture at bind time, so a change means
+    // a rebind - the same bargain as MapVideoQuality above, and refused mid-recording for the same reason.
+    // PhotoJpegQuality rides along on the same rebind rather than getting a mapper of its own.
+    static partial void MapPhotoQuality(CameraViewHandler handler, CameraView view)
+    {
+        if (handler.cameraProvider != null && handler.activeRecording == null)
+            handler.BindUseCases();
+    }
+
+
     // ---- internals ----
 
     void ApplyEffects(CameraEffectChain chain)
@@ -512,9 +522,29 @@ public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLa
 
         if (!(analyzing && video))
         {
-            this.imageCapture = new ImageCapture.Builder()
+            // CAPTURE_MODE is fixed at build time, which is why PhotoQuality rebinds rather than being set
+            // per shot the way FlashMode is. The resolution selector is what actually lifts the still off
+            // the preview-sized default: without one CameraX picks a resolution to match the other bound
+            // use cases, so a 1080p preview quietly capped the photo at 1080p.
+            var captureBuilder = new ImageCapture.Builder()
                 .SetTargetRotation(rotation)!
-                .Build();
+                .SetCaptureMode(this.VirtualView.PhotoQuality == PhotoQuality.Highest
+                    ? ImageCapture.CaptureModeMaximizeQuality
+                    : ImageCapture.CaptureModeMinimizeLatency)!
+                .SetJpegQuality((int)System.Math.Round(this.VirtualView.EncoderJpegQuality * 100, MidpointRounding.AwayFromZero))!;
+
+            if (this.VirtualView.PhotoQuality != PhotoQuality.Session)
+            {
+                // ResolutionStrategy.HighestAvailableStrategy asks for the sensor's largest supported still
+                // and falls back down on its own, which is the behaviour PhotoQuality promises.
+                captureBuilder = captureBuilder.SetResolutionSelector(
+                    new AndroidX.Camera.Core.ResolutionSelector.ResolutionSelector.Builder()
+                        .SetResolutionStrategy(AndroidX.Camera.Core.ResolutionSelector.ResolutionStrategy.HighestAvailableStrategy!)!
+                        .Build()!
+                )!;
+            }
+
+            this.imageCapture = captureBuilder.Build();
             useCases.Add(this.imageCapture);
         }
 

@@ -194,6 +194,44 @@ public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICamera
 
     public async Task<CameraPhoto> CapturePhotoAsync(CancellationToken ct = default)
     {
+        if (this.capture == null)
+            throw new InvalidOperationException("Camera is not running");
+
+        // PhotoQuality.Session keeps the original behaviour — a copy of the frame already on screen. It is
+        // the only rung that costs nothing, and it is preview-sized by definition. The other two go to the
+        // device's photo stream, which on a webcam is frequently several times the preview resolution and on
+        // a DSLR-class UVC device is not remotely comparable.
+        if (this.VirtualView.PhotoQuality == PhotoQuality.Session)
+            return await this.CaptureFromPreviewAsync();
+
+        var props = ImageEncodingProperties.CreateJpeg();
+        var best = this.LargestPhotoResolution();
+        if (best != null)
+        {
+            props.Width = best.Width;
+            props.Height = best.Height;
+        }
+
+        using var stream = new InMemoryRandomAccessStream();
+        await this.capture.CapturePhotoToStreamAsync(props, stream);
+        stream.Seek(0);
+
+        // No effects: hand back exactly what the device encoded. Decoding and re-encoding it would cost a
+        // generation of JPEG for nothing, and this is the path a plain shutter press takes.
+        if (this.VirtualView.EffectChain.IsEmpty)
+        {
+            var decoder = await BitmapDecoder.CreateAsync(stream);
+            return new CameraPhoto(await ReadAllAsync(stream), (int)decoder.PixelWidth, (int)decoder.PixelHeight);
+        }
+
+        var source = await BitmapDecoder.CreateAsync(stream);
+        var captured = await source.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+        return await this.EncodeAsync(captured);
+    }
+
+
+    async Task<CameraPhoto> CaptureFromPreviewAsync()
+    {
         SoftwareBitmap? snapshot;
         lock (this.latestGate)
             snapshot = this.latest == null ? null : SoftwareBitmap.Copy(this.latest);
@@ -201,29 +239,70 @@ public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICamera
         if (snapshot == null)
             throw new InvalidOperationException("Camera is not running");
 
+        return await this.EncodeAsync(snapshot);
+    }
+
+
+    /// <summary>
+    /// Applies the effect chain and encodes to JPEG at <see cref="CameraView.PhotoJpegQuality"/>. Takes
+    /// ownership of <paramref name="bitmap"/>.
+    /// </summary>
+    async Task<CameraPhoto> EncodeAsync(SoftwareBitmap bitmap)
+    {
         // Windows can't filter the live preview, but it can filter what gets saved — so the chain is applied
         // here rather than nowhere at all.
-        var filtered = WindowsCameraFilters.Apply(snapshot, this.VirtualView.EffectChain);
-        if (!ReferenceEquals(filtered, snapshot))
+        var filtered = WindowsCameraFilters.Apply(bitmap, this.VirtualView.EffectChain);
+        if (!ReferenceEquals(filtered, bitmap))
         {
-            snapshot.Dispose();
-            snapshot = filtered;
+            bitmap.Dispose();
+            bitmap = filtered;
         }
+
+        // ImageQuality has to go in at CreateAsync — it is an encoder option, not a property that can be set
+        // on the encoder afterwards, so there is no way to apply it once encoding has been set up. Without it
+        // the encoder picks its own unspecified default and PhotoJpegQuality is silently ignored here.
+        var options = new BitmapPropertySet
+        {
+            { "ImageQuality", new BitmapTypedValue(this.VirtualView.EncoderJpegQuality, Windows.Foundation.PropertyType.Single) }
+        };
 
         using var stream = new InMemoryRandomAccessStream();
-        var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream);
-        encoder.SetSoftwareBitmap(snapshot);
+        var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream, options);
+        encoder.SetSoftwareBitmap(bitmap);
         await encoder.FlushAsync();
 
-        var bytes = new byte[stream.Size];
-        using (var reader = new DataReader(stream.GetInputStreamAt(0)))
-        {
-            await reader.LoadAsync((uint)stream.Size);
-            reader.ReadBytes(bytes);
-        }
-        var result = new CameraPhoto(bytes, snapshot.PixelWidth, snapshot.PixelHeight);
-        snapshot.Dispose();
+        var result = new CameraPhoto(await ReadAllAsync(stream), bitmap.PixelWidth, bitmap.PixelHeight);
+        bitmap.Dispose();
         return result;
+    }
+
+
+    /// <summary>The photo stream's largest advertised resolution, or null when the device advertises none.</summary>
+    ImageEncodingProperties? LargestPhotoResolution()
+    {
+        if (this.capture == null)
+            return null;
+
+        ImageEncodingProperties? best = null;
+        foreach (var candidate in this.capture.VideoDeviceController.GetAvailableMediaStreamProperties(MediaStreamType.Photo))
+        {
+            if (candidate is not ImageEncodingProperties image)
+                continue;
+
+            if (best == null || (long)image.Width * image.Height > (long)best.Width * best.Height)
+                best = image;
+        }
+        return best;
+    }
+
+
+    static async Task<byte[]> ReadAllAsync(IRandomAccessStream stream)
+    {
+        var bytes = new byte[stream.Size];
+        using var reader = new DataReader(stream.GetInputStreamAt(0));
+        await reader.LoadAsync((uint)stream.Size);
+        reader.ReadBytes(bytes);
+        return bytes;
     }
 
 
@@ -381,6 +460,10 @@ public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICamera
     // Nothing to do: the MediaEncodingProfile is built per recording, so the new value is picked up by the
     // next StartVideoRecordingAsync without touching the running session.
     static partial void MapVideoQuality(CameraViewHandler handler, CameraView view) { }
+
+    // MediaCapture is asked for a photo resolution per capture rather than at configuration time, so
+    // there is nothing to rebind when the rung changes.
+    static partial void MapPhotoQuality(CameraViewHandler handler, CameraView view) { /* applied at capture time */ }
 
     // Nothing to do: no rotating display behind the capture device on desktop Windows.
     static partial void MapOrientation(CameraViewHandler handler, CameraView view) { }

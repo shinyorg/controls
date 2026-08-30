@@ -18,6 +18,12 @@ sealed class PhotoCaptureDelegate : AVCapturePhotoCaptureDelegate
     /// <summary>Set by the handler to the preview's current effect chain; empty = unfiltered (raw capture).</summary>
     public CIFilter[] Filters = [];
 
+    /// <summary>
+    /// Compression quality (0-1) for the re-encode below. Only consulted on the filtered path — an
+    /// unfiltered capture is returned exactly as AVFoundation encoded it and never passes through ImageIO.
+    /// </summary>
+    public float JpegQuality = 0.9f;
+
     public override void DidFinishProcessingPhoto(AVCapturePhotoOutput output, AVCapturePhoto photo, NSError? error)
     {
         if (error != null)
@@ -29,7 +35,7 @@ sealed class PhotoCaptureDelegate : AVCapturePhotoCaptureDelegate
         try
         {
             var result = this.Filters.Length > 0
-                ? Filtered(photo, this.Filters)
+                ? Filtered(photo, this.Filters, this.JpegQuality)
                 : Raw(photo);
 
             if (result == null)
@@ -53,7 +59,7 @@ sealed class PhotoCaptureDelegate : AVCapturePhotoCaptureDelegate
         return new CameraPhoto(data.ToArray(), dims.Width, dims.Height);
     }
 
-    static CameraPhoto? Filtered(AVCapturePhoto photo, CIFilter[] filters)
+    static CameraPhoto? Filtered(AVCapturePhoto photo, CIFilter[] filters, float jpegQuality)
     {
         using var cg = photo.CGImageRepresentation;
         if (cg == null)
@@ -79,7 +85,7 @@ sealed class PhotoCaptureDelegate : AVCapturePhotoCaptureDelegate
             if (outCg == null)
                 return Raw(photo);
 
-            var bytes = EncodeJpeg(outCg);
+            var bytes = EncodeJpeg(outCg, jpegQuality);
             return bytes == null ? Raw(photo) : new CameraPhoto(bytes, (int)outCg.Width, (int)outCg.Height);
         }
         finally
@@ -103,14 +109,17 @@ sealed class PhotoCaptureDelegate : AVCapturePhotoCaptureDelegate
         return CGImagePropertyOrientation.Up;
     }
 
-    static byte[]? EncodeJpeg(CGImage image)
+    static byte[]? EncodeJpeg(CGImage image, float quality)
     {
         using var data = new NSMutableData();
         using var dest = CGImageDestination.Create(data, "public.jpeg", 1);
         if (dest == null)
             return null;
 
-        dest.AddImage(image);
+        // Without this ImageIO picks its own default, which is both unspecified and not especially high -
+        // so a filtered photo used to come back visibly softer than the same capture unfiltered, for no
+        // reason the caller could see or control.
+        dest.AddImage(image, new CGImageDestinationOptions { LossyCompressionQuality = quality });
         return dest.Close() ? data.ToArray() : null;
     }
 }
