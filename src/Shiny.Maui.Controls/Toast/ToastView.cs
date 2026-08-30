@@ -254,8 +254,8 @@ sealed class ToastView : ContentView
         IsVisible = true;
 
         await Task.WhenAll(
-            this.TranslateTo(0, 0, 250, Easing.CubicOut),
-            this.FadeTo(1, 250, Easing.CubicOut)
+            this.TranslateToAsync(0, 0, 250, Easing.CubicOut),
+            this.FadeToAsync(1, 250, Easing.CubicOut)
         );
 
         if (config.AnnounceToScreenReader)
@@ -286,8 +286,8 @@ sealed class ToastView : ContentView
         var translateY = config.Position == ToastPosition.Bottom ? 80 : -80;
 
         await Task.WhenAll(
-            this.TranslateTo(0, translateY, 200, Easing.CubicIn),
-            this.FadeTo(0, 200, Easing.CubicIn)
+            this.TranslateToAsync(0, translateY, 200, Easing.CubicIn),
+            this.FadeToAsync(0, 200, Easing.CubicIn)
         );
 
         IsVisible = false;
@@ -296,7 +296,7 @@ sealed class ToastView : ContentView
 
     public async Task AnimatePositionAsync(double newY)
     {
-        await this.TranslateTo(TranslationX, newY - Bounds.Y, 150, Easing.CubicOut);
+        await this.TranslateToAsync(TranslationX, newY - Bounds.Y, 150, Easing.CubicOut);
     }
 
     void OnTapped(object? sender, TappedEventArgs e)
