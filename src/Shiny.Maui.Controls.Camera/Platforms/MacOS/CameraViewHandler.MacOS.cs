@@ -379,18 +379,76 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
     }
 
 
-    static readonly AVCaptureDeviceType[] DeviceTypes =
-    [
-        AVCaptureDeviceType.BuiltInWideAngleCamera,
-        AVCaptureDeviceType.ExternalUnknown
-    ];
+    /// <summary>
+    /// The kinds of camera discovery is asked for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Built once at runtime rather than written as a constant, because three of these five did not
+    /// exist on every macOS this package supports and a discovery session cannot be handed a device
+    /// type the running system has never heard of.
+    /// </para>
+    /// <para>
+    /// What each one is for. <b>BuiltInWideAngleCamera</b> is the one every Mac has. <b>External</b>
+    /// is a USB or virtual camera on macOS 14 and later; <b>ExternalUnknown</b> is what the same
+    /// device was called before that, and both are asked for because the constant a device reports
+    /// itself as follows the OS it is plugged into rather than this list. <b>ContinuityCamera</b> is
+    /// an iPhone being used as the Mac's camera, which is the one most people actually reach for
+    /// and the one whose absence was hardest to explain - it is a camera in every menu Apple ships
+    /// and was in none of ours. <b>DeskViewCamera</b> is the overhead view that rides along with a
+    /// Continuity Camera, which is a separate device to AVFoundation and so has to be named
+    /// separately here.
+    /// </para>
+    /// <para>
+    /// A device is returned once however many of these it matches, so asking for the old name and
+    /// the new one cannot list the same webcam twice.
+    /// </para>
+    /// </remarks>
+    static readonly AVCaptureDeviceType[] DeviceTypes = BuildDeviceTypes();
+
+    static AVCaptureDeviceType[] BuildDeviceTypes()
+    {
+        var types = new List<AVCaptureDeviceType>
+        {
+            AVCaptureDeviceType.BuiltInWideAngleCamera,
+
+            // No version floor on this one, and it stays in the list on newer systems too: it is
+            // the name the same hardware answered to before macOS 14 renamed it.
+            AVCaptureDeviceType.ExternalUnknown
+        };
+
+        // The overhead desk view. Older than the rest by a release, and macOS-only - there is no
+        // Catalyst or iOS equivalent to guard for here.
+        if (OperatingSystem.IsMacOSVersionAtLeast(13))
+            types.Add(AVCaptureDeviceType.DeskViewCamera);
+
+        if (OperatingSystem.IsMacOSVersionAtLeast(14))
+        {
+            types.Add(AVCaptureDeviceType.External);
+            types.Add(AVCaptureDeviceType.ContinuityCamera);
+        }
+
+        return [.. types];
+    }
 
     public Task<IReadOnlyList<CameraInfo>> GetAvailableCamerasAsync(CancellationToken ct = default)
     {
         var discovery = AVCaptureDeviceDiscoverySession.Create(DeviceTypes, AVMediaTypes.Video, AVCaptureDevicePosition.Unspecified);
+
+        // Which one the system would pick if nobody chose. Carried so that an app opening a picker
+        // over four cameras can start on the right one rather than on whichever enumerated first -
+        // and it is the only way to tell, since none of them is meaningfully "front" or "back".
+        var standard = AVCaptureDevice.GetDefaultDevice(AVMediaTypes.Video)?.UniqueID;
+
         IReadOnlyList<CameraInfo> list = discovery.Devices
-            .Select(d => new CameraInfo(d.UniqueID, d.LocalizedName, ToFacing(d.Position)))
+            .Select(d => new CameraInfo(
+                d.UniqueID,
+                d.LocalizedName,
+                ToFacing(d.Position),
+                IsDefault: d.UniqueID == standard
+            ))
             .ToList();
+
         return Task.FromResult(list);
     }
 
