@@ -119,6 +119,17 @@ public sealed class AppleCameraFrame : CameraFrame
     /// the recorder writing into the original — and it replaces a full-frame CPU copy rather than adding to
     /// one.
     /// </remarks>
+    /// <summary>
+    /// Wraps a buffer this library owns and will reuse, without copying it.
+    /// </summary>
+    /// <remarks>
+    /// For the filtered frame handed to an analyzer - see <see cref="FilteredFrameBuffer"/>. There
+    /// is no CMSampleBuffer behind it and nothing to release: the buffer belongs to the delegate
+    /// that rendered it, and is not touched again until the analysis has returned.
+    /// </remarks>
+    internal static AppleCameraFrame Wrap(CVPixelBuffer pixelBuffer, int rotation, bool mirrored)
+        => new(owned: null, pixelBuffer, bgra: null, rotation, mirrored);
+
     public static AppleCameraFrame Copy(CVPixelBuffer pixelBuffer, int rotation, bool mirrored)
     {
         if (!IsBiplanarFormat(pixelBuffer.PixelFormatType))

@@ -882,6 +882,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
 
         var filters = AppleCameraFilters.Create(chain);
         this.frameDelegate.Filters = filters;
+        this.frameDelegate.AnalyzerSeesEffects = this.MaybeVirtualView?.AnalyzerSeesEffects == true;
         this.UpdateFrameDelivery();
 
         // Show the filtered-frame overlay on top of the live preview while any effect is active. We must NOT

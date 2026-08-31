@@ -57,6 +57,21 @@ sealed class VideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegate
     /// <summary>Set by the handler so wrapped frames carry mirroring metadata.</summary>
     public volatile bool Mirrored;
 
+    /// <summary>Whether the analyzer is handed the filtered frame - see CameraView.AnalyzerSeesEffects.</summary>
+    public volatile bool AnalyzerSeesEffects;
+
+    /// <summary>Where a filtered frame is drawn before it is handed on. Created on first use.</summary>
+    readonly FilteredFrameBuffer filtered = new();
+
+    /// <summary>Releases the scratch buffer with the delegate that owns it.</summary>
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+            this.filtered.Dispose();
+
+        base.Dispose(disposing);
+    }
+
     /// <summary>When set, each frame is composited with the overlay and appended to the burn-in recording.</summary>
     public volatile AppleVideoOverlayRecorder? Recorder;
 
@@ -78,6 +93,19 @@ sealed class VideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegate
                 var recorder = this.Recorder;
                 if (this.OnFrame != null && this.WantFrames?.Invoke() == true)
                 {
+                    // The frame as the preview draws it, for an analyzer that has asked to see what
+                    // the camera looks like rather than what the sensor produced. The buffer is this
+                    // delegate's own and is reused, which is safe because the pipeline runs one
+                    // analysis at a time - see FilteredFrameBuffer.
+                    if (this.AnalyzerSeesEffects
+                        && chain.Length > 0
+                        && this.RenderForAnalyzer(chain, pixelBuffer) is { } effected)
+                    {
+                        this.OnFrame(AppleCameraFrame.Wrap(effected, rotation: 0, mirrored: this.Mirrored));
+                        recorder?.AppendVideo(sampleBuffer);
+                        return;
+                    }
+
                     // ⚠️ Borrow only when nothing is going to write to this buffer. The recorder composites
                     // effects and the burn-in overlay back into it (AppleVideoOverlayRecorder.Composite), so
                     // with one attached a borrowed frame would be read by the analyzer on one thread while
@@ -121,6 +149,40 @@ sealed class VideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegate
 
     // Reused across frames so a steady-state render allocates nothing here.
     readonly List<CIImage> produced = [];
+
+    /// <summary>
+    /// Runs the effect chain into the scratch buffer, for an analyzer rather than for the screen.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="RenderFiltered"/> because the destinations have nothing in common:
+    /// that one produces an image for a view, this one fills a pixel buffer another consumer will
+    /// read. The recipe is identical, and both render at the source extent for the reason spelled
+    /// out there.
+    /// </remarks>
+    CVPixelBuffer? RenderForAnalyzer(CIFilter[] chain, CVPixelBuffer pixelBuffer)
+    {
+        using var input = new CIImage(pixelBuffer);
+
+        this.produced.Clear();
+        var output = AppleCameraFilters.Apply(input, chain, this.produced);
+
+        try
+        {
+            return output is null ? null : this.filtered.Render(this.context, output, input.Extent);
+        }
+        catch (Exception)
+        {
+            // One frame without the effect on it beats taking the capture pipeline down.
+            return null;
+        }
+        finally
+        {
+            foreach (var image in this.produced)
+                image.Dispose();
+
+            this.produced.Clear();
+        }
+    }
 
     void RenderFiltered(CIFilter[] chain, CVPixelBuffer pixelBuffer, UIImageView view)
     {

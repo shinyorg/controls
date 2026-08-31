@@ -3,6 +3,7 @@ using AVFoundation;
 using CoreAnimation;
 using CoreFoundation;
 using CoreGraphics;
+using CoreVideo;
 using Foundation;
 using Microsoft.Maui.Handlers;
 
@@ -31,14 +32,123 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
 
     protected override NSView CreatePlatformView()
     {
-        var view = new NSView { WantsLayer = true };
+        var view = new CameraHostView { WantsLayer = true };
         view.Layer ??= new CALayer();
+        view.LaidOut = this.LayoutPreview;
         return view;
+    }
+
+    /// <summary>
+    /// An NSView that says when it has been laid out.
+    /// </summary>
+    /// <remarks>
+    /// The preview is a <see cref="AVCaptureVideoPreviewLayer"/>, and a CALayer sublayer does not
+    /// resize with the view that hosts it. <c>AutoresizingMask</c> looks like it should handle that
+    /// and does not: on macOS a layer's autoresizing mask is only honoured by a superlayer with a
+    /// layout manager, and a plain layer-backed NSView has none - so the mask is set, ignored, and
+    /// the preview keeps whatever frame it was born with.
+    /// <para>
+    /// Which is empty. The session starts as the handler connects, before the view has been given a
+    /// size, so the layer was created at 0x0 and stayed there: a camera that was running, capturing
+    /// full-resolution stills, and showing a black rectangle. The subview used for filtered frames
+    /// never had the problem, because NSView autoresizing is real.
+    /// </para>
+    /// </remarks>
+    sealed class CameraHostView : NSView
+    {
+        public Action? LaidOut { get; set; }
+
+        public override void Layout()
+        {
+            base.Layout();
+            this.LaidOut?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// Takes the size MAUI has arranged this view at.
+    /// </summary>
+    /// <remarks>
+    /// The one place the real size is known. The AppKit backend leaves the platform NSView's bounds
+    /// at zero - MAUI's own layout says 1080x485 while <c>host.Bounds</c> reports 0x0 - so the
+    /// preview layer, which is sized from those bounds, was born empty and stayed empty. A camera
+    /// that ran, captured stills correctly and drew nothing.
+    /// <para>
+    /// The frame is pushed onto the view here rather than only onto the layer, because the filtered
+    /// preview is an NSImageView subview and is sized by the same zero bounds.
+    /// </para>
+    /// </remarks>
+    public override void PlatformArrange(Rect frame)
+    {
+        base.PlatformArrange(frame);
+
+        // Every arrange, not only the first. The view keeps whatever size it was given, so a preview
+        // sized once is a preview that never follows the window again - and the first arrange is
+        // rarely the final one, which showed up as a band of black under the picture.
+        if (this.PlatformView is { } host && frame is { Width: > 0, Height: > 0 })
+        {
+            var size = new CGSize(frame.Width, frame.Height);
+            if (Math.Abs(host.Bounds.Width - size.Width) > 0.5 || Math.Abs(host.Bounds.Height - size.Height) > 0.5)
+                host.SetFrameSize(size);
+        }
+
+        this.LayoutPreview();
+    }
+
+    /// <summary>Keeps the preview layer the size of the view it is drawn in.</summary>
+    /// <remarks>
+    /// Inside a transaction with actions off, or every layout pass animates the layer into its new
+    /// frame over a quarter of a second - which on a window resize is a preview that visibly lags
+    /// the window edge.
+    /// </remarks>
+    void LayoutPreview()
+    {
+        if (this.previewLayer is not { } layer)
+            return;
+
+        var host = this.PlatformView;
+        host.WantsLayer = true;
+
+        if (host.Layer is not { } root)
+            return;
+
+        // Re-attached if it has been orphaned. A layer-backed NSView can be handed a fresh backing
+        // layer after this handler added its sublayer to the old one - the preview then still
+        // exists, still has a session, and is drawn into a layer that is no longer on screen.
+        if (!ReferenceEquals(layer.SuperLayer, root))
+            root.AddSublayer(layer);
+
+        var bounds = host.Bounds;
+
+        // The platform view can still be reporting nothing - see PlatformArrange - so the size MAUI
+        // arranged this view at is the better answer whenever AppKit has not caught up.
+        if ((bounds.Width < 1 || bounds.Height < 1) && this.MaybeVirtualView?.Frame is { Width: > 0, Height: > 0 } arranged)
+            bounds = new CGRect(0, 0, arranged.Width, arranged.Height);
+
+        CATransaction.Begin();
+        CATransaction.DisableActions = true;
+        layer.Frame = bounds;
+        if (this.filterView is { } filter)
+            filter.Frame = bounds;
+        CATransaction.Commit();
+
     }
 
     protected override void ConnectHandler(NSView platformView)
     {
         base.ConnectHandler(platformView);
+
+        // AppKit posts this whenever the frame changes, however it was changed - which is the only
+        // hook here that does not depend on the MAUI backend choosing to call something. Overriding
+        // Layout() is not enough on its own: a backend that positions views by assigning Frame
+        // never triggers a layout pass, and the preview then keeps the size it was created at.
+        platformView.PostsFrameChangedNotifications = true;
+        this.frameObserver = NSNotificationCenter.DefaultCenter.AddObserver(
+            NSView.FrameChangedNotification,
+            _ => this.LayoutPreview(),
+            platformView
+        );
+
         this.InitPipeline();
         if (this.VirtualView.IsActive)
             _ = this.StartAsync();
@@ -46,10 +156,19 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
 
     protected override void DisconnectHandler(NSView platformView)
     {
+        if (this.frameObserver is { } observer)
+        {
+            NSNotificationCenter.DefaultCenter.RemoveObserver(observer);
+            observer.Dispose();
+            this.frameObserver = null;
+        }
+
         this.TeardownPipeline();
         this.TeardownSession();
         base.DisconnectHandler(platformView);
     }
+
+    NSObject? frameObserver;
 
 
     public Task<bool> RequestPermissionAsync(CancellationToken ct = default)
@@ -320,6 +439,10 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
         if (this.session.CanAddOutput(this.dataOutput))
             this.session.AddOutput(this.dataOutput);
 
+        // After AddOutput, not before: what a data output can deliver is a question about that output
+        // on this session, and it answers nothing until it is attached.
+        this.ApplyCaptureFormat(this.dataOutput);
+
         this.movieOutput = new AVCaptureMovieFileOutput();
         if (this.session.CanAddOutput(this.movieOutput))
             this.session.AddOutput(this.movieOutput);
@@ -328,6 +451,12 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
 
         this.MainThread(() =>
         {
+            // A handler torn down while its session was still starting has no platform view left to
+            // build layers on, and reaching for one throws. Nothing here is worth taking the process
+            // down for: the session is on its way out with the handler.
+            if (this.MaybeVirtualView is null)
+                return;
+
             this.SetupLayers();
             this.dataOutput.SetSampleBufferDelegate(this.frameDelegate, this.videoQueue);
             this.ApplyEffects(this.VirtualView.EffectChain);
@@ -335,10 +464,26 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
     }
 
 
+    /// <summary>
+    /// Builds the preview, the surface filtered frames are drawn on, and the frame delegate.
+    /// </summary>
+    /// <remarks>
+    /// Every one of those three is created here, which is why the first line matters so much. This
+    /// used to reach for <c>host.Layer</c> with a null-forgiving operator, and a layer-backed NSView
+    /// is not a guarantee that a backing layer exists yet - a host handed back a null there threw
+    /// before the filter view and the frame delegate were built. The symptom was not an error: the
+    /// session ran, stills captured perfectly, and the preview was black, filtered or not, with no
+    /// frames reaching a remote viewer either, because the delegate that delivers them was never
+    /// made. Asking for the layer properly is the difference.
+    /// </remarks>
     void SetupLayers()
     {
         var host = this.PlatformView;
         host.AutoresizesSubviews = true;
+
+        // WantsLayer makes AppKit create one; the fallback is for a host that still answers null.
+        host.WantsLayer = true;
+        host.Layer ??= new CALayer();
 
         this.previewLayer = new AVCaptureVideoPreviewLayer(this.session!)
         {
@@ -346,7 +491,12 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
             Frame = host.Bounds,
             AutoresizingMask = CAAutoresizingMask.WidthSizable | CAAutoresizingMask.HeightSizable
         };
-        host.Layer!.AddSublayer(this.previewLayer);
+        host.Layer.AddSublayer(this.previewLayer);
+
+        // The bounds above are whatever the view had when the session started, which is usually
+        // nothing at all - see CameraHostView. Every layout pass from here fixes it, and this is
+        // the one for a session started after the view already had a size.
+        this.LayoutPreview();
 
         this.filterView = new NSImageView
         {
@@ -373,6 +523,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
 
         var filters = AppleCameraFilters.Create(chain);
         this.frameDelegate.Filters = filters;
+        this.frameDelegate.AnalyzerSeesEffects = this.MaybeVirtualView?.AnalyzerSeesEffects == true;
         var active = filters.Length > 0;
         this.filterView.Hidden = !active;
         this.previewLayer.Hidden = active;
@@ -471,27 +622,142 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
         return DiscoverDevice(position) ?? DiscoverDevice(AVCaptureDevicePosition.Unspecified);
     }
 
+    /// <summary>
+    /// Opens the selected camera and attaches it to the session.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every failure here puts the camera that was working back. This runs from
+    /// <see cref="ReconfigureInput"/>, which has already taken the old input out - so a switch to a
+    /// camera that will not open used to end with a session that had no video input at all, and
+    /// nothing put one back. The preview went black and stayed black, through every later switch,
+    /// because each one started by removing an input that was no longer there and then failed the
+    /// same way. A camera in use by another app is enough to trigger it, which on a Mac means any
+    /// virtual camera whose host application is running.
+    /// </para>
+    /// <para>
+    /// The old <c>CanAddInput</c> check had the same shape of bug in one line: the input was only
+    /// added when the session would take it, and <c>videoInput</c> was assigned either way - so a
+    /// refusal was recorded as a success and the next reconfigure tried to remove an input the
+    /// session had never been given.
+    /// </para>
+    /// </remarks>
     void AddVideoInput()
     {
-        this.device = this.SelectDevice();
-        if (this.device == null)
+        var previous = this.device;
+        var wanted = this.SelectDevice();
+
+        if (wanted == null)
         {
-            this.MainThread(() => this.MaybeVirtualView?.OnCameraError("No camera device found"));
+            this.Report("No camera device found");
+            this.Restore(previous);
             return;
         }
 
-        var input = AVCaptureDeviceInput.FromDevice(this.device, out var error);
-        if (error != null || input == null)
+        if (!this.TryAddInput(wanted, out var problem))
         {
-            this.MainThread(() => this.MaybeVirtualView?.OnCameraError("Cannot open camera: " + error?.LocalizedDescription));
+            this.Report(problem);
+
+            // Back to whatever was on screen a moment ago, if it is not the one that just failed.
+            if (previous is not null && previous.UniqueID != wanted.UniqueID)
+                this.Restore(previous);
+
             return;
         }
 
-        if (this.session!.CanAddInput(input))
-            this.session.AddInput(input);
-        this.videoInput = input;
+        this.device = wanted;
     }
 
+    /// <summary>Opens one device and hands it to the session.</summary>
+    /// <returns>False with a reason, leaving the session exactly as it was found.</returns>
+    bool TryAddInput(AVCaptureDevice camera, out string problem)
+    {
+        var input = AVCaptureDeviceInput.FromDevice(camera, out var error);
+
+        if (error != null || input == null)
+        {
+            problem = $"Cannot open {camera.LocalizedName}: {error?.LocalizedDescription ?? "the device did not open"}";
+            input?.Dispose();
+            return false;
+        }
+
+        if (!this.session!.CanAddInput(input))
+        {
+            problem = $"This session will not take {camera.LocalizedName}.";
+            input.Dispose();
+            return false;
+        }
+
+        this.session.AddInput(input);
+        this.videoInput = input;
+        problem = string.Empty;
+        return true;
+    }
+
+    /// <summary>Puts a camera back after a failed switch, quietly - the refusal was already said.</summary>
+    void Restore(AVCaptureDevice? camera)
+    {
+        if (camera is null || !this.TryAddInput(camera, out _))
+            return;
+
+        this.device = camera;
+    }
+
+    /// <summary>
+    /// Says something went wrong, without waiting for the main thread to hear it.
+    /// </summary>
+    /// <remarks>
+    /// Asynchronously on purpose. This is called from work running on the session queue, sometimes
+    /// between BeginConfiguration and CommitConfiguration, and the blocking hop the rest of this
+    /// class uses would hold that queue until the main thread answers - which is a deadlock the
+    /// moment the main thread is itself waiting on the session queue. The camera then never
+    /// recovers, and there is nothing on screen to say why.
+    /// </remarks>
+    void Report(string message)
+        => NSApplication.SharedApplication.BeginInvokeOnMainThread(
+            () => this.MaybeVirtualView?.OnCameraError(message)
+        );
+
+
+    /// <summary>
+    /// Asks the data output for BGRA.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Without this the output delivers whatever macOS defaults to, which is a packed YCbCr format
+    /// rather than the BGRA every consumer of <see cref="AppleCameraFrame"/> assumes.
+    /// <c>ToCGImage</c> then builds a <c>CGBitmapContext</c> over the buffer with 32-bit BGRA
+    /// parameters, the sizes do not describe the pixels, and construction fails with
+    /// "handle is null" on every single frame.
+    /// </para>
+    /// <para>
+    /// It went unnoticed because the two paths that draw locally never go near it: the plain preview
+    /// is an AVCaptureVideoPreviewLayer the session drives itself, and the filtered preview reads
+    /// the buffer through CIImage, which copes with any format. Only a frame analyzer sees the
+    /// difference - so the camera looked perfect on the Mac while a remote viewfinder watching the
+    /// same camera got nothing at all, frame after frame, with the failure swallowed as one dropped
+    /// frame each time.
+    /// </para>
+    /// <para>
+    /// iOS has always set this (see the Apple handler, which also honours CaptureFormat.Yuv420).
+    /// Only BGRA is asked for here: the biplanar path exists for analyzers that want luma without a
+    /// conversion, and nothing on this head asks for it yet.
+    /// </para>
+    /// </remarks>
+    void ApplyCaptureFormat(AVCaptureVideoDataOutput output)
+    {
+        try
+        {
+            output.WeakVideoSettings = new CVPixelBufferAttributes
+            {
+                PixelFormatType = CVPixelFormatType.CV32BGRA
+            }.Dictionary;
+        }
+        catch (Exception ex)
+        {
+            this.Report($"Camera capture format could not be applied: {ex.Message}");
+        }
+    }
 
     void ReconfigureInput()
     {

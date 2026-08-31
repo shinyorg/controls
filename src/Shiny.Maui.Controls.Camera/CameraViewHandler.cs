@@ -63,6 +63,7 @@ public partial class CameraViewHandler
             [nameof(CameraView.ScanWindow)] = MapOverlay,
             [nameof(CameraView.Analyzer)] = MapAnalyzer,
             [nameof(CameraView.Filter)] = MapEffects,
+            [nameof(CameraView.AnalyzerSeesEffects)] = MapEffects,
             [nameof(CameraView.Effects)] = MapEffects,
             [nameof(CameraView.PhotoQuality)] = MapPhotoQuality,
             [nameof(CameraView.VideoQuality)] = MapVideoQuality,

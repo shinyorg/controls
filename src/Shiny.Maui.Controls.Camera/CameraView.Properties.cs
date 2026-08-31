@@ -61,6 +61,39 @@ public partial class CameraView
         nameof(ShowDetectionOverlay), typeof(bool), typeof(CameraView), true);
 
     /// <summary>
+    /// Whether a frame analyzer is handed the frame with the effects on it. Default <c>false</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Off by default because an analyzer is usually a detector, and a detector wants the picture
+    /// the sensor produced: a barcode reader given a Noir grade, or a face detector given an
+    /// inverted frame, is being asked to work against the effect rather than with it.
+    /// </para>
+    /// <para>
+    /// On for the other kind of analyzer - the one that is a second pair of eyes rather than a
+    /// detector. A remote viewfinder taps the frame stream to show what the camera is seeing on
+    /// another screen, and it should show what the local preview shows and what the captured file
+    /// will contain, effects included. Without this it is the only surface in the app that quietly
+    /// disagrees with the other two.
+    /// </para>
+    /// <para>
+    /// It costs a render into a reusable buffer per delivered frame, and only while there is an
+    /// effect chain to apply - with no effects, the analyzer gets the buffer straight from the
+    /// camera either way.
+    /// </para>
+    /// </remarks>
+    public static readonly BindableProperty AnalyzerSeesEffectsProperty = BindableProperty.Create(
+        nameof(AnalyzerSeesEffects), typeof(bool), typeof(CameraView), false,
+        propertyChanged: (b, _, _) => ((CameraView)b).RebuildEffectChain());
+
+    /// <inheritdoc cref="AnalyzerSeesEffectsProperty"/>
+    public bool AnalyzerSeesEffects
+    {
+        get => (bool)this.GetValue(AnalyzerSeesEffectsProperty);
+        set => this.SetValue(AnalyzerSeesEffectsProperty, value);
+    }
+
+    /// <summary>
     /// Live color filter applied to the preview. Default <see cref="CameraFilter.None"/>.
     /// </summary>
     /// <remarks>
