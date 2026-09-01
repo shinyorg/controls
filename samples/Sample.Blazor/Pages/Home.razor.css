@@ -232,3 +232,99 @@
         grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     }
 }
+
+/*
+    Search sits directly above the catalogue, because it is a way of using the list rather than part
+    of the banner. Sticky so it stays reachable once the results run past a screenful — at this many
+    controls, scrolling back up to change a query is most of the cost of using it.
+*/
+.catalog-search {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 24px 0 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
+    background: var(--shiny-color-surface, #ffffff);
+}
+
+.catalog-search:focus-within {
+    border-color: var(--shiny-color-primary, #7c3aed);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 15%, transparent);
+}
+
+.catalog-search-icon {
+    font-size: 1.125rem;
+    opacity: .55;
+    flex: 0 0 auto;
+}
+
+/*
+    A type=search input carries a UA "cancel" button in WebKit that sits on top of our own clear
+    button and does something subtly different — it clears the field without telling Blazor, so the
+    bound value and what is on screen disagree until the next keystroke.
+*/
+.catalog-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+}
+
+.catalog-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.catalog-search-clear {
+    flex: 0 0 auto;
+    border: 0;
+    background: none;
+    color: inherit;
+    opacity: .5;
+    cursor: pointer;
+    font-size: .9rem;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 6px;
+}
+
+.catalog-search-clear:hover {
+    opacity: 1;
+    background: var(--shiny-color-surface-container, #f2f2f5);
+}
+
+.catalog-empty {
+    margin: 4px 2px 0;
+    opacity: .7;
+}
+
+/* Which group a hit came from — the sectioned browse says it by position, a flat result list cannot. */
+.catalog-section-tag {
+    /*
+        The card is a two-column grid — icon, then text — and grid auto-placement drops anything that
+        does not say otherwise into the next free cell, which here is the 34px icon column. That is
+        why the tag was truncating to four characters in a card with room to spare.
+    */
+    grid-column: 2;
+    align-self: end;
+    padding-top: 6px;
+    font-size: .6875rem;
+    opacity: .55;
+
+    /*
+        Sentence case, and no letter-spacing. "Layout & Collections" breaks at the ampersand in a card
+        this narrow and turns a one-line tag into three; uppercasing it and spacing the letters made it
+        wide enough that even truncating left "ACT…", which says nothing at all. Plain case fits.
+    */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

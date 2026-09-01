@@ -6,6 +6,9 @@ public record CatalogItem(string Href, string Label, string Icon, string Blurb);
 /// <summary>A group of demo pages, rendered as one nav section and one block on the home page.</summary>
 public record CatalogSection(string Title, string Color, CatalogItem[] Items);
 
+/// <summary>One search hit, flattened so a template can bind it without walking back to its section.</summary>
+public record CatalogHit(string Href, string Label, string Icon, string Blurb, string Color, string Section);
+
 /// <summary>
 /// The single source of truth for what this gallery contains. Both <c>NavMenu</c> and the home
 /// page render from here, so a new demo page shows up in both the moment it is listed — the home
@@ -162,5 +165,93 @@ public static class Catalog
         }
 
         return "Shiny Controls";
+    }
+
+
+    /// <summary>
+    /// Everything matching <paramref name="query"/>, best first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Ranked rather than merely filtered. At this many demos an unranked <c>Contains</c> buries the
+    /// obvious answer: typing "grid" matches a dozen blurbs, and the control actually called Data Grid
+    /// has to come first or the search is worse than scrolling.
+    /// </para>
+    /// <para>
+    /// Every term has to match <i>something</i> — the label, the blurb or the section — so two words
+    /// narrow rather than widen, which is what anyone typing a second word means by it. The rank comes
+    /// from the best thing any single term hit, so "office grid" still leads with the spreadsheet
+    /// rather than being dragged down by the weaker half of the query.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<CatalogHit> Search(string? query)
+    {
+        var terms = (query ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (terms.Length == 0)
+            return [];
+
+        var hits = new List<(int Rank, string Label, CatalogHit Hit)>();
+
+        foreach (var (section, item) in Everything())
+        {
+            var rank = Rank(item, section.Title, terms);
+            if (rank < 0)
+                continue;
+
+            hits.Add((rank, item.Label, new CatalogHit(item.Href, item.Label, item.Icon, item.Blurb, section.Color, section.Title)));
+        }
+
+        return
+        [
+            .. hits
+                .OrderBy(x => x.Rank)
+                .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.Hit)
+        ];
+    }
+
+    /// <summary>Lower is better; -1 means at least one term matched nothing at all.</summary>
+    static int Rank(CatalogItem item, string section, string[] terms)
+    {
+        var best = int.MaxValue;
+
+        foreach (var term in terms)
+        {
+            var rank =
+                item.Label.StartsWith(term, StringComparison.OrdinalIgnoreCase) ? 0 :
+                item.Label.Contains(term, StringComparison.OrdinalIgnoreCase) ? 1 :
+                section.Contains(term, StringComparison.OrdinalIgnoreCase) ? 2 :
+                item.Blurb.Contains(term, StringComparison.OrdinalIgnoreCase) ? 3 :
+                -1;
+
+            // One term matching nothing rejects the item: a second word is there to narrow.
+            if (rank < 0)
+                return -1;
+
+            best = Math.Min(best, rank);
+        }
+
+        return best;
+    }
+
+    /// <summary>Every demo, including the ones that live above the catalogue in the nav.</summary>
+    static IEnumerable<(CatalogSection Section, CatalogItem Item)> Everything()
+    {
+        var gettingStarted = new CatalogSection("Getting started", "#A78BFA", GettingStarted);
+
+        foreach (var item in GettingStarted)
+        {
+            // Home is where the search box is; offering it as a result is a link back to itself.
+            if (item.Href.Length > 0)
+                yield return (gettingStarted, item);
+        }
+
+        foreach (var section in Sections)
+        {
+            foreach (var item in section.Items)
+                yield return (section, item);
+        }
     }
 }

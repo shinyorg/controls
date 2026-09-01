@@ -24,6 +24,61 @@
     </div>
 </section>
 
+@*
+    Search sits directly above the catalogue rather than in the hero: it is a way of using the list
+    below it, so it belongs with the list. Typing swaps the sectioned browse for a flat ranked grid —
+    keeping the sections while filtering would leave a page of empty headings.
+*@
+<section class="catalog-search">
+    <span class="catalog-search-icon" aria-hidden="true">⌕</span>
+
+    <input class="catalog-search-input"
+           type="search"
+           placeholder="@($"Search {Catalog.TotalControls} controls — try \u201Cgrid\u201D, \u201Coffice\u201D, \u201Cpen\u201D")"
+           aria-label="Search controls"
+           @bind="query"
+           @bind:event="oninput"
+           @onkeydown="OnSearchKeyDown" />
+
+    @if (query.Length > 0)
+    {
+        <button type="button" class="catalog-search-clear" @onclick="Clear" aria-label="Clear search">✕</button>
+    }
+</section>
+
+@if (query.Length > 0)
+{
+    var hits = Catalog.Search(query);
+
+    <section class="catalog-section">
+        <h2 class="catalog-heading">
+            <span class="catalog-swatch" style="background:#A78BFA;"></span>
+            Results
+            <span class="catalog-count">@hits.Count</span>
+        </h2>
+
+        @if (hits.Count == 0)
+        {
+            <p class="catalog-empty">Nothing matches “@query”.</p>
+        }
+        else
+        {
+            <div class="catalog-grid">
+                @foreach (var hit in hits)
+                {
+                    <a class="catalog-card" href="@hit.Href" style="--accent:@hit.Color;">
+                        <span class="catalog-icon">@hit.Icon</span>
+                        <span class="catalog-name">@hit.Label</span>
+                        <span class="catalog-blurb">@hit.Blurb</span>
+                        <span class="catalog-section-tag">@hit.Section</span>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+}
+else
+{
 @foreach (var section in Catalog.Sections)
 {
     <section class="catalog-section">
@@ -44,4 +99,35 @@
             }
         </div>
     </section>
+}
+}
+
+@code {
+    string query = string.Empty;
+
+    void Clear() => this.query = string.Empty;
+
+    /// <summary>
+    /// Enter opens the best match; Escape clears.
+    /// </summary>
+    /// <remarks>
+    /// Enter is what anyone who has already typed enough to see the answer will press, and without it
+    /// the search makes you take your hands off the keyboard to finish a job the keyboard started.
+    /// </remarks>
+    void OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            this.Clear();
+            return;
+        }
+
+        if (e.Key != "Enter")
+            return;
+
+        if (Catalog.Search(this.query) is [{ } first, ..])
+            this.Nav.NavigateTo(first.Href);
+    }
+
+    [Inject] public NavigationManager Nav { get; set; } = null!;
 }

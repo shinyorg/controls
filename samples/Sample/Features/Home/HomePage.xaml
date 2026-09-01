@@ -133,9 +133,137 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!--
+                    Search sits directly above the catalogue, because it is a way of using the list
+                    rather than part of the banner. Typing swaps the sectioned browse for a flat
+                    ranked list — filtering the sections would leave a page of empty headings.
+                -->
+                <Border Margin="0,32,0,0"
+                        Padding="4,0"
+                        StrokeThickness="1"
+                        Stroke="{AppThemeBinding Light=#20000000, Dark=#28FFFFFF}"
+                        BackgroundColor="{AppThemeBinding Light=#CCFFFFFF, Dark=#AA1E1B4B}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <SearchBar Text="{Binding Query}"
+                                   Placeholder="Search controls — try &quot;grid&quot;, &quot;office&quot;, &quot;pen&quot;"
+                                   AutomationId="CatalogSearch"
+                                   CancelButtonColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}"
+                                   TextColor="{AppThemeBinding Light=#1E1B4B, Dark=#E0E7FF}"
+                                   PlaceholderColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+
+                        <Button Grid.Column="1"
+                                Text="✕"
+                                Padding="10,0"
+                                FontSize="14"
+                                BackgroundColor="Transparent"
+                                TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}"
+                                IsVisible="{Binding IsSearching}"
+                                AutomationId="CatalogSearchClear"
+                                Command="{Binding ClearSearchCommand}" />
+                    </Grid>
+                </Border>
+
+                <!-- Results: one flat, ranked list while a query is in the box -->
+                <VerticalStackLayout Spacing="12" IsVisible="{Binding IsSearching}">
+                    <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                        <Border BackgroundColor="#A78BFA"
+                                StrokeThickness="0"
+                                WidthRequest="4"
+                                HeightRequest="18"
+                                VerticalOptions="Center">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="2" />
+                            </Border.StrokeShape>
+                        </Border>
+
+                        <Label Text="Results"
+                               FontSize="17"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light=#1E1B4B, Dark=#E0E7FF}" />
+
+                        <Border Padding="7,1"
+                                StrokeThickness="0"
+                                VerticalOptions="Center"
+                                BackgroundColor="{AppThemeBinding Light=#10000000, Dark=#14FFFFFF}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="9" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding ResultCount}"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+                        </Border>
+                    </HorizontalStackLayout>
+
+                    <Label Text="{Binding Query, StringFormat='Nothing matches “{0}”.'}"
+                           FontSize="13"
+                           IsVisible="{Binding HasNoResults}"
+                           TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+
+                    <FlexLayout Wrap="Wrap"
+                                Direction="Row"
+                                JustifyContent="Start"
+                                AlignItems="Start"
+                                BindableLayout.ItemsSource="{Binding Results}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sample:CatalogHit">
+                                <Border Margin="0,0,10,10"
+                                        Padding="14"
+                                        WidthRequest="164"
+                                        HeightRequest="140"
+                                        StrokeThickness="1"
+                                        Stroke="{AppThemeBinding Light=#12000000, Dark=#1AFFFFFF}"
+                                        BackgroundColor="{AppThemeBinding Light=#CCFFFFFF, Dark=#AA1E1B4B}"
+                                        AutomationId="{Binding Route}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="14" />
+                                    </Border.StrokeShape>
+
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type local:HomeViewModel}}, Path=NavigateCommand}"
+                                            CommandParameter="{Binding Route}" />
+                                    </Border.GestureRecognizers>
+
+                                    <VerticalStackLayout Spacing="6">
+                                        <Label Text="{Binding Icon}"
+                                               FontSize="22"
+                                               TextColor="{Binding AccentColor}" />
+
+                                        <Label Text="{Binding Label}"
+                                               FontSize="14"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light=#1E1B4B, Dark=#E0E7FF}" />
+
+                                        <Label Text="{Binding Blurb}"
+                                               FontSize="11"
+                                               MaxLines="2"
+                                               LineBreakMode="TailTruncation"
+                                               TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+
+                                        <!-- Which group it came from: the sectioned browse says that by
+                                             position, a flat result list has to say it outright. -->
+                                        <Label Text="{Binding Section}"
+                                               FontSize="10"
+                                               MaxLines="1"
+                                               LineBreakMode="TailTruncation"
+                                               Opacity="0.6"
+                                               TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                </VerticalStackLayout>
+
                 <!-- Catalogue: the same sectioned, colour-coded browse grid as the Blazor sample -->
                 <VerticalStackLayout Spacing="28"
-                                     Margin="0,32,0,0"
+                                     Margin="0,8,0,0"
+                                     IsVisible="{Binding IsBrowsing}"
                                      BindableLayout.ItemsSource="{Binding Sections}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="sample:CatalogSection">
