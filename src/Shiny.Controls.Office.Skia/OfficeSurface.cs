@@ -72,4 +72,44 @@ public readonly record struct OfficeSurface(
         {
             Surround = this.SurfaceContainerLow
         };
+
+    /// <summary>
+    /// Restates a notebook's paper, its rule and its default ink in the app's own neutrals.
+    /// </summary>
+    /// <remarks>
+    /// The one surface here whose <i>page</i> follows the theme, and the reason is what the page is.
+    /// A document and a deck are pictures of something printed, so tinting the paper would
+    /// misrepresent what the file looks like. A notebook page was never printed and has no canonical
+    /// appearance — it is the app's own writing surface — so a dark app with a white page reads as a
+    /// control that missed the memo rather than as fidelity.
+    /// </remarks>
+    public NotebookTheme Apply(NotebookTheme baseline)
+        => baseline with
+        {
+            Paper = this.Surface,
+            Rule = Mix(this.OutlineVariant, this.Surface, 0.55),
+            DefaultInk = this.OnSurface
+        };
+
+    /// <summary>
+    /// Blends <paramref name="color"/> towards <paramref name="towards"/> by <paramref name="amount"/>.
+    /// </summary>
+    /// <remarks>
+    /// The rule is the one token here that cannot be taken from the theme as-is. Every neutral in the
+    /// palette is sized for something meant to be <i>seen</i> — <c>outline-variant</c> is a divider —
+    /// and a writing guide is not: ruled paper works because the lines sit under the words rather than
+    /// competing with them. Taken raw it came out around twice the weight of this painter's own
+    /// default, which is a page that reads as a table. Blending it back towards the paper keeps the
+    /// app's hue while restoring the weight the default was chosen at.
+    /// </remarks>
+    static ArgbColor Mix(ArgbColor color, ArgbColor towards, double amount)
+    {
+        var t = Math.Clamp(amount, 0, 1);
+
+        return new ArgbColor(
+            color.A,
+            (byte)Math.Round(color.R + (towards.R - color.R) * t),
+            (byte)Math.Round(color.G + (towards.G - color.G) * t),
+            (byte)Math.Round(color.B + (towards.B - color.B) * t));
+    }
 }

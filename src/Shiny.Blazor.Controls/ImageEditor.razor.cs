@@ -8,6 +8,10 @@ public partial class ImageEditor : IAsyncDisposable
 {
     IJSObjectReference? module;
     DotNetObjectReference<ImageEditor>? selfRef;
+
+    // Set the moment teardown starts, before the module is released, so anything still in flight
+    // stops rather than racing the disposal.
+    bool disposed;
     ElementReference rootEl;
     ElementReference canvasEl;
     ElementReference textInputEl;
@@ -150,10 +154,21 @@ public partial class ImageEditor : IAsyncDisposable
                 shapeFill = ComposeFill();
             }
 
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/image-editor.js");
 
+            // The host can remove this component while the import is still in flight - a view
+            // switched, a window closed. Nothing has been wired up yet, so the module is simply
+            // released and initialisation abandoned; going on would attach handlers and a
+            // DotNetObjectReference to a component that is already gone.
+            if (disposed)
+            {
+                await ReleaseAsync(loaded);
+                return;
+            }
+
+            module = loaded;
             selfRef = DotNetObjectReference.Create(this);
 
             // a named DTO, not an anonymous type: trimmed/AOT publish strips anonymous-type
@@ -174,7 +189,7 @@ public partial class ImageEditor : IAsyncDisposable
             initialized = true;
             await LoadImageAsync();
         }
-        else if (initialized)
+        else if (initialized && !disposed)
         {
             await SyncParametersAsync();
 
@@ -191,17 +206,17 @@ public partial class ImageEditor : IAsyncDisposable
 
     async Task SyncParametersAsync()
     {
-        if (module == null)
+        if (disposed || module == null)
             return;
 
         // Check if source changed
         if (Source != previousSource || ImageData != previousImageData)
             await LoadImageAsync();
 
-        await module.InvokeVoidAsync("updateDrawSettings", rootEl, activeColor, DrawStrokeWidth);
-        await module.InvokeVoidAsync("updateTextSettings", rootEl, activeColor, TextFontSize, TextFontFamily);
-        await module.InvokeVoidAsync("updateAllowZoom", rootEl, AllowZoom);
-        await module.InvokeVoidAsync("updateZoomLimits", rootEl, MinZoom, MaxZoom);
+        await CallAsync("updateDrawSettings", rootEl, activeColor, DrawStrokeWidth);
+        await CallAsync("updateTextSettings", rootEl, activeColor, TextFontSize, TextFontFamily);
+        await CallAsync("updateAllowZoom", rootEl, AllowZoom);
+        await CallAsync("updateZoomLimits", rootEl, MinZoom, MaxZoom);
 
         // Re-derive the fill only when the host actually changed it, so a re-render does not
         // stomp on what the toolbar's own swatch and slider set
@@ -222,61 +237,57 @@ public partial class ImageEditor : IAsyncDisposable
             }
         }
 
-        await module.InvokeVoidAsync("updateShapeSettings", rootEl, shapeFill);
+        await CallAsync("updateShapeSettings", rootEl, shapeFill);
     }
 
     async Task LoadImageAsync()
     {
-        if (module == null) return;
+        if (disposed || module == null) return;
 
         previousSource = Source;
         previousImageData = ImageData;
 
         if (ImageData is { Length: > 0 })
-            await module.InvokeVoidAsync("loadImageData", rootEl, ImageData);
+            await CallAsync("loadImageData", rootEl, ImageData);
         else if (!string.IsNullOrEmpty(Source))
-            await module.InvokeVoidAsync("loadImage", rootEl, Source);
+            await CallAsync("loadImage", rootEl, Source);
     }
 
     // Public methods callable via @ref
     public async ValueTask UndoAsync()
     {
-        if (module != null)
-            await module.InvokeVoidAsync("undo", rootEl);
+        await CallAsync("undo", rootEl);
     }
 
     public async ValueTask RedoAsync()
     {
-        if (module != null)
-            await module.InvokeVoidAsync("redo", rootEl);
+        await CallAsync("redo", rootEl);
     }
 
     public async ValueTask RotateAsync(float degrees)
     {
-        if (module != null)
-            await module.InvokeVoidAsync("rotate", rootEl, degrees);
+        await CallAsync("rotate", rootEl, degrees);
     }
 
     public async ValueTask ResetAsync()
     {
-        if (module != null)
-        {
-            await module.InvokeVoidAsync("reset", rootEl);
-            currentMode = "none";
-            DismissTextInput();
-            StateHasChanged();
-        }
+        if (!await CallAsync("reset", rootEl))
+            return;
+
+        currentMode = "none";
+        DismissTextInput();
+        StateHasChanged();
     }
 
     public async ValueTask SetModeAsync(string mode)
     {
-        if (module != null)
-        {
-            DismissTextInput();
-            await module.InvokeVoidAsync("setMode", rootEl, mode);
-            currentMode = mode;
-            StateHasChanged();
-        }
+        DismissTextInput();
+
+        if (!await CallAsync("setMode", rootEl, mode))
+            return;
+
+        currentMode = mode;
+        StateHasChanged();
     }
 
     /// <summary>Current zoom factor, where 1.0 is fit-to-view.</summary>
@@ -284,46 +295,39 @@ public partial class ImageEditor : IAsyncDisposable
 
     public async ValueTask ZoomInAsync()
     {
-        if (module != null)
-            await module.InvokeVoidAsync("zoomIn", rootEl);
+        await CallAsync("zoomIn", rootEl);
     }
 
     public async ValueTask ZoomOutAsync()
     {
-        if (module != null)
-            await module.InvokeVoidAsync("zoomOut", rootEl);
+        await CallAsync("zoomOut", rootEl);
     }
 
     public async ValueTask ZoomToFitAsync()
     {
-        if (module != null)
-            await module.InvokeVoidAsync("zoomToFit", rootEl);
+        await CallAsync("zoomToFit", rootEl);
     }
 
     /// <summary>Sets an explicit zoom factor, anchored on the centre of the view.</summary>
     public async ValueTask SetZoomAsync(double scale)
     {
-        if (module != null)
-            await module.InvokeVoidAsync("setZoom", rootEl, scale);
+        await CallAsync("setZoom", rootEl, scale);
     }
 
     public async ValueTask ApplyCropAsync()
     {
-        if (module != null)
-        {
-            await module.InvokeVoidAsync("applyCrop", rootEl);
-            currentMode = "none";
-            StateHasChanged();
-        }
+        if (!await CallAsync("applyCrop", rootEl))
+            return;
+
+        currentMode = "none";
+        StateHasChanged();
     }
 
     public async Task<byte[]> ExportAsync(string format = "png", double quality = 0.92, int? width = null, int? height = null)
     {
-        if (module == null)
-            return [];
-
-        return await module.InvokeAsync<byte[]>("exportImage", rootEl, format, quality,
-            width ?? 0, height ?? 0);
+        // An empty array rather than a throw when there is nothing to export from: a host calling
+        // this while tearing down should get "no image", not an exception out of a teardown path.
+        return await CallAsync<byte[]>("exportImage", rootEl, format, quality, width ?? 0, height ?? 0) ?? [];
     }
 
     // Toolbar actions
@@ -406,8 +410,7 @@ public partial class ImageEditor : IAsyncDisposable
 
     async Task PushShapeFillAsync()
     {
-        if (module != null)
-            await module.InvokeVoidAsync("updateShapeSettings", rootEl, shapeFill);
+        await CallAsync("updateShapeSettings", rootEl, shapeFill);
     }
 
     /// <summary>Folds the opacity into the hex swatch, since a colour input can't carry alpha.</summary>
@@ -432,11 +435,8 @@ public partial class ImageEditor : IAsyncDisposable
         DrawStrokeColor = color;
         TextColor = color;
 
-        if (module != null)
-        {
-            await module.InvokeVoidAsync("updateDrawSettings", rootEl, color, DrawStrokeWidth);
-            await module.InvokeVoidAsync("updateTextSettings", rootEl, color, TextFontSize, TextFontFamily);
-        }
+        await CallAsync("updateDrawSettings", rootEl, color, DrawStrokeWidth);
+        await CallAsync("updateTextSettings", rootEl, color, TextFontSize, TextFontFamily);
     }
 
     async Task OnFontFamilySelected(ChangeEventArgs e)
@@ -444,8 +444,7 @@ public partial class ImageEditor : IAsyncDisposable
         var value = e.Value?.ToString() ?? string.Empty;
         TextFontFamily = value;
         await TextFontFamilyChanged.InvokeAsync(value);
-        if (module != null)
-            await module.InvokeVoidAsync("updateTextSettings", rootEl, activeColor, TextFontSize, TextFontFamily);
+        await CallAsync("updateTextSettings", rootEl, activeColor, TextFontSize, TextFontFamily);
     }
 
     async Task OnFontSizeSelected(ChangeEventArgs e)
@@ -454,8 +453,7 @@ public partial class ImageEditor : IAsyncDisposable
         {
             TextFontSize = size;
             await TextFontSizeChanged.InvokeAsync(size);
-            if (module != null)
-                await module.InvokeVoidAsync("updateTextSettings", rootEl, activeColor, TextFontSize, TextFontFamily);
+            await CallAsync("updateTextSettings", rootEl, activeColor, TextFontSize, TextFontFamily);
         }
     }
 
@@ -484,8 +482,7 @@ public partial class ImageEditor : IAsyncDisposable
     async Task SetStrokeWidthAsync(double width)
     {
         DrawStrokeWidth = width;
-        if (module != null)
-            await module.InvokeVoidAsync("updateDrawSettings", rootEl, activeColor, width);
+        await CallAsync("updateDrawSettings", rootEl, activeColor, width);
     }
 
     bool IsSelectedWidth(double width) => Math.Abs(DrawStrokeWidth - width) < 0.01;
@@ -517,9 +514,9 @@ public partial class ImageEditor : IAsyncDisposable
         isTextInputVisible = false;
         textInputValue = "";
 
-        if (!string.IsNullOrEmpty(text) && module != null)
+        if (!string.IsNullOrEmpty(text))
         {
-            await module.InvokeVoidAsync("addTextAnnotation", rootEl, text, textInputNormX, textInputNormY);
+            await CallAsync("addTextAnnotation", rootEl, text, textInputNormX, textInputNormY);
         }
 
         StateHasChanged();
@@ -531,10 +528,75 @@ public partial class ImageEditor : IAsyncDisposable
         textInputValue = "";
     }
 
+    /// <summary>
+    /// Calls into the module, or does nothing once the component is on its way out.
+    /// </summary>
+    /// <returns>False when the call did not run, so a caller does not record state it never set.</returns>
+    /// <remarks>
+    /// Every one of these can be reached after teardown has begun - a queued render, a callback JS
+    /// already had in flight, a host that switched views while an operation was awaiting. Checking
+    /// the field for null does not cover it: the reference can be disposed while the call is on the
+    /// wire, and <see cref="IJSObjectReference"/> throws <see cref="ObjectDisposedException"/>
+    /// rather than returning. Escaping that far it is fatal - an unhandled exception from a
+    /// component's async work tears down the whole renderer, so one editor being closed at the
+    /// wrong moment takes every other component on the page with it.
+    /// </remarks>
+    async ValueTask<bool> CallAsync(string identifier, params object?[] args)
+    {
+        if (disposed || module is not { } target)
+            return false;
+
+        try
+        {
+            await target.InvokeVoidAsync(identifier, args);
+            return true;
+        }
+        catch (Exception e) when (IsTeardown(e))
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The same guard for a call that returns something.</summary>
+    async ValueTask<T?> CallAsync<T>(string identifier, params object?[] args)
+    {
+        if (disposed || module is not { } target)
+            return default;
+
+        try
+        {
+            return await target.InvokeAsync<T>(identifier, args);
+        }
+        catch (Exception e) when (IsTeardown(e))
+        {
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// Whether an exception is the component going away rather than the editor failing.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately narrow. A <see cref="JSException"/> is a real fault in the editor's own script
+    /// and still surfaces - swallowing those would turn a bug into an editor that silently stops
+    /// responding, which is far harder to report than a crash.
+    /// </remarks>
+    static bool IsTeardown(Exception e)
+        => e is JSDisconnectedException or ObjectDisposedException or OperationCanceledException;
+
     // JS callbacks
+    /// <remarks>
+    /// JS holds a DotNetObjectReference to this component and can call back after it has been
+    /// removed - a pointer gesture that lands as the view is switching. Raising the callback then
+    /// hands the host an event for a component it has already dropped, and StateHasChanged on a
+    /// disposed component throws into the renderer.
+    /// </remarks>
     [JSInvokable]
     public async Task OnCanUndoChanged(bool value)
     {
+        if (disposed)
+            return;
+
         canUndo = value;
         await CanUndoChanged.InvokeAsync(value);
         StateHasChanged();
@@ -543,6 +605,9 @@ public partial class ImageEditor : IAsyncDisposable
     [JSInvokable]
     public async Task OnCanRedoChanged(bool value)
     {
+        if (disposed)
+            return;
+
         canRedo = value;
         await CanRedoChanged.InvokeAsync(value);
         StateHasChanged();
@@ -551,6 +616,9 @@ public partial class ImageEditor : IAsyncDisposable
     [JSInvokable]
     public Task OnRequestTextInput(double canvasX, double canvasY, double normX, double normY, double scale)
     {
+        if (disposed)
+            return Task.CompletedTask;
+
         textInputLeft = canvasX;
         textInputTop = canvasY;
         textInputNormX = normX;
@@ -565,6 +633,9 @@ public partial class ImageEditor : IAsyncDisposable
     [JSInvokable]
     public async Task OnZoomChanged(double value)
     {
+        if (disposed)
+            return;
+
         zoomLevel = value;
         await ZoomLevelChanged.InvokeAsync(value);
         StateHasChanged();
@@ -572,16 +643,61 @@ public partial class ImageEditor : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (module != null)
-        {
-            try
-            {
-                await module.InvokeVoidAsync("dispose", rootEl);
-                await module.DisposeAsync();
-            }
-            catch (JSDisconnectedException) { }
-        }
+        // Flagged before anything is released, so a render or a JS callback that arrives during the
+        // teardown below stops at the guards rather than reaching a half-disposed component.
+        if (disposed)
+            return;
+
+        disposed = true;
+
+        // Taken and cleared together: leaving the field pointing at a disposed reference is what
+        // turns every later guard into a call on dead interop.
+        var target = module;
+        module = null;
+
+        await ReleaseAsync(target);
+
         selfRef?.Dispose();
+        selfRef = null;
+    }
+
+    /// <summary>
+    /// Tells the script to let go of its handlers, then releases the module.
+    /// </summary>
+    /// <param name="target">The module being released.  Passed in because the field is cleared first.</param>
+    /// <remarks>
+    /// Nothing here may throw. This runs from <see cref="DisposeAsync"/>, and an exception escaping
+    /// a disposal is not caught by whatever closed the view - it reaches the renderer unhandled and
+    /// takes the circuit down, so closing an editor would crash the page it was on. The failure
+    /// modes are all the same shape anyway: the circuit is gone, the reference is already disposed,
+    /// or the call was cancelled - in every one of them the browser is discarding this page's state
+    /// regardless, so there is nothing left to salvage by reporting it.
+    /// <para>
+    /// The script is keyed on <c>rootEl</c>, so that is passed through - without it the handlers
+    /// and the resize observer it attached outlive the component.  Where the import was abandoned
+    /// before <c>init</c> ran there is no state for that root and the script simply returns.
+    /// </para>
+    /// </remarks>
+    async ValueTask ReleaseAsync(IJSObjectReference? target)
+    {
+        if (target is null)
+            return;
+
+        try
+        {
+            await target.InvokeVoidAsync("dispose", rootEl);
+        }
+        catch (Exception e) when (IsTeardown(e) || e is JSException)
+        {
+        }
+
+        try
+        {
+            await target.DisposeAsync();
+        }
+        catch (Exception e) when (IsTeardown(e) || e is JSException)
+        {
+        }
     }
 
     sealed class ImageEditorJsOptions

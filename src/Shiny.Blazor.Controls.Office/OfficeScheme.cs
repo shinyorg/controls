@@ -42,6 +42,15 @@ static class OfficeScheme
         return Surface(scheme) is { } surface ? surface.Apply(baseline) : baseline;
     }
 
+    public static NotebookTheme Resolve(ThemeSchemeWatcher? scheme, NotebookTheme? explicitTheme)
+    {
+        if (explicitTheme is { } given)
+            return given;
+
+        var baseline = scheme?.IsDark == true ? NotebookTheme.Dark : NotebookTheme.Light;
+        return Surface(scheme) is { } surface ? surface.Apply(baseline) : baseline;
+    }
+
     /// <summary>
     /// The palette, or null when any one token could not be read.
     /// </summary>

@@ -33,6 +33,10 @@
     </Tooltip>
     }
 
+    @* Off for a surface that has no tables. A trigger that opens a grid picker whose result the host
+       cannot place is worse than no button: it reads as a feature that is broken rather than absent. *@
+    @if (this.ShowTable)
+    {
     <Tooltip Text="Table" Placement="TooltipPlacement.Bottom" Trigger="@this.TooltipTriggerMode">
         <button type="button"
                 class="shiny-office-btn"
@@ -43,6 +47,7 @@
                 disabled="@this.Disabled"
                 @onclick="() => this.Toggle(Panel.Table)">@OfficeToolbarIcons.Get(OfficeIcon.Table)</button>
     </Tooltip>
+    }
 
     @*
         A label rather than a button, because the file input has to be inside the thing that is
@@ -169,6 +174,9 @@
 
     /// <summary>Offer the shapes gallery. Off where a Shapes ribbon tab already carries it.</summary>
     [Parameter] public bool ShowShapes { get; set; } = true;
+
+    /// <summary>Offer the table picker. Off for a surface that cannot hold a table.</summary>
+    [Parameter] public bool ShowTable { get; set; } = true;
 
     /// <summary>
     /// Muting the tooltip rather than leaving it out, because the alternative is writing each of

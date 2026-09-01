@@ -1,0 +1,722 @@
+@using SkiaSharp
+@using SkiaSharp.Views.Blazor
+@using Shiny.Controls.Office.Notebook
+@using Shiny.Controls.Office.Packaging
+@using Shiny.Controls.Office.Shapes
+@using Shiny.Controls.Office.Spreadsheet
+@using Shiny.Controls.Office.View
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    The lone notebook canvas: a scrolling free-form page, and the hidden input the platform types
+    into. No chrome — NotebookEditorView adds the ribbon, the section tabs and the page list.
+    Anything a toolbar needs is on Controller.
+*@
+<div class="shiny-notebook-editor @Class"
+     style="@Style"
+     @ref="host"
+     @onwheel="OnWheel"
+     @onwheel:preventDefault="true"
+     @onpointerdown="OnPointerDown"
+     @onpointerdown:preventDefault="true"
+     @onpointermove="OnPointerMove"
+     @onpointerup="OnPointerUp"
+     @onpointercancel="OnPointerUp"
+     @ondblclick="OnDoubleClick">
+
+    <SKCanvasView @ref="canvas"
+                  class="shiny-notebook-editor-canvas"
+                  IgnorePixelScaling="false"
+                  OnPaintSurface="OnPaint" />
+
+    @*
+        The real text input, parked at the caret rather than offscreen: a hidden input scrolls the
+        page when the browser focuses it, and on mobile the IME candidate window follows this
+        element's position.
+    *@
+    <div class="shiny-notebook-editor-input"
+         style="@InputStyle"
+         contenteditable="true"
+         spellcheck="false"
+         @ref="input"
+         @onkeydown="OnKeyDown"
+         @onkeydown:preventDefault="preventKeyDefault"
+         @onfocus="OnFocus"
+         @onblur="OnBlur"></div>
+</div>
+
+@code {
+    SKCanvasView? canvas;
+    ElementReference input;
+    ElementReference host;
+    IJSObjectReference? dropModule;
+    IJSObjectReference? dropHandle;
+    IJSObjectReference? inputModule;
+    IJSObjectReference? inputHandle;
+    IJSObjectReference? captureModule;
+    IJSObjectReference? captureHandle;
+    DotNetObjectReference<NotebookEditor>? selfReference;
+    SkiaTextMeasurer? measurer;
+    NotebookPainter? painter;
+    NotebookEditorController? controller;
+    bool preventKeyDefault;
+    bool focused;
+    bool focusInput;
+    double lastWidth;
+    double lastHeight;
+
+    /// <summary>
+    /// The theme the canvas was last painted with.
+    /// </summary>
+    /// <remarks>
+    /// SKCanvasView only repaints when Invalidate is called; a Blazor re-render does not touch the
+    /// canvas contents. Without this comparison a theme change updates the parameter, re-renders the
+    /// component and leaves the old pixels on screen — the toggle appears to do nothing at all.
+    /// </remarks>
+    NotebookTheme? paintedTheme;
+    ThemeSchemeWatcher scheme = null!;
+
+    double dpr = 1;
+
+    static readonly System.Globalization.CultureInfo Culture = System.Globalization.CultureInfo.InvariantCulture;
+
+    /// <summary>The notebook to edit.</summary>
+    [Parameter] public NotebookDocument? Notebook { get; set; }
+
+    /// <summary>
+    /// Canvas colours. Left unset the surface follows the page's light/dark scheme; setting it pins
+    /// the choice, including to <see cref="NotebookTheme.Light"/>.
+    /// </summary>
+    [Parameter] public NotebookTheme? Theme { get; set; }
+
+    NotebookTheme EffectiveTheme => OfficeScheme.Resolve(this.scheme, this.Theme);
+
+    /// <summary>What a press on the canvas does — select, write, draw, erase, lasso.</summary>
+    [Parameter] public NoteTool Tool { get; set; } = NoteTool.Select;
+
+    [Parameter] public EventCallback<NoteTool> ToolChanged { get; set; }
+
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Whether dragging an image file onto the page inserts it. On by default.</summary>
+    [Parameter] public bool AllowFileDrop { get; set; } = true;
+
+    /// <summary>Raised when a dropped file could not be inserted, so a host can say so.</summary>
+    [Parameter] public EventCallback<OfficeDropRejected> DropRejected { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Style { get; set; }
+
+    /// <summary>Raised after every edit.</summary>
+    [Parameter] public EventCallback NotebookChanged { get; set; }
+
+    /// <summary>
+    /// Raised when the selection, the caret or the tool changes without the notebook having changed.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="NotebookChanged"/> because chrome around the editor has to follow the
+    /// selection too: without this a wrapper's toolbar only refreshes once an edit happens, so
+    /// picking up the pen leaves the bar showing the arrow still lit.
+    /// </remarks>
+    [Parameter] public EventCallback SelectionChanged { get; set; }
+
+    /// <summary>The live controller — tools, selection, caret, formatting, undo.</summary>
+    public NotebookEditorController? Controller => this.controller;
+
+    protected override void OnInitialized()
+        // The canvas only redraws when told to, so a scheme flip has to invalidate it explicitly.
+        => this.scheme = new ThemeSchemeWatcher(this.Js, () =>
+        {
+            this.canvas?.Invalidate();
+            this.StateHasChanged();
+            return Task.CompletedTask;
+        });
+
+    protected override void OnParametersSet()
+    {
+        // First, before any of the early returns below, for the reason on paintedTheme.
+        if (this.paintedTheme != this.EffectiveTheme)
+        {
+            this.paintedTheme = this.EffectiveTheme;
+            this.canvas?.Invalidate();
+        }
+
+        if (this.Notebook is null)
+        {
+            this.controller = null;
+            return;
+        }
+
+        this.measurer ??= new SkiaTextMeasurer();
+        this.painter ??= new NotebookPainter(this.measurer);
+
+        if (this.controller is null || !ReferenceEquals(this.controller.Document, this.Notebook))
+        {
+            if (this.controller is not null)
+            {
+                this.controller.Changed -= this.OnControllerChanged;
+                this.controller.Edited -= this.OnEdited;
+            }
+
+            this.controller = new NotebookEditorController(this.Notebook, this.measurer);
+            this.controller.Changed += this.OnControllerChanged;
+
+            // Every edit reports through the controller, including a drag and a stroke — both of which
+            // are driven straight through the commands and never pass through a keyboard handler.
+            this.controller.Edited += this.OnEdited;
+
+            if (this.lastWidth > 0)
+                this.controller.Resize(this.lastWidth, this.lastHeight);
+        }
+
+        this.controller.IsReadOnly = this.ReadOnly;
+        this.controller.Tool = this.Tool;
+    }
+
+    async void OnControllerChanged(object? sender, EventArgs e)
+    {
+        if (this.controller is { } controller && controller.Tool != this.Tool)
+        {
+            this.Tool = controller.Tool;
+            if (this.ToolChanged.HasDelegate)
+                await this.ToolChanged.InvokeAsync(controller.Tool);
+        }
+
+        this.canvas?.Invalidate();
+        this.StateHasChanged();
+
+        if (this.SelectionChanged.HasDelegate)
+            await this.SelectionChanged.InvokeAsync();
+    }
+
+    async void OnEdited(object? sender, EventArgs e)
+    {
+        this.canvas?.Invalidate();
+        this.StateHasChanged();
+
+        if (this.NotebookChanged.HasDelegate)
+            await this.NotebookChanged.InvokeAsync();
+    }
+
+    void OnPaint(SKPaintSurfaceEventArgs e)
+    {
+        var info = e.Info;
+        var theme = this.EffectiveTheme;
+        var surface = e.Surface.Canvas;
+
+        surface.Clear(new SKColor(theme.Paper.R, theme.Paper.G, theme.Paper.B));
+
+        if (this.controller is null || this.painter is null)
+            return;
+
+        // The surface arrives in device pixels; the layout works in CSS pixels.
+        var scale = (float)this.dpr;
+        var width = info.Width / this.dpr;
+        var height = info.Height / this.dpr;
+
+        if (this.lastWidth <= 0 || Math.Abs(width - this.lastWidth) > 0.5 || Math.Abs(height - this.lastHeight) > 0.5)
+        {
+            this.lastWidth = width;
+            this.lastHeight = height;
+            this.controller.Resize(width, height);
+        }
+
+        if (this.controller.Page is not { } page)
+            return;
+
+        // Each frame rather than once at construction: the theme can flip mid-session, and an unchosen
+        // pen has to move with it or it draws invisible ink on the new ground.
+        this.controller.ApplyDefaultInk(theme.DefaultInk);
+
+        this.painter.Paint(surface, new NotebookPaintRequest
+        {
+            Page = page,
+            Zoom = this.controller.Zoom,
+            ScrollX = this.controller.ScrollX,
+            ScrollY = this.controller.ScrollY,
+            ViewportWidth = width,
+            ViewportHeight = height,
+            Theme = theme,
+            DeviceScale = scale,
+            Chrome = this.BuildChrome(theme)
+        });
+    }
+
+    /// <summary>
+    /// The editing overlay, or null when there is none to draw.
+    /// </summary>
+    /// <remarks>
+    /// The caret is dropped when the editor does not have focus. One shown without it reads as an
+    /// editor accepting keystrokes when it is not.
+    /// </remarks>
+    NotebookChrome? BuildChrome(NotebookTheme theme)
+    {
+        if (this.controller is not { } controller)
+            return null;
+
+        if (this.ReadOnly && !controller.HasSelection)
+            return null;
+
+        var chrome = NotebookChrome.From(controller, theme.Accent);
+
+        return this.focused ? chrome : chrome with { Caret = null };
+    }
+
+    // ---- pointer ----
+
+    void OnPointerDown(PointerEventArgs e)
+    {
+        if (this.controller is null)
+            return;
+
+        this.controller.PointerDown(e.OffsetX, e.OffsetY, KindOf(e.PointerType), e.ShiftKey);
+
+        // Focus is taken deliberately: the host element prevents the pointer's default action, which
+        // is what otherwise moves focus off the hidden input a few milliseconds later.
+        this.focusInput = true;
+    }
+
+    void OnPointerMove(PointerEventArgs e)
+    {
+        if (this.controller is null || (e.Buttons & 1) != 1)
+            return;
+
+        // Only a pen's pressure is real. Every other device reports a constant — Chrome sends 0.5 for
+        // a mouse and 1 for touch — so taking it at face value would make the same stroke a different
+        // weight depending on what drew it.
+        var pressure = e.PointerType == "pen" ? Math.Clamp(e.Pressure, 0.05f, 1f) : 0.5;
+
+        this.controller.PointerMoveWithPressure(e.OffsetX, e.OffsetY, pressure);
+    }
+
+    void OnPointerUp(PointerEventArgs e) => this.controller?.PointerUp();
+
+    void OnDoubleClick(MouseEventArgs e)
+    {
+        this.controller?.PointerDoubleClick(e.OffsetX, e.OffsetY);
+        this.focusInput = true;
+    }
+
+    static PointerKind KindOf(string? pointerType) => pointerType switch
+    {
+        "pen" => PointerKind.Pen,
+        "touch" => PointerKind.Touch,
+        _ => PointerKind.Mouse
+    };
+
+    /// <summary>
+    /// The wheel scrolls the page; with a modifier it zooms about the pointer.
+    /// </summary>
+    /// <remarks>
+    /// Ctrl-wheel is also the browser's own page zoom, which is why the handler prevents the default —
+    /// zooming the whole application when the user meant to zoom the canvas is a jarring thing to do
+    /// by accident, and there is no way to undo it from inside the page.
+    /// </remarks>
+    void OnWheel(WheelEventArgs e)
+    {
+        if (this.controller is not { } controller)
+            return;
+
+        if (e.CtrlKey || e.MetaKey)
+        {
+            controller.SetZoom(controller.Zoom * (e.DeltaY > 0 ? 0.9 : 1.1), e.OffsetX, e.OffsetY);
+            return;
+        }
+
+        controller.ScrollBy(e.ShiftKey ? e.DeltaY : e.DeltaX, e.ShiftKey ? 0 : e.DeltaY);
+    }
+
+    void OnFocus()
+    {
+        this.focused = true;
+        this.canvas?.Invalidate();
+    }
+
+    void OnBlur()
+    {
+        this.focused = false;
+
+        // Leaving the caret parked in a container the user has clicked away from would leave an empty
+        // one behind on the page; EndTextEditing is what sweeps those up.
+        this.controller?.EndTextEditing();
+        this.canvas?.Invalidate();
+    }
+
+    // ---- text input ----
+
+    /// <summary>
+    /// The single entry point for inserted text.
+    /// </summary>
+    /// <remarks>
+    /// <c>beforeinput</c> rather than key events: it is the only event that reports IME composition,
+    /// autocorrect, dictation and paste as ordinary insertions.
+    /// </remarks>
+    [JSInvokable]
+    public Task HandleBeforeInput(string inputType, string? data)
+    {
+        if (this.controller is null || this.ReadOnly || !this.controller.IsEditingText)
+            return Task.CompletedTask;
+
+        switch (inputType)
+        {
+            case "insertText":
+            case "insertCompositionText":
+            case "insertFromPaste":
+            case "insertReplacementText":
+                if (!string.IsNullOrEmpty(data))
+                    this.controller.InsertText(data);
+
+                break;
+
+            case "insertParagraph":
+            case "insertLineBreak":
+                this.controller.InsertParagraph();
+                break;
+
+            case "deleteContentBackward":
+                this.controller.Backspace();
+                break;
+
+            case "deleteContentForward":
+                this.controller.Delete();
+                break;
+
+            default:
+                return Task.CompletedTask;
+        }
+
+        this.Repaint();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Routes a key press to the controller.
+    /// </summary>
+    /// <remarks>
+    /// The controller switches on the browser's own key names, so they go through untranslated — it is
+    /// the MAUI hosts that translate, because they are the ones with no portable key event of their
+    /// own. Printable characters are deliberately left alone: they arrive through
+    /// <c>beforeinput</c>, which is what makes IME and dictation work, and swallowing them here breaks
+    /// both.
+    /// </remarks>
+    void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (this.controller is null)
+            return;
+
+        var command = e.CtrlKey || e.MetaKey;
+
+        // A bare printable character is never handled here, so it must not be prevented either.
+        this.preventKeyDefault = command || e.Key.Length > 1;
+
+        if (!this.controller.HandleKey(e.Key, e.ShiftKey, command))
+            this.preventKeyDefault = false;
+        else
+            this.Repaint();
+    }
+
+    string InputStyle
+    {
+        get
+        {
+            if (this.controller?.CaretRect() is not { } caret)
+                return "left:-9999px;top:0";
+
+            // Parked at the caret so the IME composition window appears in the right place.
+            return $"left:{Css(caret.X)}px;top:{Css(caret.Y)}px;height:{Css(Math.Max(12, caret.Height))}px";
+        }
+    }
+
+    static string Css(double value) => value.ToString("0.##", Culture);
+
+    public async Task FocusAsync()
+    {
+        if (this.inputModule is null)
+            return;
+
+        try
+        {
+            await this.inputModule.InvokeVoidAsync("focus", this.input);
+        }
+        catch (JSException ex)
+        {
+            // Reported rather than swallowed: a focus that quietly fails looks exactly like an editor
+            // that has stopped accepting input, with nothing anywhere to say why.
+            Console.Error.WriteLine($"[Shiny.Office] Could not focus the notebook editor: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Repaints after an action that may not have changed the notebook.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately does not raise <c>NotebookChanged</c>: every real edit already reports through the
+    /// controller's <c>Edited</c> event, and raising it here as well made one keystroke look like two.
+    /// </remarks>
+    void Repaint()
+    {
+        this.canvas?.Invalidate();
+        this.StateHasChanged();
+    }
+
+    // ---- commands a toolbar drives ----
+
+    public void ZoomIn() => this.controller?.SetZoom((this.controller.Zoom) * 1.25, this.lastWidth / 2, this.lastHeight / 2);
+
+    public void ZoomOut() => this.controller?.SetZoom((this.controller.Zoom) / 1.25, this.lastWidth / 2, this.lastHeight / 2);
+
+    public void ResetZoom() => this.controller?.SetZoom(1, this.lastWidth / 2, this.lastHeight / 2);
+
+    /// <summary>Adds a shape in the middle of what is currently on screen.</summary>
+    public void InsertShape(ShapeGeometry geometry)
+    {
+        if (this.controller is not { } controller)
+            return;
+
+        var (x, y) = controller.ToPage(this.lastWidth / 2 - 90, this.lastHeight / 2 - 55);
+        controller.AddShape(geometry, x, y);
+        this.focusInput = true;
+    }
+
+    public void InsertTextBox()
+    {
+        if (this.controller is not { } controller)
+            return;
+
+        var (x, y) = controller.ToPage(this.lastWidth / 2 - 160, this.lastHeight / 2 - 16);
+        controller.AddTextBox(x, y);
+        this.focusInput = true;
+    }
+
+    public void InsertImage(byte[] bytes, string contentType)
+    {
+        if (this.controller is not { } controller)
+            return;
+
+        var (width, height) = MeasureImage(bytes);
+        var (x, y) = controller.ToPage(this.lastWidth / 2 - 120, this.lastHeight / 2 - 90);
+        controller.AddImage(bytes, contentType, x, y, width, height);
+    }
+
+    /// <summary>
+    /// The pixel size of encoded image bytes, so a picture arrives at its own aspect ratio.
+    /// </summary>
+    /// <remarks>
+    /// Decoded here rather than passed in because every route that produces bytes — a file pick, a
+    /// drop, a paste — would otherwise have to work it out separately, and a wrong guess is a squashed
+    /// photo rather than an error anyone would notice.
+    /// </remarks>
+    static (double Width, double Height) MeasureImage(byte[] bytes)
+    {
+        try
+        {
+            using var codec = SKCodec.Create(new MemoryStream(bytes, writable: false));
+            if (codec is { Info: { Width: > 0, Height: > 0 } info })
+                return (info.Width, info.Height);
+        }
+        catch (Exception)
+        {
+            // A picture that will not decode is still inserted, at a default size, so the user can see
+            // that something landed and delete it.
+        }
+
+        return (320, 240);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Before the DPR read: the canvas paints its first frame off this, and starting the watch
+            // second would flash a white page in a dark app.
+            await this.scheme.StartAsync(this.host);
+
+            try
+            {
+                this.dpr = await this.Js.InvokeAsync<double>("eval", "window.devicePixelRatio || 1");
+            }
+            catch (Exception)
+            {
+                this.dpr = 1;
+            }
+
+            if (this.dpr <= 0)
+                this.dpr = 1;
+
+            this.canvas?.Invalidate();
+
+            if (await OfficeFonts.EnsureLoadedAsync(this.Js))
+            {
+                this.canvas?.Invalidate();
+                this.StateHasChanged();
+            }
+
+            await this.AttachInputAsync();
+            await this.AttachCaptureAsync();
+            await this.AttachDropAsync();
+        }
+
+        if (this.focusInput)
+        {
+            this.focusInput = false;
+            await this.FocusAsync();
+        }
+    }
+
+    // ---- file drop ----
+
+    /// <summary>
+    /// Receives one dropped file from the browser, and places it where it landed.
+    /// </summary>
+    /// <remarks>
+    /// A page has real positions, so the picture goes exactly where the pointer was, centred on it —
+    /// which is what dropping onto a canvas is expected to mean.
+    /// </remarks>
+    [JSInvokable]
+    public async Task HandleFileDrop(string name, string contentType, string? base64, double x, double y)
+    {
+        if (this.controller is not { } controller || this.ReadOnly)
+            return;
+
+        if (base64 is null)
+        {
+            await this.RaiseDropRejectedAsync(name, "The file is too large to embed.");
+            return;
+        }
+
+        if (ImageContentTypes.Resolve(name, contentType) is not { } resolved)
+        {
+            await this.RaiseDropRejectedAsync(name, "Only images can be dropped onto a page.");
+            return;
+        }
+
+        var bytes = Convert.FromBase64String(base64);
+        var (width, height) = MeasureImage(bytes);
+        var (pageX, pageY) = controller.ToPage(x, y);
+
+        controller.AddImage(bytes, resolved, pageX - width / 2, pageY - height / 2, width, height);
+
+        this.canvas?.Invalidate();
+        this.StateHasChanged();
+
+        if (this.NotebookChanged.HasDelegate)
+            await this.NotebookChanged.InvokeAsync();
+    }
+
+    async Task RaiseDropRejectedAsync(string name, string reason)
+    {
+        if (this.DropRejected.HasDelegate)
+            await this.DropRejected.InvokeAsync(new OfficeDropRejected(name, reason));
+    }
+
+    /// <summary>
+    /// Gives the canvas pointer capture for the length of a drag.
+    /// </summary>
+    /// <remarks>
+    /// A drag that leaves the canvas — over the page list, the ribbon, or off the window — otherwise
+    /// stops delivering moves and never delivers its up, so the item freezes and the controller is
+    /// left mid-drag. Blazor exposes no binding for <c>setPointerCapture</c>, so it is wired in JS.
+    /// </remarks>
+    async Task AttachCaptureAsync()
+    {
+        try
+        {
+            this.captureModule = await this.Js.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/Shiny.Blazor.Controls.Office/notebookCanvas.js");
+
+            this.captureHandle = await this.captureModule.InvokeAsync<IJSObjectReference>("attach", this.host);
+        }
+        catch (Exception ex)
+        {
+            // The canvas still works; a drag that wanders off it just stops early, which is how it
+            // behaved before this existed.
+            Console.Error.WriteLine($"[Shiny.Office] Notebook pointer capture is unavailable: {ex.Message}");
+        }
+    }
+
+    async Task AttachDropAsync()
+    {
+        if (!this.AllowFileDrop)
+            return;
+
+        try
+        {
+            this.dropModule = await this.Js.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/Shiny.Blazor.Controls.Office/officeDrop.js");
+
+            this.dropHandle = await this.dropModule.InvokeAsync<IJSObjectReference>(
+                "attach", this.host, this.selfReference, nameof(HandleFileDrop));
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Shiny.Office] File drop is unavailable: {ex.Message}");
+        }
+    }
+
+    async Task AttachInputAsync()
+    {
+        try
+        {
+            this.selfReference = DotNetObjectReference.Create(this);
+
+            // The same module the document and slide editors use — it only attaches beforeinput,
+            // which is exactly what this needs too.
+            this.inputModule = await this.Js.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/Shiny.Blazor.Controls.Office/documentEditor.js");
+
+            this.inputHandle = await this.inputModule.InvokeAsync<IJSObjectReference>("attach", this.input, this.selfReference);
+        }
+        catch (Exception ex)
+        {
+            // Prerendering or a host without JS interop leaves the canvas navigable but unable to
+            // accept text. Reported rather than swallowed: silence is indistinguishable from an editor
+            // that simply ignores the keyboard.
+            Console.Error.WriteLine($"[Shiny.Office] Notebook text input is unavailable: {ex.Message}");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (this.controller is not null)
+        {
+            this.controller.Changed -= this.OnControllerChanged;
+            this.controller.Edited -= this.OnEdited;
+        }
+
+        await this.scheme.DisposeAsync();
+
+        try
+        {
+            if (this.inputModule is not null && this.inputHandle is not null)
+                await this.inputModule.InvokeVoidAsync("detach", this.inputHandle);
+
+            if (this.inputModule is not null)
+                await this.inputModule.DisposeAsync();
+
+            if (this.dropModule is not null && this.dropHandle is not null)
+                await this.dropModule.InvokeVoidAsync("detach", this.dropHandle);
+
+            if (this.dropModule is not null)
+                await this.dropModule.DisposeAsync();
+
+            if (this.captureModule is not null && this.captureHandle is not null)
+                await this.captureModule.InvokeVoidAsync("detach", this.captureHandle);
+
+            if (this.captureModule is not null)
+                await this.captureModule.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is already gone; there is nothing left to detach from.
+        }
+
+        this.selfReference?.Dispose();
+        this.painter?.Dispose();
+        this.measurer?.Dispose();
+    }
+}

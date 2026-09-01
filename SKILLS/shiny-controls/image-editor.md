@@ -213,3 +213,19 @@ genuinely needs its own, and `ToolbarActions` adds the host's own commands into 
 giving up the rest.
 
 On a narrow editor the ribbon switches itself to `Simplified` below 600px — no code needed.
+
+## Teardown (Blazor)
+
+The component survives being removed mid-operation: interop runs through one guarded path that stops
+once disposal begins, so closing the editor while a call is in flight is a no-op rather than an
+`ObjectDisposedException` reaching the renderer (which would tear down the whole page, not just the
+editor). Do **not** generate defensive wrappers, try/catch or `ErrorBoundary` around `<ImageEditor>`
+for this - it is handled in the control.
+
+- `ExportAsync` returns an **empty array** when there is nothing to export from - check `Length`
+  rather than assuming bytes.
+- Methods that record state (`SetModeAsync`, `ApplyCropAsync`, `ResetAsync`) only do so when the call
+  actually ran.
+- A genuine `JSException` still propagates; only disconnection, disposal and cancellation are
+  swallowed.
+- `CanUndoChanged` / `CanRedoChanged` / `ZoomLevelChanged` never fire after the component is disposed.

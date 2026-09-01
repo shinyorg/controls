@@ -273,91 +273,11 @@ public sealed class SlidePainter(SkiaTextMeasurer measurer) : IDisposable
         }
 
         if (shape.Text is { } text)
-            this.PaintTextBody(canvas, text, bounds, theme);
+            ShapeTextPainter.Draw(canvas, this.fill, this.stroke, measurer, text, bounds);
 
         canvas.Restore();
     }
 
-
-    void PaintTextBody(SKCanvas canvas, ShapeTextBody body, SKRect bounds, SlideTheme theme)
-    {
-        // Laid out by the shared kernel rather than here, so the editor's caret and this painter's
-        // glyphs can never disagree about where a character sits.
-        var layout = ShapeTextLayout.Layout(body, bounds.Width, bounds.Height, measurer);
-        if (layout.Paragraphs.Count == 0)
-            return;
-
-        canvas.Save();
-        canvas.ClipRect(bounds);
-
-        foreach (var block in layout.Paragraphs)
-        {
-            var left = bounds.Left + (float)(layout.Left + block.Indent);
-            var top = bounds.Top + (float)(layout.Top + block.Y);
-
-            if (block.Bullet is { } bullet && block.Lines.Count > 0)
-            {
-                this.fill.Color = ToSk(block.BulletStyle.Color);
-                this.fill.Shader = null;
-
-                canvas.DrawText(
-                    bullet,
-                    left - (float)block.BulletAdvance,
-                    top + (float)block.Lines[0].Ascent,
-                    SKTextAlign.Left,
-                    measurer.GetFont(block.BulletStyle),
-                    this.fill);
-            }
-
-            foreach (var line in block.Lines)
-            {
-                var baseline = top + (float)(line.Y + line.Ascent);
-
-                foreach (var run in line.Runs)
-                {
-                    if (run.Text.Length == 0)
-                        continue;
-
-                    this.fill.Shader = null;
-                    var x = left + (float)run.X;
-                    var glyphFont = measurer.GetFont(run.Style);
-
-                    // Behind the glyphs, and sized from the font's own metrics rather than the line's:
-                    // a line box is as tall as its tallest run, so measuring the band from it would
-                    // give a small highlighted word a stripe the height of the heading beside it.
-                    if (run.Style.Highlight is { } runHighlight)
-                    {
-                        this.fill.Color = ToSk(runHighlight);
-                        var metrics = glyphFont.Metrics;
-                        canvas.DrawRect(
-                            new SKRect(x, baseline + metrics.Ascent, x + (float)run.Width, baseline + metrics.Descent),
-                            this.fill);
-                    }
-
-                    this.fill.Color = ToSk(run.Style.Color);
-                    canvas.DrawText(run.Text, x, baseline, SKTextAlign.Left, glyphFont, this.fill);
-
-                    if (run.Style.Underline != UnderlineStyle.None)
-                    {
-                        this.stroke.Color = ToSk(run.Style.Color);
-                        this.stroke.StrokeWidth = Math.Max(1, (float)(run.Style.FontSize / 14));
-                        var offset = baseline + (float)(run.Style.FontSize * 0.12);
-                        canvas.DrawLine(x, offset, x + (float)run.Width, offset, this.stroke);
-                    }
-
-                    if (run.Style.Strike)
-                    {
-                        this.stroke.Color = ToSk(run.Style.Color);
-                        this.stroke.StrokeWidth = Math.Max(1, (float)(run.Style.FontSize / 14));
-                        var middle = baseline - (float)(run.Style.FontSize * 0.28);
-                        canvas.DrawLine(x, middle, x + (float)run.Width, middle, this.stroke);
-                    }
-                }
-            }
-        }
-
-        canvas.Restore();
-    }
 
     void PaintTable(SKCanvas canvas, SlideTable table, SKRect bounds, SlideTheme theme)
     {
@@ -390,7 +310,7 @@ public sealed class SlidePainter(SkiaTextMeasurer measurer) : IDisposable
                     }
 
                     if (cell.Text is { } text)
-                        this.PaintTextBody(canvas, text, rect, theme);
+                        ShapeTextPainter.Draw(canvas, this.fill, this.stroke, measurer, text, rect);
 
                     this.stroke.Color = ToSk(theme.Border);
                     this.stroke.StrokeWidth = 1;

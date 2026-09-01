@@ -140,7 +140,42 @@ public enum OfficeIcon
     MarginsNarrow,
     MarginsNormal,
     MarginsModerate,
-    MarginsWide
+    MarginsWide,
+
+    // The notebook canvas. Every one of these is a *mode* the pointer is in rather than a command it
+    // runs, which is why they sit on toggles in the bar and why the artwork is a picture of the tool
+    // in the hand rather than of the mark it leaves.
+
+    /// <summary>The arrow: select, move, resize.</summary>
+    Pointer,
+
+    /// <summary>The pen. Paired with <see cref="Highlight"/>, which doubles as the highlighter pen.</summary>
+    Pen,
+
+    Eraser,
+
+    /// <summary>The lasso, drawn as the dashed loop it leaves on the page.</summary>
+    Lasso,
+
+    /// <summary>The open hand: drag to scroll.</summary>
+    Hand,
+
+    /// <summary>Add a page.</summary>
+    NewPage,
+
+    /// <summary>Add a section.</summary>
+    NewSection,
+
+    /// <summary>The page's rule — blank, lined, grid or dots.</summary>
+    PageRule,
+
+    BringToFront,
+
+    SendToBack,
+
+    Duplicate,
+
+    Lock
 }
 
 
@@ -667,6 +702,156 @@ public static class OfficeIcons
         // first attempt and they ate the bar: four buttons captioned Normal/Narrow/Moderate/Wide are
         // most of a phone's width, which pushed everything after them off the edge. The inset is the
         // whole difference between them, so drawing it is both smaller and more direct than saying it.
+        // A cursor arrow, drawn as the closed figure it is rather than as an outline, so at 16px it
+        // still reads as an arrow instead of as two crossing strokes.
+        OfficeIcon.Pointer =>
+        [
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(6f, 3.5f),
+                OfficeIconVertex.LineTo(18f, 12.6f),
+                OfficeIconVertex.LineTo(12.4f, 13.4f),
+                OfficeIconVertex.LineTo(15.6f, 19.4f),
+                OfficeIconVertex.LineTo(13.1f, 20.7f),
+                OfficeIconVertex.LineTo(10f, 14.7f),
+                OfficeIconVertex.LineTo(6f, 18.6f),
+                OfficeIconVertex.Close)
+        ],
+
+        // The barrel with a separate nib, which is what distinguishes a pen from the plain diagonal
+        // that would otherwise be indistinguishable from the italic and line icons.
+        OfficeIcon.Pen =>
+        [
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(4.5f, 19.5f),
+                OfficeIconVertex.LineTo(5.6f, 15.6f),
+                OfficeIconVertex.LineTo(16.2f, 5f),
+                OfficeIconVertex.CurveTo(17f, 4.2f, 18.3f, 4.2f, 19.1f, 5f),
+                OfficeIconVertex.CurveTo(19.9f, 5.8f, 19.9f, 7.1f, 19.1f, 7.9f),
+                OfficeIconVertex.LineTo(8.5f, 18.5f),
+                OfficeIconVertex.Close),
+            OfficeIconShape.Line(14.6f, 6.6f, 17.5f, 9.5f)
+        ],
+
+        // A wedge block with the rubbing edge on the baseline: the block alone reads as a rotated
+        // rectangle, and the line under it is what says which end does the work.
+        OfficeIcon.Eraser =>
+        [
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(9.2f, 18.5f),
+                OfficeIconVertex.LineTo(4.6f, 13.9f),
+                OfficeIconVertex.CurveTo(3.9f, 13.2f, 3.9f, 12.1f, 4.6f, 11.4f),
+                OfficeIconVertex.LineTo(12.3f, 3.7f),
+                OfficeIconVertex.CurveTo(13f, 3f, 14.1f, 3f, 14.8f, 3.7f),
+                OfficeIconVertex.LineTo(19.4f, 8.3f),
+                OfficeIconVertex.CurveTo(20.1f, 9f, 20.1f, 10.1f, 19.4f, 10.8f),
+                OfficeIconVertex.LineTo(11.7f, 18.5f),
+                OfficeIconVertex.Close),
+            OfficeIconShape.Line(4f, 20.6f, 20f, 20.6f)
+        ],
+
+        // The loop, plus the little tail where the two ends cross - without it a lasso is just an
+        // ellipse, and the set already has one of those.
+        OfficeIcon.Lasso =>
+        [
+            OfficeIconShape.Ellipse(3.6f, 4.2f, 16.8f, 11.4f),
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(8.6f, 15.3f),
+                OfficeIconVertex.CurveTo(8.6f, 17.6f, 10.2f, 18.6f, 10.2f, 20.4f))
+        ],
+
+        OfficeIcon.Hand =>
+        [
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(8f, 12.4f),
+                OfficeIconVertex.LineTo(8f, 5.6f),
+                OfficeIconVertex.CurveTo(8f, 4.6f, 8.8f, 3.8f, 9.8f, 3.8f),
+                OfficeIconVertex.CurveTo(10.8f, 3.8f, 11.6f, 4.6f, 11.6f, 5.6f),
+                OfficeIconVertex.LineTo(11.6f, 11f)),
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(11.6f, 11f),
+                OfficeIconVertex.LineTo(11.6f, 6.6f),
+                OfficeIconVertex.CurveTo(11.6f, 5.6f, 12.4f, 4.8f, 13.4f, 4.8f),
+                OfficeIconVertex.CurveTo(14.4f, 4.8f, 15.2f, 5.6f, 15.2f, 6.6f),
+                OfficeIconVertex.LineTo(15.2f, 11.6f)),
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(15.2f, 11.6f),
+                OfficeIconVertex.LineTo(15.2f, 8.4f),
+                OfficeIconVertex.CurveTo(15.2f, 7.4f, 16f, 6.6f, 17f, 6.6f),
+                OfficeIconVertex.CurveTo(18f, 6.6f, 18.8f, 7.4f, 18.8f, 8.4f),
+                OfficeIconVertex.LineTo(18.8f, 14.6f),
+                OfficeIconVertex.CurveTo(18.8f, 18f, 16.2f, 20.6f, 12.8f, 20.6f),
+                OfficeIconVertex.CurveTo(9.4f, 20.6f, 8f, 18.4f, 8f, 18.4f),
+                OfficeIconVertex.LineTo(5f, 13.6f),
+                OfficeIconVertex.CurveTo(4.5f, 12.7f, 4.9f, 11.7f, 5.8f, 11.3f),
+                OfficeIconVertex.CurveTo(6.6f, 10.9f, 7.6f, 11.4f, 8f, 12.4f))
+        ],
+
+        OfficeIcon.NewPage =>
+        [
+            OfficeIconShape.Rectangle(4.5f, 3f, 12f, 18f, 1.5f),
+            OfficeIconShape.Line(17f, 14f, 21f, 14f),
+            OfficeIconShape.Line(19f, 12f, 19f, 16f)
+        ],
+
+        // A tab with a page behind it: a section is the divider, not the sheet.
+        OfficeIcon.NewSection =>
+        [
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(3.5f, 8f),
+                OfficeIconVertex.LineTo(3.5f, 5.5f),
+                OfficeIconVertex.LineTo(9.5f, 5.5f),
+                OfficeIconVertex.LineTo(11f, 8f),
+                OfficeIconVertex.LineTo(16.5f, 8f),
+                OfficeIconVertex.LineTo(16.5f, 19f),
+                OfficeIconVertex.LineTo(3.5f, 19f),
+                OfficeIconVertex.Close),
+            OfficeIconShape.Line(17.5f, 13.5f, 21.5f, 13.5f),
+            OfficeIconShape.Line(19.5f, 11.5f, 19.5f, 15.5f)
+        ],
+
+        // The page with its rule showing, which is exactly what the button sets.
+        OfficeIcon.PageRule =>
+        [
+            OfficeIconShape.Rectangle(4f, 3.5f, 16f, 17f, 1.5f),
+            OfficeIconShape.Line(4f, 9f, 20f, 9f),
+            OfficeIconShape.Line(4f, 13f, 20f, 13f),
+            OfficeIconShape.Line(4f, 17f, 20f, 17f)
+        ],
+
+        // Two overlapping squares where the one in front is drawn whole and the one behind is drawn
+        // only where it is not covered. Filling the front square would say it more directly, but a
+        // filled figure cannot be tinted by the toolbar the way a stroked one is - see the remarks on
+        // OfficeIcons - so the occlusion carries the meaning instead. The pair are mirror images,
+        // which is exactly the relationship the two commands have.
+        OfficeIcon.BringToFront =>
+        [
+            OfficeIconShape.Polyline(14.5f, 9.5f, 20.5f, 9.5f, 20.5f, 20.5f, 9.5f, 20.5f, 9.5f, 14.5f),
+            OfficeIconShape.Rectangle(3.5f, 3.5f, 11f, 11f, 1f)
+        ],
+
+        OfficeIcon.SendToBack =>
+        [
+            OfficeIconShape.Polyline(14.5f, 9.5f, 14.5f, 3.5f, 3.5f, 3.5f, 3.5f, 14.5f, 9.5f, 14.5f),
+            OfficeIconShape.Rectangle(9.5f, 9.5f, 11f, 11f, 1f)
+        ],
+
+        OfficeIcon.Duplicate =>
+        [
+            OfficeIconShape.Rectangle(3.5f, 3.5f, 12f, 12f, 1.5f),
+            OfficeIconShape.Rectangle(8.5f, 8.5f, 12f, 12f, 1.5f)
+        ],
+
+        OfficeIcon.Lock =>
+        [
+            OfficeIconShape.Rectangle(4.5f, 10.5f, 15f, 10f, 1.5f),
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(7.8f, 10.5f),
+                OfficeIconVertex.LineTo(7.8f, 7.4f),
+                OfficeIconVertex.CurveTo(7.8f, 5.1f, 9.7f, 3.2f, 12f, 3.2f),
+                OfficeIconVertex.CurveTo(14.3f, 3.2f, 16.2f, 5.1f, 16.2f, 7.4f),
+                OfficeIconVertex.LineTo(16.2f, 10.5f))
+        ],
+
         OfficeIcon.MarginsNarrow => MarginsIcon(1.5f),
         OfficeIcon.MarginsNormal => MarginsIcon(3f),
         OfficeIcon.MarginsModerate => MarginsIcon(4.5f),

@@ -33,6 +33,9 @@ public sealed record OfficeAccent(ArgbColor Color, ArgbColor Ink)
     /// <summary>PowerPoint orange-red.</summary>
     public static readonly OfficeAccent Presentation = new(new ArgbColor(255, 0xC4, 0x3E, 0x1C), White);
 
+    /// <summary>OneNote purple.</summary>
+    public static readonly OfficeAccent Notebook = new(new ArgbColor(255, 0x7A, 0x33, 0x8C), White);
+
     /// <summary>
     /// An accent from a colour, with the ink chosen for legibility on it.
     /// </summary>

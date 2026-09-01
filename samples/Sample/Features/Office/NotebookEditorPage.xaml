@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:office="clr-namespace:Shiny.Maui.Controls.Office;assembly=Shiny.Maui.Controls.Office"
+             x:Class="Sample.Features.Office.NotebookEditorPage"
+             Title="Notebook">
+
+    <Grid RowDefinitions="Auto,*" Padding="12" RowSpacing="8">
+
+        <HorizontalStackLayout Grid.Row="0" Spacing="8">
+            <Button Text="Toolbar" Clicked="OnToggleToolbar" />
+            <Button Text="Navigation" Clicked="OnToggleNavigation" />
+            <Button Text="Theme" Clicked="OnToggleTheme" />
+            <Button Text="Save" Clicked="OnSave" />
+            <Label x:Name="StatusLabel" VerticalOptions="Center" FontSize="12" Opacity="0.7" />
+        </HorizontalStackLayout>
+
+        <Border Grid.Row="1" StrokeThickness="1">
+            <office:NotebookEditorView x:Name="Editor" />
+        </Border>
+    </Grid>
+</ContentPage>

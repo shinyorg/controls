@@ -94,6 +94,21 @@ static class OfficeScheme
         }
     }
 
+    /// <summary>Notebook colours to draw with when the control's own <c>Theme</c> is unset.</summary>
+    /// <remarks>
+    /// Unlike the document and the deck, the page itself follows the app — see
+    /// <see cref="OfficeSurface.Apply(NotebookTheme)"/> for why a notebook page is the one surface
+    /// here that should.
+    /// </remarks>
+    public static NotebookTheme DefaultNotebook
+    {
+        get
+        {
+            var baseline = IsDark ? NotebookTheme.Dark : NotebookTheme.Light;
+            return Surface() is { } surface ? surface.Apply(baseline) : baseline;
+        }
+    }
+
     /// <summary>
     /// Re-runs <paramref name="onChanged"/> against <paramref name="owner"/> whenever the OS
     /// appearance flips. The callback takes the owner rather than closing over it so that callers

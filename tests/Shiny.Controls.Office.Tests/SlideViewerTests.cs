@@ -1,5 +1,6 @@
 using Shiny.Controls.Office.Packaging;
 using Shiny.Controls.Office.Presentation;
+using Shiny.Controls.Office.Text;
 using Shiny.Controls.Office.Shapes;
 using Shouldly;
 using Xunit;

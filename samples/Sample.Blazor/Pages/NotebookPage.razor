@@ -1,0 +1,72 @@
+@page "/notebook"
+@using Shiny.Blazor.Controls.Office
+@using Shiny.Controls.Office.Notebook
+@using Shiny.Controls.Office.Shapes
+@using Shiny.Controls.Office.Skia
+@using Shiny.Controls.Office.Spreadsheet
+@implements IDisposable
+
+<PageTitle>Notebook</PageTitle>
+
+<h1>Notebook</h1>
+<p class="lead">
+    A OneNote-style free-form canvas. Two controls: <code>NotebookEditor</code> is the bare page,
+    <code>NotebookEditorView</code> wraps it in the ribbon, the section tabs and the page list.
+    Notebooks save to a <code>.shinynote</code> package — JSON plus the pictures, in a zip.
+</p>
+
+<div class="toolbar">
+    <label class="chk"><input type="checkbox" @bind="withChrome" /> Ribbon and navigation</label>
+    <button class="btn" @onclick="ToggleTheme">@(dark ? "Follow page" : "Force dark")</button>
+    <span class="status">@Status</span>
+</div>
+
+<div class="editor-host">
+    @if (withChrome)
+    {
+        <NotebookEditorView Notebook="notebook"
+                            @bind-Tool="tool"
+                            Theme="@(dark ? NotebookTheme.Dark : null)"
+                            NotebookChanged="OnChanged" />
+    }
+    else
+    {
+        <NotebookEditor Notebook="notebook"
+                        @bind-Tool="tool"
+                        Theme="@(dark ? NotebookTheme.Dark : null)"
+                        NotebookChanged="OnChanged" />
+    }
+</div>
+
+<p class="hint">
+    Double-click empty canvas to start writing anywhere. Drag an item or its handles to move and
+    resize it; drag empty space to marquee-select. On the <b>Draw</b> tab the pen, highlighter,
+    eraser and lasso each put the pointer in a mode — click the lit tool again to put it down. A
+    stylus that reports pressure varies the pen's width. Ctrl/Cmd+Z undoes everything, including a
+    whole drag or a whole typing run, as one step.
+</p>
+
+@code {
+    NotebookDocument? notebook;
+    bool withChrome = true;
+    bool dark;
+    NoteTool tool = NoteTool.Select;
+    int edits;
+
+    string Status => this.notebook is null
+        ? "loading"
+        : $"{this.notebook.Sections.Count} sections · {this.notebook.AllPages().Count()} pages · {this.edits} edits" +
+          (this.notebook.IsDirty ? " · unsaved" : string.Empty);
+
+    protected override void OnInitialized() => this.notebook = SampleNotebook.Build();
+
+    void ToggleTheme() => this.dark = !this.dark;
+
+    void OnChanged()
+    {
+        this.edits++;
+        this.StateHasChanged();
+    }
+
+    public void Dispose() => this.notebook?.Dispose();
+}

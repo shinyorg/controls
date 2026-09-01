@@ -1,0 +1,150 @@
+/*
+    This bar hosts 30px pickers beside 24px icon buttons. The row height is set here, on the wrapper,
+    so every group in the ribbon is in step — left to each group, the picker would grow only its own
+    rows and the groups would stop lining up with one another. It goes on the ribbon element rather
+    than on this wrapper because the ribbon sets the same property on itself, which would win over an
+    inherited value.
+*/
+.notebook-toolbar ::deep .shiny-ribbon {
+    --shiny-ribbon-row-h: 32px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.shiny-notebook-editor-view {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    background: var(--shiny-color-surface, #ffffff);
+    color: var(--shiny-color-on-surface, #1f2937);
+}
+
+/*
+    The section tabs. A horizontal scroller rather than a wrapping row: a notebook with a dozen
+    sections would otherwise grow a second and third band of tabs and push the canvas off the bottom
+    of the viewport, which is a layout that gets worse the more the control is used.
+*/
+.notebook-sections {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 2px;
+    padding: 0 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    border-bottom: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
+    background: var(--shiny-color-surface-container-low, #fafafa);
+}
+
+.notebook-section {
+    flex: 0 0 auto;
+    appearance: none;
+    border: 0;
+
+    /* The colour bar that identifies the section; the inline style supplies the colour itself. */
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 14px 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    border-radius: 6px 6px 0 0;
+}
+
+.notebook-section:hover {
+    background: var(--shiny-color-surface-container, #f2f2f5);
+}
+
+.notebook-section.is-current {
+    font-weight: 600;
+    background: var(--shiny-color-surface, #ffffff);
+}
+
+.notebook-body {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+/* min-height:0 matters: without it the flex child refuses to shrink and the canvas overflows. */
+.notebook-surface {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+}
+
+.notebook-pages {
+    flex: 0 0 auto;
+    width: 190px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    overflow-y: auto;
+    border-left: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
+    background: var(--shiny-color-surface-container-low, #fafafa);
+}
+
+.notebook-page {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.notebook-page:hover {
+    background: var(--shiny-color-surface-container, #f2f2f5);
+}
+
+.notebook-page.is-current {
+    background: color-mix(in srgb, var(--shiny-color-primary, #7a338c) 15%, transparent);
+    font-weight: 600;
+}
+
+.notebook-page-title {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.notebook-page-when {
+    font-size: 11px;
+    opacity: .6;
+}
+
+.notebook-status {
+    flex: 0 0 auto;
+    padding: 4px 10px;
+    border-top: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
+    color: var(--shiny-color-on-surface-variant, #6b7280);
+    font-size: 12px;
+}
+
+/*
+    The nib picker. Declared here in markup rather than reached through ::deep, because a scoped rule
+    only ever matches elements written in this file's own .razor - and this select is.
+*/
+.notebook-width {
+    height: 30px;
+    font: inherit;
+    font-size: 13px;
+    padding: 0 6px;
+    border-radius: 6px;
+    border: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
+    background: var(--shiny-color-surface, #ffffff);
+    color: var(--shiny-color-on-surface, #1f2937);
+}

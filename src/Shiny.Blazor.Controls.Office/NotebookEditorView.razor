@@ -1,0 +1,616 @@
+@using Shiny.Blazor.Controls
+@using Shiny.Controls.Office.Icons
+@using Shiny.Controls.Office.Notebook
+@using Shiny.Controls.Office.Packaging
+@using Shiny.Controls.Office.Shapes
+@using Shiny.Controls.Office.Spreadsheet
+@using Shiny.Controls.Office.Text
+@using Shiny.Controls.Office.Theming
+@using TextAlignment = Shiny.Controls.Office.Text.TextAlignment
+
+@*
+    NotebookEditor with the notebook chrome around it — the ribbon, the section tabs across the top
+    and the page list down the side.
+
+    Four ribbon tabs, and the split is the one OneNote makes. Home is the text on the page. Draw is
+    the pen, and it is a set of toggles rather than commands because every one of them puts the
+    pointer into a mode that stays until it is changed. Insert is what goes on the page. View is zoom
+    and the page's rule.
+
+    The navigation is deliberately two levels shown at once — sections across, pages down — rather
+    than a tree. A tree makes finding a page a two-step expand-then-pick, and the whole point of the
+    section tab is that the pages of the one you are in are always in front of you.
+*@
+<div class="shiny-notebook-editor-view @Class" style="@Style">
+
+    @if (ShowToolbar)
+    {
+        @*
+            The class stays on a div declared here rather than on the Ribbon's CssClass: this file's
+            scoped rules read `.notebook-toolbar ::deep .x`, and the scope id belongs to whatever
+            element is declared in *this* file. On a child component's root it is that component's id
+            instead, and the stylesheet silently stops matching.
+        *@
+        <div class="notebook-toolbar">
+            <Ribbon ShowTabStrip="true"
+                    AllowCollapse="true"
+                    SmallItemRows="2"
+                    HeaderBackgroundColor="@(AccentBackground ?? ToolbarBackground)"
+                    HeaderForegroundColor="@AccentInk"
+                    AccentColor="@AccentInk"
+                    BodyBackgroundColor="@ToolbarBackground">
+
+                <QuickAccess>
+                    <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo (Ctrl+Z)" Icon="@Ico(OfficeIcon.Undo)"
+                                  Disabled="@(Disabled || !(Controller?.CanUndo ?? false))"
+                                  Clicked="() => Run(c => c.Undo())" />
+                    <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo (Ctrl+Shift+Z)" Icon="@Ico(OfficeIcon.Redo)"
+                                  Disabled="@(Disabled || !(Controller?.CanRedo ?? false))"
+                                  Clicked="() => Run(c => c.Redo())" />
+                </QuickAccess>
+
+                <ChildContent>
+                    <RibbonTab Title="Home" Key="home">
+
+                        <RibbonGroup Title="Font" Priority="100">
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <FontPickerButton AvailableFonts="FontFamilies"
+                                                  SelectedFont="@Format.FontFamily"
+                                                  Disabled="@(!HasText)"
+                                                  SelectedFontChanged="OnFontChanged" />
+                            </RibbonContent>
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <FontSizePickerButton AvailableFontSizes="FontSizes"
+                                                      SelectedFontSize="Format.FontSize"
+                                                      Disabled="@(!HasText)"
+                                                      SelectedFontSizeChanged="OnSizeChanged" />
+                            </RibbonContent>
+
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
+                                                Checked="Format.Bold" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleBold())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
+                                                Checked="Format.Italic" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleItalic())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline (Ctrl+U)" Icon="@Ico(OfficeIcon.Underline)"
+                                                Checked="Format.Underline" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleUnderline())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
+                                                Checked="Format.Strike" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
+
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <ColorPickerButton Text="Text colour"
+                                                   SelectedColor="@TextColorHex"
+                                                   ShowOpacity="false"
+                                                   Disabled="@(!HasText)"
+                                                   SelectedColorChanged="OnTextColorChanged" />
+                            </RibbonContent>
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <OfficeHighlightButton Current="Format.Highlight"
+                                                       Disabled="@(!HasText)"
+                                                       ShowTooltips="ShowToolbarTooltips"
+                                                       Picked="OnHighlightPicked" />
+                            </RibbonContent>
+                        </RibbonGroup>
+
+                        <RibbonGroup Title="Paragraph" Priority="90">
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
+                                                Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="@(!HasText)"
+                                                Clicked="_ => Align(TextAlignment.Left)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
+                                                Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="@(!HasText)"
+                                                Clicked="_ => Align(TextAlignment.Center)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
+                                                Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="@(!HasText)"
+                                                Clicked="_ => Align(TextAlignment.Right)" />
+
+                            <RibbonSeparator />
+
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bulleted list" Icon="@Ico(OfficeIcon.BulletList)"
+                                                Checked="@(Format.List == ListStyle.Bullet)" Disabled="@(!HasText)"
+                                                Clicked="_ => Run(c => c.ToggleBulletList())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbered list" Icon="@Ico(OfficeIcon.NumberedList)"
+                                                Checked="@(Format.List == ListStyle.Numbered)" Disabled="@(!HasText)"
+                                                Clicked="_ => Run(c => c.ToggleNumberedList())" />
+
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Outdent (Shift+Tab)" Icon="@Ico(OfficeIcon.Outdent)"
+                                          Disabled="@(!HasText || Format.Level == 0)" Clicked="() => Run(c => c.ShiftLevel(-1))" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Indent (Tab)" Icon="@Ico(OfficeIcon.Indent)"
+                                          Disabled="@(!HasText)" Clicked="() => Run(c => c.ShiftLevel(1))" />
+                        </RibbonGroup>
+
+                        <RibbonGroup Title="Arrange" Priority="70">
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Bring to front" Icon="@Ico(OfficeIcon.BringToFront)"
+                                          Disabled="@(!HasSelection)" Clicked="() => Run(c => c.BringToFront())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Send to back" Icon="@Ico(OfficeIcon.SendToBack)"
+                                          Disabled="@(!HasSelection)" Clicked="() => Run(c => c.SendToBack())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Duplicate (Ctrl+D)" Icon="@Ico(OfficeIcon.Duplicate)"
+                                          Disabled="@(!HasSelection)" Clicked="() => Run(c => c.DuplicateSelection())" />
+
+                            @* Destructive, and the only one on the group that is - hence the rule. *@
+                            <RibbonSeparator />
+
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Delete the selection" Icon="@Ico(OfficeIcon.Delete)"
+                                          Disabled="@(!HasSelection)" Clicked="() => Run(c => c.DeleteSelection())" />
+                        </RibbonGroup>
+                    </RibbonTab>
+
+                    @*
+                        A tab of its own rather than a group on Home, because these are the only
+                        controls here that change what the *pointer* does. Mixed in among Bold and
+                        Centre they read as commands, and a user who picks up the pen and then wonders
+                        why clicking a word no longer selects it has been misled by the layout.
+                    *@
+                    <RibbonTab Title="Draw" Key="draw">
+                        <RibbonGroup Title="Tools" Priority="100">
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Select" Icon="@Ico(OfficeIcon.Pointer)"
+                                                Checked="@(Tool == NoteTool.Select)" Disabled="Disabled"
+                                                Clicked="_ => PickTool(NoteTool.Select)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Lasso select" Icon="@Ico(OfficeIcon.Lasso)"
+                                                Checked="@(Tool == NoteTool.Lasso)" Disabled="Disabled"
+                                                Clicked="_ => PickTool(NoteTool.Lasso)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Pan" Icon="@Ico(OfficeIcon.Hand)"
+                                                Checked="@(Tool == NoteTool.Pan)" Disabled="Disabled"
+                                                Clicked="_ => PickTool(NoteTool.Pan)" />
+
+                            <RibbonSeparator />
+
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Pen" Icon="@Ico(OfficeIcon.Pen)"
+                                                Checked="@(Tool == NoteTool.Pen)" Disabled="Disabled"
+                                                Clicked="_ => PickTool(NoteTool.Pen)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Highlighter" Icon="@Ico(OfficeIcon.Highlight)"
+                                                Checked="@(Tool == NoteTool.Highlighter)" Disabled="Disabled"
+                                                Clicked="_ => PickTool(NoteTool.Highlighter)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Eraser" Icon="@Ico(OfficeIcon.Eraser)"
+                                                Checked="@(Tool == NoteTool.Eraser)" Disabled="Disabled"
+                                                Clicked="_ => PickTool(NoteTool.Eraser)" />
+                        </RibbonGroup>
+
+                        <RibbonGroup Title="Pen" Priority="90">
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <ColorPickerButton Text="Pen colour"
+                                                   SelectedColor="@PenColorHex"
+                                                   ShowOpacity="false"
+                                                   Disabled="Disabled"
+                                                   SelectedColorChanged="OnPenColorChanged" />
+                            </RibbonContent>
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <select class="notebook-width" disabled="@Disabled" value="@nibIndex"
+                                        @onchange="OnNibChanged" aria-label="Pen width">
+                                    <option value="0">Fine</option>
+                                    <option value="1">Medium</option>
+                                    <option value="2">Bold</option>
+                                    <option value="3">Marker</option>
+                                </select>
+                            </RibbonContent>
+                        </RibbonGroup>
+
+                        <RibbonGroup Title="Eraser" Priority="80">
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Erase whole strokes" Icon="@Ico(OfficeIcon.Eraser)"
+                                                Checked="@(EraseMode == EraseMode.Stroke)" Disabled="Disabled"
+                                                Clicked="_ => PickEraseMode(EraseMode.Stroke)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Erase through a stroke" Icon="@Ico(OfficeIcon.ClearFormat)"
+                                                Checked="@(EraseMode == EraseMode.Point)" Disabled="Disabled"
+                                                Clicked="_ => PickEraseMode(EraseMode.Point)" />
+                        </RibbonGroup>
+                    </RibbonTab>
+
+                    <RibbonTab Title="Insert" Key="insert">
+                        <RibbonGroup Title="Insert" Priority="100">
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Add a text container" Icon="@Ico(OfficeIcon.TextBox)"
+                                          Disabled="Disabled" Clicked="AddTextBox" />
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                @* Shapes come from the Shapes tab, and a page has no tables — so this
+                                   is here for the picture button, which needs an InputFile inside the
+                                   thing that is clicked and cannot be an ordinary ribbon button. *@
+                                <OfficeInsertMenu Disabled="Disabled"
+                                                  ShowTooltips="ShowToolbarTooltips"
+                                                  ShowShapes="false"
+                                                  ShowTable="false"
+                                                  ImagePicked="OnImagePicked"
+                                                  ImageRejected="DropRejected" />
+                            </RibbonContent>
+                        </RibbonGroup>
+
+                        <RibbonGroup Title="Pages" Priority="90">
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Add a page" Icon="@Ico(OfficeIcon.NewPage)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.AddPage())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Add a section" Icon="@Ico(OfficeIcon.NewSection)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.AddSection())" />
+                        </RibbonGroup>
+                    </RibbonTab>
+
+                    <OfficeShapesTab Disabled="Disabled" Picked="OnShapePicked" />
+
+                    <RibbonTab Title="View" Key="view">
+                        <RibbonGroup Title="View" Priority="100">
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Zoom out" Icon="@Ico(OfficeIcon.ZoomOut)"
+                                          Disabled="@(Notebook is null)" Clicked="() => { editor?.ZoomOut(); }" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Zoom in" Icon="@Ico(OfficeIcon.ZoomIn)"
+                                          Disabled="@(Notebook is null)" Clicked="() => { editor?.ZoomIn(); }" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Actual size" Icon="@Ico(OfficeIcon.FitWidth)"
+                                          Disabled="@(Notebook is null)" Clicked="() => { editor?.ResetZoom(); }" />
+
+                            <RibbonSeparator />
+
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="@($"Page rule — {PageRuleName}")" Icon="@Ico(OfficeIcon.PageRule)"
+                                          Disabled="Disabled" Clicked="CyclePageRule" />
+                        </RibbonGroup>
+                    </RibbonTab>
+                </ChildContent>
+            </Ribbon>
+        </div>
+    }
+
+    @if (ShowNavigation && Notebook is not null)
+    {
+        <div class="notebook-sections" role="tablist">
+            @for (var i = 0; i < Notebook.Sections.Count; i++)
+            {
+                var index = i;
+                var section = Notebook.Sections[index];
+                var current = index == Address.Section;
+
+                <button type="button"
+                        role="tab"
+                        aria-selected="@current"
+                        class="@(current ? "notebook-section is-current" : "notebook-section")"
+                        style="@SectionStyle(section, current)"
+                        @onclick="() => GoToSection(index)">
+                    @section.Title
+                </button>
+            }
+        </div>
+    }
+
+    <div class="notebook-body">
+        <div class="notebook-surface">
+            <NotebookEditor @ref="editor"
+                            Notebook="Notebook"
+                            Theme="Theme"
+                            Tool="Tool"
+                            ToolChanged="OnToolChanged"
+                            ReadOnly="ReadOnly"
+                            SelectionChanged="StateHasChanged"
+                            AllowFileDrop="AllowFileDrop"
+                            DropRejected="DropRejected"
+                            NotebookChanged="OnNotebookChanged" />
+        </div>
+
+        @if (ShowNavigation && Controller?.Section is { } activeSection)
+        {
+            <div class="notebook-pages">
+                @for (var i = 0; i < activeSection.Pages.Count; i++)
+                {
+                    var index = i;
+                    var page = activeSection.Pages[index];
+                    var current = index == Address.Page;
+
+                    <button type="button"
+                            class="@(current ? "notebook-page is-current" : "notebook-page")"
+                            @onclick="() => GoToPage(index)">
+                        <span class="notebook-page-title">@(string.IsNullOrWhiteSpace(page.Title) ? "Untitled page" : page.Title)</span>
+                        <span class="notebook-page-when">@(page.Modified.ToLocalTime().ToString("d MMM"))</span>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+    @if (ShowStatus)
+    {
+        <div class="notebook-status">@StatusText</div>
+    }
+</div>
+
+@code {
+    NotebookEditor? editor;
+    int nibIndex = 1;
+
+    /// <summary>The notebook to edit.</summary>
+    [Parameter] public NotebookDocument? Notebook { get; set; }
+
+    /// <summary>Forwarded to the surface. Unset there means "follow the page's scheme".</summary>
+    [Parameter] public NotebookTheme? Theme { get; set; }
+
+    /// <summary>What a press on the canvas does. Two-way, so a host can drive the tool from its own UI.</summary>
+    [Parameter] public NoteTool Tool { get; set; } = NoteTool.Select;
+
+    [Parameter] public EventCallback<NoteTool> ToolChanged { get; set; }
+
+    [Parameter] public bool ReadOnly { get; set; }
+
+    [Parameter] public bool ShowToolbar { get; set; } = true;
+
+    /// <summary>The section tabs and the page list. Off leaves the bare canvas plus its toolbar.</summary>
+    [Parameter] public bool ShowNavigation { get; set; } = true;
+
+    /// <summary>A one-line hint under the canvas saying what the current gesture will do.</summary>
+    [Parameter] public bool ShowStatus { get; set; } = true;
+
+    /// <summary>
+    /// Whether the icon-only toolbar buttons carry a tooltip naming what they do.
+    /// </summary>
+    /// <remarks>
+    /// On, because every button on this bar is icon only and an icon with no label is a guess until
+    /// something names it.
+    /// </remarks>
+    [Parameter] public bool ShowToolbarTooltips { get; set; } = true;
+
+    /// <summary>Whether dragging an image file onto the page inserts it. On by default.</summary>
+    [Parameter] public bool AllowFileDrop { get; set; } = true;
+
+    /// <summary>Raised when a dropped or chosen file could not be inserted, so a host can say so.</summary>
+    [Parameter] public EventCallback<OfficeDropRejected> DropRejected { get; set; }
+
+    [Parameter] public EventCallback NotebookChanged { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Style { get; set; }
+
+    [Parameter] public IReadOnlyList<string> FontFamilies { get; set; } =
+    [
+        "Calibri", "Cambria", "Arial", "Times New Roman", "Georgia", "Verdana", "Courier New"
+    ];
+
+    /// <summary>
+    /// The sizes the picker offers.
+    /// </summary>
+    /// <remarks>
+    /// Document sizes rather than deck sizes: a note is read at arm's length, not from the back of a
+    /// room, so the list tops out well below a slide's.
+    /// </remarks>
+    [Parameter] public IReadOnlyList<double> FontSizes { get; set; } =
+    [
+        8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48
+    ];
+
+    // Theme tokens rather than literals: the bar sits in the app's chrome, not on the page the editor
+    // is drawing, so it has to follow light/dark with everything else.
+    [Parameter] public string ToolbarBackground { get; set; } = "var(--shiny-color-surface-container-low, #FFFFFF)";
+
+    /// <summary>
+    /// The colour this control wears: its ribbon's header band and tab underline.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to <see cref="OfficeAccent.Notebook"/> — the purple Microsoft's own OneNote wears,
+    /// because that is what a user reads as "notes" before any label has been looked at. Set it to
+    /// take on the app's own brand instead, or to <c>null</c> to leave the bar on the theme's neutrals
+    /// like the rest of the chrome.
+    /// </remarks>
+    [Parameter] public OfficeAccent? Accent { get; set; } = OfficeAccent.Notebook;
+
+    string? AccentBackground => this.Accent is { } a ? Css(a.Color) : null;
+
+    string? AccentInk => this.Accent is { } a ? Css(a.Ink) : null;
+
+    static string Css(ArgbColor value)
+        => $"rgba({value.R},{value.G},{value.B},{(value.A / 255d).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
+
+    /// <summary>The underlying editor, so a host can focus it or reach its controller.</summary>
+    public NotebookEditor? Editor => this.editor;
+
+    public NotebookEditorController? Controller => this.editor?.Controller;
+
+    static string Ico(OfficeIcon icon) => OfficeToolbarIcons.Get(icon).Value;
+
+    bool Disabled => this.ReadOnly || this.Notebook is null;
+
+    bool HasSelection => !this.Disabled && this.Controller?.HasSelection == true;
+
+    /// <summary>
+    /// Whether the text commands have anything to act on.
+    /// </summary>
+    /// <remarks>
+    /// True for a selected container as well as for a caret inside one, because the formatting
+    /// commands reach both — a shape with a label should go bold from one click rather than needing a
+    /// double-click and a select-all first.
+    /// </remarks>
+    bool HasText => !this.Disabled && this.Controller is { } c && (c.IsEditingText || c.HasSelection);
+
+    PageAddress Address => this.Controller?.Address ?? PageAddress.None;
+
+    NoteCaretFormat Format => this.Controller?.CaretFormat ?? NoteCaretFormat.Default;
+
+    EraseMode EraseMode => this.Controller?.EraseMode ?? EraseMode.Stroke;
+
+    string TextColorHex => OfficeColors.ToHex(this.Format.Color);
+
+    string PenColorHex => this.Controller is { } c
+        ? OfficeColors.ToHex(c.Tool == NoteTool.Highlighter ? c.HighlighterColor with { A = 255 } : c.PenColor)
+        : "#1A1A1A";
+
+    string PageRuleName => (this.Controller?.Page?.Rule ?? PageRule.Blank) switch
+    {
+        PageRule.Lines => "lined",
+        PageRule.Grid => "grid",
+        PageRule.Dots => "dots",
+        _ => "blank"
+    };
+
+    string StatusText
+    {
+        get
+        {
+            if (this.Controller is not { Page: { } page } controller)
+                return string.Empty;
+
+            var tool = controller.Tool switch
+            {
+                NoteTool.Pen => "Pen — drag to draw",
+                NoteTool.Highlighter => "Highlighter — drag to mark",
+                NoteTool.Eraser => "Eraser — drag over ink to remove it",
+                NoteTool.Lasso => "Lasso — circle what you want to select",
+                NoteTool.Pan => "Pan — drag to move the page",
+                NoteTool.Text => "Text — click to start writing",
+                NoteTool.Shape => "Shape — drag out the shape",
+                _ => controller.IsEditingText
+                    ? "Typing — Esc leaves the container"
+                    : "Select — click to pick, double-click to write, drag empty space to marquee"
+            };
+
+            var count = controller.SelectedIds.Count;
+            var selection = count switch
+            {
+                0 => string.Empty,
+                1 => "  ·  1 item selected",
+                _ => $"  ·  {count} items selected"
+            };
+
+            return $"{page.Title}  ·  {Math.Round(controller.Zoom * 100)}%  ·  {tool}{selection}";
+        }
+    }
+
+    /// <summary>
+    /// The tab's colour bar.
+    /// </summary>
+    /// <remarks>
+    /// A bottom border rather than a fill, because a tab strip of six filled colours is a stripe of
+    /// paint rather than a set of tabs — the colour is an identifier, not the surface.
+    /// </remarks>
+    string SectionStyle(NotebookSection section, bool current)
+    {
+        var color = OfficeColors.ToHex(section.Color ?? this.Accent?.Color ?? OfficeAccent.Notebook.Color);
+
+        return current
+            ? $"border-bottom-color:{color};color:{color}"
+            : $"border-bottom-color:{color};opacity:.72";
+    }
+
+    async Task Run(Action<NotebookEditorController> action)
+    {
+        if (this.Controller is not { } controller || this.Disabled)
+            return;
+
+        action(controller);
+
+        // Focus goes back to the editor after every toolbar action: leaving it on the button means the
+        // next keystroke goes nowhere, which reads as the editor having silently stopped working.
+        if (this.editor is not null)
+            await this.editor.FocusAsync();
+
+        await this.RaiseChangedAsync();
+    }
+
+    async Task RaiseChangedAsync()
+    {
+        this.StateHasChanged();
+
+        if (this.NotebookChanged.HasDelegate)
+            await this.NotebookChanged.InvokeAsync();
+    }
+
+    Task OnNotebookChanged() => this.RaiseChangedAsync();
+
+    async Task OnToolChanged(NoteTool tool)
+    {
+        this.Tool = tool;
+        if (this.ToolChanged.HasDelegate)
+            await this.ToolChanged.InvokeAsync(tool);
+
+        this.StateHasChanged();
+    }
+
+    /// <summary>
+    /// Picks a tool, or puts it down when it is already the current one.
+    /// </summary>
+    /// <remarks>
+    /// The way back out of the pen without having to find the arrow, which matters because the pen is
+    /// the one tool whose exit is not otherwise obvious.
+    /// </remarks>
+    Task PickTool(NoteTool tool)
+        => this.Run(c => c.Tool = c.Tool == tool ? NoteTool.Select : tool);
+
+    Task PickEraseMode(EraseMode mode) => this.Run(c =>
+    {
+        c.EraseMode = mode;
+        c.Tool = NoteTool.Eraser;
+    });
+
+    Task GoToSection(int index) => this.Run(c => c.Address = new PageAddress(index, 0));
+
+    Task GoToPage(int index) => this.Run(c => c.Address = c.Address with { Page = index });
+
+    Task AddTextBox() => this.Run(_ => this.editor?.InsertTextBox());
+
+    Task OnShapePicked(ShapeGeometry geometry) => this.Run(_ => this.editor?.InsertShape(geometry));
+
+    Task OnImagePicked(OfficePickedImage image)
+        => this.Run(_ => this.editor?.InsertImage(image.Data, image.ContentType));
+
+    Task Align(TextAlignment alignment) => this.Run(c => c.SetAlignment(alignment));
+
+    Task OnHighlightPicked(ArgbColor? color) => this.Run(c => c.SetHighlight(color));
+
+    Task OnFontChanged(string family)
+        => family is { Length: > 0 } ? this.Run(c => c.SetFontFamily(family)) : Task.CompletedTask;
+
+    Task OnSizeChanged(double size) => size > 0 ? this.Run(c => c.SetFontSize(size)) : Task.CompletedTask;
+
+    Task OnTextColorChanged(string hex)
+        => OfficeColors.TryParse(hex, out var color) ? this.Run(c => c.SetTextColor(color)) : Task.CompletedTask;
+
+    /// <summary>
+    /// Sets the pen's colour, and recolours any ink already selected.
+    /// </summary>
+    /// <remarks>
+    /// Both, because recolouring with ink selected is the obvious way to fix a stroke drawn in the
+    /// wrong colour — a swatch that only ever arms the *next* stroke reads as broken when something is
+    /// selected.
+    /// </remarks>
+    Task OnPenColorChanged(string hex)
+    {
+        if (!OfficeColors.TryParse(hex, out var color))
+            return Task.CompletedTask;
+
+        return this.Run(c =>
+        {
+            var applied = c.Tool == NoteTool.Highlighter ? color with { A = 110 } : color;
+
+            if (c.Tool == NoteTool.Highlighter)
+                c.HighlighterColor = applied;
+            else
+                c.PenColor = applied;
+
+            if (c.HasSelection)
+                c.SetSelectionInkColor(applied);
+        });
+    }
+
+    Task OnNibChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var index))
+            return Task.CompletedTask;
+
+        this.nibIndex = Math.Clamp(index, 0, 3);
+        var width = this.nibIndex switch { 0 => 1.2, 2 => 3.6, 3 => 6.5, _ => 2.2 };
+
+        return this.Run(c =>
+        {
+            if (c.Tool == NoteTool.Highlighter)
+                c.HighlighterWidth = width * 6;
+            else
+                c.PenWidth = width;
+        });
+    }
+
+    /// <summary>
+    /// Steps the page's rule.
+    /// </summary>
+    /// <remarks>
+    /// A cycle rather than a menu because there are four of them and the button already shows the
+    /// page: clicking through blank, lined, grid and dots is faster than opening a list of four, and
+    /// the status line names the one you have landed on.
+    /// </remarks>
+    Task CyclePageRule() => this.Run(c =>
+    {
+        if (c.Page is not { } page)
+            return;
+
+        c.SetPageRule(page.Rule switch
+        {
+            PageRule.Blank => PageRule.Lines,
+            PageRule.Lines => PageRule.Grid,
+            PageRule.Grid => PageRule.Dots,
+            _ => PageRule.Blank
+        });
+    });
+}

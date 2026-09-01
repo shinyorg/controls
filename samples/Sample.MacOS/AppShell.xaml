@@ -312,6 +312,9 @@
     <FlyoutItem Title="Slide Editor">
         <ShellContent ContentTemplate="{DataTemplate office:SlideEditorPage}" Route="slideeditor" />
     </FlyoutItem>
+    <FlyoutItem Title="Notebook">
+        <ShellContent ContentTemplate="{DataTemplate office:NotebookEditorPage}" Route="notebook" />
+    </FlyoutItem>
 
     <MenuItem Text="DIAGRAMS" IsEnabled="False" />
 

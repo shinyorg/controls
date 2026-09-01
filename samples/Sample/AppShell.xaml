@@ -438,6 +438,14 @@
         <ShellContent ContentTemplate="{DataTemplate office:SlideEditorPage}" Route="slideeditor" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Notebook">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x1F4D3;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate office:NotebookEditorPage}" Route="notebook" />
+    </FlyoutItem>
+
     <!-- ============================================================ -->
     <!--  TABLE VIEW -->
     <!-- ============================================================ -->

@@ -133,3 +133,33 @@ Fixed; the ribbon toolbar draws on a themed surface and does not use it, but the
 **Collapsing sticks.** The editor rebuilds its toolbar on every tool and property change, which means
 a fresh `Ribbon` each time — so it reads the display mode back before discarding the old one. Without
 that the chevron did nothing you could keep: collapse the bar, pick a tool, and it was open again.
+
+## Teardown (Blazor)
+
+**Closing the editor no longer takes the page with it.** The component holds a JS module, and every
+call through it — a queued render syncing parameters, a pointer gesture JS already had in flight, an
+operation still awaiting when the host switched views — could land after disposal had begun. Checking
+the field for `null` never covered that: the reference can be disposed *while* a call is on the wire,
+and `IJSObjectReference` throws `ObjectDisposedException` rather than returning. Unhandled async work
+from a component tears down the whole renderer, so an editor closed at the wrong moment took every
+other component on the page with it.
+
+Interop now runs through one guarded path that stops once teardown starts, and `DisposeAsync` sets
+that flag before releasing anything. Three things follow, and generated code should not fight any of
+them:
+
+- **A call made during teardown is a no-op, not a throw.** The methods that also record state
+  (`SetModeAsync`, `ApplyCropAsync`, `ResetAsync`) only do so when the call actually ran, so the
+  component never reports a mode it never entered.
+- **`ExportAsync` answers with an empty array** when there is nothing left to export from. A host
+  exporting on the way out gets "no image" rather than an exception out of a teardown path.
+- **`JSException` still surfaces.** Only disconnection, disposal and cancellation are swallowed — a
+  genuine fault in the editor's script is a bug worth reporting, and hiding it would turn a crash
+  into an editor that silently stops responding.
+
+The `[JSInvokable]` callbacks (`OnCanUndoChanged`, `OnCanRedoChanged`, `OnZoomChanged`,
+`OnRequestTextInput`) return early once disposed, so a late gesture cannot raise
+`CanUndoChanged` at a host that has already dropped the component.
+
+Disposal is idempotent, and an editor removed while its module import is still in flight releases the
+module and abandons initialisation rather than wiring handlers to a component that is already gone.

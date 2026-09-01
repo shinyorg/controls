@@ -1003,6 +1003,15 @@ public enum EditorKey
     Italic,
     Underline,
     Undo,
-    Redo
+    Redo,
 
+    /// <summary>
+    /// Escape.
+    /// </summary>
+    /// <remarks>
+    /// Added for the notebook canvas, where it is the way back out of a mode: it leaves text editing,
+    /// then puts the pen down and returns to the select tool, then clears the selection. The document
+    /// and slide editors have no modes to leave and simply do not route it.
+    /// </remarks>
+    Escape
 }

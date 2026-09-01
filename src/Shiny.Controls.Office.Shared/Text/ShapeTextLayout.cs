@@ -1,6 +1,4 @@
-using Shiny.Controls.Office.Text;
-
-namespace Shiny.Controls.Office.Presentation;
+namespace Shiny.Controls.Office.Text;
 
 /// <summary>One laid-out paragraph inside a shape's text body.</summary>
 public sealed record LaidOutShapeParagraph(
