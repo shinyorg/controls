@@ -52,7 +52,7 @@
     text-align: center;
     cursor: default;
     clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%);
-    transition: background-color 160ms ease, color 160ms ease;
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
 .shiny-wizard__chev:first-child .shiny-wizard__chev-btn {
@@ -156,6 +156,37 @@
     cursor: pointer;
 }
 
+/*
+    Hover and focus state for a marker that can actually be jumped to.
+
+    A state ring rather than the brightness filter the chevrons use: a filter darkens whatever is
+    already there, which reads as a press on a light scheme and as almost nothing on a dark one. A
+    ring mixed from the accent sits outside the marker, so it is the same gesture in both — and it
+    grows out of the marker rather than moving it, which would nudge the title underneath.
+
+    :focus-visible shares it so the keyboard gets the same affordance the mouse does; a step that can
+    be tabbed to and gives nothing back looks inert.
+*/
+.shiny-wizard__dot-btn:not(:disabled):hover .shiny-wizard__dot-marker,
+.shiny-wizard__dot-btn:not(:disabled):focus-visible .shiny-wizard__dot-marker {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--shiny-color-primary, #0055D9) 18%, transparent);
+}
+
+.shiny-wizard__dot-btn:not(:disabled):hover .shiny-wizard__dot-text {
+    color: var(--shiny-color-primary, #0055D9);
+}
+
+/* The ring is the affordance; the browser's own outline on top of it is noise. */
+.shiny-wizard__dot-btn:focus-visible {
+    outline: none;
+}
+
+/* A marker not yet reached lifts towards the accent, so hovering says "you can go here". */
+.shiny-wizard__dot:not(.is-current):not(.is-disabled) .shiny-wizard__dot-btn:not(:disabled):hover .shiny-wizard__dot-marker {
+    background: var(--shiny-color-primary-container, #C2D6FF);
+    color: var(--shiny-color-on-primary-container, #001A41);
+}
+
 .shiny-wizard__dot-marker {
     display: flex;
     align-items: center;
@@ -167,7 +198,7 @@
     font-weight: 600;
     background: var(--shiny-color-surface-container-highest, #E2E2E9);
     color: var(--shiny-color-on-surface-variant, #44464F);
-    transition: background-color 160ms ease, color 160ms ease;
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
 .shiny-wizard__dot.is-current .shiny-wizard__dot-marker {

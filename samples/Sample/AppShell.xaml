@@ -33,6 +33,7 @@
                   xmlns:dialogs="clr-namespace:Sample.Features.Dialogs"
                   xmlns:datagrid="clr-namespace:Sample.Features.DataGrid"
                   xmlns:office="clr-namespace:Sample.Features.Office"
+                  xmlns:timeline="clr-namespace:Sample.Features.Timeline"
                   xmlns:feedback="clr-namespace:Sample.Features.Feedback"
                   xmlns:textentry="clr-namespace:Sample.Features.TextEntry"
                   xmlns:overlay="clr-namespace:Sample.Features.Overlay"
@@ -444,6 +445,14 @@
                              Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate office:NotebookEditorPage}" Route="notebook" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Timeline">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x22EE;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate timeline:TimelinePage}" Route="timeline" />
     </FlyoutItem>
 
     <!-- ============================================================ -->

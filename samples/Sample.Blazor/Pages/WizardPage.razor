@@ -72,7 +72,8 @@
     </div>
 
     <div style="border:1px solid #E5E7EB; border-radius:12px; padding:16px;">
-        <Wizard ProgressStyle="indicator" Transition="StateTransition.Fade">
+        @* Selectable, so the indicator's own hover and click behaviour is actually reachable here. *@
+        <Wizard ProgressStyle="indicator" AllowStepSelection="true" Transition="StateTransition.Fade">
             <Steps>
                 <WizardStep Name="Welcome" Title="Welcome"><p>First stop on the tour.</p></WizardStep>
                 <WizardStep Name="Setup" Title="Setup"><p>Second stop.</p></WizardStep>

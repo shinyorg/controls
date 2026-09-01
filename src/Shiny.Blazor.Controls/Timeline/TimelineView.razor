@@ -1,0 +1,60 @@
+@namespace Shiny.Blazor.Controls
+@typeparam TItem
+
+@*
+    A vertical timeline: a rail of markers with arbitrary content beside each one.
+
+    One <li> per node, laid out as a three-column grid — opposite content, the rail, the content —
+    so a row is exactly as tall as whatever the item template produced and the rail's connector
+    stretches to match. That is the whole reason the rail is built per row rather than drawn as a
+    single line behind the list: a continuous line would have to be sized against a total height that
+    is not known until after layout, and content beside a timeline is arbitrary and self-sizing.
+
+    The connector is two pseudo-elements on the row rather than real markup, because it is decoration
+    with nothing to announce - a screen reader reading "line" between every entry would be noise.
+*@
+<ol class="shiny-timeline @(RailPosition == TimelineRailPosition.Right ? "is-right" : "is-left") @Class"
+    style="@RootStyle"
+    @attributes="ExtraAttributes">
+
+    @{
+        var items = Items;
+    }
+
+    @for (var i = 0; i < items.Count; i++)
+    {
+        var index = i;
+        var item = items[index];
+        var node = new TimelineNode<TItem>(item, index, StateOf(index), index == 0, index == items.Count - 1);
+
+        <li class="shiny-timeline__node @StateClass(node)"
+            @key="item"
+            @onclick="() => OnNodeClickAsync(item, index)">
+
+            @if (OppositeTemplate is not null)
+            {
+                <div class="shiny-timeline__opposite">@OppositeTemplate(item)</div>
+            }
+
+            <div class="shiny-timeline__rail">
+                <span class="shiny-timeline__marker">
+                    @if (MarkerTemplate is not null)
+                    {
+                        @MarkerTemplate(node)
+                    }
+                </span>
+            </div>
+
+            <div class="shiny-timeline__content">
+                @if (ItemTemplate is not null)
+                {
+                    @ItemTemplate(item)
+                }
+                else
+                {
+                    @item?.ToString()
+                }
+            </div>
+        </li>
+    }
+</ol>

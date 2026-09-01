@@ -85,6 +85,7 @@ public static class Catalog
             new("tabbar", "Tab Bar", "☷", "Bottom tab navigation with badges"),
             new("stateview", "State View", "⇄", "Named branches switched by one string"),
             new("wizard", "Wizard", "➤", "Multi-step flow with a pointed progress bar"),
+            new("timeline", "Timeline", "⋮", "Vertical rail of markers with content beside each one"),
             new("walkthrough", "Walkthrough", "☼", "Guided tour that spotlights one control at a time"),
             new("tooltip", "Tooltip", "💬", "Themed tooltip that points at any element")
         ]),

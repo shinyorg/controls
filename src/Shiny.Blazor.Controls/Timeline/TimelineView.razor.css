@@ -1,0 +1,160 @@
+/*
+    The rail is drawn per row rather than as one line behind the list.
+
+    Content beside a timeline is arbitrary and self-sizing, so a row's height is not known until it
+    has laid out — and a single continuous line would have to be sized against a total nobody can
+    measure beforehand. Two pseudo-elements on each row, one reaching up to the marker and one
+    reaching down from it, join at the boundaries and stretch with whatever the row turns out to be.
+*/
+.shiny-timeline {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.shiny-timeline__node {
+    position: relative;
+    display: grid;
+    align-items: start;
+
+    /* opposite · rail · content. The opposite column collapses to nothing when unused. */
+    grid-template-columns: auto var(--shiny-timeline-marker, 14px) minmax(0, 1fr);
+    column-gap: var(--shiny-timeline-rail-gap, 12px);
+}
+
+.shiny-timeline.is-right .shiny-timeline__node {
+    grid-template-columns: minmax(0, 1fr) var(--shiny-timeline-marker, 14px) auto;
+}
+
+/*
+    The gap between rows belongs to the row's own padding, not to a flex gap: a gap is dead space
+    nothing is painted in, which would break the rail into disconnected segments.
+*/
+.shiny-timeline__node:not(:last-child) {
+    padding-bottom: var(--shiny-timeline-gap, 16px);
+}
+
+/*
+    Every cell states its row as well as its column.
+
+    Grid's auto-placement is "sparse": it walks forward and never backtracks. The markup order is
+    opposite, rail, content — which matches the column order on a left-hand rail but runs backwards on
+    a right-hand one, where the opposite content claims column 3 first. Placing the rail in column 2
+    after that means moving left, so grid starts a new row instead, and the timeline comes apart into
+    a marker stacked under its own timestamp with no connector between anything. Pinning the row is
+    what keeps one node on one line whichever side the rail is on.
+*/
+.shiny-timeline__opposite,
+.shiny-timeline__rail,
+.shiny-timeline__content {
+    grid-row: 1;
+}
+
+.shiny-timeline__opposite {
+    grid-column: 1;
+    text-align: right;
+}
+
+.shiny-timeline.is-right .shiny-timeline__opposite {
+    grid-column: 3;
+    text-align: left;
+}
+
+.shiny-timeline__content {
+    grid-column: 3;
+    min-width: 0;
+}
+
+.shiny-timeline.is-right .shiny-timeline__content {
+    grid-column: 1;
+}
+
+.shiny-timeline__rail {
+    grid-column: 2;
+    position: relative;
+    align-self: stretch;
+    display: flex;
+    justify-content: center;
+}
+
+/* Above the marker: a fixed run equal to the marker's offset, so the two rows' segments meet. */
+.shiny-timeline__rail::before,
+.shiny-timeline__rail::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--shiny-timeline-line, 2px);
+    background: var(--shiny-timeline-pending, #E2E2E9);
+}
+
+.shiny-timeline__rail::before {
+    top: 0;
+    height: var(--shiny-timeline-offset, 4px);
+}
+
+/* Below the marker: runs to the bottom of the row, so it stretches with the content. */
+.shiny-timeline__rail::after {
+    top: calc(var(--shiny-timeline-offset, 4px) + var(--shiny-timeline-marker, 14px));
+    bottom: 0;
+}
+
+/* The rail starts and ends at a marker rather than running off into empty space. */
+.shiny-timeline__node:first-child .shiny-timeline__rail::before,
+.shiny-timeline__node:last-child .shiny-timeline__rail::after {
+    display: none;
+}
+
+/* Reached: the segment leading into this node is filled. */
+.shiny-timeline__node.is-complete .shiny-timeline__rail::before,
+.shiny-timeline__node.is-current .shiny-timeline__rail::before {
+    background: var(--shiny-timeline-active, #0055D9);
+}
+
+/* Passed: the segment leading out of it is filled only once the next node has been reached. */
+.shiny-timeline__node.is-linked .shiny-timeline__rail::after {
+    background: var(--shiny-timeline-active, #0055D9);
+}
+
+.shiny-timeline__marker {
+    position: relative;
+    z-index: 1;
+    margin-top: var(--shiny-timeline-offset, 4px);
+    width: var(--shiny-timeline-marker, 14px);
+    height: var(--shiny-timeline-marker, 14px);
+    border-radius: 50%;
+    background: var(--shiny-timeline-pending, #E2E2E9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.shiny-timeline__node.is-complete .shiny-timeline__marker,
+.shiny-timeline__node.is-current .shiny-timeline__marker {
+    background: var(--shiny-timeline-active, #0055D9);
+}
+
+/*
+    The ring is what separates "here" from "already happened" at a glance. A box-shadow rather than a
+    real element so it costs no layout and cannot push the marker off the rail's centre line.
+*/
+.shiny-timeline__node.is-current .shiny-timeline__marker {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--shiny-timeline-active, #0055D9) 30%, transparent);
+}
+
+/*
+    A marker carrying its own content has to size to it. Left as a fixed dot the glyph would spill
+    out of a 14px circle, which is what the template is usually for.
+*/
+.shiny-timeline__marker:not(:empty) {
+    width: auto;
+    height: auto;
+    min-width: var(--shiny-timeline-marker, 14px);
+    min-height: var(--shiny-timeline-marker, 14px);
+    background: none;
+    box-shadow: none;
+}

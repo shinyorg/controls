@@ -1,0 +1,85 @@
+@page "/timeline"
+@using Shiny.Blazor.Controls
+
+<PageTitle>Timeline</PageTitle>
+
+<h1>Timeline</h1>
+<p class="lead">
+    A vertical rail of markers with arbitrary content beside each one — the wizard's three-state
+    marker turned on its side and made item-driven. Bind <code>ItemsSource</code>, template the
+    content, and set <code>ActiveIndex</code> to say how far along it is.
+</p>
+
+<div class="toolbar">
+    <button class="btn" @onclick="() => Move(-1)" disabled="@(active <= -1 || allActive)">◀ Back</button>
+    <button class="btn" @onclick="() => Move(1)" disabled="@(active >= Events.Count - 1 || allActive)">Forward ▶</button>
+    <label class="chk"><input type="checkbox" @bind="allActive" /> All active</label>
+    <label class="chk"><input type="checkbox" @bind="rightRail" /> Rail on the right</label>
+    <label class="chk"><input type="checkbox" @bind="showTimes" /> Timestamps opposite</label>
+    <span class="status timeline-status">@Status</span>
+</div>
+
+<div class="timeline-host">
+    <TimelineView TItem="Delivery"
+                  ItemsSource="Events"
+                  ActiveIndex="active"
+                  AllActive="allActive"
+                  RailPosition="@(rightRail ? TimelineRailPosition.Right : TimelineRailPosition.Left)"
+                  OppositeTemplate="@(showTimes ? TimeTemplate : null)"
+                  NodeClicked="OnNodeClicked">
+        <ItemTemplate>
+            <div class="entry">
+                <div class="entry-title">@context.Title</div>
+                <div class="entry-body">@context.Detail</div>
+            </div>
+        </ItemTemplate>
+    </TimelineView>
+</div>
+
+<p class="hint">
+    Rows size to their content — the third entry is deliberately long, and its rail segment stretches
+    to match. Click a node to select it. With <b>All active</b> on, every marker fills regardless of
+    where the active index sits, which is what a history of things that have already happened wants.
+</p>
+
+@code {
+    record Delivery(string Title, string Detail, string At);
+
+    static readonly List<Delivery> Events =
+    [
+        new("Order placed", "Payment authorised against the card ending 4412.", "09:02"),
+        new("Picked", "Two items pulled from the Manchester shelf.", "11:20"),
+        new("In transit",
+            "Left the depot on the overnight run. Held for forty minutes outside Birmingham while the " +
+            "M6 was closed, then re-routed via the A38 — which is why this entry is taller than the " +
+            "others, and why the rail beside it has to stretch rather than assume a fixed row height.",
+            "23:47"),
+        new("Out for delivery", "On the van, seventh of nineteen drops.", "07:15"),
+        new("Delivered", "Left in the porch as instructed.", "10:31")
+    ];
+
+    int active = 2;
+    bool allActive;
+    bool rightRail;
+    bool showTimes = true;
+    string? picked;
+
+    RenderFragment<Delivery> TimeTemplate => item =>
+        @<span class="entry-time">@item.At</span>;
+
+    string Status => this.picked is { } p
+        ? p
+        : this.allActive ? "all active" : $"active: {(this.active < 0 ? "none" : Events[this.active].Title)}";
+
+    void Move(int delta) => this.active = Math.Clamp(this.active + delta, -1, Events.Count - 1);
+
+    void OnNodeClicked((Delivery Item, int Index) e) => this.picked = $"clicked #{e.Index + 1} — {e.Item.Title}";
+}
+
+<style>
+    .timeline-host { max-width: 640px; padding: 8px 0 24px; }
+    .entry-title { font-weight: 600; }
+    .entry-body { font-size: .875rem; opacity: .75; }
+    .entry-time { font-size: .8125rem; opacity: .6; white-space: nowrap; }
+    .timeline-status { margin-left: 1rem; }
+</style>
