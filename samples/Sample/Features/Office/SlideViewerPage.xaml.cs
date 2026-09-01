@@ -46,6 +46,16 @@ public partial class SlideViewerPage : ContentPage
         this.Viewer.Theme = this.dark ? SlideTheme.Dark : null;
     }
 
+    // Full screen on a black surround, tap or the auto-hiding bar to drive it, speaker notes on demand.
+    void OnPresent(object? sender, EventArgs e) => this.Viewer.StartPresenting();
+
+    // The show writes the slide it ended on back to the viewer, so the counter has to catch up.
+    void OnPresentingChanged(object? sender, bool presenting)
+    {
+        if (!presenting)
+            this.Update();
+    }
+
     void OnSlideChanged(object? sender, int index) => this.Update();
 
     void Update()

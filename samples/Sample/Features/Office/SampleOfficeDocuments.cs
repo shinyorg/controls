@@ -203,12 +203,20 @@ public static class SampleOfficeDocuments
             var ids = new List<P.SlideId>();
             uint id = 256;
 
+            var position = 0;
+
             foreach (var slide in BuildSlides())
             {
                 var slidePart = presentationPart.AddNewPart<SlidePart>();
                 slidePart.Slide = slide;
                 slidePart.AddPart(layoutPart);
 
+                // Speaker notes on the slides that have something to say, so the viewer's notes strip and
+                // presenting mode's Notes panel both have real content to show.
+                if (position < SlideNotes.Length && SlideNotes[position].Length > 0)
+                    slidePart.AddNewPart<NotesSlidePart>().NotesSlide = BuildNotes(SlideNotes[position]);
+
+                position++;
                 ids.Add(new P.SlideId { Id = id++, RelationshipId = presentationPart.GetIdOfPart(slidePart) });
             }
 
@@ -332,6 +340,31 @@ public static class SampleOfficeDocuments
             Shape(33, "Diamond", 8600000, 2300000, 1600000, 1400000, D.ShapeTypeValues.Diamond,
                 new D.SolidFill(new D.SchemeColor { Val = D.SchemeColorValues.Accent5 })));
     }
+
+    /// <summary>Speaker notes, one per slide in <see cref="BuildSlides"/> order; empty means none.</summary>
+    static readonly string[] SlideNotes =
+    [
+        "Open with why this beats embedding PowerPoint: no plugin, no licence, and the same pixels on every host.",
+        "Inheritance is the part decks get wrong. A placeholder with an empty spPr still has a position - it just lives on the layout.",
+        string.Empty
+    ];
+
+    static P.NotesSlide BuildNotes(string text) => new(
+        new P.CommonSlideData(
+            new P.ShapeTree(
+                Tree()[0],
+                Tree()[1],
+                new P.Shape(
+                    new P.NonVisualShapeProperties(
+                        new P.NonVisualDrawingProperties { Id = 2U, Name = "Notes Placeholder" },
+                        new P.NonVisualShapeDrawingProperties(),
+                        new P.ApplicationNonVisualDrawingProperties(
+                            new P.PlaceholderShape { Type = P.PlaceholderValues.Body })),
+                    new P.ShapeProperties(),
+                    new P.TextBody(
+                        new D.BodyProperties(),
+                        new D.ListStyle(),
+                        new D.Paragraph(new D.Run(new D.Text(text))))))));
 
     static P.Slide Slide(params OpenXmlElement[] shapes)
     {

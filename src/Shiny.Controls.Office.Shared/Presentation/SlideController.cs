@@ -20,6 +20,7 @@ public class SlideController
     int index;
     SlideViewMode mode = SlideViewMode.Single;
     double scrollY;
+    bool isPresenting;
 
     public SlideController(SlideDeck deck)
     {
@@ -32,8 +33,40 @@ public class SlideController
     public double ViewportWidth { get; private set; } = 800;
     public double ViewportHeight { get; private set; } = 600;
 
-    /// <summary>Margin around a single fitted slide.</summary>
+    /// <summary>Margin around a single fitted slide. Ignored while <see cref="IsPresenting"/>.</summary>
     public double Margin { get; set; } = 16;
+
+    /// <summary>
+    /// The deck is being presented: the slide is fitted edge to edge with no margin around it.
+    /// </summary>
+    /// <remarks>
+    /// Turning it on forces <see cref="SlideViewMode.Single"/> — a thumbnail wall is a way of finding a
+    /// slide, not a way of showing one to a room. The hosts add the rest of the presentation (the
+    /// fullscreen surface, the black surround, the chrome that fades out); the layout part lives here so
+    /// both of them fit the slide identically.
+    /// </remarks>
+    public bool IsPresenting
+    {
+        get => this.isPresenting;
+        set
+        {
+            if (this.isPresenting == value)
+                return;
+
+            this.isPresenting = value;
+
+            if (value && this.mode != SlideViewMode.Single)
+            {
+                this.mode = SlideViewMode.Single;
+                this.scrollY = 0;
+            }
+
+            this.Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>The margin actually used when fitting: none while presenting.</summary>
+    public double EffectiveMargin => this.isPresenting ? 0 : this.Margin;
 
     /// <summary>Thumbnail width in grid mode.</summary>
     public double ThumbnailWidth { get; set; } = 180;
@@ -120,8 +153,8 @@ public class SlideController
 
         var available = new
         {
-            Width = Math.Max(1, this.ViewportWidth - this.Margin * 2),
-            Height = Math.Max(1, this.ViewportHeight - this.Margin * 2)
+            Width = Math.Max(1, this.ViewportWidth - this.EffectiveMargin * 2),
+            Height = Math.Max(1, this.ViewportHeight - this.EffectiveMargin * 2)
         };
 
         var scale = Math.Min(available.Width / this.Deck.SlideWidth, available.Height / this.Deck.SlideHeight);

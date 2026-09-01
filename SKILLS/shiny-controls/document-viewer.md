@@ -119,6 +119,57 @@ deck.Slides[0].Notes;
 `SlideViewMode.Single` fits one slide; `SlideViewMode.Grid` is a scrolling thumbnail wall where
 clicking a thumbnail opens that slide.
 
+### Presenting mode
+
+The deck full screen for a room. Both hosts: the slide fitted edge to edge on black with no border, an
+auto-hiding control bar, tap/click to advance (the left quarter goes back), and speaker notes on
+demand.
+
+MAUI — a modal page, so the platform back gesture leaves the show:
+
+```xml
+<office:SlideView x:Name="Viewer" Deck="{Binding Deck}"
+                  IsPresenting="{Binding Presenting}"
+                  PresentingChanged="OnPresentingChanged" />
+```
+
+```csharp
+this.Viewer.StartPresenting();     // StopPresenting(), TogglePresenting()
+```
+
+Blazor — call the method rather than setting the bound parameter where you can. A browser only grants
+fullscreen inside the gesture that asked for it, and a round trip through a parameter loses that
+gesture; the binding still presents, it just falls back to the full-window CSS surface.
+
+```razor
+<SlideView @ref="viewer" Deck="deck" @bind-IsPresenting="presenting" />
+
+@code {
+    SlideView? viewer;
+    bool presenting;
+
+    Task PresentAsync() => this.viewer!.StartPresentingAsync();   // StopPresentingAsync(), TogglePresentingAsync()
+}
+```
+
+| Member | Both hosts |
+| --- | --- |
+| `IsPresenting` | Two-way. Writes back when the show ends however it ended. |
+| `ShowPresenterControls` | The auto-hiding bar. Default `true`; off for a kiosk or second screen. |
+| `KeepScreenOnWhilePresenting` | MAUI only, default `true`. Ignored where the platform has no such notion. |
+| `PresentingChanged` / `IsPresentingChanged` | Fires on Escape, the Android back button, and a fullscreen exit the browser made on its own. |
+
+Rules worth knowing:
+
+- `Mode` is **ignored while presenting** — the controller forces `Single` — and is put back when the
+  show ends. Do not try to present a thumbnail grid.
+- The inline viewer is left on the slide the show ended on.
+- The **Notes** button appears only when some slide in the deck has speaker notes. The panel it opens
+  does *not* fade with the bar.
+- On Blazor `F5` starts a show and `Escape` leaves one. Fullscreen is requested on top of a full-window
+  CSS surface, never instead of it, so a refused request (an iframe without `allowfullscreen`, iOS
+  Safari) still fills the window.
+
 ### Placeholder inheritance is done for you
 
 Shapes come back already resolved through **slide → layout → master**. A title placeholder on a slide

@@ -4,9 +4,9 @@
 @implements IAsyncDisposable
 @inject IJSRuntime Js
 
-<div class="shiny-slides @Class"
+<div class="shiny-slides @(IsPresenting ? "shiny-slides-presenting" : null) @Class"
      @ref="schemeHost"
-     style="@Style"
+     style="@(IsPresenting ? null : Style)"
      tabindex="0"
      @onwheel="OnWheel"
      @onwheel:preventDefault="true"
@@ -18,15 +18,49 @@
                   IgnorePixelScaling="false"
                   OnPaintSurface="OnPaint"
                   @onclick="OnClick" />
+
+    @if (IsPresenting && ShowPresenterControls)
+    {
+        @if (notesShown)
+        {
+            <div class="shiny-slides-notes">@(string.IsNullOrWhiteSpace(CurrentNotes) ? "No notes on this slide." : CurrentNotes)</div>
+        }
+
+        <div class="shiny-slides-chrome" @onclick:stopPropagation="true">
+            <button type="button" class="shiny-slides-btn" aria-label="Previous slide"
+                    disabled="@(controller?.CanGoPrevious != true)" @onclick="Previous">&lsaquo;</button>
+
+            <span class="shiny-slides-counter">@(SlideIndex + 1) / @(controller?.Count ?? 0)</span>
+
+            <button type="button" class="shiny-slides-btn" aria-label="Next slide"
+                    disabled="@(controller?.CanGoNext != true)" @onclick="Next">&rsaquo;</button>
+
+            @if (DeckHasNotes)
+            {
+                <button type="button" class="shiny-slides-btn shiny-slides-btn-text"
+                        aria-pressed="@notesShown" @onclick="ToggleNotes">Notes</button>
+            }
+
+            <button type="button" class="shiny-slides-btn shiny-slides-btn-text"
+                    @onclick="StopPresentingAsync">Exit</button>
+        </div>
+    }
 </div>
 
 @code {
+    /// <summary>The left edge band where a click goes back instead of forward, as a fraction of the width.</summary>
+    const double BackClickZone = 0.25;
+
     SKCanvasView? canvas;
     SkiaTextMeasurer? measurer;
     SlidePainter? painter;
     SlideController? controller;
     bool preventKeyDefault;
     bool applyingParameters;
+    bool presentingApplied;
+    bool notesShown;
+    IJSObjectReference? module;
+    DotNetObjectReference<SlideView>? selfRef;
     double lastWidth;
     double lastHeight;
 
@@ -61,7 +95,12 @@
     /// </summary>
     [Parameter] public SlideTheme? Theme { get; set; }
 
-    SlideTheme EffectiveTheme => OfficeScheme.Resolve(this.scheme, this.Theme);
+    // Presenting overrides the surface's own theme rather than composing with it: a projected deck is
+    // black-surrounded whatever the page is set to. Composing instead left the app's own surface colour
+    // as the surround, which on a light page is a pale blue frame around the slide on the projector.
+    SlideTheme EffectiveTheme => this.IsPresenting
+        ? SlideTheme.Presentation
+        : OfficeScheme.Resolve(this.scheme, this.Theme);
 
     [Parameter] public SlideViewMode Mode { get; set; } = SlideViewMode.Single;
 
@@ -75,7 +114,123 @@
 
     [Parameter] public string? Style { get; set; }
 
+    /// <summary>
+    /// Present the deck full screen: the slide edge to edge on black, the page's own chrome gone, and
+    /// the presenter bar fading out until the pointer moves.
+    /// </summary>
+    /// <remarks>
+    /// The CSS class does the covering and the browser's Fullscreen API is asked for on top of it, not
+    /// the other way round: a fullscreen request can be refused — an iframe without
+    /// <c>allowfullscreen</c>, iOS Safari, a gesture the browser did not accept, prerendering — and a
+    /// refusal must still give the room a full-window deck rather than nothing at all.
+    /// <see cref="Mode"/> is ignored while presenting and reapplied when the show ends.
+    /// </remarks>
+    [Parameter] public bool IsPresenting { get; set; }
+
+    [Parameter] public EventCallback<bool> IsPresentingChanged { get; set; }
+
+    /// <summary>
+    /// Show the auto-hiding presenter bar over a presented deck. Default <c>true</c>; turn it off for a
+    /// kiosk or a second screen nobody is meant to be driving from the surface itself.
+    /// </summary>
+    [Parameter] public bool ShowPresenterControls { get; set; } = true;
+
     public SlideController? Controller => this.controller;
+
+    /// <summary>Speaker notes on the slide being shown, if it has any.</summary>
+    public string? CurrentNotes => this.controller?.Current?.Notes;
+
+    bool DeckHasNotes => this.Deck?.Slides.Any(x => !string.IsNullOrWhiteSpace(x.Notes)) == true;
+
+    /// <summary>Advance one slide. Clamped at the end of the deck.</summary>
+    public void Next() => this.controller?.Next();
+
+    /// <summary>Go back one slide. Clamped at the start of the deck.</summary>
+    public void Previous() => this.controller?.Previous();
+
+    /// <summary>Start the show. A no-op without a deck.</summary>
+    public Task StartPresentingAsync()
+        => this.Deck is null ? Task.CompletedTask : this.SetPresentingAsync(true);
+
+    /// <summary>End the show and return to the inline viewer.</summary>
+    public Task StopPresentingAsync() => this.SetPresentingAsync(false);
+
+    /// <summary>Flip <see cref="IsPresenting"/>.</summary>
+    public Task TogglePresentingAsync() => this.SetPresentingAsync(!this.IsPresenting);
+
+    async Task SetPresentingAsync(bool value)
+    {
+        if (this.IsPresenting == value)
+            return;
+
+        this.IsPresenting = value;
+        this.presentingApplied = value;
+
+        if (this.controller is not null)
+        {
+            this.controller.IsPresenting = value;
+
+            // Presenting forced Single on the controller; ending the show puts back whatever mode the
+            // host asked for, which is usually the thumbnail grid the presenter started from.
+            if (!value)
+                this.controller.Mode = this.Mode;
+        }
+
+        if (!value)
+            this.notesShown = false;
+
+        if (this.IsPresentingChanged.HasDelegate)
+            await this.IsPresentingChanged.InvokeAsync(value);
+
+        await this.ApplyPresentingAsync(value);
+
+        this.canvas?.Invalidate();
+        this.StateHasChanged();
+    }
+
+    async Task ApplyPresentingAsync(bool value)
+    {
+        if (this.module is null)
+            return;
+
+        try
+        {
+            if (value)
+            {
+                await this.module.InvokeAsync<bool>("present", this.schemeHost);
+                await this.module.InvokeVoidAsync("wake", this.schemeHost);
+            }
+            else
+            {
+                await this.module.InvokeVoidAsync("exit", this.schemeHost);
+            }
+        }
+        catch (JSException)
+        {
+            // A refused fullscreen request is not a refused show: the CSS class is already covering
+            // the viewport, so there is nothing to undo.
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// The browser left fullscreen. Escape and F11 never reach the component's own key handler, so this
+    /// is the only thing that keeps <see cref="IsPresenting"/> honest about them.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnPresentingChangedJs(bool isFullscreen)
+    {
+        // Entering is always something this component asked for, and a browser-chrome fullscreen (F11)
+        // reports a different element - neither is a show starting.
+        if (isFullscreen || !this.IsPresenting)
+            return;
+
+        await this.SetPresentingAsync(false);
+    }
+
+    void ToggleNotes() => this.notesShown = !this.notesShown;
 
     protected override void OnInitialized()
         // The canvas only redraws when told to, so a scheme flip has to invalidate it explicitly.
@@ -126,7 +281,12 @@
         try
         {
             this.controller.Index = this.SlideIndex;
-            this.controller.Mode = this.Mode;
+            this.controller.IsPresenting = this.IsPresenting;
+
+            // Mode is ignored while presenting: the controller forces Single there, and re-asserting the
+            // host's parameter would put the thumbnail wall back up on the projector every render.
+            if (!this.IsPresenting)
+                this.controller.Mode = this.Mode;
         }
         finally
         {
@@ -208,14 +368,25 @@
             DestinationWidth = placement.Width,
             DestinationHeight = placement.Height,
             Theme = theme,
-            Scale = scale
+            Scale = scale,
+            DrawBorder = !this.IsPresenting
         });
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
+        {
+            // A host that bound IsPresenting rather than calling StartPresentingAsync gets the fullscreen
+            // request here, once the parameter has actually rendered.
+            if (this.IsPresenting != this.presentingApplied)
+            {
+                this.presentingApplied = this.IsPresenting;
+                await this.ApplyPresentingAsync(this.IsPresenting);
+            }
+
             return;
+        }
 
         // Before the DPR read: the canvas paints its first frame off this, and starting the watch
         // second would flash a white page in a dark app.
@@ -243,6 +414,33 @@
             this.canvas?.Invalidate();
             this.StateHasChanged();
         }
+
+        await this.LoadPresentingModuleAsync();
+
+        if (this.IsPresenting)
+        {
+            this.presentingApplied = true;
+            await this.ApplyPresentingAsync(true);
+        }
+    }
+
+    async Task LoadPresentingModuleAsync()
+    {
+        try
+        {
+            this.module = await this.Js.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/Shiny.Blazor.Controls.Office/slideView.js");
+
+            this.selfRef = DotNetObjectReference.Create(this);
+            await this.module.InvokeVoidAsync("attach", this.schemeHost, this.selfRef);
+        }
+        catch (Exception)
+        {
+            // Prerendering, or a host that does not serve static web assets. Presenting then falls back
+            // to the CSS-only full-window surface, which needs no module at all.
+            this.module = null;
+        }
     }
 
     void OnWheel(WheelEventArgs e)
@@ -264,7 +462,22 @@
 
     void OnClick(MouseEventArgs e)
     {
-        if (this.controller is null || this.controller.Mode != SlideViewMode.Grid)
+        if (this.controller is null)
+            return;
+
+        if (this.IsPresenting)
+        {
+            // Tap-anywhere-to-advance, with a back band down the left edge. The presenter bar stops
+            // propagation, so its own buttons never also move the deck.
+            if (e.OffsetX < this.lastWidth * BackClickZone)
+                this.controller.Previous();
+            else
+                this.controller.Next();
+
+            return;
+        }
+
+        if (this.controller.Mode != SlideViewMode.Grid)
             return;
 
         var index = this.controller.ThumbnailAt(e.OffsetX, e.OffsetY);
@@ -275,7 +488,7 @@
         this.controller.Mode = SlideViewMode.Single;
     }
 
-    void OnKeyDown(KeyboardEventArgs e)
+    async Task OnKeyDown(KeyboardEventArgs e)
     {
         if (this.controller is null)
             return;
@@ -284,6 +497,15 @@
 
         switch (e.Key)
         {
+            // PowerPoint's own keys for starting and ending a show.
+            case "F5":
+                await this.StartPresentingAsync();
+                return;
+
+            case "Escape" when this.IsPresenting:
+                await this.StopPresentingAsync();
+                return;
+
             case "ArrowRight":
             case "ArrowDown":
             case "PageDown":
@@ -311,6 +533,21 @@
     {
         if (this.controller is not null)
             this.controller.Changed -= this.OnControllerChanged;
+
+        if (this.module is not null)
+        {
+            try
+            {
+                await this.module.InvokeVoidAsync("detach", this.schemeHost);
+                await this.module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went away first; the listeners went with it.
+            }
+        }
+
+        this.selfRef?.Dispose();
 
         this.painter?.Dispose();
         this.measurer?.Dispose();

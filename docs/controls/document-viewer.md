@@ -35,7 +35,45 @@ number alone and adding or removing an item renumbers the rest of the list.
 letterboxes them. Shapes arrive resolved through slide → layout → master, which matters because a
 title placeholder typically carries text and nothing else. ~20 preset geometries, solid and gradient
 fills, outlines, theme colours with their `lumMod`/`lumOff`/`shade`/`tint` modifiers applied, per-level
-text styles, speaker notes, pictures, tables, and a scrolling thumbnail-grid mode.
+text styles, speaker notes, pictures, tables, a scrolling thumbnail-grid mode, and a full-screen
+presenting mode.
+
+## Presenting mode
+
+`SlideView` goes full screen for a room:
+
+```xml
+<office:SlideView x:Name="Viewer" Deck="{Binding Deck}" IsPresenting="{Binding Presenting}"
+                  PresentingChanged="OnPresentingChanged" />
+```
+
+```csharp
+this.Viewer.StartPresenting();   // also StopPresenting() / TogglePresenting()
+```
+
+```razor
+<SlideView @ref="viewer" Deck="deck" @bind-IsPresenting="presenting" />
+@* await viewer.StartPresentingAsync() — see below for why the method beats the binding on the web *@
+```
+
+The slide is fitted edge to edge on black with no border, `Mode` is ignored for the length of the show
+(a thumbnail wall is how you find a slide, not how you show one) and put back when it ends, and the
+inline viewer is left on the slide the show ended on. A control bar — previous, a counter, next,
+**Notes** when any slide in the deck has speaker notes, and Exit — fades out after a few seconds and
+comes back on a touch or a pointer move; the notes panel it opens stays put, because notes are read
+while you are talking rather than moving the mouse. Turn the bar off with `ShowPresenterControls`.
+
+Tapping or clicking advances, except in the left quarter of the surface, which goes back. On MAUI the
+show is a modal page (the platform back gesture leaves it) and the display is kept awake for its
+duration — `KeepScreenOnWhilePresenting`. On Blazor `F5` starts a show and `Escape` leaves one, the
+browser's Fullscreen API is requested on top of a full-window CSS surface rather than instead of it —
+a refused request (an iframe without `allowfullscreen`, iOS Safari) still gives the room a full-window
+deck — and the pointer hides with the bar. Call `StartPresentingAsync()` rather than setting the bound
+parameter where you can: a browser only grants fullscreen inside the gesture that asked for it, and a
+round trip through a parameter loses that gesture.
+
+`IsPresenting` is two-way and `PresentingChanged` fires however the show ended, including Escape, the
+Android back button, and a fullscreen exit the browser made on its own.
 
 **Fonts are bundled on Blazor.** `Shiny.Blazor.Controls.Office` ships Carlito and Caladea (SIL OFL
 1.1, ~1 MB compressed), metric-compatible with Calibri and Cambria, loaded automatically on first

@@ -13,10 +13,11 @@
             <Button Text="›" WidthRequest="48" Clicked="OnNext" />
             <Button x:Name="ModeButton" Text="Grid" Clicked="OnToggleMode" />
             <Button Text="Theme" Clicked="OnToggleTheme" />
+            <Button Text="Present" Clicked="OnPresent" />
         </HorizontalStackLayout>
 
         <Border Grid.Row="1" StrokeThickness="1">
-            <office:SlideView x:Name="Viewer" SlideChanged="OnSlideChanged" />
+            <office:SlideView x:Name="Viewer" SlideChanged="OnSlideChanged" PresentingChanged="OnPresentingChanged" />
         </Border>
 
         <Label Grid.Row="2" x:Name="NotesLabel" FontSize="12" Opacity="0.75" LineBreakMode="WordWrap" />

@@ -11,7 +11,7 @@ namespace Shiny.Maui.Controls.Office;
 /// <remarks>
 /// Read-only. Requires <c>UseSkiaSharp()</c> in <c>MauiProgram</c>.
 /// </remarks>
-public class SlideView : ContentView, IDisposable
+public partial class SlideView : ContentView, IDisposable
 {
     readonly SKCanvasView canvas;
     readonly SkiaTextMeasurer measurer = new();
@@ -89,7 +89,12 @@ public class SlideView : ContentView, IDisposable
         set => this.SetValue(ThemeProperty, value);
     }
 
-    SlideTheme EffectiveTheme => this.Theme ?? OfficeScheme.DefaultSlide;
+    // Presenting overrides the control's own theme rather than composing with it: a projected deck is
+    // black-surrounded whatever the app is set to, and a Theme pinned for the inline viewer should not
+    // put a grey frame on the projector.
+    SlideTheme EffectiveTheme => this.IsPresenting
+        ? SlideTheme.Presentation
+        : this.Theme ?? OfficeScheme.DefaultSlide;
 
     public SlideViewMode Mode
     {
@@ -120,7 +125,7 @@ public class SlideView : ContentView, IDisposable
             return;
         }
 
-        this.controller = new SlideController(this.Deck) { Mode = this.Mode };
+        this.controller = new SlideController(this.Deck) { Mode = this.Mode, IsPresenting = this.IsPresenting };
         this.controller.Changed += this.OnControllerChanged;
 
         if (this.Width > 0 && this.Height > 0)
@@ -192,7 +197,8 @@ public class SlideView : ContentView, IDisposable
             DestinationWidth = placement.Width,
             DestinationHeight = placement.Height,
             Theme = theme,
-            Scale = scale
+            Scale = scale,
+            DrawBorder = !this.IsPresenting
         });
     }
 
@@ -211,6 +217,7 @@ public class SlideView : ContentView, IDisposable
         switch (e.ActionType)
         {
             case SKTouchAction.Pressed:
+                this.Interacted?.Invoke(this, EventArgs.Empty);
                 this.pressX = x;
                 this.pressY = y;
                 this.lastPanY = y;
@@ -271,6 +278,18 @@ public class SlideView : ContentView, IDisposable
                 this.controller.Next();
             else
                 this.controller.Previous();
+
+            return;
+        }
+
+        // A tap is only navigation while presenting. In the inline viewer it is how the surface gets
+        // focus and how a host's own gesture on the control is expected to arrive.
+        if (this.IsPresenting && Math.Abs(dx) < 12 && Math.Abs(dy) < 12)
+        {
+            if (x < this.Width * BackTapZone)
+                this.controller.Previous();
+            else
+                this.controller.Next();
         }
     }
 
@@ -284,6 +303,7 @@ public class SlideView : ContentView, IDisposable
         if (this.controller is not null)
             this.controller.Changed -= this.OnControllerChanged;
 
+        this.StopPresenting();
         this.canvas.PaintSurface -= this.OnPaintSurface;
         this.canvas.Touch -= this.OnTouch;
         this.painter.Dispose();

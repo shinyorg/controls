@@ -26,6 +26,21 @@ public sealed record SlideTheme
         Border = new ArgbColor(255, 0x44, 0x44, 0x44)
     };
 
+    /// <summary>
+    /// What a slide show is projected onto: black, edge to edge.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="Dark"/> with a smaller margin. A near-black surround is right for a viewer, where
+    /// the chrome around the slide is still part of an app; on a projector any lift at all reads as a
+    /// grey frame around the deck, and the border that separates a slide from its surround has nothing
+    /// left to separate it from.
+    /// </remarks>
+    public static readonly SlideTheme Presentation = new()
+    {
+        Surround = new ArgbColor(255, 0, 0, 0),
+        Border = new ArgbColor(255, 0, 0, 0)
+    };
+
     public ArgbColor Surround { get; init; } = new(255, 0x2B, 0x2B, 0x2E);
     public ArgbColor SlideBackground { get; init; } = new(255, 255, 255, 255);
     public ArgbColor DefaultText { get; init; } = new(255, 0x1A, 0x1A, 0x1A);

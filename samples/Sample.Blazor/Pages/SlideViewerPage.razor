@@ -19,13 +19,16 @@
     <button class="btn" disabled="@(index >= (deck?.Slides.Count ?? 0) - 1)" @onclick="Next">›</button>
     <button class="btn" @onclick="ToggleMode">@(mode == SlideViewMode.Grid ? "Single" : "Grid")</button>
     <button class="btn" @onclick="ToggleTheme">@(dark ? "Follow page" : "Force dark")</button>
+    <button class="btn" @onclick="PresentAsync">Present</button>
     <span class="status">@(deck is null ? "" : $"{deck.SlideWidth:0}×{deck.SlideHeight:0}")</span>
 </div>
 
 <div class="deck-host">
-    <SlideView Deck="deck"
+    <SlideView @ref="viewer"
+               Deck="deck"
                @bind-SlideIndex="index"
                @bind-Mode="mode"
+               @bind-IsPresenting="presenting"
                Theme="@(dark ? SlideTheme.Dark : null)" />
 </div>
 
@@ -38,12 +41,14 @@
 }
 
 <p class="hint">
-    Arrow keys, Page Up/Down and Space navigate; Escape toggles the thumbnail grid; clicking a
-    thumbnail opens that slide. Charts, SmartArt and animations are preserved in the file but not drawn.
+    Arrow keys, Page Up/Down and Space navigate; F5 presents the deck full screen and Escape leaves
+    again; Escape otherwise toggles the thumbnail grid; clicking a thumbnail opens that slide. Charts, SmartArt and animations are preserved in the file but not drawn.
 </p>
 
 @code {
+    SlideView? viewer;
     SlideDeck? deck;
+    bool presenting;
     readonly UnsupportedFeatureCollector unsupported = new();
     int index;
     SlideViewMode mode = SlideViewMode.Single;
@@ -69,6 +74,11 @@
     void ToggleMode() => this.mode = this.mode == SlideViewMode.Grid ? SlideViewMode.Single : SlideViewMode.Grid;
 
     void ToggleTheme() => this.dark = !this.dark;
+
+    // Through the component rather than by flipping the bound field: a browser only grants fullscreen
+    // inside the gesture that asked for it, and a round trip through a parameter loses that gesture.
+    // Setting `presenting` still works — it just falls back to the full-window surface.
+    Task PresentAsync() => this.viewer?.StartPresentingAsync() ?? Task.CompletedTask;
 
     public void Dispose() => this.deck?.Dispose();
 }

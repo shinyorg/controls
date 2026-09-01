@@ -164,6 +164,50 @@ public class SlideControllerTests
     }
 
     [Fact]
+    public async Task PresentingFitsTheSlideEdgeToEdge()
+    {
+        var (deck, controller) = await SetupAsync();
+        using var _ = deck;
+
+        var inline = controller.SinglePlacement()!.Value;
+        inline.X.ShouldBe(controller.Margin, 0.01, "the inline viewer keeps its margin");
+
+        controller.IsPresenting = true;
+        var presented = controller.SinglePlacement()!.Value;
+
+        presented.X.ShouldBe(0, 0.01);
+        presented.Width.ShouldBe(800, 0.01);
+        (presented.Width / presented.Height).ShouldBe(deck.AspectRatio, 0.01, "fitting still never distorts");
+    }
+
+    [Fact]
+    public async Task PresentingLeavesTheThumbnailGrid()
+    {
+        var (deck, controller) = await SetupAsync();
+        using var _ = deck;
+
+        controller.Mode = SlideViewMode.Grid;
+        controller.IsPresenting = true;
+
+        controller.Mode.ShouldBe(SlideViewMode.Single, "a wall of thumbnails is how you find a slide, not how you show one");
+    }
+
+    [Fact]
+    public async Task PresentingRaisesChangedSoTheSurfaceRepaints()
+    {
+        var (deck, controller) = await SetupAsync();
+        using var _ = deck;
+
+        var count = 0;
+        controller.Changed += (_, _) => count++;
+
+        controller.IsPresenting = true;
+        controller.IsPresenting = true;
+
+        count.ShouldBe(1, "re-asserting the same state is not a change");
+    }
+
+    [Fact]
     public async Task GridModeLaysOutThumbnailsInRows()
     {
         var (deck, controller) = await SetupAsync();
