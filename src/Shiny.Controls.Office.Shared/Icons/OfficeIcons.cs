@@ -30,6 +30,9 @@ public enum OfficeIcon
     Previous,
     Next,
 
+    /// <summary>A screen with a play mark in it — start the slide show.</summary>
+    SlideShow,
+
     /// <summary>A magnifier — the find box's leading mark.</summary>
     Find,
 
@@ -402,6 +405,23 @@ public static class OfficeIcons
 
         OfficeIcon.Previous => [OfficeIconShape.Polyline(14.5f, 4.5f, 8f, 12f, 14.5f, 19.5f)],
         OfficeIcon.Next => [OfficeIconShape.Polyline(9.5f, 4.5f, 16f, 12f, 9.5f, 19.5f)],
+
+        // A screen around the play mark, not the bare triangle a media button uses. The button sits
+        // beside the previous/next chevrons in the slide group, and a lone triangle there reads as one
+        // more navigation arrow rather than as starting the show.
+        OfficeIcon.SlideShow =>
+        [
+            OfficeIconShape.Rectangle(2.5f, 4.5f, 19f, 13f, 1.5f),
+
+            // Stroked, like every other figure in the set and like the play mark in the icon sets this
+            // is drawn to match. Filling it would read heavier than the screen around it at the size a
+            // toolbar draws, and the set is stroked throughout apart from the highlight bar.
+            OfficeIconShape.Path(
+                OfficeIconVertex.MoveTo(9.8f, 7.6f),
+                OfficeIconVertex.LineTo(15.6f, 11f),
+                OfficeIconVertex.LineTo(9.8f, 14.4f),
+                OfficeIconVertex.Close)
+        ],
 
         // The zoom pair's magnifier with neither bar in it, which is what makes those two read as
         // zoom and this one as search - the same lens at the same size on the same grid.

@@ -73,6 +73,39 @@ c.DeleteSelectedShape();
 c.Undo();
 ```
 
+## Playing the deck
+
+**Home ▸ Slide ▸ Slide show**. The editor does not grow a presenting mode of its own — it hands a
+`SlideView` the deck it is already holding and lets that present it, so the show is the viewer's, whole
+(black surround, auto-hiding presenter bar, tap to advance with a back band down the left quarter,
+speaker notes, `KeepScreenOnWhilePresenting`). See **document-viewer.md ▸ Presenting mode**. The deck
+is one shared object, so what plays is what was typed a moment ago; nothing is saved or reloaded.
+
+```csharp
+await view.StartPresentingAsync();      // Blazor; StartPresentingAsync(0) for the run-through
+view.StartPresenting();                 // MAUI
+
+view.IsPresenting;                      // read-only - a show is started by calling, not by assigning
+await view.StopPresentingAsync();       // MAUI: view.StopPresenting()
+```
+
+| Member | |
+| --- | --- |
+| `PresentingChanged` | Fires however the show ended — Exit, Escape, F11, the Android back gesture. |
+| `ShowPresenterControls` | The auto-hiding bar. Default `true`. Forwarded to the show surface. |
+| `KeepScreenOnWhilePresenting` | MAUI only, default `true`. |
+
+Rules worth knowing:
+
+- **From the current slide**, not from the top. Pass `0` for a run-through.
+- Starting a show **clears the selection**; ending one leaves the editor on the slide the show ended on
+  and puts focus back on the surface.
+- **No `F5` on the editor**, unlike the viewer. Blazor fixes `preventDefault` at render time, one
+  keystroke behind the handler that decides it, so a bound `F5` would sometimes reload the page — and
+  on the web that loses an unsaved deck. Do not add one.
+- `IsPresenting` is **not** a two-way parameter here (it is on `SlideView`). There is no
+  `@bind-IsPresenting` on `SlideEditorView`; call the method.
+
 ## Lists
 
 The two toggle buttons write into the paragraph's own `a:pPr`: `a:buChar` for a bullet, `a:buAutoNum`
@@ -121,7 +154,7 @@ Both toolbars already offer these, over the same galleries as the Word side.
 
 The slide toolbar draws from the **same `OfficeIcons` set** as the document toolbar — monochrome
 stroked artwork on a 24x24 grid, one weight, no colour of its own, shared between MAUI and Blazor. The
-slide-only marks are `Previous`, `Next`, `TextBox` and `Delete`; `BulletList`, `NumberedList`,
+slide-only marks are `Previous`, `Next`, `SlideShow`, `TextBox` and `Delete`; `BulletList`, `NumberedList`,
 `Indent` and `Outdent` are shared with the document toolbar. No glyph, letter
 or emoji goes on a toolbar button; add to the enum instead. `ShowToolbarTooltips` controls the hover
 tooltips on those icon-only buttons — on for Blazor and for MAUI desktop, off on iOS and Android.

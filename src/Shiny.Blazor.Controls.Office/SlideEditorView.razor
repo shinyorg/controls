@@ -73,6 +73,23 @@
                                         @onclick="() => Run(c => c.Next())">@OfficeToolbarIcons.Get(OfficeIcon.Next)</button>
                             </div>
                         </RibbonContent>
+
+                        @*
+                            Beside the arrows rather than on a tab of its own: playing the deck is what
+                            the slide you are looking at is *for*, and a show that costs a tab switch is
+                            one nobody starts to check a build.
+
+                            No key binding, deliberately. PowerPoint's is F5, and Blazor decides
+                            preventDefault at render time - one keystroke behind the handler that asks
+                            for it - so a bound F5 would sometimes reload the page instead, which on the
+                            web client means losing an unsaved deck. A button that always works beats a
+                            key that usually does.
+                        *@
+                        <RibbonButton Size="RibbonItemSize.Large" Text="Slide show"
+                                      Tooltip="Play the deck full screen, from this slide"
+                                      Icon="@Ico(OfficeIcon.SlideShow)"
+                                      Disabled="@(Deck is null)"
+                                      Clicked="() => StartPresentingAsync()" />
                     </RibbonGroup>
 
                     <RibbonGroup Title="Font" Priority="100">
@@ -233,10 +250,38 @@
             }
         </div>
     }
+
+    @*
+        The show: a SlideView over the same deck, not a presenting mode grown on the editing surface.
+        Everything a show needs already exists there - the fullscreen request, the black surround, the
+        presenter bar that fades out, tap-to-advance and the key handling - and a second copy of it
+        living in the editor would be a second copy to keep right.
+
+        Mounted as soon as there is a deck and merely hidden, rather than created by the click that
+        starts the show. requestFullscreen needs the browser's transient activation, and a component
+        created by that click spends the window importing its JS module before it can ask - so the show
+        would open full-window instead of full-screen on exactly the machines with the slowest first
+        import. SlideView drops its inline Style while presenting, so the display:none that hides it
+        here goes on its own.
+    *@
+    @if (Deck is not null)
+    {
+        <SlideView @ref="show"
+                   Deck="Deck"
+                   Watermark="Watermark"
+                   SlideIndex="SlideIndex"
+                   SlideIndexChanged="OnSlideIndexChanged"
+                   IsPresenting="presenting"
+                   IsPresentingChanged="OnShowPresentingChanged"
+                   ShowPresenterControls="ShowPresenterControls"
+                   Style="@(presenting ? null : "display:none")" />
+    }
 </div>
 
 @code {
     SlideEditor? editor;
+    SlideView? show;
+    bool presenting;
 
     /// <summary>The deck to edit. Must have been opened with <c>editable: true</c>.</summary>
     [Parameter] public SlideDeck? Deck { get; set; }
@@ -264,6 +309,22 @@
 
     /// <summary>A one-line hint under the canvas saying what the current gesture will do.</summary>
     [Parameter] public bool ShowStatus { get; set; } = true;
+
+    /// <summary>
+    /// Show the auto-hiding presenter bar over a running show. Forwarded to the show surface; turn it
+    /// off for a kiosk or a second screen nobody is meant to be driving from the surface itself.
+    /// </summary>
+    [Parameter] public bool ShowPresenterControls { get; set; } = true;
+
+    /// <summary>
+    /// Raised when the show starts or ends, however it ended — Exit, Escape or F11.
+    /// </summary>
+    /// <remarks>
+    /// Not <c>IsPresentingChanged</c>: that name is the half of a two-way binding, and
+    /// <see cref="IsPresenting"/> here is a read-only readout of a show this control owns. A host
+    /// starts one by calling <see cref="StartPresentingAsync"/>, not by assigning a parameter.
+    /// </remarks>
+    [Parameter] public EventCallback<bool> PresentingChanged { get; set; }
 
     /// <summary>Whether dragging an image file onto the slide inserts it. On by default.</summary>
     [Parameter] public bool AllowFileDrop { get; set; } = true;
@@ -330,6 +391,58 @@
     public SlideEditor? Editor => this.editor;
 
     public SlideEditorController? Controller => this.editor?.Controller;
+
+    /// <summary>Whether the deck is playing full screen.</summary>
+    public bool IsPresenting => this.presenting;
+
+    /// <summary>
+    /// Play the deck full screen, from <paramref name="from"/> or from the slide being edited.
+    /// </summary>
+    /// <remarks>
+    /// From the current slide rather than from the top, because that is what the button is for while a
+    /// deck is being built: a show started to see how the slide in front of you actually lands. Pass 0
+    /// for the run-through.
+    /// </remarks>
+    public async Task StartPresentingAsync(int? from = null)
+    {
+        if (this.Deck is null || this.presenting)
+            return;
+
+        // The caret and the drag handles are editing state, and a show is not editing. Left standing,
+        // they are what the editor paints the instant the show ends — over whichever slide the
+        // presenter walked to, where the shape they belonged to is not.
+        this.Controller?.ClearSelection();
+
+        if (from is { } index && index != this.SlideIndex)
+            await this.OnSlideIndexChanged(index);
+
+        this.presenting = true;
+        this.StateHasChanged();
+    }
+
+    /// <summary>End the show and go back to editing. A no-op when no show is running.</summary>
+    public Task StopPresentingAsync()
+        => this.show is null ? Task.CompletedTask : this.show.StopPresentingAsync();
+
+    /// <summary>
+    /// The show started or ended. Ending covers the ways that are not our own Exit button — Escape out
+    /// of fullscreen, F11, a tab switch — because the surface reports all of them.
+    /// </summary>
+    async Task OnShowPresentingChanged(bool value)
+    {
+        this.presenting = value;
+
+        // Focus went to the show surface when the show started, and nothing gives it back: after a
+        // show the presenter is looking at the editor again, and the editor is where the keys have to
+        // land.
+        if (!value && this.editor is not null)
+            await this.editor.FocusAsync();
+
+        if (this.PresentingChanged.HasDelegate)
+            await this.PresentingChanged.InvokeAsync(value);
+
+        this.StateHasChanged();
+    }
 
     bool Disabled => this.ReadOnly || this.Deck is null;
 

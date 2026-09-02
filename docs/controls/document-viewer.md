@@ -75,6 +75,10 @@ round trip through a parameter loses that gesture.
 `IsPresenting` is two-way and `PresentingChanged` fires however the show ended, including Escape, the
 Android back button, and a fullscreen exit the browser made on its own.
 
+The **editor plays the same show**, from a button on its own toolbar — see
+[Slide Editor](slide-editor.md#playing-the-deck). It does not reimplement any of this; it hands a
+`SlideView` the deck it is holding.
+
 **Fonts are bundled on Blazor.** `Shiny.Blazor.Controls.Office` ships Carlito and Caladea (SIL OFL
 1.1, ~1 MB compressed), metric-compatible with Calibri and Cambria, loaded automatically on first
 render. SkiaSharp on WebAssembly has no access to system fonts and returns a wrong-but-non-null

@@ -37,6 +37,7 @@ public class SlideEditorView : ContentView, IDisposable
 
     readonly RibbonButton previous;
     readonly RibbonButton next;
+    readonly RibbonButton present;
     readonly RibbonToggleButton bold;
     readonly RibbonToggleButton italic;
     readonly RibbonToggleButton underline;
@@ -60,6 +61,7 @@ public class SlideEditorView : ContentView, IDisposable
     readonly ColorPickerButton textColor;
     readonly List<RibbonItem> buttons = [];
 
+    SlideView? show;
     View? fontPicker;
     View? sizePicker;
     bool suppressPickerEvents;
@@ -69,6 +71,21 @@ public class SlideEditorView : ContentView, IDisposable
     {
         this.previous = this.MakeButton(OfficeIcon.Previous, "Previous slide", () => this.editor.Previous());
         this.next = this.MakeButton(OfficeIcon.Next, "Next slide", () => this.editor.Next());
+
+        // Not MakeButton: that one runs AfterCommand, which raises DeckChanged - and starting a show
+        // changes nothing about the deck. It would tell a host to save a file nobody edited. It also
+        // pulls focus back to the editor, which is the one control that must not have it while a show
+        // is up.
+        this.present = this.Track(OfficeRibbonItems.Command(
+            OfficeIcon.SlideShow,
+            "Play the deck full screen, from this slide",
+            () => this.StartPresenting(),
+            text: "Slide show",
+            automationId: "SlideToolbarSlideShow"));
+
+        // Large, like the Blazor bar's: the label is what says "show" where the icon beside two
+        // chevrons could still read as one more way to move a slide.
+        this.present.Size = RibbonItemSize.Large;
 
         this.bold = this.MakeToggle(OfficeIcon.Bold, "Bold (Ctrl+B)", () => this.editor.Controller?.ToggleBold());
         this.italic = this.MakeToggle(OfficeIcon.Italic, "Italic (Ctrl+I)", () => this.editor.Controller?.ToggleItalic());
@@ -349,6 +366,145 @@ public class SlideEditorView : ContentView, IDisposable
 
     public void FocusEditor() => this.editor.FocusEditor();
 
+    // ---- the show ----
+
+    /// <inheritdoc cref="SlideView.ShowPresenterControlsProperty"/>
+    public static readonly BindableProperty ShowPresenterControlsProperty = BindableProperty.Create(
+        nameof(ShowPresenterControls),
+        typeof(bool),
+        typeof(SlideEditorView),
+        true,
+        propertyChanged: (b, _, value) =>
+        {
+            if (((SlideEditorView)b).show is { } show)
+                show.ShowPresenterControls = (bool)value;
+        });
+
+    /// <inheritdoc cref="SlideView.KeepScreenOnWhilePresentingProperty"/>
+    public static readonly BindableProperty KeepScreenOnWhilePresentingProperty = BindableProperty.Create(
+        nameof(KeepScreenOnWhilePresenting),
+        typeof(bool),
+        typeof(SlideEditorView),
+        true,
+        propertyChanged: (b, _, value) =>
+        {
+            if (((SlideEditorView)b).show is { } show)
+                show.KeepScreenOnWhilePresenting = (bool)value;
+        });
+
+    /// <inheritdoc cref="ShowPresenterControlsProperty"/>
+    public bool ShowPresenterControls
+    {
+        get => (bool)this.GetValue(ShowPresenterControlsProperty);
+        set => this.SetValue(ShowPresenterControlsProperty, value);
+    }
+
+    /// <inheritdoc cref="KeepScreenOnWhilePresentingProperty"/>
+    public bool KeepScreenOnWhilePresenting
+    {
+        get => (bool)this.GetValue(KeepScreenOnWhilePresentingProperty);
+        set => this.SetValue(KeepScreenOnWhilePresentingProperty, value);
+    }
+
+    /// <summary>Whether the deck is playing full screen.</summary>
+    public bool IsPresenting => this.show?.IsPresenting == true;
+
+    /// <summary>
+    /// Raised when the show starts or ends, however it ended — the Exit button, the back gesture, a
+    /// swipe-down on the modal.
+    /// </summary>
+    public event EventHandler<bool>? PresentingChanged;
+
+    /// <summary>
+    /// Play the deck full screen, from <paramref name="from"/> or from the slide being edited.
+    /// </summary>
+    /// <remarks>
+    /// From the current slide rather than from the top, because that is what the button is for while a
+    /// deck is being built: a show started to see how the slide in front of you actually lands. Pass 0
+    /// for the run-through.
+    /// </remarks>
+    public void StartPresenting(int? from = null)
+    {
+        if (this.Deck is null || this.IsPresenting)
+            return;
+
+        // The caret and the drag handles are editing state, and a show is not editing. Left standing,
+        // they are what the editor paints the instant the show ends — over whichever slide the
+        // presenter walked to, where the shape they belonged to is not.
+        this.editor.Controller?.ClearSelection();
+
+        if (from is { } index)
+            this.SlideIndex = index;
+
+        var view = this.EnsureShow();
+
+        // Assigned every time rather than once: the deck, the watermark and the slide are all things a
+        // host can have changed since the last show, and the surface is kept between them.
+        view.Deck = this.Deck;
+        view.Watermark = this.Watermark;
+        view.SlideIndex = this.SlideIndex;
+        view.StartPresenting();
+
+        this.RefreshBar();
+    }
+
+    /// <summary>End the show and go back to editing. A no-op when no show is running.</summary>
+    public void StopPresenting() => this.show?.StopPresenting();
+
+    /// <summary>
+    /// The viewer that carries the show, built on the first play and kept.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A <see cref="SlideView"/> over the same deck rather than a presenting mode grown on the editing
+    /// surface: everything a show needs already lives there — the modal page, the black surround, the
+    /// presenter bar that fades out, tap-to-advance and the screen lock — and a second copy of it in
+    /// the editor would be a second copy to keep right. The deck is the shared object, so the show
+    /// paints the edits made a moment ago without a save or a reload.
+    /// </para>
+    /// <para>
+    /// It goes into the tree, invisible, rather than being held as a loose object: a
+    /// <see cref="SlideView"/> finds the navigation to push its show onto by walking up its own
+    /// parents, and one with no parent falls back to the application's first window — the wrong page
+    /// in a multi-window desktop app, and nothing at all in a test. Invisible costs nothing to lay
+    /// out, and the surface the audience sees is the show page's own.
+    /// </para>
+    /// </remarks>
+    SlideView EnsureShow()
+    {
+        if (this.show is not null)
+            return this.show;
+
+        var view = new SlideView
+        {
+            IsVisible = false,
+            ShowPresenterControls = this.ShowPresenterControls,
+            KeepScreenOnWhilePresenting = this.KeepScreenOnWhilePresenting
+        };
+
+        view.PresentingChanged += this.OnShowPresentingChanged;
+
+        this.root.Add(view);
+        Grid.SetRow(view, 1);
+
+        this.show = view;
+        return view;
+    }
+
+    void OnShowPresentingChanged(object? sender, bool value)
+    {
+        if (!value && this.show is { } view)
+        {
+            // The show page hands its owner the slide it ended on before this fires, so the editor is
+            // left where the presenter left it rather than where the show began.
+            this.SlideIndex = view.SlideIndex;
+            this.editor.FocusEditor();
+        }
+
+        this.RefreshBar();
+        this.PresentingChanged?.Invoke(this, value);
+    }
+
     // ---- toolbar ----
 
     void BuildBar()
@@ -372,6 +528,11 @@ public class SlideEditorView : ContentView, IDisposable
         slide.Items.Add(this.previous);
         slide.Items.Add(OfficeRibbonItems.Host(this.counter));
         slide.Items.Add(this.next);
+
+        // Beside the arrows rather than on a tab of its own: playing the deck is what the slide you
+        // are looking at is *for*, and a show that costs a tab switch is one nobody starts to check a
+        // build.
+        slide.Items.Add(this.present);
         tab.Groups.Add(slide);
 
         var font = new RibbonGroup { Title = "Font", Priority = 100 };
@@ -779,6 +940,10 @@ public class SlideEditorView : ContentView, IDisposable
         this.previous.IsEnabled = controller?.CanGoPrevious ?? false;
         this.next.IsEnabled = controller?.CanGoNext ?? false;
 
+        // Playing works in a read-only deck - it changes nothing - so it follows whether a deck is
+        // open rather than whether it can be edited.
+        this.present.IsEnabled = this.Deck is not null;
+
         this.undo.IsEnabled = enabled && (controller?.CanUndo ?? false);
         this.redo.IsEnabled = enabled && (controller?.CanRedo ?? false);
 
@@ -838,6 +1003,17 @@ public class SlideEditorView : ContentView, IDisposable
         // Drops the bar's subscription to the finder, which outlives this view: the finder belongs to
         // the controller and the controller to the deck, and a host can keep both open.
         this.findBar.Find = null;
+
+        if (this.show is not null)
+        {
+            this.show.PresentingChanged -= this.OnShowPresentingChanged;
+
+            // Disposing it stops a show that is still up: a modal page left on screen over a view that
+            // has gone is a deck nobody can get out of.
+            this.show.Dispose();
+            this.show = null;
+        }
+
         this.editor.Dispose();
     }
 

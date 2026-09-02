@@ -166,6 +166,9 @@ Rules worth knowing:
 - The inline viewer is left on the slide the show ended on.
 - The **Notes** button appears only when some slide in the deck has speaker notes. The panel it opens
   does *not* fade with the bar.
+- The **slide editor plays the same show** from its own toolbar, by handing a `SlideView` the deck it
+  is holding — see `slide-editor.md` ▸ **Playing the deck**. Nothing about presenting is reimplemented
+  there, and nothing about it should be.
 - On Blazor `F5` starts a show and `Escape` leaves one. Fullscreen is requested on top of a full-window
   CSS surface, never instead of it, so a refused request (an iframe without `allowfullscreen`, iOS
   Safari) still fills the window.

@@ -67,19 +67,14 @@ class SlideShowPage : ContentPage
         var exit = ChromeButton("Exit", 13);
         exit.Clicked += (_, _) => this.owner.StopPresenting();
 
-        this.chrome = new Border
+        this.chrome = ChromePanel(22);
+        this.chrome.Padding = new Thickness(8, 2);
+        this.chrome.HorizontalOptions = LayoutOptions.Center;
+        this.chrome.IsVisible = owner.ShowPresenterControls;
+        this.chrome.Content = new HorizontalStackLayout
         {
-            BackgroundColor = Scrim,
-            Stroke = Colors.Transparent,
-            StrokeShape = new RoundRectangle { CornerRadius = 22 },
-            Padding = new Thickness(8, 2),
-            HorizontalOptions = LayoutOptions.Center,
-            IsVisible = owner.ShowPresenterControls,
-            Content = new HorizontalStackLayout
-            {
-                Spacing = 2,
-                Children = { this.previous, this.counter, this.next, notesButton, exit }
-            }
+            Spacing = 2,
+            Children = { this.previous, this.counter, this.next, notesButton, exit }
         };
 
         this.notesLabel = new Label
@@ -89,17 +84,12 @@ class SlideShowPage : ContentPage
             LineBreakMode = LineBreakMode.WordWrap
         };
 
-        this.notesPanel = new Border
-        {
-            BackgroundColor = Scrim,
-            Stroke = Colors.Transparent,
-            StrokeShape = new RoundRectangle { CornerRadius = 10 },
-            Padding = 12,
-            Margin = new Thickness(24, 0, 24, 8),
-            IsVisible = false,
-            MaximumHeightRequest = 180,
-            Content = new ScrollView { Content = this.notesLabel }
-        };
+        this.notesPanel = ChromePanel(10);
+        this.notesPanel.Padding = 12;
+        this.notesPanel.Margin = new Thickness(24, 0, 24, 8);
+        this.notesPanel.IsVisible = false;
+        this.notesPanel.MaximumHeightRequest = 180;
+        this.notesPanel.Content = new ScrollView { Content = this.notesLabel };
 
         this.Content = new Grid
         {
@@ -119,16 +109,65 @@ class SlideShowPage : ContentPage
         this.Update();
     }
 
-    static Button ChromeButton(string text, double fontSize) => new()
+    static Button ChromeButton(string text, double fontSize)
     {
-        Text = text,
-        FontSize = fontSize,
-        TextColor = Colors.White,
-        BackgroundColor = Colors.Transparent,
-        BorderWidth = 0,
-        Padding = new Thickness(10, 0),
-        MinimumWidthRequest = 0,
-        HeightRequest = 36
+        var button = new Button
+        {
+            // An explicit Style, empty on purpose: an app's implicit Button style would otherwise
+            // repaint the presenter bar in the app's own colours.
+            Style = new Style(typeof(Button)),
+            Text = text,
+            FontSize = fontSize,
+            TextColor = Colors.White,
+            BackgroundColor = Colors.Transparent,
+            BorderWidth = 0,
+            Padding = new Thickness(10, 0),
+            MinimumWidthRequest = 0,
+            HeightRequest = 36
+        };
+
+        // The states are declared rather than left to whatever style is in scope, because a visual
+        // state setter beats a local value: dropping the style is not enough to stop a Disabled state
+        // painting its own background, which on iOS put a grey pill around the arrow at the end of a
+        // deck — on a bar that is meant to be nothing but text on black. Declaring them also defines
+        // the disabled look here: an arrow that is spent should read as dim, not as missing.
+        VisualStateManager.SetVisualStateGroups(button, new VisualStateGroupList
+        {
+            new VisualStateGroup
+            {
+                Name = nameof(VisualStateManager.CommonStates),
+                States =
+                {
+                    ChromeState(VisualStateManager.CommonStates.Normal, 1),
+                    ChromeState(VisualStateManager.CommonStates.Disabled, 0.35),
+                    ChromeState("Pressed", 0.6),
+                    ChromeState("PointerOver", 1)
+                }
+            }
+        });
+
+        return button;
+    }
+
+    static VisualState ChromeState(string name, double opacity) => new()
+    {
+        Name = name,
+        Setters =
+        {
+            new Setter { Property = VisualElement.BackgroundColorProperty, Value = Colors.Transparent },
+            new Setter { Property = Button.TextColorProperty, Value = Colors.White },
+            new Setter { Property = VisualElement.OpacityProperty, Value = opacity }
+        }
+    };
+
+    /// <inheritdoc cref="ChromeButton"/>
+    static Border ChromePanel(int cornerRadius) => new()
+    {
+        Style = new Style(typeof(Border)),
+        BackgroundColor = Scrim,
+        Stroke = Colors.Transparent,
+        StrokeThickness = 0,
+        StrokeShape = new RoundRectangle { CornerRadius = cornerRadius }
     };
 
     protected override void OnAppearing()
@@ -195,6 +234,8 @@ class SlideShowPage : ContentPage
         var index = controller?.Index ?? 0;
 
         this.counter.Text = count == 0 ? string.Empty : $"{index + 1} / {count}";
+
+        // The dim that goes with this is a visual state on the button itself; see ChromeButton.
         this.previous.IsEnabled = controller?.CanGoPrevious == true;
         this.next.IsEnabled = controller?.CanGoNext == true;
 

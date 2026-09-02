@@ -34,8 +34,8 @@ theme-derived fills it carries survive a formatting change. A whole drag is **on
 per pointer sample.
 
 The toolbar draws from the **same icon set** as the document editor — see above — adding `Previous`,
-`Next`, `BulletList`, `NumberedList`, `Indent`, `Outdent`, `TextBox` and `Delete`, and takes the same
-`ShowToolbarTooltips`.
+`Next`, `SlideShow`, `BulletList`, `NumberedList`, `Indent`, `Outdent`, `TextBox` and `Delete`, and
+takes the same `ShowToolbarTooltips`.
 
 | | Blazor | MAUI |
 |---|---|---|
@@ -89,6 +89,41 @@ nothing is approximated here.
 
 ⚠️ Not implemented, deliberately: soft line breaks, editing table cells or grouped shapes, adding or
 reordering slides, and rotation handles.
+
+## Playing the deck
+
+**Home ▸ Slide ▸ Slide show** plays the deck full screen from the slide being edited. It is the same
+show the viewer gives — the slide edge to edge on black, an auto-hiding presenter bar, click or tap to
+advance with the left quarter going back, speaker notes on demand — because it *is* the viewer: the
+editor hands a `SlideView` the deck it is already holding and lets that present it. The deck is one
+shared object, so what plays is what you typed a moment ago. Nothing is saved or reloaded to get there.
+
+```csharp
+await view.StartPresentingAsync();   // Blazor
+view.StartPresenting();              // MAUI
+```
+
+| Member | |
+|---|---|
+| `IsPresenting` | Read-only. A show is started by calling, never by assigning a parameter. |
+| `StartPresentingAsync(int? from)` / `StartPresenting(int? from)` | From the slide being edited unless told otherwise. |
+| `StopPresentingAsync()` / `StopPresenting()` | Ends it. A no-op when nothing is playing. |
+| `PresentingChanged` | However the show ended — the Exit button, Escape, F11, the Android back gesture. |
+| `ShowPresenterControls` | The auto-hiding bar. Default `true`; off for a kiosk or a second screen. |
+| `KeepScreenOnWhilePresenting` | MAUI only, default `true`. |
+
+From the **current** slide rather than from the top: while a deck is being built, a show is started to
+see how the slide in front of you actually lands. Pass `0` for the run-through.
+
+Starting one clears the selection first. A caret and eight drag handles are editing state, and left
+standing they are what the editor paints the instant the show ends — over whichever slide the presenter
+walked to, where the shape they belonged to is not. Ending one leaves the editor on the slide the show
+ended on, with the focus back on the surface.
+
+⚠️ **No `F5` here.** The viewer binds it; the editor deliberately does not. Blazor fixes
+`preventDefault` at render time — one keystroke behind the handler that decides it — so a bound `F5`
+would sometimes reach the browser instead, and on the web that reloads the page and takes an unsaved
+deck with it.
 
 ## Dark mode
 
