@@ -16,6 +16,59 @@
     animation: shiny-dialog-fade-out 0.18s ease forwards;
 }
 
+/* ============================================================================================
+   The dialog panel, and why its background is three stacked layers instead of one declaration
+   ============================================================================================
+
+   This used to be the obvious one-liner:
+
+       background-color: var(--shiny-color-surface, #ffffff);
+
+   and it painted nothing at all inside a host that themes the surface slot as see-through. The
+   ShinyOS desktop is exactly such a host: its default theme sets ContentBackground to the string
+   "transparent" (app content sits inside a window chrome that has already painted, so the content
+   area is deliberately a hole), and its token bridge then maps
+
+       --shiny-color-surface: var(--os-content-bg, #1e1e22);
+
+   which resolves to `transparent`. The `#ffffff` after the comma NEVER RUNS in that case - a var()
+   fallback fires only when the custom property is *undefined*, and this one is very much defined.
+   The result was a dialog with no panel: the buttons showed (the confirm button is painted from the
+   accent slot, which is a real colour) and the title and message sat straight on the dimmed
+   wallpaper at ~3.7:1 and ~2.4:1. Adding more fallbacks would not have helped for the same reason.
+
+   So the panel has to be opaque *by construction*, whatever the surface slot happens to hold, and
+   it has to do that without hard-coding a palette that would then ignore a theme that does supply a
+   usable colour. Three background layers, painted bottom to top:
+
+     3. background-color: #ffffff        - an opaque floor, so the element can never be see-through.
+     2. linear-gradient(currentColor)    - blended `difference` against that floor, which is exactly
+                                           `255 - ink`: the inverse of whatever colour the dialog's
+                                           own text is. That is guaranteed to contrast with the text
+                                           by construction - light ink gives a near-black panel, dark
+                                           ink a near-white one - with no light/dark guess anywhere.
+                                           It is the only layer that survives when the theme's
+                                           surface is transparent.
+     1. linear-gradient(surface)         - the theme's own surface, painted last and normally. When
+                                           the theme supplies a real colour this covers layers 2 and
+                                           3 completely and the dialog looks exactly as it always
+                                           did; when it is transparent (or missing, in which case
+                                           the #ffffff fallback here makes it opaque white) it is
+                                           simply invisible and layer 2 shows through.
+
+   Deriving layer 2 from currentColor rather than from `prefers-color-scheme` or `light-dark()` is
+   the load-bearing decision. Those read the *document's* colour scheme, and the failing host is
+   precisely one where the two disagree: a ShinyOS desktop is dark by default no matter what the OS
+   or the surrounding stylesheet says, so a scheme-driven fallback would cheerfully paint a white
+   panel under the shell's near-white text. The ink is the only signal that is always right, because
+   it is the thing the panel has to be readable against.
+
+   background-blend-mode composites background layers with each other only - it never reaches the
+   page behind the element - so the scrim under the dialog is unaffected.
+
+   A caller-supplied DialogConfig.BackgroundColor still wins outright: CardStyle() in the .razor
+   emits `background-image:none` alongside it, which collapses all of this back to one flat colour
+   rather than letting layer 2 blend against the caller's choice. */
 .shiny-dialog {
     width: 100%;
     box-sizing: border-box;
@@ -23,8 +76,12 @@
     flex-direction: column;
     gap: var(--shiny-spacing-3, 12px);
     padding: calc(20px * var(--shiny-density-scale, 1));
-    background-color: var(--shiny-color-surface, #ffffff);
     color: var(--shiny-color-on-surface, #1a1a1a);
+    background-color: #ffffff;
+    background-image:
+        linear-gradient(var(--shiny-color-surface, #ffffff), var(--shiny-color-surface, #ffffff)),
+        linear-gradient(currentColor, currentColor);
+    background-blend-mode: normal, difference;
     box-shadow: var(--shiny-elevation-5, 0 12px 40px rgba(0, 0, 0, 0.3));
 }
 
@@ -42,6 +99,12 @@
     color: var(--shiny-color-on-surface-variant, #4a4a4a);
 }
 
+/* Everything below sits *on* the panel, which the block above has already made opaque, so these do
+   not need a floor of their own - they only need to stay visible when the slot they are painted
+   from resolves to `transparent`. Same two-layer shape throughout: the theme's token on top, and
+   underneath it a wash of the element's own ink, which is never transparent and always contrasts
+   with the panel it is drawn on. When the token is a real colour the wash is hidden and nothing
+   changes; when it is transparent the wash is what you see. */
 .shiny-dialog-input {
     width: 100%;
     box-sizing: border-box;
@@ -49,8 +112,11 @@
     font-size: var(--shiny-type-body-medium-size, 14px);
     border-radius: var(--shiny-shape-corner-small, 8px);
     border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #c4c4c4);
-    background-color: var(--shiny-color-surface, #ffffff);
     color: var(--shiny-color-on-surface, #1a1a1a);
+    background-color: transparent;
+    background-image:
+        linear-gradient(var(--shiny-color-surface, #ffffff), var(--shiny-color-surface, #ffffff)),
+        linear-gradient(color-mix(in srgb, currentColor 8%, transparent), color-mix(in srgb, currentColor 8%, transparent));
 }
 
 .shiny-dialog-input:focus {
@@ -81,14 +147,27 @@
     filter: brightness(0.95);
 }
 
+/* The cancel button is the one that actually disappeared alongside the panel: ShinyOS writes
+   --os-content-alt-bg as the literal string "transparent" (unset means "no zebra striping"), and
+   its bridge maps --shiny-color-surface-variant onto it, so the neutral button slot resolved to
+   transparent too. A 12% wash reads as a quiet neutral button on either a light or a dark panel. */
 .shiny-dialog-button-cancel {
-    background-color: var(--shiny-color-surface-variant, #ececec);
     color: var(--shiny-color-on-surface-variant, #4a4a4a);
+    background-color: transparent;
+    background-image:
+        linear-gradient(var(--shiny-color-surface-variant, #ececec), var(--shiny-color-surface-variant, #ececec)),
+        linear-gradient(color-mix(in srgb, currentColor 12%, transparent), color-mix(in srgb, currentColor 12%, transparent));
 }
 
+/* The accent slot is the one that kept working in ShinyOS, which is why the report was "the buttons
+   are there but there is no background". It gets the same underlay anyway - a host that themes its
+   accent as transparent is pathological, but the insurance costs one gradient. */
 .shiny-dialog-button-ok {
-    background-color: var(--shiny-color-primary, #7c3aed);
     color: var(--shiny-color-on-primary, #ffffff);
+    background-color: transparent;
+    background-image:
+        linear-gradient(var(--shiny-color-primary, #7c3aed), var(--shiny-color-primary, #7c3aed)),
+        linear-gradient(color-mix(in srgb, currentColor 30%, transparent), color-mix(in srgb, currentColor 30%, transparent));
 }
 
 /* ============================================================ */
@@ -114,8 +193,11 @@
     font-weight: 500;
     padding: calc(13px * var(--shiny-density-scale, 1)) var(--shiny-spacing-4, 16px);
     border-radius: var(--shiny-shape-corner-medium, 10px);
-    background-color: var(--shiny-color-surface-variant, #ececec);
     color: var(--shiny-color-on-surface, #1a1a1a);
+    background-color: transparent;
+    background-image:
+        linear-gradient(var(--shiny-color-surface-variant, #ececec), var(--shiny-color-surface-variant, #ececec)),
+        linear-gradient(color-mix(in srgb, currentColor 12%, transparent), color-mix(in srgb, currentColor 12%, transparent));
     transition: filter 0.15s ease;
 }
 

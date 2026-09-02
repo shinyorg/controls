@@ -297,9 +297,15 @@ function redraw(state) {
         drawCropOverlay(ctx, state.cropRect, ir, vt.scale);
     }
 
-    // Draw in-progress stroke
+    // Draw in-progress stroke, clipped to the image for the reason the committed ones are - the
+    // stroke being drawn right now has to look like the stroke that is about to be kept.
     if (state.mode === 'draw' && state.currentStroke && state.currentStroke.points.length >= 2) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(ir.x, ir.y, ir.w, ir.h);
+        ctx.clip();
         drawStroke(ctx, state.currentStroke.points, state.drawColor, state.drawWidth);
+        ctx.restore();
     }
 
     // Draw in-progress line / arrow
@@ -380,7 +386,18 @@ function replayActions(ctx, image, actions, canvasW, canvasH) {
         ctx.drawImage(image, eff.sx, eff.sy, eff.sw, eff.sh, drawRect.x, drawRect.y, drawRect.w, drawRect.h);
     }
 
-    // Second pass: draw overlays (strokes, text)
+    // Second pass: draw overlays (strokes, text).
+    //
+    // Clipped to the image. Overlay geometry is stored normalized against the image rect, so a
+    // point that was put down past the edge is simply <0 or >1 and paints outside it - over the
+    // letterbox on screen, and past the edge of the bitmap on export, since this same function is
+    // what renders the exported copy. Clipping rather than clamping the points: clamping would drag
+    // a stroke that wandered off and came back along the border and draw a line that was never made.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(drawRect.x, drawRect.y, drawRect.w, drawRect.h);
+    ctx.clip();
+
     for (const action of actions) {
         if (action.type === 'draw') {
             const pts = action.points.map(p => ({
@@ -416,6 +433,8 @@ function replayActions(ctx, image, actions, canvasW, canvasH) {
             drawLine(ctx, start, end, action.color, rescale(action.width, action.refWidth, drawRect.w), action.isArrow);
         }
     }
+
+    ctx.restore();
 
     return drawRect;
 }
@@ -771,9 +790,18 @@ function onPointerDown(state, e) {
             break;
         }
         case 'draw':
+        {
+            // The same guard line, arrow and the shapes already make. Clipping stops an out-of-bounds
+            // stroke from being painted, but a gesture that starts in the letterbox was never aimed
+            // at the picture at all, and letting it begin leaves an invisible stroke on the undo
+            // stack that clears nothing when undone.
+            const ir = state.imageRect;
+            if (ir.w <= 0 || ir.h <= 0) break;
+            if (pt.x < ir.x || pt.x > ir.x + ir.w || pt.y < ir.y || pt.y > ir.y + ir.h) break;
             state.currentStroke = { points: [pt] };
             redraw(state);
             break;
+        }
         case 'text':
             handleTextPlacement(state, pt, screen);
             break;

@@ -172,16 +172,35 @@
         var sb = new System.Text.StringBuilder();
         sb.Append("border-radius:").Append(Px(cfg.CornerRadius)).Append(';');
         sb.Append("max-width:").Append(Px(cfg.MaxWidth)).Append(';');
+
+        // A caller-chosen colour has to replace the panel outright, not join it. The stylesheet
+        // paints .shiny-dialog as three blended background layers so the panel stays opaque in a
+        // host whose surface token resolves to `transparent` (see the long note in the .css) - and
+        // the middle of those layers is composited with `difference` against the background colour.
+        // Overriding only background-color would leave that blend in place and compute the caller's
+        // colour minus the text ink, which is not the colour they asked for. Clearing the images
+        // collapses the stack back to a single flat fill.
         if (!string.IsNullOrEmpty(cfg.BackgroundColor))
+        {
+            sb.Append("background-image:none;");
             sb.Append("background-color:").Append(cfg.BackgroundColor).Append(';');
+        }
         return sb.ToString();
     }
 
     static string ButtonStyle(string? bg, string? text)
     {
         var sb = new System.Text.StringBuilder();
+
+        // Same reason as CardStyle: the button rules paint the theme's slot over a currentColor
+        // underlay so the button survives a host that themes that slot as transparent. An inline
+        // background-color alone would land *underneath* both gradients and never be seen, so the
+        // caller's colour only takes effect once the image layers are gone.
         if (!string.IsNullOrEmpty(bg))
+        {
+            sb.Append("background-image:none;");
             sb.Append("background-color:").Append(bg).Append(';');
+        }
         if (!string.IsNullOrEmpty(text))
             sb.Append("color:").Append(text).Append(';');
         return sb.ToString();
