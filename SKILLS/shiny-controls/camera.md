@@ -8,6 +8,13 @@ A cross-platform camera control for **.NET MAUI** (iOS, Android, Windows, macOS 
 - **AI document scanner**: `Shiny.Maui.Controls.Camera.Ai` (MAUI) / `Shiny.Blazor.Controls.Camera.Ai` (Blazor) — detect a document is *present*, then send that one frame to a **Microsoft.Extensions.AI `IChatClient`** for structured extraction. See *AI document scanner* below.
 - **Shared contracts**: `Shiny.Controls.Camera` namespace — `IFrameAnalyzer`, `FrameAnalyzer` (base), `OverlayBox`, `CameraFrame`, `CoordinateTransform`, the document building blocks (`RecognizedText`, `DocumentField`, `DocumentLineItem`, `DocumentDetectedEventArgs<T>`, `IDocumentParser<T>`), and the enums (`CameraFacing`, `CameraFilter`, `CameraFlashMode`, `PreviewScaleMode`).
 
+**Prefer `IMediaService` when you want a result, not a screen.** The same package registers a MAUI-only
+`IMediaService` that presents a modal `CameraView` page for you — permissions, photo/video capture with
+programmatic compression, gallery picking, zoom limits, and one-line `ScanBarcodeAsync` /
+`ScanCreditCardAsync` / `ScanTextAsync` verbs contributed by the analyzer add-ons. Use `CameraView`
+directly (below) only when the camera is part of a screen the app designs itself. See
+**media-service.md**.
+
 **One analyzer at a time:** `CameraView.Analyzer` holds a **single** `IFrameAnalyzer` (null = none) — assign or swap it live; it's the content property so it can be declared inline in XAML.
 
 **Two channels per analyzer:** a typed *event* carries the semantic result (**always an array** — a frame can hold several barcodes/faces); the *return value* of `AnalyzeAsync` is the styled `OverlayBox`es to draw. A returned set persists until the analyzer returns a different set (replace) or `null` (clear).

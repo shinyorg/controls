@@ -45,7 +45,12 @@ public static class MauiProgram
                 });
 
             })
-            .UseShinyCamera()
+            .UseShinyCamera(media =>
+            {
+                // house style for every IMediaService photo — call sites override per call when they need to
+                media.CompressionQuality = 85;
+                media.MaxDimension = 2048;
+            })
             .UseShinyMediaElement()
             .UseTrayIcon()
             .UseFileDrop()

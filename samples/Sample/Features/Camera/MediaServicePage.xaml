@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shinylib.net/maui/controls"
+             x:Class="Sample.Features.Camera.MediaServicePage"
+             Title="Media Service">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="18">
+
+            <Label Text="IMediaService drives Shiny's own modal CameraView page — permissions, photo/video capture, gallery picking, and the Scan… extensions the analyzer packages add. No camera page of your own."
+                   FontSize="13" />
+
+            <Label Text="Permissions" FontAttributes="Bold" FontSize="16" />
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
+                <Button Text="Camera" Margin="0,0,8,8" Command="{Binding RequestCameraCommand}" />
+                <Button Text="Camera + Mic" Margin="0,0,8,8" Command="{Binding RequestCameraMicCommand}" />
+                <Button Text="Gallery (read)" Margin="0,0,8,8" Command="{Binding RequestGalleryReadCommand}" />
+                <Button Text="Gallery (write)" Margin="0,0,8,8" Command="{Binding RequestGalleryWriteCommand}" />
+                <Button Text="Open Settings" Margin="0,0,8,8" Command="{Binding OpenSettingsCommand}" />
+                <Button Text="List Cameras" Margin="0,0,8,8" Command="{Binding ListCamerasCommand}" />
+            </FlexLayout>
+
+            <Label Text="Capture (modal CameraView)" FontAttributes="Bold" FontSize="16" />
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
+                <Button Text="Take Photo" Margin="0,0,8,8" Command="{Binding TakePhotoCommand}" />
+                <Button Text="Photo + Effects" Margin="0,0,8,8" Command="{Binding TakePhotoWithEffectsCommand}" />
+                <Button Text="Photo 60% @ 1024" Margin="0,0,8,8" Command="{Binding TakeCompressedPhotoCommand}" />
+                <Button Text="Photo, zoom &#x2264; 4x" Margin="0,0,8,8" Command="{Binding TakeZoomCappedPhotoCommand}" />
+                <Button Text="Photo (no review)" Margin="0,0,8,8" Command="{Binding TakePhotoNoConfirmCommand}" />
+                <Button Text="Record Video" Margin="0,0,8,8" Command="{Binding RecordVideoCommand}" />
+                <Button Text="Record 10s Max" Margin="0,0,8,8" Command="{Binding RecordShortVideoCommand}" />
+            </FlexLayout>
+
+            <Label Text="Gallery" FontAttributes="Bold" FontSize="16" />
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
+                <Button Text="Pick Photo" Margin="0,0,8,8" Command="{Binding PickPhotoCommand}" />
+                <Button Text="Pick 5 Photos" Margin="0,0,8,8" Command="{Binding PickPhotosCommand}" />
+                <Button Text="Pick Video" Margin="0,0,8,8" Command="{Binding PickVideoCommand}" />
+            </FlexLayout>
+
+            <Label Text="Scanning (extensions from the analyzer packages)" FontAttributes="Bold" FontSize="16" />
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
+                <Button Text="Barcode (one)" Margin="0,0,8,8" Command="{Binding ScanBarcodeCommand}" />
+                <Button Text="Barcodes (stream)" Margin="0,0,8,8" Command="{Binding ScanBarcodesCommand}" />
+                <Button Text="Barcodes (dupes on)" Margin="0,0,8,8" Command="{Binding ScanBarcodesWithDupesCommand}" />
+                <Button Text="QR only, banded" Margin="0,0,8,8" Command="{Binding ScanQrBandCommand}" />
+                <Button Text="Read Text" Margin="0,0,8,8" Command="{Binding ScanTextCommand}" />
+                <Button Text="Credit Card" Margin="0,0,8,8" Command="{Binding ScanCreditCardCommand}" />
+                <Button Text="Driver's License" Margin="0,0,8,8" Command="{Binding ScanDriversLicenseCommand}" />
+                <Button Text="Passport" Margin="0,0,8,8" Command="{Binding ScanPassportCommand}" />
+                <Button Text="Business Card" Margin="0,0,8,8" Command="{Binding ScanBusinessCardCommand}" />
+                <Button Text="Receipts (stream)" Margin="0,0,8,8" Command="{Binding ScanReceiptsCommand}" />
+                <Button Text="Faces" Margin="0,0,8,8" Command="{Binding DetectFacesCommand}" />
+            </FlexLayout>
+
+            <Border IsVisible="{Binding HasPreview}" StrokeThickness="1" Padding="0">
+                <Image Source="{Binding Preview}" Aspect="AspectFit" HeightRequest="240" />
+            </Border>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="Log" FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="Clear" Command="{Binding ClearLogCommand}" />
+            </Grid>
+
+            <CollectionView ItemsSource="{Binding Log}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Label Text="{Binding .}" FontSize="13" Margin="0,3" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

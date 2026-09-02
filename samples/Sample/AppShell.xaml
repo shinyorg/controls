@@ -908,6 +908,14 @@
         <ShellContent ContentTemplate="{DataTemplate mediaelement:MediaElementPage}" Route="mediaelement" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Media Service">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2699;" Size="20"
+                             Color="{AppThemeBinding Light=#9333EA, Dark=#C084FC}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate camera:MediaServicePage}" Route="mediaservice" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Scanned Documents">
         <FlyoutItem.FlyoutIcon>
             <FontImageSource Glyph="&#x2637;" Size="20"
