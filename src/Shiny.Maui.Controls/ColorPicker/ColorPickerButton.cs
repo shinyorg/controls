@@ -93,6 +93,7 @@ public class ColorPickerButton : ContentView
 
         Content = buttonBorder;
         UpdateButtonColor(SelectedColor);
+        picker.ShowOpacity = ShowOpacity;
 
         // Last line: replays any styled property that was applied before the
         // children existed. See StyleGuard.
