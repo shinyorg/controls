@@ -20,5 +20,9 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj"/>
+
+        <!-- For the composite Office views: they are the ones assembled in a constructor, which is
+             where a field read before it is built goes unnoticed until the control is put on a page. -->
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Office\Shiny.Maui.Controls.Office.csproj"/>
     </ItemGroup>
 </Project>

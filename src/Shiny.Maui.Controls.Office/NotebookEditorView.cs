@@ -159,8 +159,6 @@ public class NotebookEditorView : ContentView, IDisposable
             SimplifyBelowWidth = 600
         };
 
-        this.ApplyAccent();
-
         this.sectionTabs = new HorizontalStackLayout { Spacing = 2, Padding = new Thickness(6, 4) };
 
         this.pageList = new VerticalStackLayout { Spacing = 2, Padding = new Thickness(6) };
@@ -215,6 +213,10 @@ public class NotebookEditorView : ContentView, IDisposable
 
         this.Content = this.root;
         this.BuildBar();
+
+        // Last, not beside the ribbon it paints: ApplyAccent ends in RefreshNavigation, which reads
+        // the section tabs and the page list. Called before those exist and the constructor throws.
+        this.ApplyAccent();
     }
 
     const double PageListWidth = 190;

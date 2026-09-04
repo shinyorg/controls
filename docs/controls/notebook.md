@@ -6,7 +6,11 @@
 > lone canvas; `NotebookEditorView` is the same thing plus the ribbon, the section tabs and the page
 > list.
 
-<!-- TODO: capture screenshots for notebook (canvas with ink, Draw tab, section tabs + page list) -->
+| Ribbon, section tabs and page list | A page of shapes and ink | The Draw tab |
+|:---:|:---:|:---:|
+| ![Notebook chrome](../../assets/notebook-chrome.png) | ![A sketch page](../../assets/notebook-sketch.png) | ![The Draw tab](../../assets/notebook-draw.png) |
+
+*MAUI (iOS). The same three on Blazor are in the [Shiny docs](https://shinylib.net/controls/notebook/).*
 
 A free-form, OneNote-style page. Write anywhere on it, draw over what you wrote, drop shapes, tables
 of contents, pictures and lists wherever they belong, and keep the whole thing in a notebook of

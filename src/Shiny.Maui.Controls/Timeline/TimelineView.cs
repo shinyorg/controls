@@ -134,13 +134,18 @@ public partial class TimelineView : ContentView
         var node = new TimelineNode(item, index, this.StateOf(index), index == 0, index == count - 1);
         var railWidth = Math.Max(this.MarkerSize, this.LineThickness);
 
+        var railOnLeft = this.RailPosition == TimelineRailPosition.Left;
+
+        // The content side is the Star column and the opposite side the Auto one, whichever side each
+        // is on. Pinning Auto to column 0 instead lets every row size its own content, so the rail
+        // lands at a different x on each row and long text is measured against nothing.
         var row = new Grid
         {
             ColumnDefinitions =
             {
-                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(railOnLeft ? GridLength.Auto : GridLength.Star),
                 new ColumnDefinition(new GridLength(railWidth)),
-                new ColumnDefinition(GridLength.Star)
+                new ColumnDefinition(railOnLeft ? GridLength.Star : GridLength.Auto)
             }
         };
 
@@ -156,11 +161,11 @@ public partial class TimelineView : ContentView
 
         var opposite = this.OppositeTemplate is null ? null : this.Inflate(this.OppositeTemplate, item);
 
-        var railColumn = this.RailPosition == TimelineRailPosition.Left ? 1 : 1;
-        var contentColumn = this.RailPosition == TimelineRailPosition.Left ? 2 : 0;
-        var oppositeColumn = this.RailPosition == TimelineRailPosition.Left ? 0 : 2;
+        const int railColumn = 1;
+        var contentColumn = railOnLeft ? 2 : 0;
+        var oppositeColumn = railOnLeft ? 0 : 2;
 
-        content.Margin = this.RailPosition == TimelineRailPosition.Left
+        content.Margin = railOnLeft
             ? new Thickness(this.RailSpacing, 0, 0, content.Margin.Bottom)
             : new Thickness(0, 0, this.RailSpacing, content.Margin.Bottom);
 
@@ -172,7 +177,7 @@ public partial class TimelineView : ContentView
 
         if (opposite is not null)
         {
-            opposite.Margin = this.RailPosition == TimelineRailPosition.Left
+            opposite.Margin = railOnLeft
                 ? new Thickness(0, 0, this.RailSpacing, 0)
                 : new Thickness(this.RailSpacing, 0, 0, 0);
 

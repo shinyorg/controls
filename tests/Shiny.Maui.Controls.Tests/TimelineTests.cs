@@ -93,6 +93,54 @@ public class TimelineTests
         Rows(timeline).ShouldBe(2);
     }
 
+    [Theory]
+    [InlineData(TimelineRailPosition.Left, 2, 0)]
+    [InlineData(TimelineRailPosition.Right, 0, 2)]
+    public void TheContentColumnIsTheStarOneWhicheverSideTheRailIsOn(
+        TimelineRailPosition rail,
+        int contentColumn,
+        int oppositeColumn
+    )
+    {
+        // Pinning Auto to column 0 instead let every row size itself to its own content, so the rail
+        // landed at a different x on each row and long text was clipped. The content side has to be
+        // the Star column and the opposite side the Auto one, on whichever side each has ended up.
+        var timeline = new TimelineView
+        {
+            ItemsSource = new[] { "one", "two" },
+            RailPosition = rail
+        };
+
+        var row = Row(timeline, 0);
+
+        row.ColumnDefinitions[contentColumn].Width.IsStar.ShouldBeTrue();
+        row.ColumnDefinitions[oppositeColumn].Width.IsAuto.ShouldBeTrue();
+        row.ColumnDefinitions[1].Width.IsAbsolute.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(TimelineRailPosition.Left)]
+    [InlineData(TimelineRailPosition.Right)]
+    public void EveryRowPutsItsRailInTheSameColumn(TimelineRailPosition rail)
+    {
+        // One long row and one short one: the staggering showed up as the rail moving between them.
+        var timeline = new TimelineView
+        {
+            ItemsSource = new[] { "short", new string('x', 400) },
+            RailPosition = rail
+        };
+
+        foreach (var index in new[] { 0, 1 })
+            Grid.GetColumn(Row(timeline, index).Children.OfType<View>().First()).ShouldBe(1);
+    }
+
+    /// <summary>One realised row, reached through the control's own visual tree.</summary>
+    static Grid Row(TimelineView timeline, int index)
+    {
+        var scroller = (ScrollView)timeline.Content!;
+        return (Grid)((VerticalStackLayout)scroller.Content!)[index];
+    }
+
     /// <summary>The rows the control actually built, reached through its own visual tree.</summary>
     static int Rows(TimelineView timeline)
     {

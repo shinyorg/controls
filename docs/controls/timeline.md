@@ -4,7 +4,11 @@
 
 > `Shiny.Maui.Controls` / `Shiny.Blazor.Controls`. One control: `TimelineView`.
 
-<!-- TODO: capture screenshots for timeline (left rail, right rail, all-active) -->
+| Rail on the left, active at index 2 | `AllActive` | `RailPosition="Right"` |
+|:---:|:---:|:---:|
+| ![Rail on the left](../../assets/timeline-left.png) | ![Every node active](../../assets/timeline-allactive.png) | ![Rail on the right](../../assets/timeline-right.png) |
+
+*MAUI (iOS). The same three on Blazor are in the [Shiny docs](https://shinylib.net/controls/timeline/).*
 
 A vertical rail of markers with arbitrary content beside each one — the wizard's three-state marker
 turned on its side and made item-driven. An activity feed, an order's progress, an audit trail, a
