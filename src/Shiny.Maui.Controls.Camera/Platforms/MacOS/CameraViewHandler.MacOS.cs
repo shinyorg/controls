@@ -349,6 +349,19 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
                 : AVLayerVideoGravity.ResizeAspectFill;
     }
 
+    // Display path only — the session, the analyzer and any recording in flight carry on. Hiding stops the
+    // compositing; disabling the connection is what stops the session feeding the layer at all.
+    static partial void MapShowPreview(CameraViewHandler handler, CameraView view)
+    {
+        if (handler.previewLayer is not { } layer)
+            return;
+
+        layer.Hidden = !view.ShowPreview;
+
+        if (layer.Connection is { } connection)
+            connection.Enabled = view.ShowPreview;
+    }
+
     static partial void MapOverlay(CameraViewHandler handler, CameraView view) { /* drawn by managed overlay */ }
 
     // Nothing to do: a Mac's display does not rotate behind the capture device, so there is no orientation

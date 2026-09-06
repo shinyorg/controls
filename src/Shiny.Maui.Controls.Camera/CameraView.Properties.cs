@@ -56,6 +56,32 @@ public partial class CameraView
     public static readonly BindableProperty ScaleModeProperty = BindableProperty.Create(
         nameof(ScaleMode), typeof(PreviewScaleMode), typeof(CameraView), PreviewScaleMode.AspectFill);
 
+    /// <summary>
+    /// Whether the live picture is drawn on screen. Default <c>true</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ⚠️ <b>This is the display path only, and it is not <see cref="IsActive"/>.</b> <c>IsActive</c> owns
+    /// the capture <i>session</i>: turning it off stops the camera, and with it any recording in flight.
+    /// This turns off only what the viewer sees — the session keeps running, frames keep reaching the
+    /// analyzer, and a recording carries on being written with its overlay burned in exactly as before.
+    /// </para>
+    /// <para>
+    /// It exists for the consumer that wants the camera without the picture: a dash cam recording for hours
+    /// on a windscreen, where a full-screen moving image is a distraction to the driver and a share of the
+    /// battery for something nobody is looking at. Toggling it never touches the recording on any platform.
+    /// </para>
+    /// <para>
+    /// <b>Per platform:</b> Apple and macOS hide the preview layer and disable its connection, so the
+    /// session stops feeding it; Windows hides the preview image. Android hides the <c>PreviewView</c>
+    /// without rebinding — the <c>Preview</c> use case stays bound, because every use-case change goes
+    /// through <c>UnbindAll</c> and that would drop an in-flight recording, which is the one thing this
+    /// property may never do.
+    /// </para>
+    /// </remarks>
+    public static readonly BindableProperty ShowPreviewProperty = BindableProperty.Create(
+        nameof(ShowPreview), typeof(bool), typeof(CameraView), true);
+
     /// <summary>Whether the built-in bounding-box overlay is drawn. Default <c>true</c>.</summary>
     public static readonly BindableProperty ShowDetectionOverlayProperty = BindableProperty.Create(
         nameof(ShowDetectionOverlay), typeof(bool), typeof(CameraView), true);
@@ -368,6 +394,13 @@ public partial class CameraView
     {
         get => (PreviewScaleMode)this.GetValue(ScaleModeProperty);
         set => this.SetValue(ScaleModeProperty, value);
+    }
+
+    /// <inheritdoc cref="ShowPreviewProperty"/>
+    public bool ShowPreview
+    {
+        get => (bool)this.GetValue(ShowPreviewProperty);
+        set => this.SetValue(ShowPreviewProperty, value);
     }
 
     /// <inheritdoc cref="ShowDetectionOverlayProperty"/>

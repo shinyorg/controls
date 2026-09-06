@@ -58,6 +58,7 @@ public partial class CameraViewHandler
             [nameof(CameraView.FlashMode)] = MapFlashMode,
             [nameof(CameraView.Zoom)] = MapZoom,
             [nameof(CameraView.ScaleMode)] = MapScaleMode,
+            [nameof(CameraView.ShowPreview)] = MapShowPreview,
             [nameof(CameraView.ShowDetectionOverlay)] = MapOverlay,
             [nameof(CameraView.Overlays)] = MapOverlay,
             [nameof(CameraView.ScanWindow)] = MapOverlay,
@@ -91,6 +92,10 @@ public partial class CameraViewHandler
     static partial void MapFlashMode(CameraViewHandler handler, CameraView view);
     static partial void MapZoom(CameraViewHandler handler, CameraView view);
     static partial void MapScaleMode(CameraViewHandler handler, CameraView view);
+
+    // The display path on its own. Never the session: every implementation of this leaves capture, the
+    // analyzer and any recording in flight exactly as they were - see CameraView.ShowPreviewProperty.
+    static partial void MapShowPreview(CameraViewHandler handler, CameraView view);
     static partial void MapOverlay(CameraViewHandler handler, CameraView view);
     // Backs both Filter and Effects — they resolve into one CameraEffectChain, so one mapper reapplies the
     // whole chain rather than two that each try to own part of it.

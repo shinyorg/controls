@@ -139,6 +139,11 @@
                         <shiny:SwitchCell x:Name="AiStylizeSwitch"
                                           Title="AI stylize on capture"
                                           Description="Run the captured still through an image model (offline stand-in here — adds seconds to a capture)" />
+                        <!-- The display path only. Turn it off mid-recording and the file keeps being written,
+                             overlay and all — it is IsActive that owns the session, and that would end the take. -->
+                        <shiny:SwitchCell Title="Show preview"
+                                          Description="Off takes the live picture off screen — the session, the analyzer and any recording carry on"
+                                          On="{Binding ShowPreview, Source={x:Reference Camera}, Mode=TwoWay}" />
                         <!-- the gesture writes Zoom, so the slider above tracks it live and both stay inside MinZoom..MaxZoom -->
                         <shiny:SwitchCell Title="Pinch to zoom"
                                           Description="Two-finger pinch on the preview drives Zoom (clamped to the device's reported range)"

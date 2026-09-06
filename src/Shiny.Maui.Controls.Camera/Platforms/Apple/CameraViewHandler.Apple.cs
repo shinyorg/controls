@@ -284,6 +284,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
                 : AVLayerVideoGravity.ResizeAspectFill;
     }
 
+    static partial void MapShowPreview(CameraViewHandler handler, CameraView view)
+        => handler.MainThread(() => handler.ApplyPreviewVisibility(view.ShowPreview));
+
     static partial void MapOverlay(CameraViewHandler handler, CameraView view) { /* Phase 2 */ }
 
     static partial void MapEffects(CameraViewHandler handler, CameraView view)
@@ -513,6 +516,12 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
                     return;
 
                 pv.PreviewLayer.Session = s;
+
+                // Here rather than only in the mapper: PreviewLayer.Connection does not exist until the
+                // session is attached, so a ShowPreview="False" set before the camera started would leave
+                // the connection enabled and the preview feeding a layer nobody asked for.
+                this.ApplyPreviewVisibility(this.VirtualView.ShowPreview);
+
                 this.SetupFilterView();
                 this.UpdateFrameDelivery();
                 this.OrientConnections();
@@ -872,6 +881,34 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
         // surface only the first frame-processing failure, on the UI thread
         if (Interlocked.Exchange(ref this.frameErrorReported, 1) == 0)
             this.MainThread(() => this.MaybeVirtualView?.OnCameraError("Frame processing failed", ex));
+    }
+
+
+    /// <summary>
+    /// Takes the live picture off screen, or puts it back. <b>The display path only</b> — the session, the
+    /// analyzer and any recording in flight carry on untouched.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>PreviewLayer</c> is the view's <i>backing</i> layer, so hiding it also hides the filter overlay
+    /// that lives as a sublayer of it. That is the bug <see cref="ApplyEffects"/> warns about and exactly
+    /// the behaviour wanted here: with the preview off there is nothing on screen left to overlay.
+    /// </para>
+    /// <para>
+    /// Hiding alone stops the compositing and keeps paying for the frames, so the connection is disabled
+    /// too — that is what stops the session feeding the preview at all. Neither touches the video data
+    /// output the recorder and the analyzer are driven from.
+    /// </para>
+    /// </remarks>
+    void ApplyPreviewVisibility(bool show)
+    {
+        if (this.PlatformView is not { } pv)
+            return;
+
+        pv.PreviewLayer.Hidden = !show;
+
+        if (pv.PreviewLayer.Connection is { } connection)
+            connection.Enabled = show;
     }
 
 

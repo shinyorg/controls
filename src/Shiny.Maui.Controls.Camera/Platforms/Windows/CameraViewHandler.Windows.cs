@@ -450,6 +450,17 @@ public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICamera
                 : Microsoft.UI.Xaml.Media.Stretch.UniformToFill;
     }
 
+    // Collapsed rather than hidden: the preview image is one child of a Grid that also carries the managed
+    // overlay, so taking it out of layout costs nothing the overlay needs. MediaCapture keeps running, and a
+    // recording in flight is written from the same capture regardless of what is on screen.
+    static partial void MapShowPreview(CameraViewHandler handler, CameraView view)
+    {
+        if (handler.previewImage != null)
+            handler.previewImage.Visibility = view.ShowPreview
+                ? Microsoft.UI.Xaml.Visibility.Visible
+                : Microsoft.UI.Xaml.Visibility.Collapsed;
+    }
+
     static partial void MapOverlay(CameraViewHandler handler, CameraView view) { /* drawn by managed overlay */ }
 
     // Nothing to do for the live preview: MediaCapture has no cheap effect hook (it would take an

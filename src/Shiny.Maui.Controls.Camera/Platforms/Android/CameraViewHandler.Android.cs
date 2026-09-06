@@ -438,6 +438,25 @@ public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLa
                 : PreviewView.ScaleType.FillCenter);
     }
 
+    // ⚠️ Hidden, never unbound, and that is not a shortcut. Dropping the Preview use case would be the
+    // larger saving — the camera stops producing preview frames altogether — but every use-case change in
+    // this handler goes through BindUseCases, which begins with cameraProvider.UnbindAll() and so drops any
+    // recording in flight. A property that stops a dash cam filming because somebody hid the picture has
+    // failed at the one thing the consumer needs, so the Preview use case stays bound and only the view
+    // goes away: SurfaceFlinger stops compositing it and the TextureView stops uploading a texture per
+    // frame, with no CameraX call made at all.
+    //
+    // Invisible rather than Gone: Gone takes the view out of layout, which resizes the PreviewView to
+    // nothing and hands CameraX a surface change it did not ask for. Invisible keeps the geometry and only
+    // stops the drawing, so coming back is free and the crop the ViewPort is derived from never moves.
+    static partial void MapShowPreview(CameraViewHandler handler, CameraView view)
+    {
+        if (handler.previewView != null)
+            handler.previewView.Visibility = view.ShowPreview
+                ? Android.Views.ViewStates.Visible
+                : Android.Views.ViewStates.Invisible;
+    }
+
     static partial void MapOverlay(CameraViewHandler handler, CameraView view) { /* Phase 2 */ }
 
     // No rebind: target rotation is settable on a bound use case, so this costs nothing and does not blink
