@@ -15,6 +15,10 @@
         <!-- The icon artwork and motion definitions, shared verbatim with the MAUI package so the
              two hosts cannot drift apart. -->
         <ProjectReference Include="..\Shiny.Controls.MotionIcons.Shared\Shiny.Controls.MotionIcons.Shared.csproj" />
+        <!-- The Gantt scheduling engine: working calendars, dependency cascades, critical path and
+             the time-to-pixel geometry, shared verbatim with the MAUI package so the two hosts
+             cannot schedule a plan differently. -->
+        <ProjectReference Include="..\Shiny.Controls.Gantt.Shared\Shiny.Controls.Gantt.Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup>

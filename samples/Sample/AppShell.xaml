@@ -32,6 +32,7 @@
                   xmlns:toast="clr-namespace:Sample.Features.Toast"
                   xmlns:dialogs="clr-namespace:Sample.Features.Dialogs"
                   xmlns:datagrid="clr-namespace:Sample.Features.DataGrid"
+                  xmlns:gantt="clr-namespace:Sample.Features.Gantt"
                   xmlns:office="clr-namespace:Sample.Features.Office"
                   xmlns:timeline="clr-namespace:Sample.Features.Timeline"
                   xmlns:feedback="clr-namespace:Sample.Features.Feedback"
@@ -366,6 +367,14 @@
         <ShellContent Title="Tree" ContentTemplate="{DataTemplate datagrid:TreeDataGridPage}" Route="treedatagrid" />
         <ShellContent Title="Formatting" ContentTemplate="{DataTemplate datagrid:DataGridFormattingPage}" Route="datagridformatting" />
         <ShellContent Title="Grouping" ContentTemplate="{DataTemplate datagrid:DataGridGroupingPage}" Route="datagridgrouping" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Gantt">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25AD;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate gantt:GanttPage}" Route="gantt" />
     </FlyoutItem>
 
     <!-- The Office pages used to hang off the Data Grid item, which put nine tabs in one bar: only

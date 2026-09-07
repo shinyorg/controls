@@ -1,0 +1,378 @@
+/* The root is a two-row, three-column grid: task pane, splitter, timeline across; header and body
+   down. The timeline is the only scroller — the header and the task pane are translated to follow it
+   from JS, because giving either one a scroller of its own means two scrollers fighting over
+   momentum and a header that visibly lags the bars. */
+.shiny-gantt {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-radius: var(--shiny-shape-corner-medium, 12px);
+    background: var(--shiny-color-surface, #fff);
+    color: var(--shiny-color-on-surface, #1F2937);
+    overflow: hidden;
+    height: 100%;
+    min-height: 320px;
+    font-size: var(--shiny-type-body-small-size, 12px);
+}
+
+/* ---------------------------------------------------------------- task pane */
+
+.shiny-gantt-pane-head {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    height: var(--gantt-header-height, 48px);
+    background: var(--shiny-color-surface, #fff);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    overflow: hidden;
+}
+
+.shiny-gantt-pane-headcell {
+    flex: 0 0 auto;
+    padding: 0 var(--shiny-spacing-2, 8px);
+    font-size: var(--shiny-type-label-small-size, 11px);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--shiny-color-on-surface-variant, #6B7280);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shiny-gantt-pane {
+    grid-column: 1;
+    grid-row: 2;
+    position: relative;
+    overflow: hidden;
+    background: var(--shiny-color-surface, #fff);
+}
+
+/* Translated by gantt.js on every scroll frame. will-change keeps it on its own layer so a long
+   plan does not repaint the whole pane on each flick. */
+.shiny-gantt-pane-inner {
+    position: absolute;
+    inset: 0 0 auto 0;
+    will-change: transform;
+}
+
+.shiny-gantt-row {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    border-bottom: var(--shiny-border-thin, 1px) solid color-mix(in srgb, var(--shiny-color-outline-variant, #E5E7EB) 60%, transparent);
+    cursor: pointer;
+}
+
+.shiny-gantt-row:hover { background: var(--shiny-color-surface-container, #F9FAFB); }
+
+.shiny-gantt-row.is-selected {
+    background: color-mix(in srgb, var(--shiny-color-primary, #6750A4) 14%, transparent);
+}
+
+.shiny-gantt-row.is-rollup .shiny-gantt-celltext { font-weight: 700; }
+
+.shiny-gantt-cell {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 var(--shiny-spacing-2, 8px);
+    min-width: 0;
+    overflow: hidden;
+}
+
+.shiny-gantt-celltext {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shiny-gantt-indent { flex: 0 0 auto; }
+
+/* A leaf keeps the chevron's width so its text lines up with its siblings'. Without it a leaf
+   between two summaries visibly shifts left and the tree stops reading as a tree. */
+.shiny-gantt-chevron {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--shiny-color-on-surface-variant, #6B7280);
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.shiny-gantt-chevron.is-placeholder { cursor: default; }
+
+/* ---------------------------------------------------------------- splitter */
+
+.shiny-gantt-splitter {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    background: var(--shiny-color-surface-container, #F3F4F6);
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    touch-action: none;
+}
+
+.shiny-gantt-splitter.is-resizable { cursor: col-resize; }
+
+/* ---------------------------------------------------------------- timeline header */
+
+.shiny-gantt-head {
+    grid-column: 3;
+    grid-row: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--shiny-color-surface, #fff);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+}
+
+.shiny-gantt-head-inner {
+    position: absolute;
+    inset: 0 auto 0 0;
+    will-change: transform;
+}
+
+.shiny-gantt-tier { position: relative; }
+
+.shiny-gantt-tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    box-sizing: border-box;
+    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.shiny-gantt-tier.is-upper .shiny-gantt-tick {
+    padding-left: var(--shiny-spacing-2, 8px);
+    font-weight: 600;
+}
+
+.shiny-gantt-tier.is-lower .shiny-gantt-tick {
+    justify-content: center;
+    color: var(--shiny-color-on-surface-variant, #6B7280);
+}
+
+.shiny-gantt-tick > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shiny-gantt-tick.is-nonworking { background: var(--shiny-color-surface-container, #F3F4F6); }
+
+.shiny-gantt-tick.is-today {
+    background: color-mix(in srgb, var(--shiny-color-error, #B3261E) 16%, transparent);
+    color: var(--shiny-color-error, #B3261E);
+    font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- timeline body */
+
+.shiny-gantt-scroll {
+    grid-column: 3;
+    grid-row: 2;
+    overflow: auto;
+    position: relative;
+}
+
+.shiny-gantt-canvas {
+    position: relative;
+    /* Vertical panning stays with the browser; horizontal is claimed so a bar drag is not stolen by
+       the scroller on the first few pixels of movement. */
+    touch-action: pan-y;
+}
+
+.shiny-gantt-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--shiny-color-on-surface-variant, #6B7280);
+}
+
+.shiny-gantt-nonworking,
+.shiny-gantt-highlight {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.shiny-gantt-nonworking { background: var(--shiny-color-surface-container, #F3F4F6); }
+.shiny-gantt-highlight { opacity: 0.12; }
+
+.shiny-gantt-gridline {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--shiny-color-outline-variant, #E5E7EB);
+    pointer-events: none;
+}
+
+.shiny-gantt-rowline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: color-mix(in srgb, var(--shiny-color-outline-variant, #E5E7EB) 60%, transparent);
+    pointer-events: none;
+}
+
+.shiny-gantt-today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--shiny-color-error, #B3261E);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* ---------------------------------------------------------------- links */
+
+.shiny-gantt-links,
+.shiny-gantt-rubber {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 3;
+}
+
+.shiny-gantt-link {
+    fill: none;
+    stroke: var(--shiny-color-on-surface-variant, #6B7280);
+    stroke-width: 1;
+}
+
+.shiny-gantt-link.is-critical {
+    stroke: var(--shiny-color-error, #B3261E);
+    stroke-width: 2;
+}
+
+.shiny-gantt-arrow { fill: var(--shiny-color-on-surface-variant, #6B7280); }
+.shiny-gantt-arrow.is-critical { fill: var(--shiny-color-error, #B3261E); }
+
+.shiny-gantt-rubber line {
+    stroke: var(--shiny-color-primary, #6750A4);
+    stroke-width: 2;
+    stroke-dasharray: 4 3;
+}
+
+/* ---------------------------------------------------------------- bars */
+
+.shiny-gantt-bar,
+.shiny-gantt-summary,
+.shiny-gantt-milestone,
+.shiny-gantt-baseline,
+.shiny-gantt-bar-host {
+    position: absolute;
+    box-sizing: border-box;
+}
+
+.shiny-gantt-bar {
+    /* The track is the bar's own colour at low alpha and the fill is the solid one, so progress
+       reads as "this much of this task" without needing a second colour in the palette. */
+    background: color-mix(in srgb, var(--gantt-bar) 35%, transparent);
+    border: 1px solid var(--gantt-bar);
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    overflow: hidden;
+    cursor: grab;
+    z-index: 4;
+}
+
+.shiny-gantt-bar:active { cursor: grabbing; }
+
+.shiny-gantt-bar.is-critical { border-width: 2px; }
+
+.shiny-gantt-bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--gantt-bar);
+}
+
+.shiny-gantt-bar.is-selected,
+.shiny-gantt-summary.is-selected,
+.shiny-gantt-milestone.is-selected {
+    outline: 2px solid var(--shiny-color-primary, #6750A4);
+    outline-offset: 2px;
+}
+
+/* The summary bracket: a flat bar with its two ends turned down, which is how every planning tool
+   since the eighties has distinguished a phase from the work inside it. */
+.shiny-gantt-summary {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, calc(100% - 6px) 50%, 6px 50%, 0 100%);
+    z-index: 4;
+}
+
+.shiny-gantt-milestone {
+    transform: rotate(45deg);
+    border-radius: 2px;
+    z-index: 4;
+}
+
+.shiny-gantt-baseline {
+    background: color-mix(in srgb, var(--shiny-color-on-surface-variant, #6B7280) 45%, transparent);
+    border-radius: 1px;
+    z-index: 3;
+}
+
+.shiny-gantt-bar-host { z-index: 4; }
+
+.shiny-gantt-deadline {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 12px solid var(--shiny-color-error, #B3261E);
+    z-index: 5;
+    pointer-events: none;
+}
+
+.shiny-gantt-deadline.is-missed { filter: drop-shadow(0 0 2px var(--shiny-color-error, #B3261E)); }
+
+.shiny-gantt-bar-label {
+    position: absolute;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 4;
+    color: var(--shiny-color-on-surface, #1F2937);
+}
+
+.shiny-gantt-bar-label.is-inside {
+    position: static;
+    display: block;
+    padding: 0 6px;
+    line-height: inherit;
+    color: #fff;
+    mix-blend-mode: difference;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shiny-gantt-connector {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--shiny-color-primary, #6750A4);
+    z-index: 6;
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- dark
+
+   Nothing to override. Every colour above resolves through a --shiny-color-* token or is derived
+   from one with color-mix, so the theme's own dark palette carries the whole component. The one
+   colour written literally is the inside-bar label, and it is blended with mix-blend-mode against
+   the fill rather than being picked per scheme. */

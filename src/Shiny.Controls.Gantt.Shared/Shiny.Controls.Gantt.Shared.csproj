@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Deliberately dependency-free, and deliberately shared rather than mirrored. A Gantt is
+             mostly arithmetic — working-time calendars, dependency cascades, a critical path — and
+             none of it wants to know whether it is drawing into a MAUI layout or a CSS grid. The
+             Scheduler's agenda geometry is duplicated across the two hosts with a comment asking
+             future maintainers to keep the copies in sync; that is a bet worth taking for eighty
+             lines of minutes-to-pixels and a bad one for a scheduling engine, so this lives once. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <!-- The repo uses two feeds (nuget.org + dotnet10) without source mapping; NU1507 is a
+             restore-config warning, not a code-quality one, so it must not fail these builds. -->
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.Gantt</RootNamespace>
+        <Description>Host-neutral Gantt scheduling engine — task hierarchy with rollups, typed dependencies with lag, working-time calendars, constraints, auto-scheduling cascades and critical-path analysis, plus the time-to-pixel geometry the .NET MAUI and Blazor Gantt controls both draw with.</Description>
+        <PackageTags>maui blazor shiny gantt scheduling project critical-path timeline</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.Gantt.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -28,6 +28,10 @@
 		<!-- Motion icons run on the repo's one animation engine rather than carrying a second one:
 		     KeyframeScene draws them and Player owns playback. -->
 		<ProjectReference Include="..\Shiny.Controls.Keyframe.Shared\Shiny.Controls.Keyframe.Shared.csproj" />
+		<!-- The Gantt scheduling engine: working calendars, dependency cascades, critical path and
+		     the time-to-pixel geometry. Shared verbatim with the Blazor package, because a plan that
+		     schedules differently on two hosts is a bug neither host's code would ever reveal. -->
+		<ProjectReference Include="..\Shiny.Controls.Gantt.Shared\Shiny.Controls.Gantt.Shared.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

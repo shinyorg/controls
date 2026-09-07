@@ -3,6 +3,7 @@
         "path": "Shiny.Controls.slnx",
         "projects": [
             "src/Shiny.Controls.MotionIcons.Shared/Shiny.Controls.MotionIcons.Shared.csproj",
+            "src/Shiny.Controls.Gantt.Shared/Shiny.Controls.Gantt.Shared.csproj",
             "src/Shiny.Maui.Controls/Shiny.Maui.Controls.csproj",
             "src/Shiny.Maui.Controls.Themes.Ocean/Shiny.Maui.Controls.Themes.Ocean.csproj",
             "src/Shiny.Maui.Controls.Themes.Material/Shiny.Maui.Controls.Themes.Material.csproj",

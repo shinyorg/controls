@@ -1,0 +1,244 @@
+@namespace Shiny.Blazor.Controls.Gantt
+@using System.Globalization
+@using Shiny.Controls.Gantt
+@implements IAsyncDisposable
+
+<div class="shiny-gantt @Class" style="@this.RootStyle()">
+
+    @if (this.ShowTaskPane)
+    {
+        <div class="shiny-gantt-pane-head">
+            @foreach (var column in this.resolvedColumns)
+            {
+                <div class="shiny-gantt-pane-headcell"
+                     style="width:@(Css(column.Width))px;text-align:@column.Align">
+                    @(string.IsNullOrEmpty(column.Header) ? column.Field : column.Header)
+                </div>
+            }
+        </div>
+
+        <div class="shiny-gantt-splitter @(this.IsTaskPaneResizable ? "is-resizable" : "")"
+             @onpointerdown="this.OnSplitterDown"
+             @onpointermove="this.OnSplitterMove"
+             @onpointerup="this.OnSplitterUp"
+             @onpointerdown:preventDefault="true"></div>
+    }
+
+    <div class="shiny-gantt-head" style="height:@(Css(this.HeaderHeight))px">
+        <div class="shiny-gantt-head-inner" @ref="this.headerInner" style="width:@(Css(this.contentWidth))px">
+            <div class="shiny-gantt-tier is-upper" style="height:@(Css(this.HeaderHeight / 2))px">
+                @foreach (var tick in this.upperTicks)
+                {
+                    <div class="shiny-gantt-tick" style="left:@(Css(tick.X))px;width:@(Css(tick.Width))px">
+                        <span>@tick.Label</span>
+                    </div>
+                }
+            </div>
+            <div class="shiny-gantt-tier is-lower" style="height:@(Css(this.HeaderHeight / 2))px">
+                @foreach (var tick in this.lowerTicks)
+                {
+                    <div class="shiny-gantt-tick @(tick.IsNonWorking && this.ShowNonWorkingShading ? "is-nonworking" : "") @(tick.IsToday && this.ShowTodayMarker ? "is-today" : "")"
+                         style="left:@(Css(tick.X))px;width:@(Css(tick.Width))px">
+                        @if (tick.Width >= 20)
+                        {
+                            <span>@tick.Label</span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (this.ShowTaskPane)
+    {
+        <div class="shiny-gantt-pane">
+            <div class="shiny-gantt-pane-inner" @ref="this.paneInner">
+                @foreach (var row in this.Rows)
+                {
+                    var task = row.Task;
+                    <div class="shiny-gantt-row @(this.IsSelected(task) ? "is-selected" : "") @(task.IsRollup ? "is-rollup" : "")"
+                         style="height:@(Css(this.RowHeight))px"
+                         @onclick="() => this.HandleRowClick(task)">
+                        @foreach (var column in this.resolvedColumns)
+                        {
+                            <div class="shiny-gantt-cell" style="width:@(Css(column.Width))px;text-align:@column.Align">
+                                @if (column.ShowHierarchy)
+                                {
+                                    <span class="shiny-gantt-indent" style="width:@(Css(row.Depth * 14))px"></span>
+                                    @if (row.HasChildren)
+                                    {
+                                        <button type="button" class="shiny-gantt-chevron"
+                                                aria-label="@(row.IsExpanded ? "Collapse" : "Expand") @task.Name"
+                                                aria-expanded="@(row.IsExpanded ? "true" : "false")"
+                                                @onclick="() => this.ToggleExpand(task)"
+                                                @onclick:stopPropagation="true">@(row.IsExpanded ? "▾" : "▸")</button>
+                                    }
+                                    else
+                                    {
+                                        <span class="shiny-gantt-chevron is-placeholder"></span>
+                                    }
+                                }
+                                @if (column.CellTemplate is not null)
+                                {
+                                    @column.CellTemplate(task)
+                                }
+                                else
+                                {
+                                    <span class="shiny-gantt-celltext">@column.TextFor(task, this.EffectiveCulture)</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="shiny-gantt-scroll" @ref="this.scrollElement">
+        @if (this.Rows.Count == 0 && this.EmptyTemplate is not null)
+        {
+            <div class="shiny-gantt-empty">@this.EmptyTemplate</div>
+        }
+        else
+        {
+            <div class="shiny-gantt-canvas"
+                 @ref="this.canvasElement"
+                 style="width:@(Css(this.contentWidth))px;height:@(Css(this.contentHeight))px"
+                 @onpointerdown="this.OnCanvasPointerDown"
+                 @onpointermove="this.OnCanvasPointerMove"
+                 @onpointerup="this.OnCanvasPointerUp"
+                 @onpointercancel="this.OnCanvasPointerCancel"
+                 @ondblclick="this.OnCanvasDoubleClick">
+
+                @if (this.ShowNonWorkingShading)
+                {
+                    foreach (var band in this.nonWorking)
+                    {
+                        <div class="shiny-gantt-nonworking"
+                             style="left:@(Css(this.XOf(band.Start)))px;width:@(Css(this.XOf(band.End) - this.XOf(band.Start)))px"></div>
+                    }
+                }
+
+                @foreach (var range in this.HighlightRanges)
+                {
+                    <div class="shiny-gantt-highlight"
+                         style="left:@(Css(this.XOf(range.Start)))px;width:@(Css(this.XOf(range.End) - this.XOf(range.Start)))px;background:@(range.Color ?? "var(--shiny-color-primary, #6750A4)")"></div>
+                }
+
+                @if (this.ShowGridLines)
+                {
+                    foreach (var tick in this.lowerTicks)
+                    {
+                        <div class="shiny-gantt-gridline" style="left:@(Css(tick.X))px"></div>
+                    }
+                }
+
+                @if (this.ShowRowSeparators)
+                {
+                    for (var i = 1; i <= this.Rows.Count; i++)
+                    {
+                        <div class="shiny-gantt-rowline" style="top:@(Css(i * this.RowHeight))px"></div>
+                    }
+                }
+
+                @if (this.ShowTodayMarker)
+                {
+                    <div class="shiny-gantt-today" style="left:@(Css(this.XOf(this.Now)))px"></div>
+                }
+
+                @if (this.ShowDependencies && this.metrics is not null)
+                {
+                    <svg class="shiny-gantt-links" width="@Css(this.contentWidth)" height="@Css(this.contentHeight)"
+                         viewBox="0 0 @Css(this.contentWidth) @Css(this.contentHeight)" aria-hidden="true">
+                        @foreach (var dependency in this.Model.Dependencies)
+                        {
+                            var route = this.metrics.RouteOf(dependency);
+                            if (route.Count >= 2)
+                            {
+                                var critical = this.ShowCriticalPath && dependency.IsCritical;
+                                <polyline class="shiny-gantt-link @(critical ? "is-critical" : "")"
+                                          points="@Points(route)"
+                                          style="@(dependency.Color is null ? null : $"stroke:{dependency.Color}")" />
+                                <polygon class="shiny-gantt-arrow @(critical ? "is-critical" : "")"
+                                         points="@ArrowPoints(route)"
+                                         style="@(dependency.Color is null ? null : $"fill:{dependency.Color}")" />
+                            }
+                        }
+                    </svg>
+                }
+
+                @foreach (var visual in this.Bars)
+                {
+                    var task = visual.Task;
+
+                    @if (this.ShowBaselines && !visual.Baseline.IsEmpty)
+                    {
+                        <div class="shiny-gantt-baseline" style="@Box(visual.Baseline)"></div>
+                    }
+
+                    @if (this.BarTemplate is not null)
+                    {
+                        <div class="shiny-gantt-bar-host" style="@Box(visual.Rect)">@this.BarTemplate(task)</div>
+                    }
+                    else if (task.Kind == GanttTaskKind.Milestone)
+                    {
+                        <div class="shiny-gantt-milestone @(this.IsSelected(task) ? "is-selected" : "")"
+                             style="@Box(visual.Rect);background:@visual.Fill"
+                             title="@visual.Tooltip"></div>
+                    }
+                    else if (task.IsRollup)
+                    {
+                        <div class="shiny-gantt-summary @(this.IsSelected(task) ? "is-selected" : "")"
+                             style="@Box(visual.Rect);background:@visual.Fill"
+                             title="@visual.Tooltip"></div>
+                    }
+                    else
+                    {
+                        <div class="shiny-gantt-bar @(this.IsSelected(task) ? "is-selected" : "") @(visual.IsCritical ? "is-critical" : "")"
+                             style="@Box(visual.Rect);--gantt-bar:@visual.Fill"
+                             title="@visual.Tooltip">
+                            @if (this.ShowProgress && task.Progress > 0)
+                            {
+                                <div class="shiny-gantt-bar-fill" style="width:@(Css(task.Progress * 100))%"></div>
+                            }
+                            @if (this.BarLabel == GanttBarLabel.Inside && visual.LabelFitsInside)
+                            {
+                                <span class="shiny-gantt-bar-label is-inside">@task.Name</span>
+                            }
+                        </div>
+                    }
+
+                    @if (this.ShowDeadlines && task.Deadline is { } deadline)
+                    {
+                        <div class="shiny-gantt-deadline @(task.IsOverdue ? "is-missed" : "")"
+                             style="left:@(Css(this.XOf(deadline) - 6))px;top:@(Css(visual.Rect.CenterY - 6))px"
+                             title="Deadline @deadline.ToString("d", this.EffectiveCulture)"></div>
+                    }
+
+                    @if (this.BarLabel is GanttBarLabel.Right or GanttBarLabel.Left ||
+                         (this.BarLabel == GanttBarLabel.Inside && !visual.LabelFitsInside))
+                    {
+                        <span class="shiny-gantt-bar-label @(this.BarLabel == GanttBarLabel.Left ? "is-left" : "is-right")"
+                              style="@(this.BarLabel == GanttBarLabel.Left
+                                       ? $"right:{Css(this.contentWidth - visual.Rect.X + 6)}px"
+                                       : $"left:{Css(visual.Rect.Right + 6)}px");top:@(Css(visual.Rect.Y))px;line-height:@(Css(visual.Rect.Height))px">@task.Name</span>
+                    }
+
+                    @if (this.AllowDependencyEdit && !this.IsReadOnly && this.IsSelected(task))
+                    {
+                        <div class="shiny-gantt-connector" style="left:@(Css(visual.Rect.X - 4))px;top:@(Css(visual.Rect.CenterY - 4))px"></div>
+                        <div class="shiny-gantt-connector" style="left:@(Css(visual.Rect.Right - 4))px;top:@(Css(visual.Rect.CenterY - 4))px"></div>
+                    }
+                }
+
+                @if (this.linkSource is not null)
+                {
+                    <svg class="shiny-gantt-rubber" width="@Css(this.contentWidth)" height="@Css(this.contentHeight)" aria-hidden="true">
+                        <line x1="@Css(this.linkFrom.X)" y1="@Css(this.linkFrom.Y)"
+                              x2="@Css(this.linkTo.X)" y2="@Css(this.linkTo.Y)" />
+                    </svg>
+                }
+            </div>
+        }
+    </div>
+</div>

@@ -23,6 +23,7 @@
     </Folder>
     <Project Path="src/Shiny.Maui.Controls.SpeechAddins/Shiny.Maui.Controls.SpeechAddins.csproj" />
     <Project Path="src/Shiny.Controls.MotionIcons.Shared/Shiny.Controls.MotionIcons.Shared.csproj" />
+    <Project Path="src/Shiny.Controls.Gantt.Shared/Shiny.Controls.Gantt.Shared.csproj" />
     <Project Path="src/Shiny.Maui.Controls/Shiny.Maui.Controls.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Themes.Ocean/Shiny.Maui.Controls.Themes.Ocean.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Themes.Material/Shiny.Maui.Controls.Themes.Material.csproj" />
@@ -69,6 +70,7 @@
     <Project Path="tests/Shiny.Maui.Controls.Desktop.Tests/Shiny.Maui.Controls.Desktop.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Keyframe.Tests/Shiny.Controls.Keyframe.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.MotionIcons.Tests/Shiny.Controls.MotionIcons.Tests.csproj" />
+    <Project Path="tests/Shiny.Controls.Gantt.Tests/Shiny.Controls.Gantt.Tests.csproj" />
     <Project Path="tests/Shiny.Maui.Controls.Keyframe.Export.Tests/Shiny.Maui.Controls.Keyframe.Export.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Tests/Shiny.Blazor.Controls.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Camera.Tests/Shiny.Blazor.Controls.Camera.Tests.csproj" />

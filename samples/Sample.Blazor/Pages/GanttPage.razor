@@ -1,0 +1,167 @@
+@page "/gantt"
+@using Shiny.Blazor.Controls.Gantt
+@using Shiny.Controls.Gantt
+@using System.Collections.ObjectModel
+
+<PageTitle>Gantt</PageTitle>
+
+<h1>Gantt</h1>
+
+<p class="status-message">@status</p>
+
+<section class="demo-section">
+    <h2>Options</h2>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+        <label class="toggle-row"><span>Critical path</span><input type="checkbox" @bind="showCriticalPath" /></label>
+        <label class="toggle-row"><span>Work week</span><input type="checkbox" @bind="useWorkingCalendar" /></label>
+        <label class="toggle-row"><span>Draw links</span><input type="checkbox" @bind="allowDependencyEdit" /></label>
+        <label class="toggle-row"><span>Baselines</span><input type="checkbox" @bind="showBaselines" /></label>
+        <label>Scale
+            <select @bind="timeScale">
+                @foreach (var value in new[] { GanttTimeScale.Hour, GanttTimeScale.Day, GanttTimeScale.Week, GanttTimeScale.Month })
+                {
+                    <option value="@value">@value</option>
+                }
+            </select>
+        </label>
+        <label>Cascade
+            <select @bind="cascadeMode">
+                @foreach (var value in Enum.GetValues<GanttCascadeMode>())
+                {
+                    <option value="@value">@value</option>
+                }
+            </select>
+        </label>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button class="btn" @onclick="() => gantt!.ZoomOut()">−</button>
+        <button class="btn" @onclick="() => gantt!.ZoomIn()">+</button>
+        <button class="btn" @onclick="() => gantt!.ZoomToFit()">Fit</button>
+        <button class="btn" @onclick="() => gantt!.ScrollToDate(DateTimeOffset.Now.AddDays(-3))">Today</button>
+        <button class="btn" @onclick="() => gantt!.ExpandAll()">Expand</button>
+        <button class="btn" @onclick="() => gantt!.CollapseAll()">Collapse</button>
+        <button class="btn" @onclick="Undo" disabled="@(undo.Count == 0)">Undo</button>
+        <button class="btn" @onclick="Reset">Reset</button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Project plan</h2>
+    <p>
+        Drag a bar to move it, its edges to resize, or the progress handle to change completion.
+        Successors follow. Ctrl or ⌘ plus the wheel zooms about the pointer.
+    </p>
+
+    <div style="height:460px">
+        <GanttView @ref="gantt"
+                   Tasks="tasks"
+                   Dependencies="dependencies"
+                   Calendar="@(useWorkingCalendar ? GanttCalendar.StandardDays : null)"
+                   ShowCriticalPath="showCriticalPath"
+                   ShowBaselines="showBaselines"
+                   AllowDependencyEdit="allowDependencyEdit"
+                   CascadeMode="cascadeMode"
+                   TimeScale="timeScale"
+                   RowHeight="34"
+                   TaskPaneWidth="385"
+                   BarLabel="GanttBarLabel.Right"
+                   Columns="columns"
+                   @bind-SelectedTask="selectedTask"
+                   OnTaskChanging="OnTaskChanging"
+                   OnTaskChanged="OnTaskChanged">
+            <EmptyTemplate>No tasks in this plan</EmptyTemplate>
+        </GanttView>
+    </div>
+</section>
+
+@if (selectedTask is not null)
+{
+    <section class="demo-section">
+        <h2>@selectedTask.Name</h2>
+        <ul>
+            <li>@selectedTask.Start.ToString("g") – @selectedTask.End.ToString("g")</li>
+            <li>Slack: @GanttFields.FormatDuration(selectedTask.TotalSlack)@(selectedTask.IsCritical ? " (critical)" : "")</li>
+            @if (selectedTask.Deadline is { } deadline)
+            {
+                <li>Deadline: @deadline.ToString("d")@(selectedTask.IsOverdue ? " — missed" : "")</li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    GanttView? gantt;
+
+    ObservableCollection<GanttTask> tasks = SampleGanttPlan.CreateTasks();
+    ObservableCollection<GanttDependency> dependencies = SampleGanttPlan.CreateDependencies();
+
+    // A GanttSchedulePlan knows how to revert itself, cascade included, so undo is a stack of these
+    // and nothing else.
+    readonly Stack<GanttSchedulePlan> undo = new();
+
+    GanttTask? selectedTask;
+    string status = "Drag a bar, its edges, or the progress handle";
+
+    bool showCriticalPath = true;
+    bool useWorkingCalendar = true;
+    bool allowDependencyEdit;
+    bool showBaselines = true;
+    GanttTimeScale timeScale = GanttTimeScale.Day;
+    GanttCascadeMode cascadeMode = GanttCascadeMode.PushOnly;
+
+    readonly List<GanttColumnDefinition> columns =
+    [
+        new() { Header = "Task", Field = GanttFields.Name, Width = 170, ShowHierarchy = true },
+        new() { Header = "Owner", Field = GanttFields.Resource, Width = 80 },
+        new() { Header = "Days", Field = GanttFields.Duration, Width = 60, Align = "right" },
+        new() { Header = "%", Field = GanttFields.Progress, Width = 55, Format = "P0", Align = "right" }
+    ];
+
+
+    /// <summary>
+    /// Cancels a drag that would push anything past the plan window. Shows the point of the
+    /// cancellable callback: the whole cascade is in hand before a single date has moved.
+    /// </summary>
+    void OnTaskChanging(GanttTaskChangingArgs e)
+    {
+        var blocked = e.Plan.Changes.FirstOrDefault(x => x.Task.Id != "ship" && x.NewEnd > SampleGanttPlan.Day(40));
+        if (blocked is null)
+            return;
+
+        e.Cancel = true;
+        status = $"Blocked: {blocked.Task.Name} would run past the plan window";
+    }
+
+
+    void OnTaskChanged(GanttTaskChangedArgs e)
+    {
+        undo.Push(e.Plan);
+
+        var cascaded = e.Plan.Cascade.Count();
+        status = cascaded == 0
+            ? $"{e.Plan.Task?.Name}: {e.Plan.Kind}"
+            : $"{e.Plan.Task?.Name}: {e.Plan.Kind} — {cascaded} other task{(cascaded == 1 ? "" : "s")} moved";
+    }
+
+
+    void Undo()
+    {
+        if (undo.Count == 0)
+            return;
+
+        var plan = undo.Pop();
+        plan.Revert();
+        gantt?.Rebuild();
+        status = $"Reverted {plan.Kind} on {plan.Task?.Name}";
+    }
+
+
+    void Reset()
+    {
+        undo.Clear();
+        tasks = SampleGanttPlan.CreateTasks();
+        dependencies = SampleGanttPlan.CreateDependencies();
+        selectedTask = null;
+        status = "Plan reset";
+    }
+}

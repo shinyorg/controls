@@ -41,6 +41,7 @@ public static class Catalog
             new("treedatagrid", "Tree Data Grid", "⊞", "A DataGrid whose rows expand into children"),
             new("datagridgrouping", "Grid Grouping", "▤", "Grouped rows with per-group and grand totals"),
             new("datagridformatting", "Grid Formatting", "◨", "Column presets, alignment and cell styling"),
+            new("gantt", "Gantt", "▭", "Project timeline with dependencies, rollups and a critical path"),
             new("timeline", "Timeline", "⋮", "Vertical rail of markers with content beside each one"),
             new("docking", "Docking", "▨", "Visual-Studio-style tear-off tool windows"),
             new("ribbon", "Ribbon", "☷", "Office-style tabbed command bar for desktop windows")
