@@ -37,6 +37,11 @@ public sealed class GanttLayoutMetrics
 
     readonly Dictionary<string, int> rowIndexById;
 
+    /// <summary>Builds the geometry for one layout pass.</summary>
+    /// <param name="model">The plan being laid out.</param>
+    /// <param name="origin">The instant sitting at x = 0.</param>
+    /// <param name="pixelsPerDay">Horizontal zoom. Values at or below zero are clamped to 1.</param>
+    /// <param name="rows">Row heights and bar insets. The default is used when omitted.</param>
     public GanttLayoutMetrics(
         GanttModel model,
         DateTimeOffset origin,
@@ -54,12 +59,16 @@ public sealed class GanttLayoutMetrics
             this.rowIndexById[row.Task.Id] = row.Index;
     }
 
+    /// <summary>The plan this geometry was built for.</summary>
     public GanttModel Model { get; }
 
     /// <summary>The instant at x = 0.</summary>
     public DateTimeOffset Origin { get; }
 
+    /// <summary>Horizontal zoom, in pixels per day. Always greater than zero.</summary>
     public double PixelsPerDay { get; }
+
+    /// <summary>Row heights and bar insets.</summary>
     public GanttRowMetrics Rows { get; }
 
     /// <summary>Total height of all visible rows.</summary>
@@ -102,6 +111,12 @@ public sealed class GanttLayoutMetrics
         return row < 0 ? default : this.BarOf(task, row);
     }
 
+    /// <summary>
+    /// The rectangle a task's bar occupies on a row the caller has already resolved — the overload to
+    /// use when walking rows in order, since it skips the id lookup.
+    /// </summary>
+    /// <param name="task">The task to measure.</param>
+    /// <param name="rowIndex">The visible row the task sits on.</param>
     public GanttRect BarOf(GanttTask task, int rowIndex)
     {
         var center = this.RowCenter(rowIndex);
@@ -278,8 +293,15 @@ public sealed class GanttLayoutMetrics
 /// <summary>What a point on a bar would drag. Mirrors the host-side enums, which add their own members.</summary>
 public enum GanttHitTarget
 {
+    /// <summary>The middle of the bar — a drag here moves the whole task.</summary>
     Body,
+
+    /// <summary>The leading edge — a drag here moves the start and holds the finish.</summary>
     StartEdge,
+
+    /// <summary>The trailing edge — a drag here moves the finish and holds the start.</summary>
     EndEdge,
+
+    /// <summary>The progress handle.</summary>
     Progress
 }

@@ -16,6 +16,10 @@ public readonly record struct GanttShift
     /// <summary>09:00 to 17:00.</summary>
     public static readonly GanttShift NineToFive = new(TimeSpan.FromHours(9), TimeSpan.FromHours(17));
 
+    /// <summary>Creates a shift from two offsets into the day.</summary>
+    /// <param name="start">Offset from midnight at which the shift begins.</param>
+    /// <param name="end">Offset from midnight at which the shift ends. May be exactly 24:00.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The shift starts or ends outside the day, or ends before it starts.</exception>
     public GanttShift(TimeSpan start, TimeSpan end)
     {
         if (start < TimeSpan.Zero || start > TimeSpan.FromDays(1))
@@ -37,8 +41,12 @@ public readonly record struct GanttShift
     /// <summary>How long the shift lasts.</summary>
     public TimeSpan Duration => this.End - this.Start;
 
+    /// <summary>Creates a shift from two hours-past-midnight, so 9 to 17.5 reads as it sounds.</summary>
+    /// <param name="startHour">Hours past midnight at which the shift begins.</param>
+    /// <param name="endHour">Hours past midnight at which the shift ends.</param>
     public static GanttShift FromHours(double startHour, double endHour) =>
         new(TimeSpan.FromHours(startHour), TimeSpan.FromHours(endHour));
 
+    /// <summary>The shift as "hh:mm-hh:mm", for logs and debugger display.</summary>
     public override string ToString() => $"{this.Start:hh\\:mm}-{this.End:hh\\:mm}";
 }

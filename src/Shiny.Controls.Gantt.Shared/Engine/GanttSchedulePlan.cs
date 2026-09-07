@@ -12,13 +12,25 @@ public sealed class GanttTaskSchedule
         this.OldProgress = this.NewProgress = task.Progress;
     }
 
+    /// <summary>The task this entry is about.</summary>
     public GanttTask Task { get; }
 
+    /// <summary>Where the task started before the edit.</summary>
     public DateTimeOffset OldStart { get; internal set; }
+
+    /// <summary>Where the task finished before the edit.</summary>
     public DateTimeOffset OldEnd { get; internal set; }
+
+    /// <summary>Where the task starts once the plan is applied.</summary>
     public DateTimeOffset NewStart { get; internal set; }
+
+    /// <summary>Where the task finishes once the plan is applied.</summary>
     public DateTimeOffset NewEnd { get; internal set; }
+
+    /// <summary>Completion, 0-1, before the edit.</summary>
     public double OldProgress { get; internal set; }
+
+    /// <summary>Completion, 0-1, once the plan is applied.</summary>
     public double NewProgress { get; internal set; }
 
     /// <summary>True when the auto-scheduler moved this task rather than the user dragging it.</summary>
@@ -33,6 +45,7 @@ public sealed class GanttTaskSchedule
     /// <summary>How far the task moved.</summary>
     public TimeSpan Delta => this.NewStart - this.OldStart;
 
+    /// <summary>The move in one line, for logs and debugger display.</summary>
     public override string ToString() =>
         $"{this.Task.Name}: {this.OldStart:g}-{this.OldEnd:g} -> {this.NewStart:g}-{this.NewEnd:g}{(this.IsCascade ? " (cascade)" : "")}";
 }

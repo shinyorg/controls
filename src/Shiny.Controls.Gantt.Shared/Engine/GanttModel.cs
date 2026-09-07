@@ -103,6 +103,10 @@ public sealed class GanttModel
     public int RowCount => this.Rows.Count;
 
 
+    /// <summary>Looks a task up by id.</summary>
+    /// <param name="id">The id to find. A null id never matches, so callers holding a nullable id need no guard of their own.</param>
+    /// <param name="task">The task, when one was found.</param>
+    /// <returns>True when a task with that id is in the model.</returns>
     public bool TryGetTask(string? id, out GanttTask task)
     {
         if (id is not null)

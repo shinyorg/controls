@@ -47,6 +47,11 @@ public class GanttCalendar
         [GanttShift.NineToFive]
     );
 
+    /// <summary>Builds a working-time calendar.</summary>
+    /// <param name="workingDays">Which days of the week are worked. Null means every day.</param>
+    /// <param name="shifts">The working periods inside each of those days. Null means the full day.</param>
+    /// <param name="holidays">Dates that are never worked, whatever the day of the week.</param>
+    /// <param name="exceptions">Per-date shift overrides, for a half day or a one-off weekend.</param>
     public GanttCalendar(
         IEnumerable<DayOfWeek>? workingDays = null,
         IEnumerable<GanttShift>? shifts = null,

@@ -23,6 +23,7 @@ public readonly record struct GanttValidationIssue(
     bool IsBlocking = false
 )
 {
+    /// <summary>The issue in one line, for logs and debugger display.</summary>
     public override string ToString() =>
         $"{this.Code}{(this.TaskId is null ? "" : $" [{this.TaskId}]")}: {this.Message}";
 }

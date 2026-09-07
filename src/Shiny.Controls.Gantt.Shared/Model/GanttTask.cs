@@ -301,6 +301,7 @@ public class GanttTask : INotifyPropertyChanged
         this.Deadline is { } d && (this.Kind == GanttTaskKind.Milestone ? this.Start : this.End) > d;
 
 
+    /// <summary>Creates a task with an empty, observable child collection.</summary>
     public GanttTask()
     {
         this.Children = new ObservableCollection<GanttTask>();
@@ -337,9 +338,17 @@ public class GanttTask : INotifyPropertyChanged
     /// <summary>Raised by the engine after a rebuild has finished writing its outputs onto this task.</summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>Raises <see cref="PropertyChanged"/> for one property.</summary>
+    /// <param name="propertyName">The property that changed.</param>
     protected void OnPropertyChanged(string propertyName) =>
         this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
+    /// <summary>Assigns a backing field and raises <see cref="PropertyChanged"/> when the value actually differs.</summary>
+    /// <typeparam name="T">The property's type.</typeparam>
+    /// <param name="field">The backing field.</param>
+    /// <param name="value">The value to assign.</param>
+    /// <param name="propertyName">The property name, supplied by the compiler.</param>
+    /// <returns>True when the field changed.</returns>
     protected bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
@@ -399,5 +408,6 @@ public class GanttTask : INotifyPropertyChanged
     }
 
 
+    /// <summary>The task's name and id, for logs and debugger display.</summary>
     public override string ToString() => $"{this.Name} ({this.Id})";
 }

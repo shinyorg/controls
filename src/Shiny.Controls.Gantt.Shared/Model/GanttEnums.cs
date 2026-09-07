@@ -76,13 +76,28 @@ public enum GanttTimeScale
     /// <summary>Picks the finest scale whose ticks stay wider than the minimum tick width. </summary>
     Auto,
 
+    /// <summary>One tick per minute.</summary>
     Minute,
+
+    /// <summary>One tick per fifteen minutes.</summary>
     QuarterHour,
+
+    /// <summary>One tick per hour.</summary>
     Hour,
+
+    /// <summary>One tick per day.</summary>
     Day,
+
+    /// <summary>One tick per week.</summary>
     Week,
+
+    /// <summary>One tick per month.</summary>
     Month,
+
+    /// <summary>One tick per quarter.</summary>
     Quarter,
+
+    /// <summary>One tick per year.</summary>
     Year
 }
 
@@ -96,7 +111,7 @@ public enum GanttSnapMode
     /// <summary>Round to the boundaries of the current lower header tier. The default.</summary>
     Scale,
 
-    /// <summary>Round to the boundaries set by <see cref="GanttScheduleOptions.SnapInterval"/>.</summary>
+    /// <summary>Round to the boundaries set by the host control's <c>SnapInterval</c>.</summary>
     Interval,
 
     /// <summary>
@@ -107,7 +122,7 @@ public enum GanttSnapMode
 }
 
 
-/// <summary>Which edit produced a <see cref="GanttChange"/>.</summary>
+/// <summary>Which edit produced a <see cref="GanttSchedulePlan"/>.</summary>
 public enum GanttChangeKind
 {
     /// <summary>Both edges moved by the same delta.</summary>
@@ -133,7 +148,7 @@ public enum GanttChangeKind
 
     /// <summary>
     /// The task was not edited directly — the auto-scheduler moved it because something it depends
-    /// on moved. Never raised on its own; it only ever appears in <see cref="GanttChange.Cascade"/>.
+    /// on moved. Never raised on its own; it only ever appears in <see cref="GanttSchedulePlan.Cascade"/>.
     /// </summary>
     Cascade
 }

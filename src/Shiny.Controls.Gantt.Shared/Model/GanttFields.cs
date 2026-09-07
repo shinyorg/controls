@@ -13,13 +13,28 @@ namespace Shiny.Controls.Gantt;
 /// </remarks>
 public static class GanttFields
 {
+    /// <summary>The task's name.</summary>
     public const string Name = "Name";
+
+    /// <summary>The task's start date.</summary>
     public const string Start = "Start";
+
+    /// <summary>The task's finish date.</summary>
     public const string End = "End";
+
+    /// <summary>The task's duration, rendered in the plan's own units.</summary>
     public const string Duration = "Duration";
+
+    /// <summary>Completion, rendered as a percentage.</summary>
     public const string Progress = "Progress";
+
+    /// <summary>Who the task is assigned to.</summary>
     public const string Resource = "Resource";
+
+    /// <summary>How far the task can slip before it becomes critical.</summary>
     public const string Slack = "Slack";
+
+    /// <summary>The date the task must finish by, when one is set.</summary>
     public const string Deadline = "Deadline";
 
     /// <summary>Every built-in field name, for a designer or a docs table to enumerate.</summary>

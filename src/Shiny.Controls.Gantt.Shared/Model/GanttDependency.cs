@@ -15,10 +15,16 @@ public class GanttDependency : INotifyPropertyChanged
     string? color;
     bool isCritical;
 
+    /// <summary>Creates an empty link, for a designer or a deserializer to fill in.</summary>
     public GanttDependency()
     {
     }
 
+    /// <summary>Creates a link between two tasks.</summary>
+    /// <param name="predecessorId">The <see cref="GanttTask.Id"/> the arrow leaves.</param>
+    /// <param name="successorId">The <see cref="GanttTask.Id"/> the arrow points at.</param>
+    /// <param name="type">Which pair of edges the link ties together.</param>
+    /// <param name="lag">Delay after the link is satisfied. Negative values are lead time.</param>
     public GanttDependency(
         string predecessorId,
         string successorId,
@@ -78,8 +84,15 @@ public class GanttDependency : INotifyPropertyChanged
         internal set => this.Set(ref this.isCritical, value);
     }
 
+    /// <summary>Raised when any of the link's properties change.</summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>Assigns a backing field and raises <see cref="PropertyChanged"/> when the value actually differs.</summary>
+    /// <typeparam name="T">The property's type.</typeparam>
+    /// <param name="field">The backing field.</param>
+    /// <param name="value">The value to assign.</param>
+    /// <param name="propertyName">The property name, supplied by the compiler.</param>
+    /// <returns>True when the field changed.</returns>
     protected bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
@@ -90,6 +103,7 @@ public class GanttDependency : INotifyPropertyChanged
         return true;
     }
 
+    /// <summary>The link in one line, for logs and debugger display.</summary>
     public override string ToString() =>
         $"{this.PredecessorId} -{this.Type}{(this.Lag == TimeSpan.Zero ? "" : $"{this.Lag.TotalHours:+#;-#}h")}-> {this.SuccessorId}";
 }
