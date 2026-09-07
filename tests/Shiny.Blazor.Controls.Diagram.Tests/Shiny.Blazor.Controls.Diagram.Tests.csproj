@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <!-- DiagramHost subclasses Renderer on purpose: it is the only way to run a component's real
+             lifecycle and keep the instance. BL0006 warns that RenderTree types may change, which is
+             a risk worth taking in a test harness and nowhere else. -->
+        <NoWarn>$(NoWarn);BL0006</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="Shouldly"/>
+        <PackageReference Include="xunit"/>
+        <PackageReference Include="xunit.runner.visualstudio"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit"/>
+        <Using Include="Shouldly"/>
+        <Using Include="Shiny.Controls.Diagramming"/>
+        <Using Include="Shiny.Blazor.Controls.Diagram"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Diagram\Shiny.Blazor.Controls.Diagram.csproj"/>
+    </ItemGroup>
+
+</Project>

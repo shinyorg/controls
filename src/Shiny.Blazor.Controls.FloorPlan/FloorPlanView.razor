@@ -1,0 +1,385 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    A floor plan, drawn on a Skia canvas.
+
+    The pointer handlers sit on the host div rather than on the canvas so that there is an
+    ElementReference to capture the pointer against: a drag that leaves the canvas - pulling a room in
+    from the edge, rubber-banding out past the plan border - stops receiving pointermove without it,
+    and freezes half-done with the button still held.
+*@
+
+<div class="shiny-floorplan @Class"
+     style="@Style"
+     @ref="host"
+     @onpointerdown="OnPointerDown"
+     @onpointermove="OnPointerMove"
+     @onpointerup="OnPointerUp"
+     @onpointercancel="OnPointerCancel"
+     @onwheel="OnWheel"
+     @onwheel:preventDefault="true"
+     @oncontextmenu:preventDefault="true">
+
+    <SKCanvasView @ref="canvas"
+                  class="shiny-floorplan-canvas"
+                  IgnorePixelScaling="false"
+                  OnPaintSurface="OnPaint" />
+</div>
+
+@code {
+    const string ModulePath = "./_content/Shiny.Blazor.Controls.FloorPlan/floorplan.js";
+
+    ElementReference host;
+    SKCanvasView? canvas;
+    IJSObjectReference? module;
+    ThemeSchemeWatcher scheme = null!;
+
+    FloorPlanDocument? appliedDocument;
+    FloorPlanTheme? appliedTheme;
+    IFloorPlanTool? appliedTool;
+    FloorPlanElement? appliedSelection;
+    FloorPlanEditorMode appliedMode = FloorPlanEditorMode.Edit;
+    bool appliedShowGrid = true;
+    bool appliedSnapToGrid = true;
+    bool fitted;
+    SKSizeI surface;
+    double dpr = 1;
+    long capturedPointer = -1;
+
+    /// <summary>The engine behind the view. Register renderers and drive it directly through this.</summary>
+    public FloorPlanEngine Engine { get; } = new();
+
+    [Parameter] public FloorPlanDocument? Document { get; set; }
+
+    /// <summary>
+    /// Edit gives the active tool the pointer and puts resize handles on the selection; View turns the
+    /// whole surface into a pan surface where a tap raises <see cref="OnElementTapped"/>.
+    /// </summary>
+    [Parameter] public FloorPlanEditorMode Mode { get; set; } = FloorPlanEditorMode.Edit;
+
+    [Parameter] public bool ShowGrid { get; set; } = true;
+
+    [Parameter] public bool SnapToGrid { get; set; } = true;
+
+    /// <summary>The tool the pointer drives in Edit mode. Defaults to a <see cref="SelectTool"/>.</summary>
+    [Parameter] public IFloorPlanTool? ActiveTool { get; set; }
+
+    /// <summary>Explicit colours. Leave it null to follow the page's light/dark scheme, which is the default.</summary>
+    [Parameter] public FloorPlanTheme? Theme { get; set; }
+
+    /// <summary>The single selected element, or null when nothing or several things are selected.</summary>
+    [Parameter] public FloorPlanElement? SelectedElement { get; set; }
+
+    [Parameter] public EventCallback<FloorPlanElement?> SelectedElementChanged { get; set; }
+
+    /// <summary>A tap on an element in View mode.</summary>
+    [Parameter] public EventCallback<FloorPlanElement> OnElementTapped { get; set; }
+
+    [Parameter] public EventCallback<IReadOnlyList<FloorPlanElement>> OnSelectionChanged { get; set; }
+
+    [Parameter] public EventCallback<FloorPlanElement> OnElementAdded { get; set; }
+
+    [Parameter] public EventCallback<IReadOnlyList<FloorPlanElement>> OnElementsRemoved { get; set; }
+
+    /// <summary>Fits the plan to the surface the first time it is laid out. On by default.</summary>
+    [Parameter] public bool FitOnLoad { get; set; } = true;
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Style { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // The canvas only redraws when told to, so a scheme flip has to invalidate it explicitly.
+        this.scheme = new ThemeSchemeWatcher(this.Js, () =>
+        {
+            this.ApplyTheme();
+            this.StateHasChanged();
+            return Task.CompletedTask;
+        });
+
+        this.Engine.InvalidateRequested += () => this.InvokeAsync(() => this.canvas?.Invalidate());
+        this.Engine.ElementTapped += element => this.Raise(this.OnElementTapped, element);
+        this.Engine.ElementAdded += element => this.Raise(this.OnElementAdded, element);
+        this.Engine.ElementsRemoved += elements => this.Raise(this.OnElementsRemoved, elements);
+        this.Engine.SelectionChanged += this.OnEngineSelectionChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(this.Document, this.appliedDocument) && this.Document is not null)
+        {
+            this.Engine.Document = this.Document;
+            this.appliedDocument = this.Document;
+            this.fitted = false;
+        }
+
+        if (this.Mode != this.appliedMode)
+        {
+            this.appliedMode = this.Mode;
+            this.Engine.State.Mode = this.Mode;
+
+            // Handles are Edit-mode chrome, so a switch to View has to drop the selection that would
+            // otherwise leave them on screen with nothing able to move them.
+            this.Engine.State.ClearSelection();
+            this.Engine.Invalidate();
+        }
+
+        if (this.ShowGrid != this.appliedShowGrid)
+        {
+            this.appliedShowGrid = this.ShowGrid;
+            this.Engine.State.IsGridVisible = this.ShowGrid;
+            this.Engine.Invalidate();
+        }
+
+        if (this.SnapToGrid != this.appliedSnapToGrid)
+        {
+            this.appliedSnapToGrid = this.SnapToGrid;
+            this.Engine.State.SnapToGrid = this.SnapToGrid;
+        }
+
+        if (this.ActiveTool is { } tool && !ReferenceEquals(tool, this.appliedTool))
+        {
+            this.appliedTool = tool;
+            this.Engine.SetTool(tool);
+        }
+
+        if (!ReferenceEquals(this.Theme, this.appliedTheme))
+        {
+            this.appliedTheme = this.Theme;
+            this.ApplyTheme();
+        }
+
+        if (!ReferenceEquals(this.SelectedElement, this.appliedSelection))
+        {
+            this.appliedSelection = this.SelectedElement;
+
+            if (this.SelectedElement is { } selected)
+                this.Engine.State.Select(selected);
+            else
+                this.Engine.State.ClearSelection();
+
+            this.Engine.Invalidate();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Before the DPR read: the canvas paints its first frame off the theme, and starting the
+            // watch second would flash a white plan in a dark app.
+            await this.scheme.StartAsync(this.host);
+            this.ApplyTheme();
+
+            try
+            {
+                this.dpr = await this.Js.InvokeAsync<double>("eval", "window.devicePixelRatio || 1");
+            }
+            catch (Exception)
+            {
+                // Prerendering, or a host with no JS yet. One device pixel per CSS pixel is wrong only
+                // on a retina display, and only until the next render.
+            }
+
+            this.module = await this.Js.InvokeAsync<IJSObjectReference>("import", ModulePath);
+        }
+    }
+
+    /// <summary>Fits the whole plan in the view.</summary>
+    public void ZoomToFit()
+    {
+        if (this.surface.Width > 0)
+            this.Engine.ZoomToFit(this.surface.Width, this.surface.Height);
+    }
+
+    /// <summary>Zooms in about the middle of the view.</summary>
+    public void ZoomIn() => this.Engine.ZoomIn(this.surface.Width, this.surface.Height);
+
+    /// <summary>Zooms out about the middle of the view.</summary>
+    public void ZoomOut() => this.Engine.ZoomOut(this.surface.Width, this.surface.Height);
+
+    /// <summary>Centres the view on an element without changing the zoom.</summary>
+    public void ScrollTo(FloorPlanElement element) =>
+        this.Engine.ScrollTo(element, this.surface.Width, this.surface.Height);
+
+    public void SetTool(IFloorPlanTool tool) => this.Engine.SetTool(tool);
+
+    public void DeleteSelected() => this.Engine.DeleteSelected();
+
+    public void BringToFront() => this.Engine.BringToFront();
+
+    public void SendToBack() => this.Engine.SendToBack();
+
+    void ApplyTheme() => this.Engine.Theme = FloorPlanScheme.Resolve(this.scheme, this.Theme);
+
+    /// <summary>
+    /// Paints, and takes the surface size from the frame rather than measuring it.
+    /// </summary>
+    /// <remarks>
+    /// The canvas's backing store is the one honest source for how big the drawing surface is - the
+    /// host's CSS box differs from it by the device pixel ratio, and it is not settled at all until
+    /// the first paint. Fitting from OnAfterRenderAsync instead fitted the plan to a collapsed box
+    /// while the splash screen was still up, and left it a thumbnail in the corner afterwards.
+    /// </remarks>
+    void OnPaint(SKPaintSurfaceEventArgs e)
+    {
+        this.surface = e.Info.Size;
+
+        if (this.FitOnLoad && !this.fitted && e.Info.Width > 0 && e.Info.Height > 0)
+        {
+            this.fitted = true;
+            this.Engine.ZoomToFit(e.Info.Width, e.Info.Height);
+        }
+
+        this.Engine.Render(e.Surface.Canvas, e.Info.Width, e.Info.Height);
+    }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Pointer
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The event's position on the drawing surface, in device pixels.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>OffsetX</c>/<c>OffsetY</c> are measured from the event <em>target</em> rather than from the
+    /// element the handler sits on, which is a real trap for a container whose children are positioned
+    /// boxes - press on one and the coordinates arrive in <em>its</em> space, with nothing to notice.
+    /// It is safe here for one reason, and the scoped stylesheet is what keeps it safe: this host has
+    /// exactly one child, the canvas, and it fills the host's padding box exactly. Target and host
+    /// therefore share an origin, whether the event went to the canvas or - during pointer capture -
+    /// to the host. Do not put another positioned child in here, and do not let the host grow padding
+    /// or a border.
+    /// </para>
+    /// <para>
+    /// Measuring the host through JS instead is what the alternative looks like, and it cannot be
+    /// awaited on the press path: a click delivers <c>pointerup</c> within a few milliseconds, and an
+    /// <c>await</c> before dispatching the press lets the release overtake it, so the engine sees a
+    /// release for a press it never got and the click does nothing at all.
+    /// </para>
+    /// </remarks>
+    (float X, float Y) Canvas(MouseEventArgs e) => ((float)(e.OffsetX * this.dpr), (float)(e.OffsetY * this.dpr));
+
+    static FloorPlanPointerButton ButtonOf(long button) => button switch
+    {
+        1 => FloorPlanPointerButton.Middle,
+        2 => FloorPlanPointerButton.Right,
+        _ => FloorPlanPointerButton.Left
+    };
+
+    async Task OnPointerDown(PointerEventArgs e)
+    {
+        // Dispatched before the capture call, and before any await: see Canvas().
+        var (x, y) = this.Canvas(e);
+        this.Engine.OnPointerPressed(x, y, ButtonOf(e.Button), e.ShiftKey, e.CtrlKey);
+
+        if (this.module is not null)
+        {
+            this.capturedPointer = e.PointerId;
+            await this.module.InvokeVoidAsync("capture", this.host, e.PointerId);
+        }
+    }
+
+    void OnPointerMove(PointerEventArgs e)
+    {
+        var (x, y) = this.Canvas(e);
+        this.Engine.OnPointerMoved(x, y, e.ShiftKey, e.CtrlKey);
+    }
+
+    async Task OnPointerUp(PointerEventArgs e)
+    {
+        var (x, y) = this.Canvas(e);
+        this.Engine.OnPointerReleased(x, y, ButtonOf(e.Button), e.ShiftKey, e.CtrlKey);
+        await this.ReleaseAsync(e.PointerId);
+    }
+
+    /// <remarks>
+    /// A cancelled pointer has to end the gesture too. Without this the tool keeps the drag it thinks
+    /// is still in hand, and the next click continues a move from minutes ago.
+    /// </remarks>
+    async Task OnPointerCancel(PointerEventArgs e)
+    {
+        var (x, y) = this.Canvas(e);
+        this.Engine.OnPointerReleased(x, y, ButtonOf(e.Button), e.ShiftKey, e.CtrlKey);
+        await this.ReleaseAsync(e.PointerId);
+    }
+
+    async Task ReleaseAsync(long pointerId)
+    {
+        if (this.module is null || this.capturedPointer < 0)
+            return;
+
+        this.capturedPointer = -1;
+
+        try
+        {
+            await this.module.InvokeVoidAsync("release", this.host, pointerId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went away mid-drag. Nothing to release.
+        }
+    }
+
+    void OnWheel(WheelEventArgs e)
+    {
+        var (x, y) = this.Canvas(e);
+        this.Engine.OnScroll(x, y, e.DeltaY > 0 ? -1f : 1f);
+    }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Plumbing
+    // ---------------------------------------------------------------------------------------------
+
+    void OnEngineSelectionChanged(IReadOnlyList<FloorPlanElement> selection)
+    {
+        var single = this.Engine.State.SelectedElement;
+
+        this.InvokeAsync(async () =>
+        {
+            if (!ReferenceEquals(single, this.appliedSelection))
+            {
+                // Recorded before the callback so that the parameter coming back in OnParametersSet
+                // is recognised as our own write rather than as a host asking for a new selection.
+                this.appliedSelection = single;
+                this.SelectedElement = single;
+
+                if (this.SelectedElementChanged.HasDelegate)
+                    await this.SelectedElementChanged.InvokeAsync(single);
+            }
+
+            if (this.OnSelectionChanged.HasDelegate)
+                await this.OnSelectionChanged.InvokeAsync(selection);
+
+            this.StateHasChanged();
+        });
+    }
+
+    void Raise<T>(EventCallback<T> callback, T value)
+    {
+        if (callback.HasDelegate)
+            this.InvokeAsync(() => callback.InvokeAsync(value));
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await this.scheme.DisposeAsync();
+
+        if (this.module is not null)
+        {
+            try
+            {
+                await this.module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit is already gone; the module went with it.
+            }
+        }
+    }
+}

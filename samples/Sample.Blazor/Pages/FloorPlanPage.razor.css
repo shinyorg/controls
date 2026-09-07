@@ -1,0 +1,11 @@
+/*
+    A drawn surface has no intrinsic size, so the frame is what gives the plan a viewport. Without a
+    height here the canvas collapses to nothing and the page looks like the control failed to load.
+*/
+.floorplan-frame {
+    height: 60vh;
+    min-height: 320px;
+    border: 1px solid var(--shiny-color-outline-variant, #ddd);
+    border-radius: 8px;
+    overflow: hidden;
+}

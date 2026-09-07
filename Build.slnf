@@ -4,6 +4,8 @@
         "projects": [
             "src/Shiny.Controls.MotionIcons.Shared/Shiny.Controls.MotionIcons.Shared.csproj",
             "src/Shiny.Controls.Gantt.Shared/Shiny.Controls.Gantt.Shared.csproj",
+            "src/Shiny.Controls.Diagram.Shared/Shiny.Controls.Diagram.Shared.csproj",
+            "src/Shiny.Controls.FloorPlan.Shared/Shiny.Controls.FloorPlan.Shared.csproj",
             "src/Shiny.Maui.Controls/Shiny.Maui.Controls.csproj",
             "src/Shiny.Maui.Controls.Themes.Ocean/Shiny.Maui.Controls.Themes.Ocean.csproj",
             "src/Shiny.Maui.Controls.Themes.Material/Shiny.Maui.Controls.Themes.Material.csproj",
@@ -27,11 +29,13 @@
             "src/Shiny.Controls.Office.Skia/Shiny.Controls.Office.Skia.csproj",
             "src/Shiny.Maui.Controls.Office/Shiny.Maui.Controls.Office.csproj",
             "src/Shiny.Blazor.Controls.Office/Shiny.Blazor.Controls.Office.csproj",
+            "src/Shiny.Maui.Controls.FloorPlan/Shiny.Maui.Controls.FloorPlan.csproj",
         "src/Shiny.Maui.Controls.MediaElement/Shiny.Maui.Controls.MediaElement.csproj",
         "src/Shiny.Maui.Controls.MediaElement.Linux/Shiny.Maui.Controls.MediaElement.Linux.csproj",
             "src/Shiny.Maui.Controls.SpeechAddins/Shiny.Maui.Controls.SpeechAddins.csproj",
             "src/Shiny.Maui.Controls.Markdown/Shiny.Maui.Controls.Markdown.csproj",
             "src/Shiny.Maui.Controls.MermaidDiagrams/Shiny.Maui.Controls.MermaidDiagrams.csproj",
+            "src/Shiny.Maui.Controls.Diagram/Shiny.Maui.Controls.Diagram.csproj",
             "src/Shiny.Blazor.Controls/Shiny.Blazor.Controls.csproj",
             "src/Shiny.Blazor.Controls.Themes.Ocean/Shiny.Blazor.Controls.Themes.Ocean.csproj",
             "src/Shiny.Blazor.Controls.Themes.Material/Shiny.Blazor.Controls.Themes.Material.csproj",
@@ -42,8 +46,10 @@
             "src/Shiny.Blazor.Controls.Barcodes/Shiny.Blazor.Controls.Barcodes.csproj",
             "src/Shiny.Blazor.Controls.Camera/Shiny.Blazor.Controls.Camera.csproj",
             "src/Shiny.Blazor.Controls.Camera.Ai/Shiny.Blazor.Controls.Camera.Ai.csproj",
+            "src/Shiny.Blazor.Controls.FloorPlan/Shiny.Blazor.Controls.FloorPlan.csproj",
         "src/Shiny.Blazor.Controls.MediaElement/Shiny.Blazor.Controls.MediaElement.csproj",
-            "src/Shiny.Blazor.Controls.MermaidDiagrams/Shiny.Blazor.Controls.MermaidDiagrams.csproj"
+            "src/Shiny.Blazor.Controls.MermaidDiagrams/Shiny.Blazor.Controls.MermaidDiagrams.csproj",
+            "src/Shiny.Blazor.Controls.Diagram/Shiny.Blazor.Controls.Diagram.csproj"
         ]
     }
 }

@@ -1,0 +1,186 @@
+/* Every colour is a theme token with a literal fallback. The fallback is what a consumer who has not
+   merged a Shiny theme sees, and it exists because a diagram that renders as invisible-on-invisible
+   looks like the control is broken rather than unthemed. */
+
+.shiny-diagram {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--shiny-color-surface, #ffffff);
+    color: var(--shiny-color-on-surface, #111827);
+
+    /* The surface owns every pointer gesture it uses, including the two-finger ones, or the browser
+       claims a pan before the marquee ever starts. */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    outline: none;
+}
+
+.shiny-diagram:focus-visible {
+    outline: 2px solid var(--shiny-color-primary, #4f46e5);
+    outline-offset: -2px;
+}
+
+.shiny-diagram-canvas {
+    display: block;
+    position: absolute;
+    inset: 0;
+}
+
+.shiny-diagram-grid {
+    fill: none;
+    stroke: var(--shiny-color-outline-variant, #e5e7eb);
+    stroke-width: 1;
+}
+
+/* ---- nodes ---- */
+
+.shiny-diagram-shape {
+    fill: var(--shiny-color-surface-container, #f3f4f6);
+    stroke: var(--shiny-color-outline, #9ca3af);
+    stroke-width: 1.5;
+}
+
+.shiny-diagram-shape.is-selected {
+    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke-width: 2.5;
+}
+
+/* A cylinder's lid is a second sub-path drawn over the body, so it must never be filled. */
+.shiny-diagram-shape-lid {
+    fill: none;
+    stroke: var(--shiny-color-outline, #9ca3af);
+    stroke-width: 1.5;
+}
+
+/* Labels live in the DiagramLabel component, so the scoped selector has to cross into a child's
+   markup - which is exactly what ::deep is for. Without it these rules compile, ship, and match
+   nothing. */
+.shiny-diagram-nodes ::deep .shiny-diagram-label {
+    fill: var(--shiny-color-on-surface, #111827);
+    font-size: var(--shiny-type-body-small-size, 13px);
+    font-family: inherit;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+.shiny-diagram-linklabels ::deep .shiny-diagram-linklabel {
+    fill: var(--shiny-color-on-surface-variant, #6b7280);
+    font-size: var(--shiny-type-label-small-size, 11px);
+    font-family: inherit;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    paint-order: stroke;
+
+    /* Drawn behind the glyphs, so a label sitting on its own line stays readable without a box. */
+    stroke: var(--shiny-color-surface, #ffffff);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+/* ---- connections ---- */
+
+.shiny-diagram-link {
+    fill: none;
+    stroke: var(--shiny-color-outline, #9ca3af);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.shiny-diagram-link.is-selected {
+    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke-width: 2.5;
+}
+
+.shiny-diagram-link.is-dashed {
+    stroke-dasharray: 6 4;
+}
+
+.shiny-diagram-link.is-dotted {
+    stroke-dasharray: 1 4;
+}
+
+/* An invisible fat stroke over the visible thin one. A 1.5px line cannot be hit with a finger, and
+   thickening the drawn line to make it hittable would be drawing the wrong picture. */
+.shiny-diagram-linkhit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 14;
+    pointer-events: stroke;
+}
+
+.shiny-diagram-cap {
+    fill: none;
+    stroke: var(--shiny-color-outline, #9ca3af);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+}
+
+.shiny-diagram-cap.is-filled {
+    fill: var(--shiny-color-outline, #9ca3af);
+}
+
+/* ---- adorners ---- */
+
+.shiny-diagram-pending {
+    fill: none;
+    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke-width: 2;
+    stroke-dasharray: 5 4;
+    pointer-events: none;
+}
+
+.shiny-diagram-marquee {
+    fill: var(--shiny-color-primary, #4f46e5);
+    fill-opacity: 0.1;
+    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke-width: 1;
+    stroke-dasharray: 4 3;
+    pointer-events: none;
+}
+
+.shiny-diagram-port {
+    fill: var(--shiny-color-surface, #ffffff);
+    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke-width: 1.5;
+}
+
+/* ---- templated nodes ---- */
+
+.shiny-diagram-templates {
+    position: absolute;
+    inset: 0;
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+
+.shiny-diagram-template {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: hidden;
+    pointer-events: auto;
+    background: var(--shiny-color-surface-container, #f3f4f6);
+    border: 1px solid var(--shiny-color-outline, #9ca3af);
+    border-radius: var(--shiny-shape-corner-small, 8px);
+}
+
+.shiny-diagram-template.is-selected {
+    border-color: var(--shiny-color-primary, #4f46e5);
+    border-width: 2px;
+}
+
+.shiny-diagram-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--shiny-color-on-surface-variant, #6b7280);
+    pointer-events: none;
+}

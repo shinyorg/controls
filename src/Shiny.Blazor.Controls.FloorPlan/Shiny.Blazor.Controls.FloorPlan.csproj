@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <RootNamespace>Shiny.Blazor.Controls.FloorPlan</RootNamespace>
+        <Description>An interactive floor plan for Blazor - rooms, walls, doors, cubicles, outlets, furniture and custom SVG stencils on a pan/zoom SkiaSharp canvas, with drawing and placement tools, snap-to-grid, selection and resize handles in edit mode, and tap-to-identify in view mode for seating charts.</Description>
+        <PackageTags>blazor shiny floorplan cad seating layout skiasharp</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Fails the consumer's build when the WebAssembly native toolchain is missing, instead of
+             letting them publish an app that dies on the first Skia call. See the targets file. -->
+        <None Include="buildTransitive/Shiny.Blazor.Controls.FloorPlan.targets" Pack="true" PackagePath="buildTransitive/Shiny.Blazor.Controls.FloorPlan.targets" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <SupportedPlatform Include="browser" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web"/>
+        <PackageReference Include="SkiaSharp.Views.Blazor"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.FloorPlan.Shared\Shiny.Controls.FloorPlan.Shared.csproj"/>
+
+        <!-- For ThemeSchemeWatcher: the plan is painted, so it cannot consume the theme's CSS custom
+             properties the way a CSS-surfaced control does - it has to read them as values. -->
+        <ProjectReference Include="..\Shiny.Blazor.Controls\Shiny.Blazor.Controls.csproj"/>
+    </ItemGroup>
+
+</Project>

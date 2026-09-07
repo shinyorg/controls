@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- The floor plan is one engine with two thin hosts. A plan is a document, a camera, a set
+             of renderers and a set of tools; none of that wants to know whether the surface under it
+             is an SKCanvasView in a MAUI page or one in a Blazor component. Mirroring it per host
+             would mean two hit-testers and two snap implementations that agree only by luck, so it
+             lives once and both hosts draw with it.
+
+             Unlike Shiny.Controls.Gantt.Shared this is not dependency-free: the plan is *painted*
+             rather than laid out, so the renderers are SkiaSharp all the way down. That is exactly
+             why the control is an add-on package and not part of the core ones - a core dependency on
+             SkiaSharp would hand every consumer the native binaries, and every Blazor WebAssembly
+             consumer the wasm-tools workload requirement along with them. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <!-- The repo uses two feeds (nuget.org + dotnet10) without source mapping; NU1507 is a
+             restore-config warning, not a code-quality one. -->
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.FloorPlan</RootNamespace>
+        <Description>Host-neutral floor plan engine - the plan document (rooms, walls, doors, cubicles, outlets, furniture and custom SVG shapes), its JSON serializer, a pan/zoom camera, pluggable element renderers and hit-testing, and the drawing/placement tools the .NET MAUI and Blazor FloorPlanView controls both run on.</Description>
+        <PackageTags>maui blazor shiny floorplan cad skiasharp seating layout</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="SkiaSharp"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.FloorPlan.Tests" />
+    </ItemGroup>
+
+</Project>

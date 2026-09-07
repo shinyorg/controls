@@ -79,6 +79,8 @@
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Camera.Ai\Shiny.Maui.Controls.Camera.Ai.csproj" />
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.MediaElement\Shiny.Maui.Controls.MediaElement.csproj" />
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Office\Shiny.Maui.Controls.Office.csproj" />
+		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.FloorPlan\Shiny.Maui.Controls.FloorPlan.csproj" />
+		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Diagram\Shiny.Maui.Controls.Diagram.csproj" />
 	</ItemGroup>
 	<!-- The gallery renders its own source under each demo page. -->
 	<Import Project="Sample.Source.targets" />

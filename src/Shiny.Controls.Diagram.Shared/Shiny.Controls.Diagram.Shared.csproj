@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Dependency-free and shared rather than mirrored, for the same reason the Gantt engine is:
+             a diagram is mostly arithmetic. Tidy tree packing, layer assignment, crossing counts,
+             where a line meets the edge of a diamond - none of it wants to know whether it is drawing
+             into a MAUI canvas or an SVG viewBox. Worse, a layout that resolved differently on the two
+             hosts is a bug neither host's own tests would ever notice, so the possibility is removed
+             rather than tested for. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <!-- The repo uses two feeds (nuget.org + dotnet10) without source mapping; NU1507 is a
+             restore-config warning, not a code-quality one, so it must not fail these builds. -->
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.Diagramming</RootNamespace>
+        <Description>Host-neutral diagramming engine - a graph of shapes and connections, tidy tree/hierarchy, layered (Sugiyama), mindmap/radial and force-directed auto-layout, straight/orthogonal/bezier connector routing that anchors to real shape outlines, hit testing, cancellable revertable edit plans and JSON round-tripping, plus the geometry the .NET MAUI and Blazor Diagram controls both draw with.</Description>
+        <PackageTags>maui blazor shiny diagram flowchart org-chart decision-tree graph layout</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.Diagram.Tests" />
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Diagram" />
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.Diagram" />
+    </ItemGroup>
+
+</Project>

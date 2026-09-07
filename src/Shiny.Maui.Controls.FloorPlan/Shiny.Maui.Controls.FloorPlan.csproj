@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            One TFM, because there is no platform code here. The view is an SKCanvasView and the
+            engine is portable: iOS, Android, Mac Catalyst and Windows all resolve SkiaSharp's own
+            platform assets through the app's reference to it, not through this package.
+
+            The net10.0-macos (AppKit) head is the exception, and deliberately unsupported for now -
+            SkiaSharp.Views.Maui ships no macos asset, so that head gets a handler whose
+            CreatePlatformView throws. Shiny.Maui.Controls.Office carries a replacement; until that
+            moves somewhere both packages can share, a plan on AppKit needs Office referenced too.
+        -->
+        <TargetFrameworks>$(BaseTargetFramework)</TargetFrameworks>
+        <UseMaui>true</UseMaui>
+        <IsAotCompatible>true</IsAotCompatible>
+        <RootNamespace>Shiny.Maui.Controls.FloorPlan</RootNamespace>
+        <Description>An interactive floor plan for .NET MAUI - rooms, walls, doors, cubicles, outlets, furniture and custom SVG stencils on a pan/zoom SkiaSharp canvas, with drawing and placement tools, snap-to-grid, selection and resize handles in edit mode, and tap-to-identify in view mode for seating charts.</Description>
+        <PackageTags>maui shiny floorplan cad seating layout skiasharp</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls"/>
+        <PackageReference Include="SkiaSharp.Views.Maui.Controls"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.FloorPlan.Shared\Shiny.Controls.FloorPlan.Shared.csproj"/>
+
+        <!-- For ShinyThemeKeys: an unthemed plan is a white sheet inside a dark app, and the keys are
+             the only way to ask the app what its own neutrals are. -->
+        <ProjectReference Include="..\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj"/>
+    </ItemGroup>
+
+</Project>

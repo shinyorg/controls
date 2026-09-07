@@ -44,12 +44,14 @@
         <!-- Linux additionally excludes DrawingCanvas + FloatingPanel feature: they rely on
              Microsoft.Maui.Graphics platform types (PlatformBitmapExportContext) that aren't
              available on plain net10.0.
-             Keyframe is excluded for now — Shiny.Maui.Controls.Keyframe isn't referenced by this head. -->
+             Keyframe is excluded for now — Shiny.Maui.Controls.Keyframe isn't referenced by this head.
+             FloorPlan is excluded for the same reason SkiaSharp is absent here: SkiaSharp.Views.Maui
+             ships no GTK4 asset, so the canvas has no platform view on this head at all. -->
         <Compile Include="..\Sample\**\*.cs"
-                 Exclude="..\Sample\Platforms\**;..\Sample\MauiProgram.cs;..\Sample\MyCustomFeedbackService.cs;..\Sample\App.xaml.cs;..\Sample\AppShell.xaml.cs;..\Sample\Controls\DrawingCanvas.cs;..\Sample\Features\Chat\**;..\Sample\Features\Camera\**;..\Sample\Features\Barcodes\**;..\Sample\Features\KitchenSink\**;..\Sample\Features\FloatingPanel\**;..\Sample\Features\Keyframe\**;..\Sample\bin\**;..\Sample\obj\**"
+                 Exclude="..\Sample\Platforms\**;..\Sample\MauiProgram.cs;..\Sample\MyCustomFeedbackService.cs;..\Sample\App.xaml.cs;..\Sample\AppShell.xaml.cs;..\Sample\Controls\DrawingCanvas.cs;..\Sample\Features\Chat\**;..\Sample\Features\Camera\**;..\Sample\Features\Barcodes\**;..\Sample\Features\KitchenSink\**;..\Sample\Features\FloatingPanel\**;..\Sample\Features\Keyframe\**;..\Sample\Features\FloorPlan\**;..\Sample\bin\**;..\Sample\obj\**"
                  Link="%(RecursiveDir)%(Filename)%(Extension)" />
         <MauiXaml Include="..\Sample\**\*.xaml"
-                  Exclude="..\Sample\Platforms\**;..\Sample\App.xaml;..\Sample\AppShell.xaml;..\Sample\Features\Chat\**;..\Sample\Features\Camera\**;..\Sample\Features\Barcodes\**;..\Sample\Features\KitchenSink\**;..\Sample\Features\FloatingPanel\**;..\Sample\Features\Keyframe\**;..\Sample\bin\**;..\Sample\obj\**"
+                  Exclude="..\Sample\Platforms\**;..\Sample\App.xaml;..\Sample\AppShell.xaml;..\Sample\Features\Chat\**;..\Sample\Features\Camera\**;..\Sample\Features\Barcodes\**;..\Sample\Features\KitchenSink\**;..\Sample\Features\FloatingPanel\**;..\Sample\Features\Keyframe\**;..\Sample\Features\FloorPlan\**;..\Sample\bin\**;..\Sample\obj\**"
                   Link="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
 

@@ -1,0 +1,25 @@
+@namespace Shiny.Blazor.Controls.Diagram
+
+@* Razor reserves <text> as its own markup-escape tag and refuses one carrying attributes inside a
+   code block, which is where every label in DiagramView is emitted from - inside a @@foreach. At the
+   top level of a component the parser is already in markup context, so the SVG element goes through
+   unmolested. Hence a component for one element. *@
+<text class="@this.Class" x="@this.X" y="@this.Y" style="@this.Style">@this.Text</text>
+
+@code
+{
+    /// <summary>The text to draw.</summary>
+    [Parameter] public string? Text { get; set; }
+
+    /// <summary>Horizontal position, already formatted.</summary>
+    [Parameter] public string? X { get; set; }
+
+    /// <summary>Baseline, already formatted.</summary>
+    [Parameter] public string? Y { get; set; }
+
+    /// <summary>The class to style it with.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Per-node colour and size overrides.</summary>
+    [Parameter] public string? Style { get; set; }
+}

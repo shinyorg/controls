@@ -1,0 +1,30 @@
+/*
+    The canvas is a child component's element, so a bare `.shiny-floorplan-canvas` rule here would be
+    scoped to this component's own markup and never match it. ::deep is what reaches it.
+*/
+.shiny-floorplan {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    /* Load-bearing, not cosmetic. Pointer coordinates come from the event target's own box, and the
+       target is the canvas (or, under pointer capture, this host). They agree only while the canvas
+       fills this element's padding box exactly, so padding or a border here would silently offset
+       every press - and a consumer's Class is applied after this rule. */
+    padding: 0;
+    border: 0;
+    background: var(--shiny-color-surface, #fff);
+
+    /* The plan handles its own panning and zooming; letting the browser also scroll or pinch the
+       page turns every drag into a fight with it, and on touch the plan simply will not pan. */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.shiny-floorplan ::deep canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}

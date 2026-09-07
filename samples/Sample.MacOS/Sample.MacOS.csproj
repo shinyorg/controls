@@ -43,6 +43,7 @@
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MermaidDiagrams\Shiny.Maui.Controls.MermaidDiagrams.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MediaElement\Shiny.Maui.Controls.MediaElement.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Office\Shiny.Maui.Controls.Office.csproj" />
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.FloorPlan\Shiny.Maui.Controls.FloorPlan.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Keyframe\Shiny.Maui.Controls.Keyframe.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.SpeechAddins\Shiny.Maui.Controls.SpeechAddins.csproj" />
     </ItemGroup>

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Cross-platform by construction: a GraphicsView canvas plus gestures, with no per-platform
+             handler of its own. The platform TFMs exist only so DragTouchHook's iOS and Android
+             halves - the native touch-down timing and scroller lock - come along. -->
+        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android;$(BaseTargetFramework)-maccatalyst;$(BaseTargetFramework)-macos</TargetFrameworks>
+        <!-- Windows packaging (MakePri) only runs on Windows, so the Windows TFM is added only there
+             and the solution still builds on macOS/Linux. ForceWindowsTfm=true adds it anyway, which
+             is how the Windows build gets type-checked from a Mac:
+
+                 dotnet restore -p:ForceWindowsTfm=true
+                 dotnet build -p:ForceWindowsTfm=true -f net10.0-windows10.0.19041.0 -t:Compile
+
+             A full build still dies in MakePri.exe, which is packaging rather than this code. -->
+        <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <UseMaui>true</UseMaui>
+        <IsAotCompatible>true</IsAotCompatible>
+        <SingleProject>true</SingleProject>
+        <RootNamespace>Shiny.Maui.Controls.Diagram</RootNamespace>
+        <Description>An interactive diagram control for .NET MAUI - hierarchies, decision trees, flowcharts and mindmaps. Bindable shapes and connections, tidy tree / layered / mindmap / radial / force-directed auto-layout, straight, orthogonal and bezier connectors anchored to real shape outlines, pan, zoom, marquee selection, node dragging, connection authoring and undo.</Description>
+        <PackageTags>maui shiny diagram flowchart org-chart decision-tree mindmap graph</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.Diagram.Shared\Shiny.Controls.Diagram.Shared.csproj"/>
+        <!-- For ThemeProbe (live theme colours inside an IDrawable) and DragTouchHook (native
+             touch-down timing and the scroller lock a drag needs). Both are internal to the core
+             package and made visible to this one, the way Desktop already does. -->
+        <ProjectReference Include="..\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Diagram.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -9,6 +9,7 @@
          that ships in Shiny.Blazor.Controls.Office is imported by hand here — this sample publishes
          to GitHub Pages and a missing workload silently ships a broken Office demo. -->
     <Import Project="..\..\src\Shiny.Blazor.Controls.Office\buildTransitive\Shiny.Blazor.Controls.Office.targets" />
+    <Import Project="..\..\src\Shiny.Blazor.Controls.FloorPlan\buildTransitive\Shiny.Blazor.Controls.FloorPlan.targets" />
 
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly"/>
@@ -25,6 +26,8 @@
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Camera.Ai\Shiny.Blazor.Controls.Camera.Ai.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.MediaElement\Shiny.Blazor.Controls.MediaElement.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Office\Shiny.Blazor.Controls.Office.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.FloorPlan\Shiny.Blazor.Controls.FloorPlan.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Diagram\Shiny.Blazor.Controls.Diagram.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Themes.Ocean\Shiny.Blazor.Controls.Themes.Ocean.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Themes.Material\Shiny.Blazor.Controls.Themes.Material.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Themes.Terminal\Shiny.Blazor.Controls.Themes.Terminal.csproj"/>

@@ -1,0 +1,200 @@
+@page "/diagram"
+@using Shiny.Blazor.Controls.Diagram
+@using Shiny.Controls.Diagramming
+@using System.Collections.ObjectModel
+
+<PageTitle>Diagram</PageTitle>
+
+<h1>Diagram</h1>
+
+<p class="status-message">@status</p>
+
+<section class="demo-section">
+    <h2>Options</h2>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+        <label>Sample
+            <select @bind="sample" @bind:after="LoadSample">
+                @foreach (var value in Enum.GetValues<Sample>())
+                {
+                    <option value="@value">@value</option>
+                }
+            </select>
+        </label>
+        <label>Layout
+            <select @bind="layout">
+                @foreach (var value in Enum.GetValues<DiagramLayoutKind>())
+                {
+                    <option value="@value">@value</option>
+                }
+            </select>
+        </label>
+        <label>Direction
+            <select @bind="direction">
+                @foreach (var value in Enum.GetValues<DiagramDirection>())
+                {
+                    <option value="@value">@value</option>
+                }
+            </select>
+        </label>
+        <label>Connectors
+            <select @bind="router">
+                @foreach (var value in Enum.GetValues<DiagramConnectionRouter>())
+                {
+                    <option value="@value">@value</option>
+                }
+            </select>
+        </label>
+        <label class="toggle-row"><span>Tip over</span><input type="checkbox" @bind="tipOver" /></label>
+        <label class="toggle-row"><span>Drag nodes</span><input type="checkbox" @bind="allowDrag" /></label>
+        <label class="toggle-row"><span>Draw links</span><input type="checkbox" @bind="allowLinks" /></label>
+        <label class="toggle-row"><span>Delete key</span><input type="checkbox" @bind="allowDelete" /></label>
+        <label class="toggle-row"><span>Grid</span><input type="checkbox" @bind="showGrid" /></label>
+        <label class="toggle-row"><span>Snap</span><input type="checkbox" @bind="snap" /></label>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button class="btn" @onclick="() => diagram!.ZoomToFit()">Fit</button>
+        <button class="btn" @onclick="() => diagram!.Undo()" disabled="@(diagram?.CanUndo != true)">Undo</button>
+        <button class="btn" @onclick="() => diagram!.Redo()" disabled="@(diagram?.CanRedo != true)">Redo</button>
+        <button class="btn" @onclick="AddNode">Add node</button>
+        <button class="btn" @onclick="DeleteSelection">Delete</button>
+        <button class="btn" @onclick="LoadSample">Reset</button>
+        <button class="btn" @onclick="RoundTrip">Save &amp; reload JSON</button>
+    </div>
+
+    <p class="hint">
+        Drag the background to pan, Ctrl/Cmd + wheel to zoom, Shift-drag for a marquee. Select a node
+        to show its connector handles, then drag one onto another node to draw a link.
+    </p>
+</section>
+
+<section class="demo-section">
+    <h2>Surface</h2>
+    <div style="height:520px;border:1px solid var(--shiny-color-outline-variant,#e5e7eb);border-radius:8px;">
+        <DiagramView @ref="diagram"
+                     Nodes="nodes"
+                     Connections="connections"
+                     LayoutKind="layout"
+                     Direction="direction"
+                     TreeStyle="@(tipOver ? DiagramTreeStyle.TipOver : DiagramTreeStyle.Normal)"
+                     Router="router"
+                     AllowNodeDrag="allowDrag"
+                     AllowConnectionEdit="allowLinks"
+                     AllowDelete="allowDelete"
+                     ShowGrid="showGrid"
+                     SnapToGrid="snap"
+                     OnSelectionChanged="OnSelectionChanged"
+                     OnEdited="OnEdited"
+                     OnBuilt="OnBuilt" />
+    </div>
+</section>
+
+@if (issues.Count > 0)
+{
+    <section class="demo-section">
+        <h2>Validation</h2>
+        <ul>
+            @foreach (var issue in issues)
+            {
+                <li>@issue.Kind — @issue.Message</li>
+            }
+        </ul>
+    </section>
+}
+
+@code
+{
+    enum Sample { OrgChart, DecisionTree, Flowchart, MindMap }
+
+    DiagramView? diagram;
+
+    ObservableCollection<DiagramNode> nodes = [];
+    ObservableCollection<DiagramConnection> connections = [];
+    List<DiagramValidationIssue> issues = [];
+
+    Sample sample = Sample.OrgChart;
+    DiagramLayoutKind layout = DiagramLayoutKind.Tree;
+    DiagramDirection direction = DiagramDirection.TopToBottom;
+    DiagramConnectionRouter router = DiagramConnectionRouter.Orthogonal;
+
+    bool tipOver;
+    bool allowDrag = true;
+    bool allowLinks = true;
+    bool allowDelete = true;
+    bool showGrid = true;
+    bool snap;
+
+    string status = "Pick a sample and a layout.";
+    int added;
+
+    protected override void OnInitialized() => this.LoadSample();
+
+    void LoadSample()
+    {
+        var (loadedNodes, loadedConnections) = this.sample switch
+        {
+            Sample.DecisionTree => SampleDiagrams.DecisionTree(),
+            Sample.Flowchart => SampleDiagrams.Flowchart(),
+            Sample.MindMap => SampleDiagrams.MindMap(),
+            _ => SampleDiagrams.OrgChart()
+        };
+
+        this.nodes = loadedNodes;
+        this.connections = loadedConnections;
+
+        // Each sample reads best under a different layout, so switching sample suggests one rather
+        // than leaving a decision tree drawn as a mindmap.
+        this.layout = this.sample switch
+        {
+            // Both of these rejoin - the decision tree's three outcomes all land on "Resolved" - and a
+            // tree layout has to throw an edge away to draw them. Layered keeps every edge.
+            Sample.Flowchart or Sample.DecisionTree => DiagramLayoutKind.Layered,
+            Sample.MindMap => DiagramLayoutKind.MindMap,
+            _ => DiagramLayoutKind.Tree
+        };
+
+        this.status = $"{this.nodes.Count} nodes, {this.connections.Count} connections.";
+    }
+
+    void AddNode()
+    {
+        var node = new DiagramNode($"added{this.added}", $"New {++this.added}")
+        {
+            Shape = DiagramNodeShape.RoundedRectangle,
+            IsPinned = true,
+            X = 40,
+            Y = 40
+        };
+
+        this.nodes.Add(node);
+        this.status = $"Added {node.Text}. Drag a connector handle onto it to wire it up.";
+    }
+
+    async Task DeleteSelection()
+    {
+        if (this.diagram is not null)
+            await this.diagram.DeleteSelectionAsync();
+    }
+
+    void RoundTrip()
+    {
+        // Proves the document format carries everything the picture needs, including hand-placed
+        // positions.
+        var json = DiagramJson.Save(this.nodes, this.connections);
+        var (loadedNodes, loadedConnections) = DiagramJson.Load(json);
+
+        this.nodes = new ObservableCollection<DiagramNode>(loadedNodes);
+        this.connections = new ObservableCollection<DiagramConnection>(loadedConnections);
+        this.status = $"Round-tripped {json.Length:N0} bytes of JSON.";
+    }
+
+    void OnSelectionChanged(DiagramSelection selection) =>
+        this.status = selection.IsEmpty
+            ? "Nothing selected."
+            : $"{selection.Nodes.Count} node(s), {selection.Connections.Count} connection(s) selected.";
+
+    void OnEdited(DiagramEditPlan plan) =>
+        this.status = $"{plan.Kind}: {plan.AffectedNodes.Count} node(s), {plan.AffectedConnections.Count} connection(s).";
+
+    void OnBuilt(DiagramModel model) => this.issues = model.Issues.ToList();
+}

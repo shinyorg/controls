@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <RootNamespace>Shiny.Blazor.Controls.Diagram</RootNamespace>
+        <Description>An interactive diagram control for Blazor - hierarchies, decision trees, flowcharts and mindmaps. Bindable shapes and connections, tidy tree / layered / mindmap / radial / force-directed auto-layout, straight, orthogonal and bezier connectors anchored to real shape outlines, pan, zoom, marquee selection, node dragging, connection authoring and undo.</Description>
+        <PackageTags>blazor shiny diagram flowchart org-chart decision-tree mindmap graph</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <SupportedPlatform Include="browser" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.Diagram.Shared\Shiny.Controls.Diagram.Shared.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.Diagram.Tests" />
+    </ItemGroup>
+
+</Project>

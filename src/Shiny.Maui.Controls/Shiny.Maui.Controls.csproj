@@ -39,6 +39,9 @@
 		<!-- The Desktop add-on plugs its native-window presenter and AppKit/GTK entry polish into the
 		     quick entry infrastructure declared here. -->
 		<InternalsVisibleTo Include="Shiny.Maui.Controls.Desktop" />
+		<!-- ThemeProbe, for live theme colours inside an IDrawable, and DragTouchHook, for the native
+		     touch-down timing and scroller lock a node drag needs. -->
+		<InternalsVisibleTo Include="Shiny.Maui.Controls.Diagram" />
 		<InternalsVisibleTo Include="Shiny.Maui.Controls.Desktop.Tests" />
 	</ItemGroup>
 

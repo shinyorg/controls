@@ -40,6 +40,7 @@
        xmlns:mediaelement="clr-namespace:Sample.Features.Media;assembly=Sample.MacOS"
        xmlns:mediapicker="clr-namespace:Sample.Features.Media;assembly=Sample.MacOS"
        xmlns:motionicons="clr-namespace:Sample.Features.MotionIcons;assembly=Sample.MacOS"
+       xmlns:floorplan="clr-namespace:Sample.Features.FloorPlan;assembly=Sample.MacOS"
        xmlns:office="clr-namespace:Sample.Features.Office;assembly=Sample.MacOS"
        xmlns:osk="clr-namespace:Sample.Features.OnScreenKeyboard;assembly=Sample.MacOS"
        xmlns:overlay="clr-namespace:Sample.Features.Overlay;assembly=Sample.MacOS"
@@ -293,6 +294,15 @@
     </FlyoutItem>
     <FlyoutItem Title="Markdown Editor">
         <ShellContent ContentTemplate="{DataTemplate markdown:MarkdownEditorPage}" Route="markdowneditor" />
+    </FlyoutItem>
+
+    <MenuItem Text="FLOOR PLAN" IsEnabled="False" />
+
+    <FlyoutItem Title="Editor">
+        <ShellContent ContentTemplate="{DataTemplate floorplan:FloorPlanPage}" Route="floorplan" />
+    </FlyoutItem>
+    <FlyoutItem Title="Seating Chart">
+        <ShellContent ContentTemplate="{DataTemplate floorplan:SeatingChartPage}" Route="seatingchart" />
     </FlyoutItem>
 
     <MenuItem Text="OFFICE" IsEnabled="False" />

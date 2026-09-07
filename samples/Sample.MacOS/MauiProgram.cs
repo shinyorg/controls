@@ -8,6 +8,7 @@ using Microsoft.Maui.Platforms.MacOS.Essentials;
 using Microsoft.Maui.Platforms.MacOS.Hosting;
 using Shiny;
 using Shiny.Maui.Controls.QuickEntry;
+using Shiny.Maui.Controls.FloorPlan;
 using Shiny.Maui.Controls.Office;
 using Shiny.Maui.Controls.Scheduler;
 #if DEBUG
@@ -26,6 +27,7 @@ public static class MauiProgram
             .AddMacOSEssentials()
             // Registers SkiaSharp plus, on this head, the AppKit canvas SkiaSharp does not ship.
             .UseShinyOffice()
+            .UseShinyFloorPlan()
             .UseShinyControls(cfg => cfg
                 .AddDefaultMauiControlFeedback()
                 .ConfigureQuickEntry(o =>

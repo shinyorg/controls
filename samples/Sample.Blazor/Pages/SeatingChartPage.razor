@@ -1,0 +1,35 @@
+@page "/seatingchart"
+
+<PageTitle>Seating Chart</PageTitle>
+
+<h1>Seating Chart</h1>
+
+<p>
+    The same document as the editor, in <code>FloorPlanEditorMode.View</code>. There is no toolbar
+    because there is nothing to choose: dragging pans, scrolling zooms, and a tap reports what it
+    landed on. Nothing on the plan can be moved, resized or selected.
+</p>
+
+<section class="demo-section">
+    <h2>Tap a desk</h2>
+    <p><strong>@caption</strong></p>
+
+    <div class="floorplan-frame">
+        <FloorPlanView Document="document"
+                       Mode="FloorPlanEditorMode.View"
+                       OnElementTapped="OnTapped" />
+    </div>
+</section>
+
+@code {
+    readonly FloorPlanDocument document = SampleFloorPlan.CreateOffice();
+    string caption = "Tap a desk or a room";
+
+    void OnTapped(FloorPlanElement element) => this.caption = element switch
+    {
+        CubicleElement { Occupant: { Length: > 0 } occupant } desk => $"{desk.Name} — {occupant}",
+        RoomElement room => room.Label ?? room.Name,
+        { Name.Length: > 0 } named => named.Name,
+        _ => element.GetType().Name.Replace("Element", string.Empty)
+    };
+}

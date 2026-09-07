@@ -33,6 +33,8 @@
                   xmlns:dialogs="clr-namespace:Sample.Features.Dialogs"
                   xmlns:datagrid="clr-namespace:Sample.Features.DataGrid"
                   xmlns:gantt="clr-namespace:Sample.Features.Gantt"
+                  xmlns:diagram="clr-namespace:Sample.Features.Diagram"
+                  xmlns:floorplan="clr-namespace:Sample.Features.FloorPlan"
                   xmlns:office="clr-namespace:Sample.Features.Office"
                   xmlns:timeline="clr-namespace:Sample.Features.Timeline"
                   xmlns:feedback="clr-namespace:Sample.Features.Feedback"
@@ -375,6 +377,23 @@
                              Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate gantt:GanttPage}" Route="gantt" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Diagram">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25C7;" Size="20"
+                             Color="{AppThemeBinding Light=#7C3AED, Dark=#A78BFA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate diagram:DiagramPage}" Route="diagram" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Floor Plan">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x229E;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent Title="Editor" ContentTemplate="{DataTemplate floorplan:FloorPlanPage}" Route="floorplan" />
+        <ShellContent Title="Seating" ContentTemplate="{DataTemplate floorplan:SeatingChartPage}" Route="seatingchart" />
     </FlyoutItem>
 
     <!-- The Office pages used to hang off the Data Grid item, which put nine tabs in one bar: only

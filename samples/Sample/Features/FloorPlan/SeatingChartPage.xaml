@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:fp="http://shiny.net/maui/floorplan"
+             x:Class="Sample.Features.FloorPlan.SeatingChartPage"
+             Title="Seating Chart"
+             AutomationId="SeatingChartPage">
+
+    <!--
+        The same document as the editor, in View mode. No toolbar, because there is nothing to
+        choose: dragging pans, the wheel or a pinch zooms, and a tap reports what it landed on.
+    -->
+    <Grid RowDefinitions="*,Auto">
+
+        <fp:FloorPlanView Grid.Row="0"
+                          x:Name="Plan"
+                          Mode="View"
+                          ElementTapped="OnElementTapped"
+                          AutomationId="SeatingChartSurface" />
+
+        <Border Grid.Row="1"
+                Padding="14,10"
+                StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#2A2A2A}">
+            <Label x:Name="Caption"
+                   Text="Tap a desk or a room"
+                   FontSize="14"
+                   VerticalOptions="Center"
+                   AutomationId="SeatingChartCaption" />
+        </Border>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,16 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    The plan is painted with SkiaSharp, and SkiaSharp for WebAssembly ships only a static
+    libSkiaSharp.a. It is linked into the runtime by the native relink step, which runs only when the
+    WebAssembly native build toolchain is present. Without it the NativeFileReference is silently
+    dropped: restore, build and publish all succeed, and the first Skia call in the browser throws
+    "DllNotFoundException: libSkiaSharp" with a blank canvas behind it. Fail the build instead.
+    Mirrors src/Shiny.Blazor.Controls.Office.
+  -->
+  <Target
+    Name="_ShinyBlazorControlsFloorPlanCheckWasmTools"
+    BeforeTargets="PrepareForBuild"
+    Condition="'$(RuntimeIdentifier)' == 'browser-wasm' AND '$(WasmNativeWorkloadAvailable)' != 'true' AND '$(ShinySkipWasmToolsCheck)' != 'true'">
+    <Error Code="SHINY0001" Text="Shiny.Blazor.Controls.FloorPlan renders with SkiaSharp, which needs the WebAssembly native build toolchain so that libSkiaSharp gets linked into the runtime. See https://shinylib.net/controls/floorplan/ for the one-line SDK setup step &#8212; note that restoring workloads does NOT pull it in for a Blazor WebAssembly project. Without it the app builds and publishes clean, then fails in the browser with DllNotFoundException: libSkiaSharp. Set ShinySkipWasmToolsCheck=true to bypass this check." />
+  </Target>
+</Project>

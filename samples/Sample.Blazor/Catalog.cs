@@ -41,6 +41,9 @@ public static class Catalog
             new("tableview", "Table View", "☷", "Settings-style sectioned lists with drag & sort"),
             new("datagrid", "Data Grid", "▦", "Sortable, templated columns over tabular data"),
             new("gantt", "Gantt", "▭", "Project timeline with dependencies, rollups and a critical path"),
+            new("diagram", "Diagram", "◇", "Hierarchies, decision trees and flowcharts on an editable surface"),
+            new("floorplan", "Floor Plan", "⊞", "Rooms, walls and furniture on a pan/zoom drawing surface"),
+            new("seatingchart", "Seating Chart", "⌗", "The same plan in view mode — tap a desk to see who sits there"),
             new("docking", "Docking", "▨", "Visual-Studio-style tear-off tool windows"),
             new("ribbon", "Ribbon", "☷", "Office-style tabbed command bar for desktop windows")
         ]),

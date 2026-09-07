@@ -1,0 +1,90 @@
+@page "/floorplan"
+
+<PageTitle>Floor Plan</PageTitle>
+
+<h1>Floor Plan</h1>
+
+<p>
+    Rooms, walls, doors, cubicles, outlets and furniture on a pan-and-zoom Skia canvas. The whole
+    engine - renderers, hit-testing, tools, snapping - is <code>Shiny.Controls.FloorPlan</code>,
+    shared verbatim with the .NET MAUI control, so a plan behaves identically on both.
+</p>
+
+<section class="demo-section">
+    <h2>Editor</h2>
+    <p>
+        Pick a tool and draw. Drag to move, grab a handle to resize, drag from empty space to
+        rubber-band, hold the middle button to pan from any tool, and scroll to zoom.
+    </p>
+
+    <div class="demo-row">
+        @foreach (var (label, factory) in tools)
+        {
+            <button class="demo-button @(label == activeLabel ? "is-active" : null)"
+                    @onclick="() => Use(label, factory)">@label</button>
+        }
+    </div>
+
+    <div class="demo-row">
+        <button class="demo-button" @onclick="() => plan!.DeleteSelected()">Delete</button>
+        <button class="demo-button" @onclick="() => plan!.BringToFront()">Front</button>
+        <button class="demo-button" @onclick="() => plan!.SendToBack()">Back</button>
+        <button class="demo-button" @onclick="() => plan!.ZoomIn()">Zoom in</button>
+        <button class="demo-button" @onclick="() => plan!.ZoomOut()">Zoom out</button>
+        <button class="demo-button" @onclick="() => plan!.ZoomToFit()">Fit</button>
+        <label class="toggle-row"><span>Grid</span><input type="checkbox" @bind="showGrid" /></label>
+        <label class="toggle-row"><span>Snap</span><input type="checkbox" @bind="snapToGrid" /></label>
+    </div>
+
+    <p><strong>@Status</strong></p>
+
+    <div class="floorplan-frame">
+        <FloorPlanView @ref="plan"
+                       Document="document"
+                       ActiveTool="activeTool"
+                       ShowGrid="showGrid"
+                       SnapToGrid="snapToGrid"
+                       @bind-SelectedElement="selected" />
+    </div>
+</section>
+
+@code {
+    FloorPlanView? plan;
+    readonly FloorPlanDocument document = SampleFloorPlan.CreateOffice();
+
+    IFloorPlanTool activeTool = new SelectTool();
+    string activeLabel = "Select";
+    FloorPlanElement? selected;
+    bool showGrid = true;
+    bool snapToGrid = true;
+
+    // Each entry builds a *new* tool. Tools hold the in-progress state of a gesture, so handing the
+    // same instance back after the user has moved on would resume a drag from several clicks ago.
+    readonly (string Label, Func<IFloorPlanTool> Factory)[] tools =
+    [
+        ("Select", () => new SelectTool()),
+        ("Pan", () => new PanTool()),
+        ("Room", () => new DrawRoomTool()),
+        ("Wall", () => new DrawWallTool()),
+        ("Cubicle", () => new PlaceElementTool { Kind = FloorPlanElementKind.Cubicle }),
+        ("Door", () => new PlaceElementTool { Kind = FloorPlanElementKind.Door }),
+        ("Desk", () => new PlaceElementTool(FurnitureKind.Desk)),
+        ("Chair", () => new PlaceElementTool(FurnitureKind.Chair)),
+        ("Outlet", () => new PlaceElementTool(OutletType.Standard)),
+        ("Data port", () => new PlaceElementTool(OutletType.Data))
+    ];
+
+    string Status => this.selected switch
+    {
+        CubicleElement { Occupant: { Length: > 0 } occupant } desk => $"{desk.Name} — {occupant}",
+        { Name.Length: > 0 } element => element.Name,
+        { } element => element.GetType().Name.Replace("Element", string.Empty),
+        _ => $"{this.activeLabel} tool"
+    };
+
+    void Use(string label, Func<IFloorPlanTool> factory)
+    {
+        this.activeLabel = label;
+        this.activeTool = factory();
+    }
+}

@@ -28,6 +28,8 @@ body:
         - Shiny.Maui.Controls.Camera.Motion
         - Shiny.Maui.Controls.Camera.Ocr
         - Shiny.Maui.Controls.Desktop (tray icon / docking / quick entry window / hotkeys)
+        - Shiny.Maui.Controls.Diagram
+        - Shiny.Maui.Controls.FloorPlan
         - Shiny.Maui.Controls.Keyframe
         - Shiny.Maui.Controls.Keyframe.Export
         - Shiny.Maui.Controls.Markdown
@@ -45,6 +47,8 @@ body:
         - Shiny.Blazor.Controls.Barcodes
         - Shiny.Blazor.Controls.Camera
         - Shiny.Blazor.Controls.Camera.Ai
+        - Shiny.Blazor.Controls.Diagram
+        - Shiny.Blazor.Controls.FloorPlan
         - Shiny.Blazor.Controls.Markdown
         - Shiny.Blazor.Controls.MediaElement
         - Shiny.Blazor.Controls.MermaidDiagrams
@@ -56,6 +60,8 @@ body:
         - Shiny.Blazor.Controls.Themes.Terminal
         # --- Shared / internal ---
         - Shiny.Controls.Camera.Shared
+        - Shiny.Controls.Diagram.Shared
+        - Shiny.Controls.FloorPlan.Shared
         - Shiny.Controls.Gantt.Shared
         - Shiny.Controls.Keyframe.Shared
         - Shiny.Controls.MediaElement.Shared

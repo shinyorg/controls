@@ -1,0 +1,165 @@
+@namespace Shiny.Blazor.Controls.Diagram
+@using System.Globalization
+@implements IAsyncDisposable
+
+<div class="shiny-diagram @this.Class"
+     style="@this.RootStyle()"
+     @ref="this.surface"
+     tabindex="0"
+     role="application"
+     aria-label="@this.AriaLabel"
+     @onpointerdown="this.OnPointerDown"
+     @onpointermove="this.OnPointerMove"
+     @onpointerup="this.OnPointerUp"
+     @onpointercancel="this.OnPointerUp"
+     @onkeydown="this.OnKeyDown"
+     @onpointerdown:preventDefault="true">
+
+    <svg class="shiny-diagram-canvas"
+         width="@N(this.viewportWidth)"
+         height="@N(this.viewportHeight)"
+         viewBox="@this.ViewBox()"
+         preserveAspectRatio="none"
+         aria-hidden="true">
+
+        @if (this.ShowGrid)
+        {
+            <defs>
+                <pattern id="@this.gridId" width="@N(this.GridSize)" height="@N(this.GridSize)"
+                         patternUnits="userSpaceOnUse">
+                    <path class="shiny-diagram-grid"
+                          d="M @N(this.GridSize) 0 L 0 0 0 @N(this.GridSize)" />
+                </pattern>
+            </defs>
+
+            <rect x="@N(this.panX)" y="@N(this.panY)"
+                  width="@N(this.viewportWidth / this.Zoom)" height="@N(this.viewportHeight / this.Zoom)"
+                  fill="url(#@this.gridId)" />
+        }
+
+        <g class="shiny-diagram-connections">
+            @foreach (var connection in this.Model.VisibleConnections)
+            {
+                var router = connection.Router ?? this.Router;
+                var route = ShapePathData.ForRoute(connection.Points, router);
+
+                @if (!string.IsNullOrEmpty(route))
+                {
+                    <path class="shiny-diagram-link @StrokeClass(connection) @(connection.IsSelected ? "is-selected" : "")"
+                          d="@route"
+                          style="@ConnectionStyle(connection)" />
+
+                    @* A second, invisible, fat stroke: a one-pixel line is unhittable with a finger,
+                       and widening the visible one to compensate would make the drawing wrong. *@
+                    @if (this.AllowConnectionEdit || this.AllowSelection)
+                    {
+                        <path class="shiny-diagram-linkhit" d="@route" />
+                    }
+
+                    @foreach (var cap in this.Caps(connection, router))
+                    {
+                        <path class="shiny-diagram-cap @(cap.Filled ? "is-filled" : "")"
+                              d="@cap.Path"
+                              style="@ConnectionStyle(connection)" />
+                    }
+                }
+            }
+        </g>
+
+        <g class="shiny-diagram-nodes">
+            @foreach (var node in this.Model.VisibleNodes)
+            {
+                @if (this.NodeTemplate is null)
+                {
+                    <path class="shiny-diagram-shape @(node.IsSelected ? "is-selected" : "")"
+                          d="@ShapePathData.For(node.Shape, node.Bounds, node.CornerRadius ?? -1)"
+                          style="@NodeStyle(node)" />
+
+                    var lid = ShapePathData.CylinderLid(node.Shape, node.Bounds);
+                    @if (!string.IsNullOrEmpty(lid))
+                    {
+                        <path class="shiny-diagram-shape-lid" d="@lid" style="@NodeStyle(node)" />
+                    }
+
+                    @foreach (var line in this.WrapLabel(node))
+                    {
+                        <DiagramLabel Class="shiny-diagram-label"
+                                      X="@N(node.Bounds.CenterX)"
+                                      Y="@N(line.Y)"
+                                      Style="@LabelStyle(node)"
+                                      Text="@line.Text" />
+                    }
+                }
+            }
+        </g>
+
+        <g class="shiny-diagram-linklabels">
+            @foreach (var connection in this.Model.VisibleConnections)
+            {
+                @if (!string.IsNullOrWhiteSpace(connection.Text))
+                {
+                    <DiagramLabel Class="shiny-diagram-linklabel"
+                                  X="@N(connection.LabelPosition.X)"
+                                  Y="@N(connection.LabelPosition.Y)"
+                                  Text="@connection.Text" />
+                }
+            }
+        </g>
+
+        <g class="shiny-diagram-adorners">
+            @if (this.pendingLink is not null)
+            {
+                <path class="shiny-diagram-pending" d="@this.pendingLink" />
+            }
+
+            @if (this.marquee is { } area)
+            {
+                <rect class="shiny-diagram-marquee"
+                      x="@N(area.X)" y="@N(area.Y)"
+                      width="@N(area.Width)" height="@N(area.Height)" />
+            }
+
+            @if (this.AllowConnectionEdit)
+            {
+                @foreach (var node in this.PortHost())
+                {
+                    @foreach (var port in DiagramHitTester.Ports)
+                    {
+                        var point = ShapeGeometry.PortPoint(node.Shape, node.Bounds, port, node.CornerRadius ?? -1);
+                        <circle class="shiny-diagram-port"
+                                cx="@N(point.X)" cy="@N(point.Y)"
+                                r="@N(4 / this.Zoom)" />
+                    }
+                }
+            }
+        </g>
+    </svg>
+
+    @if (this.NodeTemplate is not null)
+    {
+        @* Templated nodes are real DOM rather than SVG, so anything can go in one - a button, an
+           image, an input. They ride in a layer positioned over the canvas and transformed by the
+           same pan and zoom, which keeps one source of truth for the camera. *@
+        <div class="shiny-diagram-templates" style="@this.TemplateLayerStyle()">
+            @foreach (var node in this.Model.VisibleNodes)
+            {
+                <div class="shiny-diagram-template @(node.IsSelected ? "is-selected" : "")"
+                     style="@TemplateStyle(node)">
+                    @this.NodeTemplate(node)
+                </div>
+            }
+        </div>
+    }
+
+    @if (this.Model.VisibleNodes.Count == 0 && this.EmptyTemplate is not null)
+    {
+        <div class="shiny-diagram-empty">
+            @this.EmptyTemplate
+        </div>
+    }
+</div>
+
+@code
+{
+    static string N(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+}

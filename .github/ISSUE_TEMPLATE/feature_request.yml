@@ -35,6 +35,8 @@ body:
         - Camera AI (*.Controls.Camera.Ai)
         - Camera analyzers (Shiny.Maui.Controls.Camera.Barcode / .Documents / .Face / .Motion / .Ocr)
         - Desktop — MAUI only (Shiny.Maui.Controls.Desktop)
+        - Diagram (*.Controls.Diagram / Shiny.Controls.Diagram.Shared)
+        - Floor Plan (*.Controls.FloorPlan / Shiny.Controls.FloorPlan.Shared)
         - Gantt (core packages / Shiny.Controls.Gantt.Shared)
         - Keyframe — MAUI only (Shiny.Maui.Controls.Keyframe / .Keyframe.Export)
         - Markdown (*.Controls.Markdown)

@@ -24,6 +24,8 @@
     <Project Path="src/Shiny.Maui.Controls.SpeechAddins/Shiny.Maui.Controls.SpeechAddins.csproj" />
     <Project Path="src/Shiny.Controls.MotionIcons.Shared/Shiny.Controls.MotionIcons.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Gantt.Shared/Shiny.Controls.Gantt.Shared.csproj" />
+    <Project Path="src/Shiny.Controls.Diagram.Shared/Shiny.Controls.Diagram.Shared.csproj" />
+    <Project Path="src/Shiny.Controls.FloorPlan.Shared/Shiny.Controls.FloorPlan.Shared.csproj" />
     <Project Path="src/Shiny.Maui.Controls/Shiny.Maui.Controls.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Themes.Ocean/Shiny.Maui.Controls.Themes.Ocean.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Themes.Material/Shiny.Maui.Controls.Themes.Material.csproj" />
@@ -32,6 +34,7 @@
     <Project Path="src/Shiny.Maui.Controls.Desktop/Shiny.Maui.Controls.Desktop.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Markdown/Shiny.Maui.Controls.Markdown.csproj" />
     <Project Path="src/Shiny.Maui.Controls.MermaidDiagrams/Shiny.Maui.Controls.MermaidDiagrams.csproj" />
+    <Project Path="src/Shiny.Maui.Controls.Diagram/Shiny.Maui.Controls.Diagram.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Barcodes/Shiny.Maui.Controls.Barcodes.csproj" />
     <Project Path="src/Shiny.Controls.Keyframe.Shared/Shiny.Controls.Keyframe.Shared.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Keyframe/Shiny.Maui.Controls.Keyframe.csproj" />
@@ -48,15 +51,18 @@
     <Project Path="src/Shiny.Controls.Office.Shared/Shiny.Controls.Office.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Office.Skia/Shiny.Controls.Office.Skia.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Office/Shiny.Maui.Controls.Office.csproj" />
+    <Project Path="src/Shiny.Maui.Controls.FloorPlan/Shiny.Maui.Controls.FloorPlan.csproj" />
     <Project Path="src/Shiny.Maui.Controls.MediaElement/Shiny.Maui.Controls.MediaElement.csproj" />
     <Project Path="src/Shiny.Maui.Controls.MediaElement.Linux/Shiny.Maui.Controls.MediaElement.Linux.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.SpeechAddins/Shiny.Blazor.Controls.SpeechAddins.csproj" />
     <Project Path="src/Shiny.Blazor.Controls/Shiny.Blazor.Controls.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Markdown/Shiny.Blazor.Controls.Markdown.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.MermaidDiagrams/Shiny.Blazor.Controls.MermaidDiagrams.csproj" />
+    <Project Path="src/Shiny.Blazor.Controls.Diagram/Shiny.Blazor.Controls.Diagram.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Barcodes/Shiny.Blazor.Controls.Barcodes.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Camera/Shiny.Blazor.Controls.Camera.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Camera.Ai/Shiny.Blazor.Controls.Camera.Ai.csproj" />
+    <Project Path="src/Shiny.Blazor.Controls.FloorPlan/Shiny.Blazor.Controls.FloorPlan.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.MediaElement/Shiny.Blazor.Controls.MediaElement.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Office/Shiny.Blazor.Controls.Office.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Themes.Ocean/Shiny.Blazor.Controls.Themes.Ocean.csproj" />
@@ -71,6 +77,10 @@
     <Project Path="tests/Shiny.Controls.Keyframe.Tests/Shiny.Controls.Keyframe.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.MotionIcons.Tests/Shiny.Controls.MotionIcons.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Gantt.Tests/Shiny.Controls.Gantt.Tests.csproj" />
+    <Project Path="tests/Shiny.Controls.Diagram.Tests/Shiny.Controls.Diagram.Tests.csproj" />
+    <Project Path="tests/Shiny.Maui.Controls.Diagram.Tests/Shiny.Maui.Controls.Diagram.Tests.csproj" />
+    <Project Path="tests/Shiny.Blazor.Controls.Diagram.Tests/Shiny.Blazor.Controls.Diagram.Tests.csproj" />
+    <Project Path="tests/Shiny.Controls.FloorPlan.Tests/Shiny.Controls.FloorPlan.Tests.csproj" />
     <Project Path="tests/Shiny.Maui.Controls.Keyframe.Export.Tests/Shiny.Maui.Controls.Keyframe.Export.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Tests/Shiny.Blazor.Controls.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Camera.Tests/Shiny.Blazor.Controls.Camera.Tests.csproj" />

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:fp="http://shiny.net/maui/floorplan"
+             xmlns:local="clr-namespace:Sample.Features.FloorPlan"
+             x:Class="Sample.Features.FloorPlan.FloorPlanPage"
+             x:DataType="local:FloorPlanViewModel"
+             Title="Floor Plan Editor"
+             AutomationId="FloorPlanPage">
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <!-- Tools are bound rather than clicked through code-behind: the whole point of ActiveTool
+             being a bindable property is that a view model can own which tool is live, and the
+             toolbar is then just a set of commands that set it. -->
+        <ScrollView Grid.Row="0" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+            <HorizontalStackLayout Spacing="6" Padding="12,8">
+                <Button Text="Select" Command="{Binding SelectToolCommand}" AutomationId="FloorPlanSelectTool" />
+                <Button Text="Pan" Command="{Binding PanToolCommand}" AutomationId="FloorPlanPanTool" />
+                <BoxView WidthRequest="1" Margin="4,6" Color="{AppThemeBinding Light=#DDD, Dark=#444}" />
+                <Button Text="Room" Command="{Binding DrawRoomCommand}" AutomationId="FloorPlanDrawRoom" />
+                <Button Text="Wall" Command="{Binding DrawWallCommand}" AutomationId="FloorPlanDrawWall" />
+                <BoxView WidthRequest="1" Margin="4,6" Color="{AppThemeBinding Light=#DDD, Dark=#444}" />
+                <Button Text="Desk" Command="{Binding PlaceFurnitureCommand}" CommandParameter="Desk" AutomationId="FloorPlanPlaceDesk" />
+                <Button Text="Chair" Command="{Binding PlaceFurnitureCommand}" CommandParameter="Chair" AutomationId="FloorPlanPlaceChair" />
+                <Button Text="Cubicle" Command="{Binding PlaceCubicleCommand}" AutomationId="FloorPlanPlaceCubicle" />
+                <Button Text="Door" Command="{Binding PlaceDoorCommand}" AutomationId="FloorPlanPlaceDoor" />
+                <Button Text="Outlet" Command="{Binding PlaceOutletCommand}" CommandParameter="Standard" AutomationId="FloorPlanPlaceOutlet" />
+                <Button Text="Data Port" Command="{Binding PlaceOutletCommand}" CommandParameter="Data" AutomationId="FloorPlanPlaceData" />
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <!-- Viewport operations go through the control's own methods rather than through bindings:
+             they all need the surface size, and a view model has no business knowing it. -->
+        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+            <HorizontalStackLayout Spacing="6" Padding="12,0,12,8" VerticalOptions="Center">
+                <Button Text="Delete" Clicked="OnDelete" AutomationId="FloorPlanDelete" />
+                <Button Text="Front" Clicked="OnBringToFront" AutomationId="FloorPlanFront" />
+                <Button Text="Back" Clicked="OnSendToBack" AutomationId="FloorPlanBack" />
+                <BoxView WidthRequest="1" Margin="4,6" Color="{AppThemeBinding Light=#DDD, Dark=#444}" />
+                <Button Text="&#x2212;" WidthRequest="44" Clicked="OnZoomOut" AutomationId="FloorPlanZoomOut" />
+                <Button Text="+" WidthRequest="44" Clicked="OnZoomIn" AutomationId="FloorPlanZoomIn" />
+                <Button Text="Fit" Clicked="OnFit" AutomationId="FloorPlanFit" />
+                <BoxView WidthRequest="1" Margin="4,6" Color="{AppThemeBinding Light=#DDD, Dark=#444}" />
+                <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
+                    <Label Text="Grid" VerticalOptions="Center" FontSize="13" />
+                    <Switch IsToggled="{Binding ShowGrid}" AutomationId="FloorPlanGridSwitch" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
+                    <Label Text="Snap" VerticalOptions="Center" FontSize="13" />
+                    <Switch IsToggled="{Binding SnapToGrid}" AutomationId="FloorPlanSnapSwitch" />
+                </HorizontalStackLayout>
+                <Label Text="{Binding Status}" VerticalOptions="Center" FontSize="13" TextColor="Gray"
+                       Margin="8,0" AutomationId="FloorPlanStatus" />
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <fp:FloorPlanView Grid.Row="2"
+                          x:Name="Plan"
+                          Document="{Binding Document}"
+                          ActiveTool="{Binding ActiveTool}"
+                          ShowGrid="{Binding ShowGrid}"
+                          SnapToGrid="{Binding SnapToGrid}"
+                          SelectedElement="{Binding SelectedElement, Mode=TwoWay}"
+                          AutomationId="FloorPlanSurface" />
+    </Grid>
+</ContentPage>

@@ -7,6 +7,7 @@ using Sample.Features.Flyout;
 using Sample.Features.Scheduler;
 using Sample.Features.TableView;
 using Shiny;
+using Shiny.Maui.Controls.FloorPlan;
 using Shiny.Maui.Controls.Office;
 using Shiny.Maui.Controls.QuickEntry;
 using Shiny.Maui.Controls.Scheduler;
@@ -27,6 +28,9 @@ public static class MauiProgram
             // Required by Shiny.Maui.Controls.Office: the spreadsheet grid paints onto a Skia surface.
             // UseShinyOffice registers SkiaSharp and, on the AppKit head, the canvas SkiaSharp omits.
             .UseShinyOffice()
+            // The floor plan paints onto a Skia surface too. Calling both is fine - SkiaSharp's own
+            // registration is idempotent - and either one alone is enough for the other's canvases.
+            .UseShinyFloorPlan()
             .UseShinyControls(cfg =>
             {
                 cfg.SetCustomFeedback<MyCustomFeedbackService>(); // haptic is installed by default, but we want more fun
