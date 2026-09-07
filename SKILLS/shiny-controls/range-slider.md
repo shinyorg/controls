@@ -40,6 +40,13 @@ Constraints apply to interaction (drag/tap). Programmatically-set / data-bound v
 | HotColor | Color | #EF4444 | OneWay | Right (hot) gradient color |
 | TrackHeight | double | 8 | OneWay | Height of the track |
 | ThumbSize | double | 24 | OneWay | Thumb diameter |
+| ThumbWidth | double | -1 | OneWay | Thumb width; `-1` keeps the thumbs square at `ThumbSize` |
+| ThumbHeight | double | -1 | OneWay | Thumb height; `-1` keeps the thumbs square at `ThumbSize` |
+| ThumbCornerRadius | double | -1 | OneWay | `-1` keeps the thumbs fully rounded (circle, or pill once not square) |
+| ThumbPadding | Thickness | 0 | OneWay | Inset between a thumb border and its template content |
+| ThumbTemplate | DataTemplate? | null | OneWay | Content inside both thumbs (BindingContext = that thumb's value) |
+| LowerThumbTemplate | DataTemplate? | null | OneWay | Content for the lower thumb only; falls back to `ThumbTemplate` |
+| UpperThumbTemplate | DataTemplate? | null | OneWay | Content for the upper thumb only; falls back to `ThumbTemplate` |
 | ThumbColor | Color | White | OneWay | Thumb fill color |
 | ThumbBorderWidth | double | 2 | OneWay | Thumb border width (colored by blended gradient) |
 | ShowTooltip | bool | true | OneWay | Show a value tooltip per thumb |
@@ -100,6 +107,13 @@ Constraints apply to interaction (drag/tap). Programmatically-set / data-bound v
 | HotColor | string | #EF4444 | Right gradient CSS color |
 | TrackHeight | double | 8 | Track height (px) |
 | ThumbSize | double | 24 | Thumb diameter (px) |
+| ThumbWidth | double | -1 | Thumb width (px); `-1` keeps the thumbs square at `ThumbSize` |
+| ThumbHeight | double | -1 | Thumb height (px); `-1` keeps the thumbs square at `ThumbSize` |
+| ThumbCornerRadius | string? | null | Any CSS length; null keeps the thumbs fully rounded |
+| ThumbPadding | string? | null | Any CSS padding value, between a thumb border and its template content |
+| ThumbTemplate | RenderFragment\<double\>? | null | Content inside both thumbs (context = that thumb's value) |
+| LowerThumbTemplate | RenderFragment\<double\>? | null | Content for the lower thumb only; falls back to `ThumbTemplate` |
+| UpperThumbTemplate | RenderFragment\<double\>? | null | Content for the upper thumb only; falls back to `ThumbTemplate` |
 | ThumbColor | string | #FFFFFF | Thumb fill CSS color |
 | ThumbBorderWidth | double | 2 | Thumb border width |
 | CornerRadius | string | 4px | Track corner radius |
@@ -120,10 +134,27 @@ Constraints apply to interaction (drag/tap). Programmatically-set / data-bound v
 | UpperValueChanged | EventCallback\<double\> | Two-way binding callback for the upper thumb |
 | RangeChanged | EventCallback\<(double Lower, double Upper)\> | Fired with both values on change |
 
+### Custom Thumb Content
+
+`ThumbTemplate` fills both thumbs; `LowerThumbTemplate` / `UpperThumbTemplate` override it per end.
+The thumbs never grow to fit — pair non-square content with `ThumbWidth`/`ThumbHeight`.
+
+```razor
+<RangeSlider @bind-LowerValue="shiftStart" @bind-UpperValue="shiftEnd"
+             Minimum="0" Maximum="24" Step="1" ShowTooltip="false"
+             ThumbWidth="46" ThumbHeight="26">
+    <ThumbTemplate Context="value">
+        <span style="font-size: 10px; font-weight: 700;">@value.ToString("00"):00</span>
+    </ThumbTemplate>
+</RangeSlider>
+```
+
 ### Code Generation Guidance
 
 - Use `@bind-LowerValue` / `@bind-UpperValue` for two-way binding
 - Gradient fills only the segment between thumbs; the base track is `var(--shiny-color-surface-variant)`
 - Blazor uses JS interop (`rangeslider.js`) for pointer drag; the dragged thumb is identified by a `data-thumb` attribute
+- Thumb content is centred and clipped to the thumb box; the thumbs never grow to fit it, so always
+  pair a non-square template with `ThumbWidth`/`ThumbHeight`
 - For a single-value slider, use [Slider](slider.md) instead
 ```

@@ -61,6 +61,29 @@
 </div>
 
 <div class="demo-section">
+    <h2>Custom Thumbs (one template per end)</h2>
+    <RangeSlider @bind-LowerValue="shiftStart"
+                 @bind-UpperValue="shiftEnd"
+                 Minimum="0"
+                 Maximum="24"
+                 Step="1"
+                 MinimumRange="1"
+                 ShowTooltip="false"
+                 ThumbWidth="46"
+                 ThumbHeight="26"
+                 ColdColor="#10B981"
+                 HotColor="#6366F1">
+        <LowerThumbTemplate Context="value">
+            <span style="font-size: 10px; font-weight: 700; white-space: nowrap;">@value.ToString("00"):00</span>
+        </LowerThumbTemplate>
+        <UpperThumbTemplate Context="value">
+            <span style="font-size: 10px; font-weight: 700; white-space: nowrap;">@value.ToString("00"):00</span>
+        </UpperThumbTemplate>
+    </RangeSlider>
+    <div class="state">Shift: <code>@shiftStart.ToString("00"):00</code> – <code>@shiftEnd.ToString("00"):00</code></div>
+</div>
+
+<div class="demo-section">
     <h2>Disabled</h2>
     <RangeSlider LowerValue="30" UpperValue="70" IsEnabled="false" />
 </div>
@@ -74,4 +97,6 @@
     double bookingUpper = 5;
     double ageLower = 21;
     double ageUpper = 65;
+    double shiftStart = 9;
+    double shiftEnd = 17;
 }

@@ -25,6 +25,9 @@ public partial class RangeSlider : ContentView
     readonly AbsoluteLayout trackLayout;
     readonly Grid rootGrid;
 
+    View? lowerThumbContent;
+    View? upperThumbContent;
+
     double trackWidth;
     bool isDragging;
     bool draggingUpper;
@@ -70,7 +73,7 @@ public partial class RangeSlider : ContentView
 
         trackLayout = new AbsoluteLayout
         {
-            HeightRequest = 32,
+            HeightRequest = TrackBandHeight,
             VerticalOptions = LayoutOptions.Center
         };
 
@@ -120,6 +123,31 @@ public partial class RangeSlider : ContentView
         // children existed. See StyleGuard.
         StyleGuard.MarkReady(this, typeof(RangeSlider));
     }
+
+    /// <summary>
+    /// The thumb box. It is square at <see cref="ThumbSize"/> until <see cref="ThumbWidth"/> or
+    /// <see cref="ThumbHeight"/> says otherwise, which is what lets a thumb template hold something
+    /// wider than it is tall.
+    /// </summary>
+    internal double ResolvedThumbWidth => this.ThumbWidth > 0 ? this.ThumbWidth : this.ThumbSize;
+
+    internal double ResolvedThumbHeight => this.ThumbHeight > 0 ? this.ThumbHeight : this.ThumbSize;
+
+    double ResolvedThumbCornerRadius => this.ThumbCornerRadius >= 0
+        ? this.ThumbCornerRadius
+        : Math.Min(this.ResolvedThumbWidth, this.ResolvedThumbHeight) / 2;
+
+    /// <summary>How tall the track row has to be. A thumb bigger than the default grows it.</summary>
+    double TrackBandHeight => Math.Max(32, Math.Max(this.ResolvedThumbHeight, this.TrackHeight));
+
+
+    /// <summary>The row height, then the positions. Anything that changes how much room a thumb needs goes through here.</summary>
+    void Refresh()
+    {
+        this.trackLayout.HeightRequest = this.TrackBandHeight;
+        this.UpdateVisuals();
+    }
+
 
     Label CreateTooltipLabel()
     {
@@ -197,7 +225,7 @@ public partial class RangeSlider : ContentView
                 if (isDragging && trackWidth > 0)
                 {
                     var currentX = dragStartThumbX + e.TotalX;
-                    var percent = Math.Clamp(currentX / (trackWidth - ThumbSize), 0, 1);
+                    var percent = Math.Clamp(currentX / (trackWidth - ResolvedThumbWidth), 0, 1);
                     ApplyPercentToThumb(percent, draggingUpper);
                 }
                 break;
@@ -287,8 +315,8 @@ public partial class RangeSlider : ContentView
         trackBackground.CornerRadius = new CornerRadius(TrackHeight / 2);
 
         // Active fill spans from the lower thumb center to the upper thumb center.
-        var lowerX = lowerPercent * (trackWidth - ThumbSize) + (ThumbSize / 2);
-        var upperX = upperPercent * (trackWidth - ThumbSize) + (ThumbSize / 2);
+        var lowerX = lowerPercent * (trackWidth - ResolvedThumbWidth) + (ResolvedThumbWidth / 2);
+        var upperX = upperPercent * (trackWidth - ResolvedThumbWidth) + (ResolvedThumbWidth / 2);
         var fillWidth = Math.Max(0, upperX - lowerX);
         AbsoluteLayout.SetLayoutBounds(trackFill, new Rect(lowerX, 0.5, fillWidth, TrackHeight));
         trackFill.HeightRequest = TrackHeight;
@@ -306,19 +334,74 @@ public partial class RangeSlider : ContentView
         PositionThumb(lowerThumb, lowerPercent, lowerColor);
         PositionThumb(upperThumb, upperPercent, upperColor);
 
+        UpdateThumbContent();
+
         // Tooltips
         UpdateTooltips(lowerPercent, upperPercent, lowerColor, upperColor);
     }
 
     void PositionThumb(Border thumb, double percent, Color color)
     {
-        var thumbX = percent * (trackWidth - ThumbSize);
-        AbsoluteLayout.SetLayoutBounds(thumb, new Rect(thumbX, 0.5, ThumbSize, ThumbSize));
+        var thumbX = percent * (trackWidth - ResolvedThumbWidth);
+        AbsoluteLayout.SetLayoutBounds(thumb, new Rect(thumbX, 0.5, ResolvedThumbWidth, ResolvedThumbHeight));
         thumb.Stroke = color;
         if (thumb.StrokeShape is Microsoft.Maui.Controls.Shapes.RoundRectangle shape)
-            shape.CornerRadius = ThumbSize / 2;
-        thumb.WidthRequest = ThumbSize;
-        thumb.HeightRequest = ThumbSize;
+            shape.CornerRadius = ResolvedThumbCornerRadius;
+        thumb.WidthRequest = ResolvedThumbWidth;
+        thumb.HeightRequest = ResolvedThumbHeight;
+        thumb.Padding = ThumbPadding;
+    }
+
+
+    /// <summary>
+    /// Drops the realized templates so the next draw builds them again. Only a change of template comes
+    /// through here — a change of value rebinds the views that are already there.
+    /// </summary>
+    void RebuildThumbContent()
+    {
+        this.lowerThumb.Content = null;
+        this.upperThumb.Content = null;
+        this.lowerThumbContent = null;
+        this.upperThumbContent = null;
+
+        // Built here rather than left to the next draw: UpdateVisuals does nothing until the track has
+        // been given a width, and on net10.0-macos a view added after the page has laid out is never
+        // realized. XAML sets the template before the first layout, so this is the moment to use it.
+        this.UpdateThumbContent();
+        this.UpdateVisuals();
+    }
+
+
+    /// <summary>
+    /// Realizes each thumb's template once and rebinds it afterwards. Rebuilding per draw would throw the
+    /// content away on every pixel of a drag, and on net10.0-macos a view added after the page has laid
+    /// out is never realized at all — so the one that survives the drag is the one built first.
+    /// </summary>
+    void UpdateThumbContent()
+    {
+        this.lowerThumbContent = this.ApplyThumbContent(this.lowerThumb, this.lowerThumbContent, this.LowerThumbTemplate ?? this.ThumbTemplate, this.LowerValue);
+        this.upperThumbContent = this.ApplyThumbContent(this.upperThumb, this.upperThumbContent, this.UpperThumbTemplate ?? this.ThumbTemplate, this.UpperValue);
+    }
+
+
+    View? ApplyThumbContent(Border thumb, View? existing, DataTemplate? template, double value)
+    {
+        if (template is null)
+            return existing;
+
+        if (existing is null && template.CreateContent() is View created)
+        {
+            // The pan lives on the thumb itself, so its content has to opt out of the gesture or it
+            // swallows the drag before the Border ever sees it.
+            created.InputTransparent = true;
+            existing = created;
+            thumb.Content = created;
+        }
+
+        if (existing is not null)
+            existing.BindingContext = value;
+
+        return existing;
     }
 
     void UpdateTooltips(double lowerPercent, double upperPercent, Color lowerColor, Color upperColor)
@@ -355,7 +438,7 @@ public partial class RangeSlider : ContentView
 
         var content = container.Content;
         var tooltipWidth = content is { Width: > 0 } ? content.Width : 50;
-        var thumbCenter = percent * (trackWidth - ThumbSize) + (ThumbSize / 2);
+        var thumbCenter = percent * (trackWidth - ResolvedThumbWidth) + (ResolvedThumbWidth / 2);
         var tooltipX = Math.Clamp(thumbCenter - (tooltipWidth / 2), 0, Math.Max(0, trackWidth - tooltipWidth));
         if (content is View v)
             v.TranslationX = tooltipX;

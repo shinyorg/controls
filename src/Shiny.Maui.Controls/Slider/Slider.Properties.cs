@@ -90,6 +90,67 @@ public partial class Slider
     /// <summary>Thumb fill color. When null, the theme OnPrimary token is used.</summary>
     public Color? ThumbColor { get => (Color?)GetValue(ThumbColorProperty); set => SetValue(ThumbColorProperty, value); }
 
+    // ThumbWidth
+    public static readonly BindableProperty ThumbWidthProperty = BindableProperty.Create(
+        nameof(ThumbWidth), typeof(double), typeof(Slider), -1.0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(Slider), () =>
+            {
+                ((Slider)b).Refresh();
+            }));
+    /// <summary>
+    /// Thumb width. The default, <c>-1</c>, keeps the thumb square at <see cref="ThumbSize"/>. Set it
+    /// when <see cref="ThumbTemplate"/> puts content in the thumb that is not square.
+    /// </summary>
+    public double ThumbWidth { get => (double)GetValue(ThumbWidthProperty); set => SetValue(ThumbWidthProperty, value); }
+
+    // ThumbHeight
+    public static readonly BindableProperty ThumbHeightProperty = BindableProperty.Create(
+        nameof(ThumbHeight), typeof(double), typeof(Slider), -1.0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(Slider), () =>
+            {
+                ((Slider)b).Refresh();
+            }));
+    /// <summary>Thumb height. The default, <c>-1</c>, keeps the thumb square at <see cref="ThumbSize"/>.</summary>
+    public double ThumbHeight { get => (double)GetValue(ThumbHeightProperty); set => SetValue(ThumbHeightProperty, value); }
+
+    // ThumbCornerRadius
+    public static readonly BindableProperty ThumbCornerRadiusProperty = BindableProperty.Create(
+        nameof(ThumbCornerRadius), typeof(double), typeof(Slider), -1.0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(Slider), () =>
+            {
+                ((Slider)b).UpdateVisuals();
+            }));
+    /// <summary>
+    /// Thumb corner radius. The default, <c>-1</c>, keeps the thumb fully rounded — a circle while it is
+    /// square, a pill once it is not.
+    /// </summary>
+    public double ThumbCornerRadius { get => (double)GetValue(ThumbCornerRadiusProperty); set => SetValue(ThumbCornerRadiusProperty, value); }
+
+    // ThumbPadding
+    public static readonly BindableProperty ThumbPaddingProperty = BindableProperty.Create(
+        nameof(ThumbPadding), typeof(Thickness), typeof(Slider), default(Thickness),
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(Slider), () =>
+            {
+                ((Slider)b).UpdateVisuals();
+            }));
+    /// <summary>Inset between the thumb's border and the content <see cref="ThumbTemplate"/> puts inside it.</summary>
+    public Thickness ThumbPadding { get => (Thickness)GetValue(ThumbPaddingProperty); set => SetValue(ThumbPaddingProperty, value); }
+
+    // ThumbTemplate
+    public static readonly BindableProperty ThumbTemplateProperty = BindableProperty.Create(
+        nameof(ThumbTemplate), typeof(DataTemplate), typeof(Slider), null,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(Slider), () =>
+            {
+                ((Slider)b).RebuildThumbContent();
+            }));
+    /// <summary>
+    /// Content drawn inside the thumb — an icon, a glyph, the value itself. The template is realized once
+    /// and its <c>BindingContext</c> is the current <see cref="Value"/>, rebound as the thumb moves, so a
+    /// template that animates keeps its state across a drag. The thumb does not grow to fit: size it with
+    /// <see cref="ThumbSize"/>, or <see cref="ThumbWidth"/>/<see cref="ThumbHeight"/>.
+    /// </summary>
+    public DataTemplate? ThumbTemplate { get => (DataTemplate?)GetValue(ThumbTemplateProperty); set => SetValue(ThumbTemplateProperty, value); }
+
     // ThumbBorderWidth
     public static readonly BindableProperty ThumbBorderWidthProperty = BindableProperty.Create(
         nameof(ThumbBorderWidth), typeof(double), typeof(Slider), 2.0,

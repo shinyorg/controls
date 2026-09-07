@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:shiny="http://shiny.net/maui/controls"
     xmlns:local="clr-namespace:Sample.Features.Slider"
+    xmlns:sys="clr-namespace:System;assembly=netstandard"
     x:Class="Sample.Features.Slider.RangeSliderPage"
     x:DataType="local:RangeSliderViewModel"
     Title="Range Slider"
@@ -55,6 +56,43 @@
                                ValueFormat="0" />
             <Label Text="{Binding BookingLower, StringFormat='{0:0} –'}" />
             <Label Text="{Binding BookingUpper, StringFormat='{0:0} nights'}" />
+
+            <!-- Custom thumbs, one template per end -->
+            <Label Text="Custom Thumbs (one template per end)" FontSize="18" FontAttributes="Bold" />
+            <shiny:RangeSlider AutomationId="ShiftRange"
+                               LowerValue="{Binding ShiftStart}"
+                               UpperValue="{Binding ShiftEnd}"
+                               Minimum="0"
+                               Maximum="24"
+                               Step="1"
+                               MinimumRange="1"
+                               ShowTooltip="False"
+                               ThumbWidth="46"
+                               ThumbHeight="26"
+                               ColdColor="#10B981"
+                               HotColor="#6366F1">
+                <!-- The templates' binding context is that thumb's own value, so they are typed as doubles. -->
+                <shiny:RangeSlider.LowerThumbTemplate>
+                    <DataTemplate x:DataType="sys:Double">
+                        <Label Text="{Binding ., StringFormat='{0:00}:00'}"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center" />
+                    </DataTemplate>
+                </shiny:RangeSlider.LowerThumbTemplate>
+                <shiny:RangeSlider.UpperThumbTemplate>
+                    <DataTemplate x:DataType="sys:Double">
+                        <Label Text="{Binding ., StringFormat='{0:00}:00'}"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center" />
+                    </DataTemplate>
+                </shiny:RangeSlider.UpperThumbTemplate>
+            </shiny:RangeSlider>
+            <Label Text="{Binding ShiftStart, StringFormat='Shift: {0:00}:00 –'}" />
+            <Label Text="{Binding ShiftEnd, StringFormat='{0:00}:00'}" />
 
             <!-- No tooltip -->
             <Label Text="Age Range (no tooltip)" FontSize="18" FontAttributes="Bold" />

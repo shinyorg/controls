@@ -1,6 +1,6 @@
 # Slider
 
-A slider control where the entire track displays a single solid color that is the interpolated blend between ColdColor and HotColor based on the current value position. At minimum, the track is fully ColdColor; at maximum, fully HotColor; at midpoints, the color is the proportional mix (e.g. blue→red produces purple/orange in between). A configurable tooltip floats above the thumb displaying the current value. The slider can run **vertically** (minimum at the bottom) and can carry labelled **stop points** — dots, ticks or pill-shaped bubbles the thumb snaps to. Available on both MAUI and Blazor.
+A slider control where the entire track displays a single solid color that is the interpolated blend between ColdColor and HotColor based on the current value position. At minimum, the track is fully ColdColor; at maximum, fully HotColor; at midpoints, the color is the proportional mix (e.g. blue→red produces purple/orange in between). A configurable tooltip floats above the thumb displaying the current value. The slider can run **vertically** (minimum at the bottom), can carry labelled **stop points** — dots, ticks or pill-shaped bubbles the thumb snaps to — and can put **custom content inside the thumb**. Available on both MAUI and Blazor.
 
 ## MAUI
 
@@ -33,6 +33,11 @@ A slider control where the entire track displays a single solid color that is th
 | HotColor | Color | #EF4444 | OneWay | Right (hot) gradient color |
 | TrackHeight | double | 8 | OneWay | Height of the track |
 | ThumbSize | double | 24 | OneWay | Thumb diameter |
+| ThumbWidth | double | -1 | OneWay | Thumb width; `-1` keeps it square at `ThumbSize` |
+| ThumbHeight | double | -1 | OneWay | Thumb height; `-1` keeps it square at `ThumbSize` |
+| ThumbCornerRadius | double | -1 | OneWay | `-1` keeps the thumb fully rounded (circle, or pill once it is not square) |
+| ThumbPadding | Thickness | 0 | OneWay | Inset between the thumb border and its template content |
+| ThumbTemplate | DataTemplate? | null | OneWay | Content inside the thumb (BindingContext = Value) |
 | ThumbColor | Color | White | OneWay | Thumb fill color |
 | ThumbBorderWidth | double | 2 | OneWay | Thumb border width (colored by blended gradient) |
 | ShowTooltip | bool | true | OneWay | Show value tooltip above thumb |
@@ -102,6 +107,25 @@ inherits `MarkShape`), `Size` (`-1` inherits `MarkSize`), `IsVisible`.
 </shiny:Slider>
 ```
 
+### Custom Thumb Content
+
+The thumb does **not** grow to fit — the travel is measured from it, so its box has to be known before
+anything is laid out. Size it with `ThumbWidth`/`ThumbHeight` when the content is not square.
+
+```xml
+<!-- xmlns:sys="clr-namespace:System;assembly=netstandard" -->
+<shiny:Slider Value="{Binding Brightness}" Minimum="0" Maximum="100"
+              ShowTooltip="False"
+              ThumbWidth="52" ThumbHeight="28" ThumbPadding="4,0">
+    <shiny:Slider.ThumbTemplate>
+        <DataTemplate x:DataType="sys:Double">
+            <Label Text="{Binding ., StringFormat='{0:0}%'}" FontSize="11" FontAttributes="Bold"
+                   HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+        </DataTemplate>
+    </shiny:Slider.ThumbTemplate>
+</shiny:Slider>
+```
+
 ## Blazor
 
 **Namespace**: `Shiny.Blazor.Controls`
@@ -135,6 +159,11 @@ inherits `MarkShape`), `Size` (`-1` inherits `MarkSize`), `IsVisible`.
 | HotColor | string | #EF4444 | Right gradient CSS color |
 | TrackHeight | double | 8 | Track height (px) |
 | ThumbSize | double | 24 | Thumb diameter (px) |
+| ThumbWidth | double | -1 | Thumb width (px); `-1` keeps it square at `ThumbSize` |
+| ThumbHeight | double | -1 | Thumb height (px); `-1` keeps it square at `ThumbSize` |
+| ThumbCornerRadius | string? | null | Any CSS length; null keeps the thumb fully rounded |
+| ThumbPadding | string? | null | Any CSS padding value, between the thumb border and its template content |
+| ThumbTemplate | RenderFragment\<double\>? | null | Content inside the thumb (context = Value) |
 | ThumbColor | string | #FFFFFF | Thumb fill CSS color |
 | ThumbBorderWidth | double | 2 | Thumb border width |
 | CornerRadius | string | 4px | Track corner radius |
@@ -190,6 +219,17 @@ inherits `MarkShape`), `Size` (`-1` inherits `MarkSize`), `IsVisible`.
 </Slider>
 ```
 
+### Custom Thumb Content
+
+```razor
+<Slider @bind-Value="brightness" Minimum="0" Maximum="100" ShowTooltip="false"
+        ThumbWidth="52" ThumbHeight="28" ThumbPadding="0 4px">
+    <ThumbTemplate Context="value">
+        <span style="font-size: 11px; font-weight: 700;">@value.ToString("0")%</span>
+    </ThumbTemplate>
+</Slider>
+```
+
 ### Code Generation Guidance
 
 - Default tooltip is a dark badge with downward-pointing arrow/pointer
@@ -203,3 +243,7 @@ inherits `MarkShape`), `Size` (`-1` inherits `MarkSize`), `IsVisible`.
 - `SnapToMarks` defaults to true, so a slider with marks ignores `Step`. Set it false for marks that
   are only reference points (a target line, a redline) on an otherwise continuous slider
 - A vertical slider needs `VerticalLength`: it has no width to stretch into
+- `ThumbTemplate` content is centred and clipped to the thumb box; the thumb never grows to fit it, so
+  always pair a non-square template with `ThumbWidth`/`ThumbHeight`
+- On MAUI the thumb template is realized once and rebound as the thumb moves — do not write a template
+  that depends on being rebuilt per value

@@ -24,6 +24,8 @@ public partial class Slider : ContentView
     readonly ContentView tooltipContainer;
     readonly AbsoluteLayout rootLayout;
 
+    View? thumbContent;
+
     double layoutWidth;
     double layoutHeight;
     bool isDragging;
@@ -143,6 +145,25 @@ public partial class Slider : ContentView
 
 
     bool IsVertical => this.Orientation == SliderOrientation.Vertical;
+
+    /// <summary>
+    /// The thumb box. It is square at <see cref="ThumbSize"/> until <see cref="ThumbWidth"/> or
+    /// <see cref="ThumbHeight"/> says otherwise, which is what lets a <see cref="ThumbTemplate"/> hold
+    /// something wider than it is tall.
+    /// </summary>
+    internal double ResolvedThumbWidth => this.ThumbWidth > 0 ? this.ThumbWidth : this.ThumbSize;
+
+    internal double ResolvedThumbHeight => this.ThumbHeight > 0 ? this.ThumbHeight : this.ThumbSize;
+
+    /// <summary>The thumb's extent along the value axis — the part that eats into the travel.</summary>
+    internal double ThumbAlong => this.IsVertical ? this.ResolvedThumbHeight : this.ResolvedThumbWidth;
+
+    /// <summary>The thumb's extent across the track, which is what the track band has to clear.</summary>
+    internal double ThumbAcross => this.IsVertical ? this.ResolvedThumbWidth : this.ResolvedThumbHeight;
+
+    double ResolvedThumbCornerRadius => this.ThumbCornerRadius >= 0
+        ? this.ThumbCornerRadius
+        : Math.Min(this.ResolvedThumbWidth, this.ResolvedThumbHeight) / 2;
 
 
     /// <summary>
@@ -285,15 +306,15 @@ public partial class Slider : ContentView
         : 0;
 
     /// <summary>How far the thumb's centre can travel, which is the track less one thumb.</summary>
-    double Travel => Math.Max(0, (IsVertical ? layoutHeight : layoutWidth) - ThumbSize);
+    double Travel => Math.Max(0, (IsVertical ? layoutHeight : layoutWidth) - ThumbAlong);
 
     /// <summary>
     /// Where the thumb's centre sits for a given fraction. Vertical runs bottom-to-top, so the minimum
     /// is at the largest coordinate.
     /// </summary>
     internal double CenterFor(double percent) => IsVertical
-        ? layoutHeight - (ThumbSize / 2) - (percent * Travel)
-        : (ThumbSize / 2) + (percent * Travel);
+        ? layoutHeight - (ThumbAlong / 2) - (percent * Travel)
+        : (ThumbAlong / 2) + (percent * Travel);
 
     internal double PercentForCenter(double center)
     {
@@ -301,8 +322,8 @@ public partial class Slider : ContentView
             return 0;
 
         var percent = IsVertical
-            ? (layoutHeight - (ThumbSize / 2) - center) / Travel
-            : (center - (ThumbSize / 2)) / Travel;
+            ? (layoutHeight - (ThumbAlong / 2) - center) / Travel
+            : (center - (ThumbAlong / 2)) / Travel;
 
         return Math.Clamp(percent, 0, 1);
     }
@@ -330,15 +351,18 @@ public partial class Slider : ContentView
 
         // Thumb
         var center = CenterFor(percent);
-        var thumbAcross = tooltipBand + ((trackBand - ThumbSize) / 2);
+        var thumbOffset = tooltipBand + ((trackBand - ThumbAcross) / 2);
         AbsoluteLayout.SetLayoutBounds(thumb, IsVertical
-            ? new Rect(thumbAcross, center - (ThumbSize / 2), ThumbSize, ThumbSize)
-            : new Rect(center - (ThumbSize / 2), thumbAcross, ThumbSize, ThumbSize));
+            ? new Rect(thumbOffset, center - (ThumbAlong / 2), ThumbAcross, ThumbAlong)
+            : new Rect(center - (ThumbAlong / 2), thumbOffset, ThumbAlong, ThumbAcross));
 
         thumb.Stroke = blended;
-        thumbShape.CornerRadius = ThumbSize / 2;
-        thumb.WidthRequest = ThumbSize;
-        thumb.HeightRequest = ThumbSize;
+        thumbShape.CornerRadius = ResolvedThumbCornerRadius;
+        thumb.WidthRequest = ResolvedThumbWidth;
+        thumb.HeightRequest = ResolvedThumbHeight;
+        thumb.Padding = ThumbPadding;
+
+        UpdateThumbContent();
 
         LayoutMarks(tooltipBand, trackBand);
         UpdateTooltip(center, tooltipBand);
@@ -387,6 +411,47 @@ public partial class Slider : ContentView
             var x = Math.Clamp(center - (width / 2), 0, Math.Max(0, layoutWidth - width));
             AbsoluteLayout.SetLayoutBounds(tooltipContainer, new Rect(x, 0, AbsoluteLayout.AutoSize, AbsoluteLayout.AutoSize));
         }
+    }
+
+
+    /// <summary>
+    /// Drops the realized template so the next draw builds it again. Only a change of template comes
+    /// through here — a change of value rebinds the view that is already there.
+    /// </summary>
+    void RebuildThumbContent()
+    {
+        this.thumb.Content = null;
+        this.thumbContent = null;
+
+        // Built here rather than left to the next draw: UpdateVisuals does nothing until the slider has
+        // been given a size, and on net10.0-macos a view added after the page has laid out is never
+        // realized. XAML sets the template before the first layout, so this is the moment to use it.
+        this.UpdateThumbContent();
+        this.UpdateVisuals();
+    }
+
+
+    /// <summary>
+    /// Realizes <see cref="ThumbTemplate"/> once and rebinds it afterwards. Rebuilding it per draw would
+    /// throw the content away on every pixel of a drag, and on net10.0-macos a view added after the page
+    /// has laid out is never realized at all — so the one that survives the drag is the one built first.
+    /// </summary>
+    void UpdateThumbContent()
+    {
+        if (this.ThumbTemplate is null)
+            return;
+
+        if (this.thumbContent is null && this.ThumbTemplate.CreateContent() is View created)
+        {
+            // The pan and tap live on the root layout, and Border does not pass its InputTransparent
+            // down, so the content has to opt out of the gesture itself or it swallows the drag.
+            created.InputTransparent = true;
+            this.thumbContent = created;
+            this.thumb.Content = created;
+        }
+
+        if (this.thumbContent is not null)
+            this.thumbContent.BindingContext = this.Value;
     }
 
 

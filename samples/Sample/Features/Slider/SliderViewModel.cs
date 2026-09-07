@@ -16,4 +16,6 @@ public partial class SliderViewModel : ObservableObject
     [ObservableProperty] double pressure = 32;
     [ObservableProperty] double bass = 6;
     [ObservableProperty] double treble = 5;
+    [ObservableProperty] double brightness = 60;
+    [ObservableProperty] double warmth = 35;
 }

@@ -3,7 +3,7 @@
 [← All Shiny Controls](../../README.md)
 
 A slider with a two-color gradient track, blended thumb border, tooltip, full drag/tap interaction,
-labelled **stop points**, and a **vertical** orientation.
+labelled **stop points**, a **custom thumb**, and a **vertical** orientation.
 
 ```xml
 <shiny:Slider Value="{Binding Temperature}"
@@ -26,6 +26,11 @@ labelled **stop points**, and a **vertical** orientation.
 | HotColor | Color/string | #EF4444 | Right/top gradient color |
 | TrackHeight | double | 8 | Track thickness |
 | ThumbSize | double | 24 | Thumb diameter |
+| ThumbWidth | double | -1 | Thumb width; `-1` keeps it square at `ThumbSize` |
+| ThumbHeight | double | -1 | Thumb height; `-1` keeps it square at `ThumbSize` |
+| ThumbCornerRadius | double / string? | -1 / null | `-1`/null keeps the thumb fully rounded (a circle, or a pill once it is not square) |
+| ThumbPadding | Thickness / string? | 0 / null | Inset between the thumb border and its template content |
+| ThumbTemplate | DataTemplate / RenderFragment&lt;double&gt; | null | Custom content inside the thumb |
 | ThumbColor | Color/string | Theme surface | Thumb fill color |
 | ShowTooltip | bool | true | Show value tooltip |
 | TooltipTemplate | DataTemplate/RenderFragment | null | Custom tooltip content |
@@ -78,3 +83,37 @@ turn it off to leave the marks as reference points.
 The stop point itself is always the dot or tick on the track; the label sits in the band beside it.
 Snapping parks the thumb on a mark by definition, so anything drawn on the track at a mark's value
 would spend its life underneath the thumb.
+
+## Custom thumb content
+
+`ThumbTemplate` puts your own content inside the thumb — an icon, a glyph, the value itself. The
+template's binding context (MAUI) / context parameter (Blazor) is the slider's current `Value`.
+
+```xml
+<shiny:Slider Value="{Binding Brightness}"
+              Minimum="0" Maximum="100"
+              ShowTooltip="False"
+              ThumbWidth="52" ThumbHeight="28" ThumbPadding="4,0">
+    <shiny:Slider.ThumbTemplate>
+        <DataTemplate x:DataType="sys:Double">
+            <Label Text="{Binding ., StringFormat='{0:0}%'}" FontSize="11" FontAttributes="Bold"
+                   HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+        </DataTemplate>
+    </shiny:Slider.ThumbTemplate>
+</shiny:Slider>
+```
+
+```razor
+<Slider @bind-Value="brightness" Minimum="0" Maximum="100" ShowTooltip="false"
+        ThumbWidth="52" ThumbHeight="28" ThumbPadding="0 4px">
+    <ThumbTemplate Context="value">
+        <span style="font-size: 11px; font-weight: 700;">@value.ToString("0")%</span>
+    </ThumbTemplate>
+</Slider>
+```
+
+The thumb does **not** grow to fit its content — the track's travel is measured from the thumb, so its
+box has to be known before anything is laid out. Size it with `ThumbSize`, or with
+`ThumbWidth`/`ThumbHeight` when the content is not square; `ThumbCornerRadius` turns the default pill
+into any other shape. In MAUI the template is realized once and rebound as the thumb moves, so a
+template that animates keeps its state across a drag.

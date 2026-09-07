@@ -207,6 +207,14 @@ public partial class ShinyNavBar : Grid
 
         this.Unloaded += (_, _) => this.CloseMenu();
 
+        // The item views below are built off-tree, from the constructor. A MotionIconView resolves
+        // its artwork on Loaded, and a child parented before the bar itself is attached never gets
+        // that event - so every icon in the first bar drew as an empty 22pt box while its badge and
+        // the overflow glyph, which are ordinary views, rendered fine. Rebuilding on load rebuilds
+        // them against an attached tree, where Loaded does fire. RebuildItems is idempotent - it is
+        // already what every item property change runs - so a page that loads more than once is fine.
+        this.Loaded += (_, _) => this.RebuildItems();
+
         // Seeded from the properties' defaults: a property left at its default never raises
         // propertyChanged, so without this the bar would be built but unpainted.
         this.ApplyBarSurface();

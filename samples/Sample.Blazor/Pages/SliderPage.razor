@@ -141,6 +141,40 @@
 </div>
 
 <div class="demo-section">
+    <h2>Custom Thumb (the value rides in it)</h2>
+    <Slider @bind-Value="brightness"
+                    Minimum="0"
+                    Maximum="100"
+                    ShowTooltip="false"
+                    ThumbWidth="52"
+                    ThumbHeight="28"
+                    ThumbPadding="0 4px"
+                    ColdColor="#0EA5E9"
+                    HotColor="#F59E0B">
+        <ThumbTemplate Context="value">
+            <span style="font-size: 11px; font-weight: 700; white-space: nowrap;">@value.ToString("0")%</span>
+        </ThumbTemplate>
+    </Slider>
+    <div class="state">Brightness: <code>@brightness.ToString("0")%</code></div>
+</div>
+
+<div class="demo-section">
+    <h2>Custom Thumb (a glyph)</h2>
+    <Slider @bind-Value="warmth"
+                    Minimum="0"
+                    Maximum="100"
+                    ThumbSize="34"
+                    ColdColor="#3B82F6"
+                    HotColor="#EF4444"
+                    ValueFormat="0°">
+        <ThumbTemplate Context="value">
+            <span style="font-size: 16px; line-height: 1;">@(value < 50 ? "\u2744" : "\U0001F525")</span>
+        </ThumbTemplate>
+    </Slider>
+    <div class="state">Warmth: <code>@warmth.ToString("0")°</code></div>
+</div>
+
+<div class="demo-section">
     <h2>Disabled</h2>
     <Slider Value="65" IsEnabled="false" />
 </div>
@@ -156,6 +190,8 @@
     double pressure = 32;
     double bass = 6;
     double treble = 5;
+    double brightness = 60;
+    double warmth = 35;
 
     string GetStars(int count) => new string('\u2B50', count);
 }

@@ -191,13 +191,15 @@ public class SliderMarkTests
 
 
     [Fact]
-    public void TheLabelBandIsOnlyReservedWhenThereIsACaptionToPutInIt()
+    public void TheLabelBandHoldsNothingButTheThumbOverhangUntilThereIsACaptionToPutInIt()
     {
+        // With no caption the band still has to hold the half of the thumb hanging past the track, or a
+        // tall thumb spills onto whatever is laid out under the slider.
         var (bare, _) = Build(SliderOrientation.Horizontal, new SliderMark { Value = 50 });
-        bare.RootStyle.ShouldContain("--shiny-gs-label-band: 0px");
+        bare.RootStyle.ShouldContain("--shiny-gs-label-band: 8px");
 
         var (labelled, _) = Build(SliderOrientation.Horizontal, new SliderMark { Value = 50, Text = "Half" });
-        labelled.RootStyle.ShouldNotContain("--shiny-gs-label-band: 0px");
+        labelled.RootStyle.ShouldNotContain("--shiny-gs-label-band: 8px");
     }
 
 
@@ -211,7 +213,7 @@ public class SliderMarkTests
         var mark = slider.VisibleMarks.First();
 
         slider.MarkLabelStyle(mark, SliderMarkShape.Bubble).ShouldContain("background: #663399");
-        slider.RootStyle.ShouldNotContain("--shiny-gs-label-band: 0px");
+        slider.RootStyle.ShouldNotContain("--shiny-gs-label-band: 8px");
     }
 
 

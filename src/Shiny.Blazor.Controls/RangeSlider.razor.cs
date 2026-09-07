@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -30,6 +31,31 @@ public partial class RangeSlider : IAsyncDisposable
     [Parameter] public double TrackHeight { get; set; } = 8;
     [Parameter] public double ThumbSize { get; set; } = 24;
     [Parameter] public string ThumbColor { get; set; } = "var(--shiny-color-surface, #FFFFFF)";
+    /// <summary>
+    /// Thumb width in px. The default, <c>-1</c>, keeps the thumbs square at <see cref="ThumbSize"/>. Set
+    /// it when a thumb template puts content in them that is not square.
+    /// </summary>
+    [Parameter] public double ThumbWidth { get; set; } = -1;
+    /// <summary>Thumb height in px. The default, <c>-1</c>, keeps the thumbs square at <see cref="ThumbSize"/>.</summary>
+    [Parameter] public double ThumbHeight { get; set; } = -1;
+    /// <summary>
+    /// Thumb corner radius, as any CSS length. The default, <c>null</c>, keeps the thumbs fully rounded —
+    /// a circle while they are square, a pill once they are not.
+    /// </summary>
+    [Parameter] public string? ThumbCornerRadius { get; set; }
+    /// <summary>Inset, as any CSS padding value, between a thumb's border and its template content.</summary>
+    [Parameter] public string? ThumbPadding { get; set; }
+    /// <summary>
+    /// Content drawn inside both thumbs — an icon, a glyph, the value itself. The fragment is handed that
+    /// thumb's own value. <see cref="LowerThumbTemplate"/> and <see cref="UpperThumbTemplate"/> override
+    /// it per thumb. The thumbs do not grow to fit: size them with <see cref="ThumbSize"/>, or
+    /// <see cref="ThumbWidth"/>/<see cref="ThumbHeight"/>.
+    /// </summary>
+    [Parameter] public RenderFragment<double>? ThumbTemplate { get; set; }
+    /// <summary>Content for the lower thumb only. Falls back to <see cref="ThumbTemplate"/> when null.</summary>
+    [Parameter] public RenderFragment<double>? LowerThumbTemplate { get; set; }
+    /// <summary>Content for the upper thumb only. Falls back to <see cref="ThumbTemplate"/> when null.</summary>
+    [Parameter] public RenderFragment<double>? UpperThumbTemplate { get; set; }
     /// <summary>Thumb ring width in px. The default, <c>-1</c>, follows the theme border scale.</summary>
     [Parameter] public double ThumbBorderWidth { get; set; } = -1;
     [Parameter] public string CornerRadius { get; set; } = "var(--shiny-shape-corner-extra-small, 4px)";
@@ -52,9 +78,38 @@ public partial class RangeSlider : IAsyncDisposable
     string LowerColor => BlendColors(ColdColor, HotColor, LowerPercentage / 100.0);
     string UpperColor => BlendColors(ColdColor, HotColor, UpperPercentage / 100.0);
 
-    string RootStyle => IsEnabled ? "" : "opacity: 0.5; pointer-events: none;";
+    /// <summary>
+    /// The thumb box. It is square at <see cref="ThumbSize"/> until <see cref="ThumbWidth"/> or
+    /// <see cref="ThumbHeight"/> says otherwise, which is what lets a thumb template hold something
+    /// wider than it is tall.
+    /// </summary>
+    internal double ResolvedThumbWidth => ThumbWidth > 0 ? ThumbWidth : ThumbSize;
 
-    string TrackStyle => $"height: {TrackHeight}px; border-radius: {CornerRadius};";
+    internal double ResolvedThumbHeight => ThumbHeight > 0 ? ThumbHeight : ThumbSize;
+
+    RenderFragment<double>? LowerThumbContent => LowerThumbTemplate ?? ThumbTemplate;
+
+    RenderFragment<double>? UpperThumbContent => UpperThumbTemplate ?? ThumbTemplate;
+
+    /// <summary>
+    /// The half of the thumb that hangs past the track. The stylesheet turns it into padding at both ends
+    /// of the control, so a tall custom thumb is not clipped and does not spill onto what follows it.
+    /// </summary>
+    internal string RootStyle
+    {
+        get
+        {
+            var overhang = Math.Max(0, (ResolvedThumbHeight - TrackHeight) / 2);
+            var style = $"--shiny-rs-thumb-overhang: {N(overhang)}px;";
+
+            if (!IsEnabled)
+                style += " opacity: 0.5; pointer-events: none;";
+
+            return style;
+        }
+    }
+
+    string TrackStyle => $"height: {N(TrackHeight)}px; border-radius: {CornerRadius};";
 
     string TrackFillStyle
     {
@@ -62,20 +117,48 @@ public partial class RangeSlider : IAsyncDisposable
         {
             var left = Math.Min(LowerPercentage, UpperPercentage);
             var width = Math.Abs(UpperPercentage - LowerPercentage);
-            return $"left: {left:0.###}%; width: {width:0.###}%; height: 100%; border-radius: {CornerRadius}; " +
+            return $"left: {N(left)}%; width: {N(width)}%; height: 100%; border-radius: {CornerRadius}; " +
                    $"background: linear-gradient(to right, {LowerColor}, {UpperColor});";
         }
     }
 
-    string ThumbStyle(double percentage, string color) =>
-        $"left: {percentage:0.###}%; width: {ThumbSize}px; height: {ThumbSize}px; border: {(ThumbBorderWidth >= 0 ? $"{ThumbBorderWidth}px" : "var(--shiny-border-medium, 2px)")} solid {color}; background: {ThumbColor};";
+    internal string ThumbStyle(double percentage, string color)
+    {
+        var border = ThumbBorderWidth >= 0 ? $"{N(ThumbBorderWidth)}px" : "var(--shiny-border-medium, 2px)";
+
+        // Fully rounded by default: a circle while the thumb is square, a pill once it is not. The radius
+        // is written here rather than in the stylesheet because an inline property wins outright, which
+        // would leave a rule there dead.
+        var radius = string.IsNullOrWhiteSpace(ThumbCornerRadius)
+            ? $"{N(Math.Min(ResolvedThumbWidth, ResolvedThumbHeight) / 2)}px"
+            : ThumbCornerRadius;
+
+        var style = $"left: {N(percentage)}%; width: {N(ResolvedThumbWidth)}px; height: {N(ResolvedThumbHeight)}px;"
+            + $" border: {border} solid {color}; border-radius: {radius}; background: {ThumbColor};";
+
+        if (!string.IsNullOrWhiteSpace(ThumbPadding))
+            style += $" padding: {ThumbPadding};";
+
+        return style;
+    }
 
     // Shift transform from 0% at left edge to -100% at right edge to keep the tooltip on-track.
-    string TooltipTransform(double percentage) => $"transform: translateX({-percentage:0.#}%);";
+    string TooltipTransform(double percentage) => $"transform: translateX({N(-percentage)}%);";
 
-    string TooltipBadgeStyle => $"background: {TooltipBackgroundColor}; color: {TooltipTextColor}; font-size: {(TooltipFontSize >= 0 ? $"{TooltipFontSize}px" : "var(--shiny-type-body-small-size, 12px)")};";
+    string TooltipBadgeStyle => $"background: {TooltipBackgroundColor}; color: {TooltipTextColor}; font-size: {(TooltipFontSize >= 0 ? $"{N(TooltipFontSize)}px" : "var(--shiny-type-body-small-size, 12px)")};";
 
     string TooltipPointerStyle => $"border-top-color: {TooltipBackgroundColor};";
+
+    /// <summary>CSS never reads the current culture, so every number written into a style has to be invariant.</summary>
+    static string N(double value)
+    {
+        // Negative zero formats as "-0", which is valid but reads like a bug in the rendered markup.
+        if (value == 0)
+            value = 0;
+
+        return value.ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
 
     string FormatValue(double val)
     {

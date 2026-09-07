@@ -1,7 +1,10 @@
+/* The thumb overhangs the track by half its height at both ends. The component measures that overhang
+   and writes it inline; the padding that consumes it stays here, so each has one owner. */
 .shiny-rs {
     position: relative;
     width: 100%;
-    padding-top: calc(36px * var(--shiny-density-scale, 1));
+    padding-top: calc((36px * var(--shiny-density-scale, 1)) + var(--shiny-rs-thumb-overhang, 0px));
+    padding-bottom: var(--shiny-rs-thumb-overhang, 0px);
     user-select: none;
     touch-action: none;
 }
@@ -19,11 +22,17 @@
     pointer-events: none;
 }
 
+/* The radius is written inline by the component so a custom thumb can be a pill; anything declared
+   here would be dead on arrival. */
 .shiny-rs-thumb {
     position: absolute;
     top: 50%;
     transform: translate(-50%, -50%);
-    border-radius: 50%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     cursor: grab;
     box-shadow: var(--shiny-elevation-2, 0 2px 4px rgba(0, 0, 0, 0.2));
     transition: box-shadow 0.15s ease;

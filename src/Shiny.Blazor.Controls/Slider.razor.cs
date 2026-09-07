@@ -33,6 +33,26 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
     [Parameter] public double TrackHeight { get; set; } = 8;
     [Parameter] public double ThumbSize { get; set; } = 24;
     [Parameter] public string ThumbColor { get; set; } = "var(--shiny-color-surface, #FFFFFF)";
+    /// <summary>
+    /// Thumb width in px. The default, <c>-1</c>, keeps the thumb square at <see cref="ThumbSize"/>. Set
+    /// it when <see cref="ThumbTemplate"/> puts content in the thumb that is not square.
+    /// </summary>
+    [Parameter] public double ThumbWidth { get; set; } = -1;
+    /// <summary>Thumb height in px. The default, <c>-1</c>, keeps the thumb square at <see cref="ThumbSize"/>.</summary>
+    [Parameter] public double ThumbHeight { get; set; } = -1;
+    /// <summary>
+    /// Thumb corner radius, as any CSS length. The default, <c>null</c>, keeps the thumb fully rounded —
+    /// a circle while it is square, a pill once it is not.
+    /// </summary>
+    [Parameter] public string? ThumbCornerRadius { get; set; }
+    /// <summary>Inset, as any CSS padding value, between the thumb's border and its template content.</summary>
+    [Parameter] public string? ThumbPadding { get; set; }
+    /// <summary>
+    /// Content drawn inside the thumb — an icon, a glyph, the value itself. The fragment is handed the
+    /// current <see cref="Value"/>. The thumb does not grow to fit: size it with <see cref="ThumbSize"/>,
+    /// or <see cref="ThumbWidth"/>/<see cref="ThumbHeight"/>.
+    /// </summary>
+    [Parameter] public RenderFragment<double>? ThumbTemplate { get; set; }
     /// <summary>Thumb ring width in px. The default, <c>-1</c>, follows the theme border scale.</summary>
     [Parameter] public double ThumbBorderWidth { get; set; } = -1;
     [Parameter] public string CornerRadius { get; set; } = "var(--shiny-shape-corner-extra-small, 4px)";
@@ -106,6 +126,18 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
 
     double ResolvedTooltipFontSize => TooltipFontSize >= 0 ? TooltipFontSize : 12;
 
+    /// <summary>
+    /// The thumb box. It is square at <see cref="ThumbSize"/> until <see cref="ThumbWidth"/> or
+    /// <see cref="ThumbHeight"/> says otherwise, which is what lets a <see cref="ThumbTemplate"/> hold
+    /// something wider than it is tall.
+    /// </summary>
+    internal double ResolvedThumbWidth => ThumbWidth > 0 ? ThumbWidth : ThumbSize;
+
+    internal double ResolvedThumbHeight => ThumbHeight > 0 ? ThumbHeight : ThumbSize;
+
+    /// <summary>The thumb's extent across the track — what every band offset has to clear.</summary>
+    double ThumbAcross => IsVertical ? ResolvedThumbWidth : ResolvedThumbHeight;
+
 
     // ---------------------------------------------------------------------------------------------
     // Styles
@@ -121,15 +153,17 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
         {
             // The thumb is wider than the track and overhangs it on both sides, so everything the
             // stylesheet offsets from the track edge has to clear it or the thumb sits on the labels.
-            var overhang = Math.Max(0, (ThumbSize - TrackHeight) / 2);
+            var overhang = Math.Max(0, (ThumbAcross - TrackHeight) / 2);
 
             var tooltipBand = ShowTooltip
                 ? (IsVertical ? EstimatedTooltipWidth() : ResolvedTooltipFontSize + 14) + TooltipGap + overhang
-                : 0;
+                : overhang;
 
+            // Even with nothing to label, the band still has to hold the half of the thumb hanging past
+            // the track — otherwise a tall custom thumb spills onto whatever is laid out next.
             var labelBand = HasCaptions()
                 ? (IsVertical ? EstimatedCaptionWidth() : EstimatedCaptionHeight()) + MarkLabelGap + overhang
-                : 0;
+                : overhang;
 
             var style = $"--shiny-gs-tooltip-band: {N(tooltipBand)}px; --shiny-gs-label-band: {N(labelBand)}px;"
                 + $" --shiny-gs-thumb-overhang: {N(overhang)}px;";
@@ -150,7 +184,19 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
         get
         {
             var border = ThumbBorderWidth >= 0 ? $"{N(ThumbBorderWidth)}px" : "var(--shiny-border-medium, 2px)";
-            var common = $"width: {N(ThumbSize)}px; height: {N(ThumbSize)}px; border: {border} solid {BlendedColor}; background: {ThumbColor};";
+
+            // Fully rounded by default: a circle while the thumb is square, a pill once it is not. The
+            // radius is written here rather than in the stylesheet because an inline property wins
+            // outright, which would leave a rule there dead.
+            var radius = string.IsNullOrWhiteSpace(ThumbCornerRadius)
+                ? $"{N(Math.Min(ResolvedThumbWidth, ResolvedThumbHeight) / 2)}px"
+                : ThumbCornerRadius;
+
+            var common = $"width: {N(ResolvedThumbWidth)}px; height: {N(ResolvedThumbHeight)}px;"
+                + $" border: {border} solid {BlendedColor}; border-radius: {radius}; background: {ThumbColor};";
+
+            if (!string.IsNullOrWhiteSpace(ThumbPadding))
+                common += $" padding: {ThumbPadding};";
 
             return IsVertical
                 ? $"bottom: {N(Percentage)}%; {common}"

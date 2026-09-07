@@ -262,7 +262,7 @@ public partial class Slider
     /// <summary>Room reserved for the track itself — the widest of track, thumb and anything sitting on it.</summary>
     double TrackBand()
     {
-        var band = Math.Max(this.ThumbSize, this.TrackHeight);
+        var band = Math.Max(this.ThumbAcross, this.TrackHeight);
 
         foreach (var visual in this.markVisuals)
         {

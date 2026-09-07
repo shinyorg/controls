@@ -54,10 +54,17 @@
             }
         }
 
+        @* onclick is stopped as well as onpointerdown: the track's own click seeks to wherever it was
+           pressed, and a thumb big enough to hold content is big enough to hit by accident. *@
         <div class="shiny-gs-thumb"
              style="@ThumbStyle"
              @onpointerdown="OnThumbPointerDown"
-             @onpointerdown:stopPropagation>
+             @onpointerdown:stopPropagation
+             @onclick:stopPropagation>
+            @if (ThumbTemplate is not null)
+            {
+                @ThumbTemplate(Value)
+            }
         </div>
     </div>
 </div>

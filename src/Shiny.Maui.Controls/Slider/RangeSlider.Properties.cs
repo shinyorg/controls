@@ -87,7 +87,7 @@ public partial class RangeSlider
         nameof(TrackHeight), typeof(double), typeof(RangeSlider), 8.0,
         propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
             {
-                ((RangeSlider)b).UpdateVisuals();
+                ((RangeSlider)b).Refresh();
             }));
     public double TrackHeight { get => (double)GetValue(TrackHeightProperty); set => SetValue(TrackHeightProperty, value); }
 
@@ -96,7 +96,7 @@ public partial class RangeSlider
         nameof(ThumbSize), typeof(double), typeof(RangeSlider), 24.0,
         propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
             {
-                ((RangeSlider)b).UpdateVisuals();
+                ((RangeSlider)b).Refresh();
             }));
     public double ThumbSize { get => (double)GetValue(ThumbSizeProperty); set => SetValue(ThumbSizeProperty, value); }
 
@@ -120,6 +120,88 @@ public partial class RangeSlider
         }));
     /// <summary>Thumb fill color. When null, the theme OnPrimary token is used.</summary>
     public Color? ThumbColor { get => (Color?)GetValue(ThumbColorProperty); set => SetValue(ThumbColorProperty, value); }
+
+    // ThumbWidth
+    public static readonly BindableProperty ThumbWidthProperty = BindableProperty.Create(
+        nameof(ThumbWidth), typeof(double), typeof(RangeSlider), -1.0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
+            {
+                ((RangeSlider)b).Refresh();
+            }));
+    /// <summary>
+    /// Thumb width. The default, <c>-1</c>, keeps the thumbs square at <see cref="ThumbSize"/>. Set it
+    /// when a thumb template puts content in them that is not square.
+    /// </summary>
+    public double ThumbWidth { get => (double)GetValue(ThumbWidthProperty); set => SetValue(ThumbWidthProperty, value); }
+
+    // ThumbHeight
+    public static readonly BindableProperty ThumbHeightProperty = BindableProperty.Create(
+        nameof(ThumbHeight), typeof(double), typeof(RangeSlider), -1.0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
+            {
+                ((RangeSlider)b).Refresh();
+            }));
+    /// <summary>Thumb height. The default, <c>-1</c>, keeps the thumbs square at <see cref="ThumbSize"/>.</summary>
+    public double ThumbHeight { get => (double)GetValue(ThumbHeightProperty); set => SetValue(ThumbHeightProperty, value); }
+
+    // ThumbCornerRadius
+    public static readonly BindableProperty ThumbCornerRadiusProperty = BindableProperty.Create(
+        nameof(ThumbCornerRadius), typeof(double), typeof(RangeSlider), -1.0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
+            {
+                ((RangeSlider)b).UpdateVisuals();
+            }));
+    /// <summary>
+    /// Thumb corner radius. The default, <c>-1</c>, keeps the thumbs fully rounded — a circle while they
+    /// are square, a pill once they are not.
+    /// </summary>
+    public double ThumbCornerRadius { get => (double)GetValue(ThumbCornerRadiusProperty); set => SetValue(ThumbCornerRadiusProperty, value); }
+
+    // ThumbPadding
+    public static readonly BindableProperty ThumbPaddingProperty = BindableProperty.Create(
+        nameof(ThumbPadding), typeof(Thickness), typeof(RangeSlider), default(Thickness),
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
+            {
+                ((RangeSlider)b).UpdateVisuals();
+            }));
+    /// <summary>Inset between a thumb's border and the content its template puts inside it.</summary>
+    public Thickness ThumbPadding { get => (Thickness)GetValue(ThumbPaddingProperty); set => SetValue(ThumbPaddingProperty, value); }
+
+    // ThumbTemplate
+    public static readonly BindableProperty ThumbTemplateProperty = BindableProperty.Create(
+        nameof(ThumbTemplate), typeof(DataTemplate), typeof(RangeSlider), null,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
+            {
+                ((RangeSlider)b).RebuildThumbContent();
+            }));
+    /// <summary>
+    /// Content drawn inside both thumbs — an icon, a glyph, the value itself. Each thumb realizes the
+    /// template once and its <c>BindingContext</c> is that thumb's own value, rebound as it moves.
+    /// <see cref="LowerThumbTemplate"/> and <see cref="UpperThumbTemplate"/> override it per thumb.
+    /// The thumbs do not grow to fit: size them with <see cref="ThumbSize"/>, or
+    /// <see cref="ThumbWidth"/>/<see cref="ThumbHeight"/>.
+    /// </summary>
+    public DataTemplate? ThumbTemplate { get => (DataTemplate?)GetValue(ThumbTemplateProperty); set => SetValue(ThumbTemplateProperty, value); }
+
+    // LowerThumbTemplate
+    public static readonly BindableProperty LowerThumbTemplateProperty = BindableProperty.Create(
+        nameof(LowerThumbTemplate), typeof(DataTemplate), typeof(RangeSlider), null,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
+            {
+                ((RangeSlider)b).RebuildThumbContent();
+            }));
+    /// <summary>Content for the lower thumb only. Falls back to <see cref="ThumbTemplate"/> when null.</summary>
+    public DataTemplate? LowerThumbTemplate { get => (DataTemplate?)GetValue(LowerThumbTemplateProperty); set => SetValue(LowerThumbTemplateProperty, value); }
+
+    // UpperThumbTemplate
+    public static readonly BindableProperty UpperThumbTemplateProperty = BindableProperty.Create(
+        nameof(UpperThumbTemplate), typeof(DataTemplate), typeof(RangeSlider), null,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(RangeSlider), () =>
+            {
+                ((RangeSlider)b).RebuildThumbContent();
+            }));
+    /// <summary>Content for the upper thumb only. Falls back to <see cref="ThumbTemplate"/> when null.</summary>
+    public DataTemplate? UpperThumbTemplate { get => (DataTemplate?)GetValue(UpperThumbTemplateProperty); set => SetValue(UpperThumbTemplateProperty, value); }
 
     // ThumbBorderWidth
     public static readonly BindableProperty ThumbBorderWidthProperty = BindableProperty.Create(

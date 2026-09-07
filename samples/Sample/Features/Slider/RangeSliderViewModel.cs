@@ -17,4 +17,7 @@ public partial class RangeSliderViewModel : ObservableObject
 
     [ObservableProperty] double ageLower = 21;
     [ObservableProperty] double ageUpper = 65;
+
+    [ObservableProperty] double shiftStart = 9;
+    [ObservableProperty] double shiftEnd = 17;
 }

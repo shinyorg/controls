@@ -1,8 +1,10 @@
 @namespace Shiny.Blazor.Controls
 
-<div class="shiny-rs @CssClass"
-     style="@RootStyle"
-     @attributes="AdditionalAttributes">
+@* @attributes comes first so a caller's splatted style cannot replace the custom properties the
+   component sets on itself. *@
+<div @attributes="AdditionalAttributes"
+     class="shiny-rs @CssClass"
+     style="@RootStyle">
 
     @if (ShowTooltip)
     {
@@ -36,15 +38,28 @@
 
     <div class="shiny-rs-track" style="@TrackStyle" @onclick="OnTrackClick" @ref="trackRef">
         <div class="shiny-rs-track-fill" style="@TrackFillStyle"></div>
+        @* onclick is stopped as well as onpointerdown: the track's own click seeks the nearer thumb to
+           wherever it was pressed, and a thumb big enough to hold content is big enough to hit by
+           accident. *@
         <div class="shiny-rs-thumb"
              data-thumb="lower"
              style="@ThumbStyle(LowerPercentage, LowerColor)"
-             @onpointerdown:stopPropagation>
+             @onpointerdown:stopPropagation
+             @onclick:stopPropagation>
+            @if (LowerThumbContent is not null)
+            {
+                @LowerThumbContent(LowerValue)
+            }
         </div>
         <div class="shiny-rs-thumb"
              data-thumb="upper"
              style="@ThumbStyle(UpperPercentage, UpperColor)"
-             @onpointerdown:stopPropagation>
+             @onpointerdown:stopPropagation
+             @onclick:stopPropagation>
+            @if (UpperThumbContent is not null)
+            {
+                @UpperThumbContent(UpperValue)
+            }
         </div>
     </div>
 </div>

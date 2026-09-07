@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:shiny="http://shiny.net/maui/controls"
     xmlns:local="clr-namespace:Sample.Features.Slider"
+    xmlns:sys="clr-namespace:System;assembly=netstandard"
     x:Class="Sample.Features.Slider.SliderPage"
     x:DataType="local:SliderViewModel"
     Title="Slider"
@@ -122,6 +123,52 @@
                 </shiny:Slider.Marks>
             </shiny:Slider>
             <Label Text="{Binding Pressure, StringFormat='Pressure: {0:0} psi'}" />
+
+            <!-- Custom Thumb: the value rides in it -->
+            <Label Text="Custom Thumb (the value rides in it)" FontSize="18" FontAttributes="Bold" />
+            <shiny:Slider AutomationId="BrightnessSlider"
+                                  Value="{Binding Brightness}"
+                                  Minimum="0"
+                                  Maximum="100"
+                                  ShowTooltip="False"
+                                  ThumbWidth="52"
+                                  ThumbHeight="28"
+                                  ThumbPadding="4,0"
+                                  ColdColor="#0EA5E9"
+                                  HotColor="#F59E0B">
+                <shiny:Slider.ThumbTemplate>
+                    <!-- The template's binding context is the slider's own value, so it is typed as a double. -->
+                    <DataTemplate x:DataType="sys:Double">
+                        <Label Text="{Binding ., StringFormat='{0:0}%'}"
+                               FontSize="11"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center" />
+                    </DataTemplate>
+                </shiny:Slider.ThumbTemplate>
+            </shiny:Slider>
+            <Label AutomationId="BrightnessLabel" Text="{Binding Brightness, StringFormat='Brightness: {0:0}%'}" />
+
+            <!-- Custom Thumb: a glyph -->
+            <Label Text="Custom Thumb (a glyph)" FontSize="18" FontAttributes="Bold" />
+            <shiny:Slider AutomationId="WarmthSlider"
+                                  Value="{Binding Warmth}"
+                                  Minimum="0"
+                                  Maximum="100"
+                                  ThumbSize="34"
+                                  ColdColor="#3B82F6"
+                                  HotColor="#EF4444"
+                                  ValueFormat="0&#176;">
+                <shiny:Slider.ThumbTemplate>
+                    <DataTemplate x:DataType="sys:Double">
+                        <Label Text="&#x2600;"
+                               FontSize="16"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center" />
+                    </DataTemplate>
+                </shiny:Slider.ThumbTemplate>
+            </shiny:Slider>
+            <Label Text="{Binding Warmth, StringFormat='Warmth: {0:0}&#176;'}" />
 
             <!-- Vertical -->
             <Label Text="Vertical" FontSize="18" FontAttributes="Bold" />

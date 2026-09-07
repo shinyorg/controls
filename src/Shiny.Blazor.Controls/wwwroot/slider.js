@@ -27,7 +27,9 @@ export function init(trackEl, dotNetRef, vertical) {
     };
 
     trackEl.addEventListener('pointerdown', (e) => {
-        if (e.target.classList.contains('shiny-gs-thumb')) {
+        // closest(), not the target's own class: a thumb with template content in it hands the
+        // pointerdown to that content, and testing the target alone would never start the drag.
+        if (e.target.closest && e.target.closest('.shiny-gs-thumb')) {
             state.dragging = true;
             e.preventDefault();
             document.addEventListener('pointermove', onPointerMove);
