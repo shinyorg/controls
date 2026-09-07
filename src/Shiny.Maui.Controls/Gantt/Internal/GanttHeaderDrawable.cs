@@ -37,8 +37,18 @@ sealed class GanttHeaderDrawable(GanttView owner) : IDrawable
             canvas.StrokeSize = 1;
             canvas.DrawLine(x, 0, x, dirtyRect.Height);
 
-            canvas.DrawString(tick.Label, x + 6, 0, (float)Math.Max(tick.Width - 8, 0), upperHeight,
-                HorizontalAlignment.Left, VerticalAlignment.Center);
+            // Pin the label into view rather than letting it scroll off with the cell's left edge.
+            // A month is usually wider than the screen, so anchoring the text to the cell start means
+            // that for most of the time spent inside a month the row reads as empty — the one thing
+            // the upper tier exists to prevent.
+            var pinned = Math.Max(tick.X, owner.ViewportScrollX);
+            var available = (tick.X + tick.Width) - pinned - 8;
+
+            if (available > 0)
+            {
+                canvas.DrawString(tick.Label, (float)pinned + 6, 0, (float)available, upperHeight,
+                    HorizontalAlignment.Left, VerticalAlignment.Center);
+            }
         }
 
         // Lower tier

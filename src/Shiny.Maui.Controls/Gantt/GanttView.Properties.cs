@@ -406,6 +406,7 @@ public partial class GanttView
     public static readonly BindableProperty AllowProgressChangeProperty = Inert(nameof(AllowProgressChange), true);
     public static readonly BindableProperty AllowDependencyEditProperty = Inert(nameof(AllowDependencyEdit), false);
     public static readonly BindableProperty AllowZoomProperty = Inert(nameof(AllowZoom), true);
+    public static readonly BindableProperty AllowPanProperty = Inert(nameof(AllowPan), true);
     public static readonly BindableProperty SnapModeProperty = Inert(nameof(SnapMode), GanttSnapMode.Scale);
     public static readonly BindableProperty SnapIntervalProperty = Inert(nameof(SnapInterval), TimeSpan.FromHours(1));
     public static readonly BindableProperty CascadeModeProperty = Inert(nameof(CascadeMode), GanttCascadeMode.PushOnly);
@@ -451,6 +452,19 @@ public partial class GanttView
     {
         get => (bool)this.GetValue(AllowDependencyEditProperty);
         set => this.SetValue(AllowDependencyEditProperty, value);
+    }
+
+    /// <summary>
+    /// Whether dragging empty timeline space scrolls the chart. On by default.
+    /// </summary>
+    /// <remarks>
+    /// Turn it off only when the timeline is inside something else that wants the gesture — the
+    /// scrollbars and the ScrollTo methods keep working either way.
+    /// </remarks>
+    public bool AllowPan
+    {
+        get => (bool)this.GetValue(AllowPanProperty);
+        set => this.SetValue(AllowPanProperty, value);
     }
 
     /// <summary>Whether pinch and the zoom methods change the scale.</summary>

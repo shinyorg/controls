@@ -21,6 +21,10 @@ public partial class GanttView
     GanttSchedulePlan? preview;
     double lastDragDx;
     double pinchStartPixelsPerDay;
+    bool isPanning;
+    bool panMoved;
+    double panStartScrollX;
+    double panStartScrollY;
 
     /// <summary>True while a bar is being dragged. Suppresses the rebuild a date change would trigger.</summary>
     internal bool IsDragging => this.dragTask is not null;
@@ -77,6 +81,7 @@ public partial class GanttView
             return;
 
         this.pressPoint = point.Value;
+        this.panMoved = false;
 
         var hit = this.FindHit(point.Value.X, point.Value.Y);
         this.dragTask = hit?.Task;
@@ -171,7 +176,10 @@ public partial class GanttView
     void OnTimelinePan(object? sender, PanUpdatedEventArgs e)
     {
         if (this.dragTask is null || this.dragTarget == GanttDragTarget.None)
+        {
+            this.PanChart(e);
             return;
+        }
 
         switch (e.StatusType)
         {
@@ -188,6 +196,65 @@ public partial class GanttView
             case GestureStatus.Canceled:
                 this.touchHook?.LockScroller(false);
                 this.CommitDrag(e.StatusType == GestureStatus.Canceled);
+                break;
+        }
+    }
+
+
+    /// <summary>
+    /// Scrolls the timeline from a drag that did not land on a bar.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This has to be done by hand, and the reason is not obvious. A <see cref="PanGestureRecognizer"/>
+    /// on a child of a <see cref="ScrollView"/> <b>consumes</b> the gesture: the recognizer is what
+    /// bar dragging needs, but it recognizes every drag, including the ones meant for the scroller.
+    /// The result on iOS was that a fast flick still scrolled — UIScrollView wins a fling outright —
+    /// while a slow, ordinary finger pan did nothing at all. That is the worst possible failure mode,
+    /// because it looks intermittent rather than broken.
+    /// </para>
+    /// <para>
+    /// Since the gesture arrives here regardless, the honest fix is to use it. The native scroller is
+    /// locked out for the duration so the two cannot both move the content, which makes the behaviour
+    /// identical on every platform instead of depending on which recognizer each one happens to
+    /// favour. The cost is momentum: a hand-driven pan stops when the finger lifts.
+    /// </para>
+    /// </remarks>
+    void PanChart(PanUpdatedEventArgs e)
+    {
+        if (!this.AllowPan)
+            return;
+
+        switch (e.StatusType)
+        {
+            case GestureStatus.Started:
+                this.isPanning = true;
+                this.panMoved = false;
+                this.panStartScrollX = this.timelineScroll.ScrollX;
+                this.panStartScrollY = this.timelineScroll.ScrollY;
+                this.touchHook?.LockScroller(true);
+                break;
+
+            case GestureStatus.Running when this.isPanning:
+                // A few pixels of slop, so a tap that wobbles still selects rather than being
+                // swallowed as a pan.
+                if (Math.Abs(e.TotalX) > 4 || Math.Abs(e.TotalY) > 4)
+                    this.panMoved = true;
+
+                var maxX = Math.Max(0, this.timelineContent.Width - this.timelineScroll.Width);
+                var maxY = Math.Max(0, this.timelineContent.Height - this.timelineScroll.Height);
+
+                _ = this.timelineScroll.ScrollToAsync(
+                    Math.Clamp(this.panStartScrollX - e.TotalX, 0, maxX),
+                    Math.Clamp(this.panStartScrollY - e.TotalY, 0, maxY),
+                    false
+                );
+                break;
+
+            case GestureStatus.Completed:
+            case GestureStatus.Canceled:
+                this.isPanning = false;
+                this.touchHook?.LockScroller(false);
                 break;
         }
     }
@@ -439,6 +506,14 @@ public partial class GanttView
 
     void CommitTap()
     {
+        // The tap recognizer still fires at the end of a pan. Selecting whatever happened to be under
+        // the finger when a scroll finished is not what the user asked for.
+        if (this.panMoved)
+        {
+            this.panMoved = false;
+            return;
+        }
+
         var hit = this.FindHit(this.pressPoint.X, this.pressPoint.Y);
         if (hit is null)
             return;

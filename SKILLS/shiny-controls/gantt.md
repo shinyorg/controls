@@ -156,8 +156,11 @@ ways), `None` (nothing else moves; broken links are reported in `Plan.Issues`).
 another bar and the link type falls out of which dots were used. A link that would close a cycle is
 refused.
 
-Per-gesture switches: `AllowMove`, `AllowResize`, `AllowProgressChange`, `AllowZoom`, `IsReadOnly`
-(outranks all of them), plus `CanMove`/`CanResize`/`CanChangeProgress` per task.
+Dragging empty timeline space pans the chart (`AllowPan`, default true, MAUI). Dragging a bar moves
+the bar; the press decides which before anything moves.
+
+Per-gesture switches: `AllowMove`, `AllowResize`, `AllowProgressChange`, `AllowZoom`, `AllowPan`,
+`IsReadOnly` (outranks all of them), plus `CanMove`/`CanResize`/`CanChangeProgress` per task.
 
 ## Calendars
 
@@ -195,5 +198,10 @@ Exactly one column should set `ShowHierarchy`; if none does, the first gets it.
 - **Both hosts: `BuildDragPlan` takes its task and target as arguments** because the commit path
   clears the drag fields first. Reading them instead produces a drag that tracks the pointer and then
   snaps back.
+- **MAUI panning is hand-driven, not native.** A `PanGestureRecognizer` on a `ScrollView` child
+  consumes the gesture, so the scroller only ever saw fast flicks. `PanChart` locks the native
+  scroller and scrolls programmatically; do not "simplify" it back to relying on the ScrollView.
+- **MAUI header clipping needs an explicit `Clip`.** `IsClippedToBounds` did not hold the translated
+  header GraphicsView in, and it painted over the task pane once scrolled.
 - **Bar colours**: `GanttTask.Color` is a plain string — a MAUI colour name/hex, or any CSS colour.
   It wins over the palette but not over the critical-path highlight.

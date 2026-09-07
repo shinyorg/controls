@@ -202,6 +202,10 @@ timeline.
 The header always draws **two** tiers, because a single row of day numbers tells you nothing about
 which month you are looking at.
 
+Dragging empty timeline space pans the chart in both directions; `AllowPan="False"` turns that off
+when something outside the control wants the gesture. Dragging a *bar* still moves the bar — the two
+never compete, because the press decides which it is before any movement happens.
+
 `PixelsPerDay` is the zoom. Leave it unset and it is derived from the scale. Both hosts offer
 `ZoomIn()`, `ZoomOut()`, `ZoomToFit()`, `ScrollToDate()` and `ScrollToTask()` — the last of which
 expands whatever the task is hidden inside first, since scrolling to a row a collapsed parent is
@@ -229,6 +233,12 @@ row instead, positioned at the rectangle the engine computed.
 - On MAUI the timeline is one `ScrollView` with the header and task pane translated to follow it,
   rather than nested scrollers — the same arrangement `DataGrid`'s frozen columns use, and the only
   one that behaves the same on all six platforms.
+- Also on MAUI, panning is driven by the control rather than by the native scroller. It has to be: the
+  `PanGestureRecognizer` that bar dragging needs consumes every drag, so leaving the scroller to it
+  gave a chart that scrolled on a fast flick and ignored an ordinary slow pan. Driving it by hand
+  makes the behaviour identical everywhere; the cost is that a hand-driven pan carries no momentum.
+  On Blazor the browser keeps the gesture — only the bars set `touch-action: none` — so panning there
+  does have momentum.
 - On Blazor the scroll synchronisation runs entirely in `gantt.js` and never crosses into .NET;
   routing it through interop puts a render pass between the scroll event and the transform, which
   reads as the header lagging the bars on every flick.

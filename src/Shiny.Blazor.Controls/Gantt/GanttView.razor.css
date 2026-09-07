@@ -185,9 +185,11 @@
 
 .shiny-gantt-canvas {
     position: relative;
-    /* Vertical panning stays with the browser; horizontal is claimed so a bar drag is not stolen by
-       the scroller on the first few pixels of movement. */
-    touch-action: pan-y;
+    /* Both axes stay with the browser, so a touch drag on empty timeline pans the chart with real
+       momentum. Claiming the horizontal axis here — the obvious way to protect a bar drag — takes
+       sideways panning away from the whole surface, which on a phone is most of what anyone does
+       with a Gantt. The bars opt out individually instead, below. */
+    touch-action: pan-x pan-y;
 }
 
 .shiny-gantt-empty {
@@ -277,6 +279,15 @@
 .shiny-gantt-bar-host {
     position: absolute;
     box-sizing: border-box;
+}
+
+/* Only the draggable bars take the gesture off the scroller. Anything else — the grid, the shading,
+   empty rows — leaves it alone so the surface still pans. */
+.shiny-gantt-bar,
+.shiny-gantt-summary,
+.shiny-gantt-milestone,
+.shiny-gantt-bar-host {
+    touch-action: none;
 }
 
 .shiny-gantt-bar {

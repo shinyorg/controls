@@ -110,9 +110,14 @@ public partial class GanttView : ContentView, IDisposable
         this.headerViewport = new ContentView
         {
             Content = this.headerGraphics,
-            IsClippedToBounds = true,
             HorizontalOptions = LayoutOptions.Fill
         };
+
+        // IsClippedToBounds alone does not hold the header in: scrolled right, the translated
+        // GraphicsView painted its earlier columns straight over the task pane's own header. An
+        // explicit Clip geometry does clip, but it has to be resized with the viewport - hence the
+        // handler rather than a one-off assignment.
+        this.headerViewport.SizeChanged += (_, _) => this.UpdateHeaderClip();
 
         this.timelineGraphics = new GraphicsView { Drawable = new GanttTimelineDrawable(this) };
         this.barLayer = new AbsoluteLayout { InputTransparent = true };
@@ -172,6 +177,12 @@ public partial class GanttView : ContentView, IDisposable
     internal IReadOnlyList<GanttTick> LowerTicks { get; private set; } = [];
     internal IReadOnlyList<(DateTimeOffset Start, DateTimeOffset End)> NonWorkingIntervals { get; private set; } = [];
     internal DateTimeOffset Now { get; private set; } = DateTimeOffset.Now;
+
+    /// <summary>How far the timeline is scrolled, so the header can pin a partly-scrolled label.</summary>
+    internal double ViewportScrollX { get; private set; }
+
+    /// <summary>Visible width of the timeline, paired with <see cref="ViewportScrollX"/>.</summary>
+    internal double ViewportWidth => this.timelineScroll.Width;
 
     /// <summary>The scale currently in use — the resolved one when <see cref="TimeScale"/> is Auto.</summary>
     public GanttTimeScale EffectiveScale { get; private set; } = GanttTimeScale.Day;
@@ -358,6 +369,7 @@ public partial class GanttView : ContentView, IDisposable
         this.headerGraphics.HeightRequest = this.HeaderHeight;
         this.headerGraphics.HorizontalOptions = LayoutOptions.Start;
         this.headerViewport.HeightRequest = this.HeaderHeight;
+        this.UpdateHeaderClip();
 
         this.taskPaneHeader.HeightRequest = this.HeaderHeight;
         this.taskPaneBorder.WidthRequest = this.ShowTaskPane ? this.TaskPaneWidth : 0;
@@ -535,6 +547,11 @@ public partial class GanttView : ContentView, IDisposable
         // scrollers fighting over momentum, and the header visibly lags the bars on iOS.
         this.headerGraphics.TranslationX = -e.ScrollX;
 
+        // The upper tier pins the month/year label of whichever cell the left edge is inside, so
+        // scrolling into the middle of September does not leave the row blank.
+        this.ViewportScrollX = e.ScrollX;
+        this.headerGraphics.Invalidate();
+
         if (this.syncingScroll)
             return;
 
@@ -570,6 +587,17 @@ public partial class GanttView : ContentView, IDisposable
     // =============================================================================================
     // Theme chrome
     // =============================================================================================
+
+    void UpdateHeaderClip()
+    {
+        if (this.headerViewport.Width <= 0 || this.headerViewport.Height <= 0)
+            return;
+
+        this.headerViewport.Clip = new Microsoft.Maui.Controls.Shapes.RectangleGeometry(
+            new Rect(0, 0, this.headerViewport.Width, this.headerViewport.Height)
+        );
+    }
+
 
     void ApplyThemeChrome()
     {
