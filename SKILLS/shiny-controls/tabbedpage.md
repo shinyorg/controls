@@ -317,6 +317,22 @@ It is called **once per tab whose selected state actually changed** — never on
 update or a rebuild, so an animation is not replayed by something the user cannot see. Both ends of
 a change are called: the tab losing the selection and the one taking it.
 
+## Animations look dead on an emulator
+
+`Transition`, the travelling indicator and the selection animations all run through MAUI's animation
+ticker, and MAUI **skips animations entirely** when the system reports them disabled — it jumps
+straight to the final frame. Android emulator images frequently ship with the animator scale off or
+unset, which makes every animation in the app look broken while nothing is actually wrong:
+
+```bash
+adb shell settings get global animator_duration_scale   # null or 0 = animations off
+adb shell settings put global animator_duration_scale 1.0
+```
+
+Confirmed both ways on an API 36 emulator: with the scale at 0 a deliberately slowed 4-second slide
+completed instantly; at 1.0 the same transition was caught mid-flight. Check this before debugging an
+animation on Android.
+
 ## Transparency
 
 `BarBackgroundOpacity` (`1` by default) fades the **background only** — icons, labels, badges and the

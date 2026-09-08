@@ -950,6 +950,40 @@ public class ShinyTabBarTests
     }
 
 
+    [Fact]
+    public void ChangingTheOpacityAssignsANewBrushRatherThanMutatingTheOldOne()
+    {
+        var bar = Build("One", "Two");
+        bar.BarBackgroundColor = Colors.Red;
+        var first = bar.Surface.Background;
+
+        bar.BarBackgroundOpacity = 0.5;
+
+        // Android's handler maps Background when the *property* changes, not when the brush it is
+        // already holding changes its Color underneath it. Mutating in place left the bar painted
+        // with the old colour until some unrelated property happened to re-assign Background - which
+        // is what "the transparency setting does nothing until I change something else" was.
+        bar.Surface.Background.ShouldNotBeSameAs(first);
+        FillOf(bar).Alpha.ShouldBe(0.5f, 0.001f);
+    }
+
+
+    [Fact]
+    public void ResolvingAThemeColourDoesNotThrowTheOpacityAway()
+    {
+        var bar = Build("One", "Two");
+        bar.BarBackgroundOpacity = 0.5;
+
+        // The probe stands in for the theme resolving a token after the fact. Binding the brush's
+        // Color straight to it - which the shared ThemeProbe helper does - would overwrite the alpha
+        // here and silently turn a translucent bar opaque on the next theme pass.
+        bar.SurfaceProbe.Color = Colors.Blue;
+
+        FillOf(bar).Alpha.ShouldBe(0.5f, 0.001f);
+        FillOf(bar).Blue.ShouldBe(1f, 0.001f);
+    }
+
+
     static Color FillOf(ShinyTabBar bar) => ((SolidColorBrush)bar.Surface.Background!).Color;
 
 

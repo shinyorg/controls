@@ -48,7 +48,6 @@ public partial class ShinyTabBar : Grid
     readonly Border barSurface;
     readonly Grid barGrid;
     readonly Border travelIndicator;
-    readonly SolidColorBrush surfaceBrush;
     readonly BoxView surfaceProbe;
 
     /// <summary>
@@ -152,8 +151,18 @@ public partial class ShinyTabBar : Grid
         // and keeps resolving it across a theme swap - and having the resolved colour in hand is
         // also what makes BarBackgroundOpacity possible, since an alpha cannot be applied to a token
         // that has not become a colour yet.
-        (this.surfaceBrush, this.surfaceProbe) = ThemeProbe.Create();
-        this.barSurface.Background = this.surfaceBrush;
+        //
+        // Built by hand rather than with ThemeProbe.Create, which binds the brush's Color to the
+        // probe's. That binding would overwrite the alpha every time the probe resolved a colour,
+        // silently turning a translucent bar opaque on the next theme pass. Here the probe only
+        // reports the colour and ApplyBarFill decides what to paint.
+        this.surfaceProbe = new BoxView
+        {
+            IsVisible = false,
+            WidthRequest = 0,
+            HeightRequest = 0,
+            InputTransparent = true
+        };
 
         this.Children.Add(this.barSurface);
         this.Children.Add(this.centerHost);
@@ -513,6 +522,9 @@ public partial class ShinyTabBar : Grid
     /// <summary>The border that paints the bar's background. For tests.</summary>
     internal Border Surface => this.barSurface;
 
+    /// <summary>The element the bar's colour token resolves on. For tests.</summary>
+    internal BoxView SurfaceProbe => this.surfaceProbe;
+
     /// <summary>
     /// Test seam: runs the tap handler for the cell at <paramref name="index"/>.
     /// </summary>
@@ -625,7 +637,13 @@ public partial class ShinyTabBar : Grid
         // Multiplied into whatever alpha the colour already carried rather than replacing it, so a
         // consumer who handed over a semi-transparent BarBackgroundColor keeps what they asked for.
         var opacity = Math.Clamp(this.BarBackgroundOpacity, 0, 1);
-        this.surfaceBrush.Color = color.WithAlpha((float)(color.Alpha * opacity));
+
+        // A *new* brush every time, rather than mutating one the Border already holds. Android's
+        // handler maps Background when the property changes, not when the brush it is already
+        // holding changes its Color underneath it - so mutating in place left the bar painted with
+        // the old colour until some unrelated property happened to re-assign Background. Which is
+        // exactly what "the transparency button does nothing until I change something else" was.
+        this.barSurface.Background = new SolidColorBrush(color.WithAlpha((float)(color.Alpha * opacity)));
     }
 
 
