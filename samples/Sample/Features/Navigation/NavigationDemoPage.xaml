@@ -27,8 +27,21 @@
                     AutomationId="OpenNavDemoLarge"
                     Clicked="OnOpenLarge" />
 
+            <Button Text="Open with a coloured bar under the status bar"
+                    AutomationId="OpenNavDemoTinted"
+                    Clicked="OnOpenTinted" />
+
             <Label FontSize="12" TextColor="Gray"
-                   Text="Both open modally, because Shell cannot host a NavigationPage." />
+                   Text="The tinted one shows the safe-area behaviour: the bar's background runs up through the status bar and the notch while the title stays below them, and the clock flips to white to stay readable on it." />
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <Label Text="Status bar" FontAttributes="Bold" />
+            <Label FontSize="13" TextColor="Gray"
+                   Text="StatusBarStyle is Auto by default — the clock and icons are picked from the bar's own background. On iOS the style needs UIViewControllerBasedStatusBarAppearance=false in Info.plist; the colour behind it follows the bar either way." />
+
+            <Label FontSize="12" TextColor="Gray"
+                   Text="All three open modally, because Shell cannot host a NavigationPage." />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

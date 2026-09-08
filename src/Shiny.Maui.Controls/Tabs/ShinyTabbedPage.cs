@@ -72,7 +72,15 @@ public partial class ShinyTabbedPage : ContentPage, ShinyTabBar.ITabMenuHost
 
         this.rootGrid = new Grid
         {
-            RowDefinitions = { new RowDefinition(GridLength.Star), new RowDefinition(GridLength.Auto) }
+            RowDefinitions = { new RowDefinition(GridLength.Star), new RowDefinition(GridLength.Auto) },
+
+            // Edge-to-edge. A Grid defaults to SafeAreaRegions.Container and it insets the area its
+            // children are arranged into, so the first layout in the chain that insets is the one
+            // that wins - and left at the default this one hands the bar a row that stops short of
+            // the bottom of the screen, leaving a strip of page under it whatever the bar does with
+            // its own inset. The bar takes the bottom inset inside its own background instead; the
+            // tab content in row 0 keeps MAUI's default for its type and still insets itself.
+            SafeAreaEdges = SafeAreaEdges.None
         };
         Grid.SetRow(this.contentHost, 0);
         Grid.SetRow(this.tabBar, 1);
@@ -82,6 +90,9 @@ public partial class ShinyTabbedPage : ContentPage, ShinyTabBar.ITabMenuHost
         this.rootGrid.Children.Add(this.contentHost);
         this.rootGrid.Children.Add(this.menuLayer);
         this.rootGrid.Children.Add(this.tabBar);
+
+        this.ApplyBarPlacement();
+        this.tabBar.BarStyleChanged += (_, _) => this.ApplyBarPlacement();
 
         this.tabs.CollectionChanged += this.OnTabsChanged;
 
@@ -94,6 +105,22 @@ public partial class ShinyTabbedPage : ContentPage, ShinyTabBar.ITabMenuHost
         // Last line: replays any styled property that was applied before the
         // children existed. See StyleGuard.
         StyleGuard.MarkReady(this, typeof(ShinyTabbedPage));
+    }
+
+
+    /// <summary>
+    /// Decides whether the content stops above the bar or runs the full height of the page under it.
+    /// </summary>
+    /// <remarks>
+    /// A floating bar is a capsule laid over the page, so content running underneath it is not a
+    /// separate opt-in - it is what floating means. <see cref="ContentBehindTabBar"/> stays a
+    /// property of its own because a docked bar can want the same thing (a translucent one over a
+    /// photo, say), so the two are OR-ed rather than one driving the other.
+    /// </remarks>
+    internal void ApplyBarPlacement()
+    {
+        var behind = this.ContentBehindTabBar || this.tabBar.BarStyle == TabBarStyle.Floating;
+        Grid.SetRowSpan(this.contentHost, behind ? 2 : 1);
     }
 
 

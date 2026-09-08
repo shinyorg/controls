@@ -398,4 +398,18 @@ public class ShinyTabbedPageTests
 
         public void OnTabDisappearing() => this.Disappeared++;
     }
+
+
+    [Fact]
+    public void ThePagesRootIsEdgeToEdgeSoTheBarCanReachTheBottom()
+    {
+        var page = new ShinyTabbedPage();
+        page.Tabs.Add(new ShinyTabItem { Title = "One", Content = new Label() });
+
+        // A Grid defaults to SafeAreaRegions.Container and insets the area its children are arranged
+        // into, so left at the default this one hands the bar a row that stops short of the screen -
+        // and no amount of work inside the bar can get its background past that.
+        var root = (Grid)page.Content!;
+        root.SafeAreaEdges.Bottom.ShouldBe(SafeAreaRegions.None);
+    }
 }

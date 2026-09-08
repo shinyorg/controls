@@ -274,6 +274,62 @@ public partial class ShinyNavigationPage
         set => this.SetValue(AnimationDurationProperty, value);
     }
 
+    /// <summary>Backing store for <see cref="RespectSafeArea"/>.</summary>
+    public static readonly BindableProperty RespectSafeAreaProperty = BindableProperty.Create(
+        nameof(RespectSafeArea), typeof(bool), typeof(ShinyNavigationPage), true,
+        propertyChanged: (b, _, _) => Restyle(b));
+
+    /// <inheritdoc cref="ShinyNavBar.RespectSafeArea"/>
+    public bool RespectSafeArea
+    {
+        get => (bool)this.GetValue(RespectSafeAreaProperty);
+        set => this.SetValue(RespectSafeAreaProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="StatusBarStyle"/>.</summary>
+    public static readonly BindableProperty StatusBarStyleProperty = BindableProperty.Create(
+        nameof(StatusBarStyle), typeof(StatusBarStyle), typeof(ShinyNavigationPage), StatusBarStyle.Auto,
+        propertyChanged: (b, _, _) => Restyle(b));
+
+    /// <summary>
+    /// How the status bar's clock and icons are drawn over the bar. <see cref="Shiny.Maui.Controls.StatusBarStyle.Auto"/>
+    /// by default, which reads the bar's own background and picks the readable one. A page overrides
+    /// it with <see cref="ShinyNav.StatusBarStyleProperty"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>iOS and Mac Catalyst</b> need <c>UIViewControllerBasedStatusBarAppearance</c> set to
+    /// <c>false</c> in <c>Info.plist</c> for any status bar style to apply — that is UIKit's rule and
+    /// it applies to MAUI's own <c>BarTextColor</c> handling just the same. Without the key the
+    /// status bar follows the system appearance and only the <em>background</em> behind it changes.
+    /// <b>Android</b> needs no opt-in.</para>
+    /// <para>Nothing to do on Windows, GTK4 or macOS AppKit — none of them has a status bar.</para>
+    /// </remarks>
+    public StatusBarStyle StatusBarStyle
+    {
+        get => (StatusBarStyle)this.GetValue(StatusBarStyleProperty);
+        set => this.SetValue(StatusBarStyleProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="StatusBarColor"/>.</summary>
+    public static readonly BindableProperty StatusBarColorProperty = BindableProperty.Create(
+        nameof(StatusBarColor), typeof(Color), typeof(ShinyNavigationPage), null,
+        propertyChanged: (b, _, _) => Restyle(b));
+
+    /// <summary>
+    /// Pins the colour the status bar is told about, instead of the bar's own background. Unset —
+    /// which is the normal case — follows the bar.
+    /// </summary>
+    /// <remarks>
+    /// It is worth setting for a bar painted with an image or a pattern brush, which has no single
+    /// colour to derive <see cref="Shiny.Maui.Controls.StatusBarStyle.Auto"/> from, and on Android
+    /// below 15, where this is the colour actually filled in behind the clock.
+    /// </remarks>
+    public Color? StatusBarColor
+    {
+        get => (Color?)this.GetValue(StatusBarColorProperty);
+        set => this.SetValue(StatusBarColorProperty, value);
+    }
+
     /// <summary>Backing store for <see cref="EnableSwipeBackGesture"/>.</summary>
     public static readonly BindableProperty EnableSwipeBackGestureProperty = BindableProperty.Create(
         nameof(EnableSwipeBackGesture), typeof(bool), typeof(ShinyNavigationPage), true);

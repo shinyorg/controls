@@ -197,8 +197,23 @@ public partial class ShinyNavBar : Grid
         this.Children.Add(this.surface);
         this.Children.Add(this.separator);
 
+        // The bar is a Grid, and a Grid defaults to SafeAreaRegions.Container - so left alone it
+        // takes the top inset itself, reserving a 68pt strip at the top of its own frame that the
+        // background can never be laid out into. The inset has to land on the one view *inside* the
+        // background instead, which ApplyBarSurface does; this makes room for it.
+        this.SafeAreaEdges = SafeAreaEdges.None;
+
         this.leftItems.CollectionChanged += this.OnItemsChanged;
         this.rightItems.CollectionChanged += this.OnItemsChanged;
+
+        // A theme token resolves on the probe long after the property that asked for it was set - on
+        // the first merge of the dictionary, and again on every theme swap - so the probe, not the
+        // property, is what says the bar's colour has actually changed.
+        this.surfaceProbe.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BoxView.Color))
+                this.UpdateEffectiveBarColor();
+        };
 
         // The centred title is inset by whichever group is wider, and neither has a width until it
         // has been measured - so the inset is recomputed rather than guessed at build time.
@@ -265,6 +280,12 @@ public partial class ShinyNavBar : Grid
     internal Layout TrailingHost => this.trailingHost;
 
     internal Grid BarLayout => this.barGrid;
+
+    internal Border Surface => this.surface;
+
+    internal Grid SurfaceContent => this.stack;
+
+    internal BoxView SurfaceProbe => this.surfaceProbe;
 
     internal Grid TitleHost => this.titleHost;
 
@@ -415,6 +436,14 @@ public partial class ShinyNavBar : Grid
         // could only ever be the one it replaces.
         this.surface.Background = this.BarBackground ?? this.surfaceBrush;
 
+        // On the Border's *content*, not on the Border. The inset is applied by offsetting the view
+        // that carries it, not by padding it - so putting it on the surface pushed the whole
+        // background down and left the strip above it painted in the page's colour, which is the
+        // exact failure this is here to fix. On the content the surface stays at the top of the bar
+        // and grows by the inset, so the background fills the status bar and the notch while the
+        // title and the items sit below them.
+        this.stack.SafeAreaEdges = this.RespectSafeArea ? ContainerSafeArea : SafeAreaEdges.None;
+
         this.barGrid.Padding = this.BarPadding;
         this.barGrid.HeightRequest = this.BarHeight;
         this.separator.IsVisible = this.HasSeparator;
@@ -423,6 +452,57 @@ public partial class ShinyNavBar : Grid
             this.surface.WithElevation(ShinyThemeKeys.Elevation.Level2);
         else
             this.surface.ClearValue(VisualElement.ShadowProperty);
+
+        this.UpdateEffectiveBarColor();
+    }
+
+
+    /// <summary>
+    /// Every edge in <see cref="SafeAreaRegions.Container"/> mode. Built rather than taken from
+    /// <c>SafeAreaEdges.Container</c>, which MAUI keeps internal.
+    /// </summary>
+    static readonly SafeAreaEdges ContainerSafeArea = new(SafeAreaRegions.Container);
+
+
+    /// <summary>
+    /// The one colour the bar paints behind the status bar, or null when it cannot be reduced to one.
+    /// </summary>
+    /// <remarks>
+    /// Read rather than computed by the consumer because the usual case is a theme token: the colour
+    /// only exists once the dictionary has merged and the probe has resolved it, which is later than
+    /// any property this bar exposes. <see cref="EffectiveBarColorChanged"/> is the signal that it
+    /// finally has - or that a theme swap has changed it.
+    /// </remarks>
+    public Color? EffectiveBarColor { get; private set; }
+
+    /// <summary>Raised when <see cref="EffectiveBarColor"/> becomes a different colour.</summary>
+    public event EventHandler? EffectiveBarColorChanged;
+
+
+    void UpdateEffectiveBarColor()
+    {
+        var resolved = this.BarBackground switch
+        {
+            SolidColorBrush solid => solid.Color,
+
+            // The top stop, not an average: it is the end of the gradient the status bar sits over.
+            // Ordered rather than trusted in declaration order - GradientStops is a plain collection.
+            GradientBrush gradient => gradient.GradientStops.OrderBy(s => s.Offset).FirstOrDefault()?.Color,
+
+            // No brush, so the surface is painted by the probe - which is where an explicit
+            // BarBackgroundColor and a resolved theme token both end up.
+            null => this.surfaceProbe.Color,
+
+            // An image or a pattern brush has no single colour, and guessing one would drive the
+            // status bar to a contrast that is not on screen.
+            _ => null
+        };
+
+        if (Equals(this.EffectiveBarColor, resolved))
+            return;
+
+        this.EffectiveBarColor = resolved;
+        this.EffectiveBarColorChanged?.Invoke(this, EventArgs.Empty);
     }
 
 

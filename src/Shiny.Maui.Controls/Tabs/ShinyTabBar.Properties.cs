@@ -21,6 +21,11 @@ public partial class ShinyTabBar
         nameof(BarHeight), typeof(double), typeof(ShinyTabBar), 62d,
         propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.ApplyMetrics()));
 
+    /// <summary>Backing store for <see cref="BarStyle"/>.</summary>
+    public static readonly BindableProperty BarStyleProperty = BindableProperty.Create(
+        nameof(BarStyle), typeof(TabBarStyle), typeof(ShinyTabBar), TabBarStyle.Docked,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.ApplyBarStyle()));
+
     /// <summary>Backing store for <see cref="BarBackgroundColor"/>.</summary>
     public static readonly BindableProperty BarBackgroundColorProperty = BindableProperty.Create(
         nameof(BarBackgroundColor), typeof(Color), typeof(ShinyTabBar), null,
@@ -45,6 +50,93 @@ public partial class ShinyTabBar
     public static readonly BindableProperty HasShadowProperty = BindableProperty.Create(
         nameof(HasShadow), typeof(bool), typeof(ShinyTabBar), true,
         propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.ApplySurface()));
+
+    /// <summary>Backing store for <see cref="BarBackgroundOpacity"/>.</summary>
+    public static readonly BindableProperty BarBackgroundOpacityProperty = BindableProperty.Create(
+        nameof(BarBackgroundOpacity), typeof(double), typeof(ShinyTabBar), 1d,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.ApplySurface()));
+
+    /// <summary>
+    /// How opaque the bar's background is, from <c>0</c> (invisible) to <c>1</c> (solid, the default).
+    /// </summary>
+    /// <remarks>
+    /// <para>The <b>background only</b> — the icons, labels, badges and indicator stay fully opaque.
+    /// A bar whose tabs fade along with its background is not a translucent bar, it is a faded one,
+    /// and it is unreadable well before the background is interesting.</para>
+    /// <para>It multiplies into whatever alpha the colour already had, so a semi-transparent
+    /// <see cref="BarBackgroundColor"/> keeps what it asked for and follows a theme swap.</para>
+    /// <para>Worth pairing with <c>ShinyTabbedPage.ContentBehindTabBar</c>: without it the content
+    /// stops above the bar and there is nothing behind the glass to see.</para>
+    /// </remarks>
+    public double BarBackgroundOpacity
+    {
+        get => (double)this.GetValue(BarBackgroundOpacityProperty);
+        set => this.SetValue(BarBackgroundOpacityProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="MaxVisibleTabs"/>.</summary>
+    public static readonly BindableProperty MaxVisibleTabsProperty = BindableProperty.Create(
+        nameof(MaxVisibleTabs), typeof(int), typeof(ShinyTabBar), 0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.RebuildCells()));
+
+    /// <summary>
+    /// How many cells the bar will draw before the rest fold into an overflow tab. <c>0</c> — the
+    /// default — works it out from the bar's own width and <see cref="MinTabWidth"/>.
+    /// </summary>
+    /// <remarks>
+    /// The overflow tab counts as one of them, so <c>MaxVisibleTabs="4"</c> over six tabs draws three
+    /// real tabs and a <b>More</b>. A value of <c>1</c> is treated as <c>2</c>: a bar that is nothing
+    /// but an overflow button is not a tab bar.
+    /// </remarks>
+    public int MaxVisibleTabs
+    {
+        get => (int)this.GetValue(MaxVisibleTabsProperty);
+        set => this.SetValue(MaxVisibleTabsProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="MinTabWidth"/>.</summary>
+    public static readonly BindableProperty MinTabWidthProperty = BindableProperty.Create(
+        nameof(MinTabWidth), typeof(double), typeof(ShinyTabBar), 72d,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.RebuildCells()));
+
+    /// <summary>
+    /// The narrowest a tab may become before the bar starts folding tabs away. This is what
+    /// "overflow" actually means when <see cref="MaxVisibleTabs"/> is left at <c>0</c>.
+    /// </summary>
+    /// <remarks>
+    /// A width rather than a count, because the count that fits is not a property of the bar — six
+    /// tabs are fine on a tablet and unreadable on a phone in portrait, and the same app runs on
+    /// both. Raise it for longer labels; lower it for an icon-only bar.
+    /// </remarks>
+    public double MinTabWidth
+    {
+        get => (double)this.GetValue(MinTabWidthProperty);
+        set => this.SetValue(MinTabWidthProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="OverflowTitle"/>.</summary>
+    public static readonly BindableProperty OverflowTitleProperty = BindableProperty.Create(
+        nameof(OverflowTitle), typeof(string), typeof(ShinyTabBar), "More",
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.RebuildCells()));
+
+    /// <summary>The overflow tab's label.</summary>
+    public string OverflowTitle
+    {
+        get => (string)this.GetValue(OverflowTitleProperty);
+        set => this.SetValue(OverflowTitleProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="OverflowIcon"/>.</summary>
+    public static readonly BindableProperty OverflowIconProperty = BindableProperty.Create(
+        nameof(OverflowIcon), typeof(string), typeof(ShinyTabBar), "more",
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.RebuildCells()));
+
+    /// <summary>The motion icon the overflow tab draws. Defaults to the built-in <c>more</c> glyph.</summary>
+    public string? OverflowIcon
+    {
+        get => (string?)this.GetValue(OverflowIconProperty);
+        set => this.SetValue(OverflowIconProperty, value);
+    }
 
     /// <summary>Backing store for <see cref="RespectSafeArea"/>.</summary>
     public static readonly BindableProperty RespectSafeAreaProperty = BindableProperty.Create(
@@ -184,6 +276,21 @@ public partial class ShinyTabBar
     {
         get => (ShinyTabItem?)this.GetValue(SelectedItemProperty);
         set => this.SetValue(SelectedItemProperty, value);
+    }
+
+    /// <summary>
+    /// Docked to the bottom edge, or a capsule floating over the content. Defaults to
+    /// <see cref="TabBarStyle.Docked"/>.
+    /// </summary>
+    /// <remarks>
+    /// Switching to <see cref="TabBarStyle.Floating"/> supplies a margin and a capsule corner radius
+    /// of its own, and lets the page's content run underneath the bar. Setting
+    /// <see cref="BarMargin"/> or <see cref="BarCornerRadius"/> explicitly still wins over both.
+    /// </remarks>
+    public TabBarStyle BarStyle
+    {
+        get => (TabBarStyle)this.GetValue(BarStyleProperty);
+        set => this.SetValue(BarStyleProperty, value);
     }
 
     /// <summary>Height of the bar itself, excluding anything the centre button rises above it.</summary>

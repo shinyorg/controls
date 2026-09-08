@@ -27,6 +27,26 @@ public partial class TabsDemoPage : ShinyTabbedPage
             this.viewModel.Status = $"Ran \"{e.Action.Text}\" from the centre menu.";
     }
 
+    void OnBarDocked(object? sender, EventArgs e) => this.BarStyle = TabBarStyle.Docked;
+
+    void OnBarFloating(object? sender, EventArgs e) => this.BarStyle = TabBarStyle.Floating;
+
+    void OnBarSolid(object? sender, EventArgs e)
+    {
+        this.BarBackgroundOpacity = 1;
+        this.ContentBehindTabBar = false;
+    }
+
+    void OnBarTranslucent(object? sender, EventArgs e) => this.BarBackgroundOpacity = 0.6;
+
+    // Transparency on its own only reveals the page's own background. Running the content under the
+    // bar is what puts something behind the glass worth seeing.
+    void OnBarGlass(object? sender, EventArgs e)
+    {
+        this.BarBackgroundOpacity = 0.35;
+        this.ContentBehindTabBar = true;
+    }
+
     void OnSlide(object? sender, EventArgs e) => this.Transition = StateTransition.Slide;
 
     void OnFade(object? sender, EventArgs e) => this.Transition = StateTransition.Fade;

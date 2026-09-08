@@ -56,8 +56,7 @@ public partial class ShinyTabbedPage
     /// <summary>Backing store for <see cref="ContentBehindTabBar"/>.</summary>
     public static readonly BindableProperty ContentBehindTabBarProperty = BindableProperty.Create(
         nameof(ContentBehindTabBar), typeof(bool), typeof(ShinyTabbedPage), false,
-        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page =>
-            Grid.SetRowSpan(page.contentHost, (bool)n ? 2 : 1)));
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.ApplyBarPlacement()));
 
     /// <summary>Backing store for <see cref="SyncTitleWithTab"/>.</summary>
     public static readonly BindableProperty SyncTitleWithTabProperty = BindableProperty.Create(
@@ -117,6 +116,78 @@ public partial class ShinyTabbedPage
     public static readonly BindableProperty HasShadowProperty = BindableProperty.Create(
         nameof(HasShadow), typeof(bool), typeof(ShinyTabbedPage), true,
         propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.HasShadow = (bool)n));
+
+    /// <summary>Backing store for <see cref="BarStyle"/>.</summary>
+    public static readonly BindableProperty BarStyleProperty = BindableProperty.Create(
+        nameof(BarStyle), typeof(TabBarStyle), typeof(ShinyTabbedPage), TabBarStyle.Docked,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.BarStyle = (TabBarStyle)n));
+
+    /// <inheritdoc cref="ShinyTabBar.BarStyle"/>
+    public TabBarStyle BarStyle
+    {
+        get => (TabBarStyle)this.GetValue(BarStyleProperty);
+        set => this.SetValue(BarStyleProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="BarBackgroundOpacity"/>.</summary>
+    public static readonly BindableProperty BarBackgroundOpacityProperty = BindableProperty.Create(
+        nameof(BarBackgroundOpacity), typeof(double), typeof(ShinyTabbedPage), 1d,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.BarBackgroundOpacity = (double)n));
+
+    /// <inheritdoc cref="ShinyTabBar.BarBackgroundOpacity"/>
+    public double BarBackgroundOpacity
+    {
+        get => (double)this.GetValue(BarBackgroundOpacityProperty);
+        set => this.SetValue(BarBackgroundOpacityProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="MaxVisibleTabs"/>.</summary>
+    public static readonly BindableProperty MaxVisibleTabsProperty = BindableProperty.Create(
+        nameof(MaxVisibleTabs), typeof(int), typeof(ShinyTabbedPage), 0,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.MaxVisibleTabs = (int)n));
+
+    /// <inheritdoc cref="ShinyTabBar.MaxVisibleTabs"/>
+    public int MaxVisibleTabs
+    {
+        get => (int)this.GetValue(MaxVisibleTabsProperty);
+        set => this.SetValue(MaxVisibleTabsProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="MinTabWidth"/>.</summary>
+    public static readonly BindableProperty MinTabWidthProperty = BindableProperty.Create(
+        nameof(MinTabWidth), typeof(double), typeof(ShinyTabbedPage), 72d,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.MinTabWidth = (double)n));
+
+    /// <inheritdoc cref="ShinyTabBar.MinTabWidth"/>
+    public double MinTabWidth
+    {
+        get => (double)this.GetValue(MinTabWidthProperty);
+        set => this.SetValue(MinTabWidthProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="OverflowTitle"/>.</summary>
+    public static readonly BindableProperty OverflowTitleProperty = BindableProperty.Create(
+        nameof(OverflowTitle), typeof(string), typeof(ShinyTabbedPage), "More",
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.OverflowTitle = (string)n));
+
+    /// <inheritdoc cref="ShinyTabBar.OverflowTitle"/>
+    public string OverflowTitle
+    {
+        get => (string)this.GetValue(OverflowTitleProperty);
+        set => this.SetValue(OverflowTitleProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="OverflowIcon"/>.</summary>
+    public static readonly BindableProperty OverflowIconProperty = BindableProperty.Create(
+        nameof(OverflowIcon), typeof(string), typeof(ShinyTabbedPage), "more",
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.OverflowIcon = n as string));
+
+    /// <inheritdoc cref="ShinyTabBar.OverflowIcon"/>
+    public string? OverflowIcon
+    {
+        get => (string?)this.GetValue(OverflowIconProperty);
+        set => this.SetValue(OverflowIconProperty, value);
+    }
 
     /// <summary>Backing store for <see cref="IconSize"/>.</summary>
     public static readonly BindableProperty IconSizeProperty = BindableProperty.Create(
@@ -185,8 +256,10 @@ public partial class ShinyTabbedPage
     }
 
     /// <summary>
-    /// Runs the content full-bleed under the bar instead of stopping above it — for a translucent or
-    /// floating bar. Remember to leave room at the bottom of your own content.
+    /// Runs the content full-bleed under the bar instead of stopping above it — for a translucent
+    /// bar. Remember to leave room at the bottom of your own content. A
+    /// <see cref="TabBarStyle.Floating"/> bar does this whatever this is set to, since a capsule laid
+    /// over the page has nothing to stop above.
     /// </summary>
     public bool ContentBehindTabBar
     {

@@ -412,6 +412,122 @@ public class ShinyNavigationPageTests
 
 
     [Fact]
+    public void TheBarsBackgroundRunsThroughTheStatusBarWhileItsContentDoesNot()
+    {
+        var root = Page();
+        var nav = new ShinyNavigationPage(root);
+        var bar = BarOf(root);
+
+        // On the surface's content, not on the surface: the inset offsets whatever carries it, so
+        // on the Border it would push the background down and leave the strip above it in the page's
+        // colour. On the content the background stays at the top and grows by the inset instead.
+        bar.SurfaceContent.SafeAreaEdges.Top.ShouldBe(SafeAreaRegions.Container);
+        bar.Surface.SafeAreaEdges.Top.ShouldBe(SafeAreaRegions.None);
+
+        // And the host must not inset first, or the surface never reaches the top edge to begin with.
+        // A Grid defaults to Container, so this is a deliberate value rather than the default.
+        nav.HostFor(root).ShouldNotBeNull().SafeAreaEdges.Top.ShouldBe(SafeAreaRegions.None);
+    }
+
+
+    [Fact]
+    public void TurningTheSafeAreaOffPutsTheBarUnderTheStatusBar()
+    {
+        var root = Page();
+        var nav = new ShinyNavigationPage(root) { RespectSafeArea = false };
+
+        BarOf(root).SurfaceContent.SafeAreaEdges.Top.ShouldBe(SafeAreaRegions.None);
+    }
+
+
+    [Fact]
+    public void ADarkBarAsksForALightStatusBarAndALightBarForADarkOne()
+    {
+        var root = Page();
+        var nav = new ShinyNavigationPage(root) { BarBackgroundColor = Colors.Black };
+
+        nav.ResolvedStatusBarStyle(root).ShouldBe(StatusBarStyle.LightContent);
+
+        nav.BarBackgroundColor = Colors.White;
+        nav.ResolvedStatusBarStyle(root).ShouldBe(StatusBarStyle.DarkContent);
+    }
+
+
+    [Fact]
+    public void LuminanceIsWeightedNotHslLightness()
+    {
+        // The case HSL gets wrong: pure blue and pure yellow are both "50% light", and only one of
+        // them can carry a black clock.
+        ShinyNavigationPage.IsDark(Colors.Blue).ShouldBeTrue();
+        ShinyNavigationPage.IsDark(Colors.Yellow).ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void APageOverridesTheNavigationPagesStatusBarStyle()
+    {
+        var root = Page();
+        var nav = new ShinyNavigationPage(root) { BarBackgroundColor = Colors.White };
+
+        ShinyNav.SetStatusBarStyle(root, StatusBarStyle.LightContent);
+        nav.ResolvedStatusBarStyle(root).ShouldBe(StatusBarStyle.LightContent);
+
+        // Inherit is the "not answered" value, so a page can go back to following the host.
+        ShinyNav.SetStatusBarStyle(root, StatusBarStyle.Inherit);
+        nav.ResolvedStatusBarStyle(root).ShouldBe(StatusBarStyle.DarkContent);
+    }
+
+
+    [Fact]
+    public void APerPageBarColourDrivesTheStatusBarToo()
+    {
+        var root = Page();
+        var nav = new ShinyNavigationPage(root) { BarBackgroundColor = Colors.White };
+
+        ShinyNav.SetBarBackgroundColor(root, Colors.DarkSlateBlue);
+
+        nav.ResolvedStatusBarStyle(root).ShouldBe(StatusBarStyle.LightContent);
+    }
+
+
+    [Fact]
+    public void AGradientBarIsReadAtTheStopTheStatusBarSitsOver()
+    {
+        var root = Page();
+        var nav = new ShinyNavigationPage(root)
+        {
+            BarBackground = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Colors.White, 1),
+                    new GradientStop(Colors.Black, 0)
+                },
+                new Point(0, 0),
+                new Point(0, 1))
+        };
+
+        // Offset 0 is the top of the bar - the end the status bar is over - regardless of the order
+        // the stops were declared in.
+        BarOf(root).EffectiveBarColor.ShouldBe(Colors.Black);
+        nav.ResolvedStatusBarStyle(root).ShouldBe(StatusBarStyle.LightContent);
+    }
+
+
+    [Fact]
+    public void StatusBarStyleNoneLeavesThePlatformAlone()
+    {
+        var root = Page();
+        var nav = new ShinyNavigationPage(root)
+        {
+            BarBackgroundColor = Colors.Black,
+            StatusBarStyle = StatusBarStyle.None
+        };
+
+        nav.ResolvedStatusBarStyle(root).ShouldBe(StatusBarStyle.None);
+    }
+
+
+    [Fact]
     public void ConstructionLeavesNoGuardedCallbackQueued()
     {
         // Anything still queued is a styled or XAML-set value that silently never applied.

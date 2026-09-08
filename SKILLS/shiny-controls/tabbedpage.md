@@ -131,7 +131,7 @@ Content: `Tabs`, `Transition`, `TransitionDuration`, `TransitionEasing`, `CacheT
 Bar: `TabBarIsVisible`, `ContentBehindTabBar` (full-bleed under a translucent bar — leave room at the
 bottom of your own content), `CenterButton`, `IndicatorStyle`, `LabelMode`, `SelectedColor`,
 `UnselectedColor`, `IndicatorColor`, `BarHeight`, `BarBackgroundColor`, `BarCornerRadius`,
-`BarMargin`, `HasShadow`, `IconSize`, `AnimateIcons`, and `TabBar` itself for everything else.
+`BarMargin`, `BarStyle`, `HasShadow`, `IconSize`, `AnimateIcons`, and `TabBar` itself for everything else.
 
 ## ShinyTabItem
 
@@ -317,11 +317,106 @@ It is called **once per tab whose selected state actually changed** — never on
 update or a rebuild, so an animation is not replayed by something the user cannot see. Both ends of
 a change are called: the tab losing the selection and the one taking it.
 
+## Transparency
+
+`BarBackgroundOpacity` (`1` by default) fades the **background only** — icons, labels, badges and the
+indicator stay fully opaque. A bar whose tabs fade along with it is not translucent, it is unreadable.
+
+```xml
+<shiny:ShinyTabbedPage BarBackgroundOpacity="0.6" ContentBehindTabBar="True" />
+```
+
+The alpha goes on the colour, never on a view: `Opacity` on the surface would take everything inside
+it down too, and opacity multiplies down the tree so a child cannot undo it. It multiplies into any
+alpha the colour already carried, and follows a theme swap.
+
+Pair it with `ContentBehindTabBar` (or `BarStyle="Floating"`, which implies it) — without content
+running underneath, there is nothing behind the glass to see.
+
+## Menus close when the tab changes
+
+Both the centre menu and the overflow menu close on any change of selected tab — a tap, `GoTo`, or a
+binding on `SelectedIndex`. A menu belongs to the tab it was opened over, and changing tabs swaps the
+page underneath it. A **reselect** does not close it: the page is the same one it was opened over.
+
+## Overflow — the "More" tab
+
+The bar folds tabs away on its own when they stop fitting. Nothing to switch on.
+
+`MaxVisibleTabs` is `0` by default, which means **work it out from the bar's width**: the cap is the
+width divided by `MinTabWidth` (72), less the centre button's column. Anything past it folds behind a
+synthesized **More** tab, and the split is recomputed when the width changes — a rotation, a window
+resize, or a Shell bar moving to a page with different chrome. Set `MaxVisibleTabs` to a number to
+pin it instead.
+
+```xml
+<shiny:ShinyTabbedPage MaxVisibleTabs="4"        <!-- 0 = auto, the default -->
+                       MinTabWidth="72"          <!-- what "does not fit" means -->
+                       OverflowTitle="More"
+                       OverflowIcon="more" />
+```
+
+- **The cap counts the More tab.** `MaxVisibleTabs="4"` over six tabs draws three real tabs and a
+  More — otherwise adding the More cell would put the bar straight back over the width that caused
+  the overflow. A cap of `1` is treated as `2`; a bar that is nothing but an overflow button is not a
+  tab bar.
+- **The More tab shows as selected** whenever the tab on screen is one it folded away, so the bar
+  never reads as having nothing selected.
+- **Folded tabs keep their badges** — a row in the menu carries the count that is no longer visible
+  in the bar, which is the whole reason to notice it.
+- It reuses the centre button's menu card, backdrop and animation, anchored to the trailing edge
+  instead of the middle. The centre button does **not** rotate into its close glyph for it: that
+  affordance belongs to the menu the button itself opened.
+- In code: `HasOverflow`, `OverflowItems`, `OpenOverflow()` and `SelectOverflowItem(item)` on
+  `ShinyTabBar`. The More cell's `AutomationId` is `tab-more`.
+
+## Bar style — docked or floating
+
+`BarStyle` is `TabBarStyle.Docked` by default. `TabBarStyle.Floating` is the iOS-style capsule:
+
+```xml
+<shiny:ShinyTabbedPage BarStyle="Floating" ...>
+```
+
+or `page.TabBar.BarStyle = TabBarStyle.Floating;`
+
+What changes with `Floating`:
+
+- The bar is inset from the page edges — 16 either side and 8 below — unless `BarMargin` is set.
+- Corners become a capsule (half the bar height) unless `BarCornerRadius` is set.
+- `ContentBehindTabBar` is implied, so the page's content is laid out against the **full height** of
+  the page and the bar is drawn over it. Pad the bottom of a scrollable by about `BarHeight` so its
+  last row is not left under the capsule. That property is still worth setting on its own for a
+  docked bar you have made translucent.
+- The safe-area inset moves from the bar's background to the bar itself, so the capsule clears the
+  home indicator instead of painting through it.
+- The shadow steps up from Level2 to Level3, because a detached bar has nothing behind it to read
+  against.
+
+In Shell (`ShinyTabBarBehavior`) the bar is already an overlay over the page, so `Floating` needs
+nothing extra there.
+
 ## Safe area
 
-`RespectSafeArea` is **on by default**. The bar's background keeps painting to the screen edge while
-the tabs inside are inset out of the home indicator. Turn it off for a bar that is not docked to the
-bottom of a page, or one already inside a safe-area-aware container.
+`RespectSafeArea` is **on by default**. Docked, the background paints all the way to the bottom of
+the screen while the tabs inside sit above the home indicator. Floating, the whole capsule is inset
+instead. Turn it off for a bar that is not docked to the bottom of a page, or one already inside a
+safe-area-aware container.
+
+How it gets there matters if you are changing this code:
+
+- A **docked** bar declares no `SafeAreaEdges` anywhere in its chain. The inset is read off the window
+  and padded into the surface, and the surface's `HeightRequest` becomes `BarHeight + inset` — extra
+  height, not a squeeze. `SafeAreaEdges` does not reach a view laid out inside a chain of `Auto`
+  rows; declared there it arrives as zero, which is indistinguishable from a device with no home
+  indicator. And any layer that *does* declare `Container` double-counts it once the background
+  genuinely reaches the bottom — leaving it on the surface crushed the tab row to 16pt and clipped
+  every icon.
+- A **floating** bar is the opposite: the bar itself declares `Container` and lifts the whole capsule,
+  so the gap underneath it — the thing that makes it read as floating — is not painted over.
+- `ShinyTabbedPage`'s root grid is `SafeAreaEdges="None"`. A `Grid` defaults to `Container` and insets
+  the area its children are arranged into, so left alone it hands the bar a row that stops short of
+  the screen and nothing the bar does can get past that.
 
 ## Shell
 
@@ -370,7 +465,7 @@ Rules worth knowing:
 The bar on its own, for hosting it somewhere neither host covers.
 
 Chrome: `Items`, `SelectedIndex`/`SelectedItem`, `BarHeight`, `BarBackgroundColor`,
-`BarCornerRadius`, `BarMargin`, `BarPadding`, `HasShadow`, `SelectedColor`, `UnselectedColor`,
+`BarCornerRadius`, `BarMargin`, `BarPadding`, `BarStyle`, `HasShadow`, `SelectedColor`, `UnselectedColor`,
 `IndicatorColor`, `IndicatorStyle`, `IndicatorTransition`, `IndicatorEasing`, `LabelMode`,
 `IconSize`, `FontSize`, `AnimateIcons`, `AnimationDuration`, `SelectionAnimation`, `Animator`,
 `MenuTemplate`, `RespectSafeArea`, `CenterButton`, `PageContext`, `IsMenuOpen`,

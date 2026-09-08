@@ -122,8 +122,8 @@ with `LargeTitleHeight` (52), `LargeTitleCollapseDistance` (48) and `LargeTitleF
 ## Per-page overrides (`ShinyNav`)
 
 `Subtitle`, `LargeTitle`, `LargeTitleDisplay`, `ScrollSource`, `IsNavBarVisible`,
-`BarBackgroundColor`, `BarTextColor`, `TitleAlignment`, `BackButtonIcon`, `BackButtonCommand`,
-`BackButtonCommandParameter`, plus `LeftItems`/`RightItems`.
+`BarBackgroundColor`, `BarTextColor`, `StatusBarStyle`, `TitleAlignment`, `BackButtonIcon`,
+`BackButtonCommand`, `BackButtonCommandParameter`, plus `LeftItems`/`RightItems`.
 
 `TitleAlignment` is `Auto` / `Start` / `Center`. On a page, `Auto` means "inherit"; on the navigation
 page it means centred on iOS and Mac Catalyst, leading elsewhere. `Center` centres on the **bar**, not
@@ -142,11 +142,50 @@ Nothing is popped for you — call `Navigation.PopAsync()` when you are done. Or
 
 `BarHeight` (56), `BarPadding` (4,0), `HasShadow` (true), `HasSeparator` (false), `ItemSpacing` (2),
 `IconSize` (22), `MaxVisibleItems` (3), `OverflowIcon` (unset draws the three-dot glyph),
-`MenuTemplate`, `AnimationDuration` (180), `BarIconColor`, `TitleFontSize`/`TitleFontFamily`/
-`TitleFontAttributes`. Everything unset follows the active theme's tokens.
+`MenuTemplate`, `AnimationDuration` (180), `BarIconColor`, `RespectSafeArea` (true),
+`StatusBarStyle` (`Auto`), `StatusBarColor`, `TitleFontSize`/`TitleFontFamily`/`TitleFontAttributes`.
+Everything unset follows the active theme's tokens.
 
 **`BarIconColor`, not `IconColor`** — `NavigationPage.IconColor` is MAUI's own *attached* property and
 is the per-page override; this is only the default for it.
+
+## Status bar & safe area
+
+The bar handles the top inset itself, and it is on by default — nothing to set for the normal case.
+
+- **The background runs to the top of the screen.** `SafeAreaRegions.Container` sits on the view
+  *inside* the bar's background — MAUI applies an inset by offsetting the view that carries it, not by
+  padding it, so on the bar or on its `Border` the whole background moves down and leaves the strip
+  above it in the page's colour. On the content the background stays flush with the top and grows by
+  the inset. Everything above it is `SafeAreaEdges="None"`: the bar, the host grid the page's content
+  is wrapped in, and the overlay root. All three are `Grid`s and a `Grid` defaults to `Container`, so
+  any one left at the default insets first and the bar never reaches the edge. The page's own content
+  keeps MAUI's default for its type, so a layout still insets itself out of the home indicator.
+- **`RespectSafeArea="False"`** puts the bar under the status bar instead — for a media or camera
+  overlay on a full-bleed page.
+- **`StatusBarStyle`** is `Auto` by default: the clock and icons are picked from the bar's own
+  background by relative luminance (dark bar → white clock). Other values are `LightContent`,
+  `DarkContent` and `None` (leave the platform alone); `ShinyNav.StatusBarStyle` overrides it per page,
+  with `Inherit` as the "not answered" value.
+- **`StatusBarColor`** pins the colour instead of reading the bar's — worth setting when the bar is an
+  image or pattern brush, which has no single colour for `Auto` to read. A gradient needs nothing: the
+  stop at offset 0 is used, which is the end the status bar sits over.
+
+```xaml
+<shiny:ShinyNavigationPage BarBackgroundColor="#3F2B96" BarTextColor="White" />
+<!-- nothing else: the status bar takes the colour and its clock goes white -->
+```
+
+Platform reality:
+
+| | background behind the clock | clock & icon colour |
+|---|---|---|
+| iOS / Mac Catalyst | ✅ the bar's, via the safe-area inset | ✅ needs `UIViewControllerBasedStatusBarAppearance` = `false` in `Info.plist` |
+| Android (all versions) | ✅ the bar's (15+) / `SetStatusBarColor` (14 and below) | ❌ **does not currently take** — the system re-asserts the theme appearance after our write; ruled out: races, the activity lookup, the AndroidX wrapper |
+| Windows / GTK4 / macOS AppKit | no status bar | n/a |
+
+On Android, pick a bar colour that reads against the system's own status bar icons until the
+foreground half is fixed.
 
 ## Reaching the bar in code
 

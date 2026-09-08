@@ -70,3 +70,36 @@ public enum NavBarSide
     /// <summary>The trailing end.</summary>
     Right
 }
+
+/// <summary>How the system status bar's clock and icons are drawn over a <see cref="ShinyNavBar"/>.</summary>
+/// <remarks>
+/// This is the <em>foreground</em> only. The status bar has no background of its own on a modern
+/// device — iOS never had one and Android 15 took the settable colour away — so what shows behind
+/// the clock is whatever the app paints there, which is the bar's own background extended through
+/// the top safe-area inset. That part is <see cref="ShinyNavigationPage.RespectSafeArea"/>'s job and
+/// happens whichever value this holds.
+/// </remarks>
+public enum StatusBarStyle
+{
+    /// <summary>
+    /// Follow the host: on a page it means "whatever the <see cref="ShinyNavigationPage"/> said".
+    /// It exists so a page can choose <see cref="Auto"/> against a navigation page that pinned a
+    /// style, which a page leaving the property alone would otherwise be indistinguishable from.
+    /// </summary>
+    Inherit = 0,
+
+    /// <summary>
+    /// Derived from the bar's background: light content over a dark bar, dark content over a light
+    /// one. The default, and the only value that keeps up with a theme swap on its own.
+    /// </summary>
+    Auto,
+
+    /// <summary>White clock and icons.</summary>
+    LightContent,
+
+    /// <summary>Black clock and icons.</summary>
+    DarkContent,
+
+    /// <summary>Leave the status bar entirely alone.</summary>
+    None
+}

@@ -279,6 +279,30 @@ public partial class ShinyNavBar
         set => this.SetValue(BarPaddingProperty, value);
     }
 
+    /// <summary>Backing store for <see cref="RespectSafeArea"/>.</summary>
+    public static readonly BindableProperty RespectSafeAreaProperty = BindableProperty.Create(
+        nameof(RespectSafeArea), typeof(bool), typeof(ShinyNavBar), true,
+        propertyChanged: (b, _, _) => Apply(b, bar => bar.ApplyBarSurface()));
+
+    /// <summary>
+    /// Extends the bar's background up through the status bar, notch and Dynamic Island while
+    /// keeping the title and the items below them. On by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>The inset goes on the bar's background surface rather than on the bar, which is the
+    /// whole distinction: insetting the bar itself would leave a strip of page showing above it in
+    /// the colour of the page, not of the bar. Because the background is what fills that strip, this
+    /// is also what makes the status bar appear to take the bar's colour — neither iOS nor Android
+    /// 15 has a status bar background to set.</para>
+    /// <para>Turn it off for a bar that is meant to sit under the status bar — a media or camera
+    /// overlay on a full-bleed page.</para>
+    /// </remarks>
+    public bool RespectSafeArea
+    {
+        get => (bool)this.GetValue(RespectSafeAreaProperty);
+        set => this.SetValue(RespectSafeAreaProperty, value);
+    }
+
     /// <summary>Backing store for <see cref="HasShadow"/>.</summary>
     public static readonly BindableProperty HasShadowProperty = BindableProperty.Create(
         nameof(HasShadow), typeof(bool), typeof(ShinyNavBar), true,

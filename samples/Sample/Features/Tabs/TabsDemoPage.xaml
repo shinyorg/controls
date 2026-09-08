@@ -42,6 +42,21 @@
                     <Button Text="None" Clicked="OnNoIndicator" AutomationId="IndicatorNone" />
                 </HorizontalStackLayout>
 
+                <Label Text="Bar style" FontAttributes="Bold" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Docked" Clicked="OnBarDocked" AutomationId="BarDocked" />
+                    <Button Text="Floating" Clicked="OnBarFloating" AutomationId="BarFloating" />
+                </HorizontalStackLayout>
+
+                <Label Text="Bar transparency" FontAttributes="Bold" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Solid" Clicked="OnBarSolid" AutomationId="BarSolid" />
+                    <Button Text="60%" Clicked="OnBarTranslucent" AutomationId="BarTranslucent" />
+                    <Button Text="Glass" Clicked="OnBarGlass" AutomationId="BarGlass" />
+                </HorizontalStackLayout>
+                <Label FontSize="12" TextColor="Gray"
+                       Text="BarBackgroundOpacity fades the background only — the icons, labels and badges stay fully opaque. Glass turns ContentBehindTabBar on too, so there is something to see through it." />
+
                 <Label Text="Indicator motion" FontAttributes="Bold" />
                 <HorizontalStackLayout Spacing="8">
                     <Button Text="Slide" Clicked="OnIndicatorSlide" AutomationId="IndicatorSlide" />

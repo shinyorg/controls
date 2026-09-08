@@ -97,3 +97,23 @@ public enum ShellTabSource
     /// <summary>Always the Shell's top-level items.</summary>
     Items
 }
+
+
+/// <summary>
+/// Whether <see cref="ShinyTabBar"/> is welded to the bottom edge or floats above the content.
+/// </summary>
+/// <remarks>
+/// The two differ in more than corner radius. A docked bar owns the bottom of the page: the content
+/// stops where the bar starts, and the bar's background keeps painting down through the home
+/// indicator so no strip of page shows underneath it. A floating bar owns nothing — the content runs
+/// the full height of the page and the bar is a capsule laid over it, inset out of the safe area on
+/// every side so it clears the home indicator rather than painting into it.
+/// </remarks>
+public enum TabBarStyle
+{
+    /// <summary>Welded to the bottom edge, square corners, background through the safe area. The default.</summary>
+    Docked,
+
+    /// <summary>A capsule inset from the page edges, floating over content that scrolls beneath it.</summary>
+    Floating
+}

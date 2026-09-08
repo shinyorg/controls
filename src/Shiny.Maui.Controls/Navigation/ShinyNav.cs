@@ -95,6 +95,13 @@ public static class ShinyNav
     public static readonly BindableProperty BarBackgroundColorProperty = BindableProperty.CreateAttached(
         "BarBackgroundColor", typeof(Color), typeof(ShinyNav), null);
 
+    /// <summary>
+    /// Overrides <see cref="ShinyNavigationPage.StatusBarStyle"/> for this page — a page with a dark
+    /// bar pushed onto a navigation page with a light one.
+    /// </summary>
+    public static readonly BindableProperty StatusBarStyleProperty = BindableProperty.CreateAttached(
+        "StatusBarStyle", typeof(StatusBarStyle), typeof(ShinyNav), StatusBarStyle.Inherit);
+
     /// <summary>Overrides the bar's title and item colour for this page.</summary>
     public static readonly BindableProperty BarTextColorProperty = BindableProperty.CreateAttached(
         "BarTextColor", typeof(Color), typeof(ShinyNav), null);
@@ -183,6 +190,12 @@ public static class ShinyNav
 
     /// <summary>Sets <see cref="BarTextColorProperty"/>.</summary>
     public static void SetBarTextColor(BindableObject target, Color? value) => target.SetValue(BarTextColorProperty, value);
+
+    /// <summary>Gets <see cref="StatusBarStyleProperty"/>.</summary>
+    public static StatusBarStyle GetStatusBarStyle(BindableObject target) => (StatusBarStyle)target.GetValue(StatusBarStyleProperty);
+
+    /// <summary>Sets <see cref="StatusBarStyleProperty"/>.</summary>
+    public static void SetStatusBarStyle(BindableObject target, StatusBarStyle value) => target.SetValue(StatusBarStyleProperty, value);
 
     /// <summary>Gets <see cref="TitleAlignmentProperty"/>.</summary>
     public static NavBarTitleAlignment GetTitleAlignment(BindableObject target) => (NavBarTitleAlignment)target.GetValue(TitleAlignmentProperty);

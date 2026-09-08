@@ -14,7 +14,20 @@ namespace Shiny.Maui.Controls.Infrastructure;
 static class PageOverlay
 {
     /// <summary>Marks the grid this class installed, so it is reused rather than nested.</summary>
-    internal sealed class ShinyOverlayRoot : Grid;
+    /// <remarks>
+    /// Edge-to-edge. It is a pass-through wrapper, not a layout anyone asked for, so it must not
+    /// introduce an inset of its own - and a <see cref="Grid"/> defaults to
+    /// <see cref="SafeAreaRegions.Container"/>, which is exactly that. Left at the default it pushes
+    /// the whole page in by the status bar and the home indicator, so anything that docks to a page
+    /// edge - a nav bar's background, a tab bar, the progress line - stops short of the edge it is
+    /// docked to and leaves a strip of page showing beyond it. The page's own content is a child of
+    /// this and keeps whatever MAUI's default for its type is, so a layout still insets itself; the
+    /// insets are computed against each view's own frame, so nothing double-pads.
+    /// </remarks>
+    internal sealed class ShinyOverlayRoot : Grid
+    {
+        public ShinyOverlayRoot() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
 
     /// <summary>
     /// Marks a child of the root as one of ours rather than the page's own content. Without it,

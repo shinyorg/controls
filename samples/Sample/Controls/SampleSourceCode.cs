@@ -7,8 +7,8 @@ namespace Sample.Controls;
 
 /// <summary>
 /// The gallery shows its own source: every feature page docks a collapsed "Source Code" expander
-/// along the bottom holding the .xaml and .xaml.cs that make the demo above it, rendered by
-/// <see cref="MarkdownView"/>.
+/// holding the .xaml and .xaml.cs that make the demo, rendered by <see cref="MarkdownView"/>. Along
+/// the bottom, except on a page whose own chrome owns that edge - see <see cref="Attach"/>.
 /// </summary>
 /// <remarks>
 /// Call this from the page's constructor, immediately after <c>InitializeComponent()</c>. That is the
@@ -19,15 +19,21 @@ namespace Sample.Controls;
 public static class SampleSourceCode
 {
     /// <summary>
-    /// Docks the source panel under <paramref name="page"/>'s content. A no-op when nothing was
-    /// embedded for the page, and for the tabbed and flyout demo hosts - they have no single content
-    /// view to dock under, and the pages they host carry their own panel.
+    /// Docks the source panel against <paramref name="page"/>'s content — along the bottom, or along
+    /// the top for a page whose own chrome already owns the bottom edge. A no-op when nothing was
+    /// embedded for the page.
     /// </summary>
     public static void Attach(Page page)
     {
         var pageType = page.GetType();
         if (!SampleSourceFiles.Has(pageType))
             return;
+
+        // A ShinyTabbedPage is a ContentPage, so it lands in the case below like any other page - and
+        // its content ends in the tab bar. Docking under that pushes the bar up off the bottom of the
+        // screen, which hides the one thing the demo is for and makes the bar's own safe-area inset
+        // impossible to see. The panel goes along the top there instead.
+        var dockTop = page is ShinyTabbedPage;
 
         switch (page)
         {
@@ -37,36 +43,45 @@ public static class SampleSourceCode
             {
                 var content = shiny.PageContent;
                 shiny.PageContent = null; // MAUI throws when a view is handed a second parent
-                shiny.PageContent = Wrap(content, pageType);
+                shiny.PageContent = Wrap(content, pageType, dockTop);
                 break;
             }
             case ContentPage contentPage:
             {
                 var content = contentPage.Content;
                 contentPage.Content = null;
-                contentPage.Content = Wrap(content, pageType);
+                contentPage.Content = Wrap(content, pageType, dockTop);
                 break;
             }
         }
     }
 
 
-    static Grid Wrap(View? content, Type pageType)
+    static Grid Wrap(View? content, Type pageType, bool dockTop)
     {
         var grid = new Grid
         {
             RowDefinitions =
             {
-                new RowDefinition(GridLength.Star),
-                new RowDefinition(GridLength.Auto)
-            }
+                new RowDefinition(dockTop ? GridLength.Auto : GridLength.Star),
+                new RowDefinition(dockTop ? GridLength.Star : GridLength.Auto)
+            },
+
+            // Only when the page owns its own bottom edge. A Grid defaults to
+            // SafeAreaRegions.Container, which insets the area its children are arranged into - so
+            // this wrapper would hand the tab bar a row that stops 34pt short of the screen and the
+            // bar's background could never reach the bottom however it handled its own inset. On an
+            // ordinary page the default is right: it is what keeps this panel out of the home
+            // indicator.
+            SafeAreaEdges = dockTop ? SafeAreaEdges.None : SafeAreaEdges.Default
         };
 
-        if (content is not null)
-            grid.Add(content, 0, 0);
+        var panel = new SourceCodePanel(pageType, dockTop);
 
-        var panel = new SourceCodePanel(pageType);
-        grid.Add(panel, 0, 1);
+        if (content is not null)
+            grid.Add(content, 0, dockTop ? 1 : 0);
+
+        grid.Add(panel, 0, dockTop ? 0 : 1);
 
         // The panel reads as a sheet over the demo rather than a page that grew: cap it at half the
         // page and let the markdown scroll inside. Measured off the wrapper because the expander's
@@ -77,20 +92,21 @@ public static class SampleSourceCode
 }
 
 
-/// <summary>The bottom-docked expander itself. Content is built the first time it is opened.</summary>
+/// <summary>The docked expander itself. Content is built the first time it is opened.</summary>
 class SourceCodePanel : Expander
 {
     MarkdownView? markdown;
     double availableHeight;
 
-    public SourceCodePanel(Type pageType)
+    public SourceCodePanel(Type pageType, bool dockTop = false)
     {
         this.HeaderText = "</>  Source Code";
         this.HeaderDetail = SampleSourceFiles.Summary(pageType);
         this.AutomationId = "SampleSourceCode";
 
-        // Docked at the bottom, so it opens upwards over the demo instead of pushing the header off screen.
-        this.ExpandDirection = ExpandDirection.Up;
+        // It opens away from the edge it is docked against, so the header stays put rather than being
+        // pushed off screen by its own content.
+        this.ExpandDirection = dockTop ? ExpandDirection.Down : ExpandDirection.Up;
         this.Animation = ExpanderAnimation.Height | ExpanderAnimation.Fade;
         this.HasShadow = true;
 

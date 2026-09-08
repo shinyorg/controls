@@ -20,4 +20,13 @@ public partial class NavigationDemoPage : ContentPage
         {
             LargeTitleDisplay = LargeTitleDisplay.Collapsing
         });
+
+    // Nothing here asks for the status bar or the safe area: RespectSafeArea and StatusBarStyle.Auto
+    // are the defaults, so a bar colour dark enough to need a white clock is the whole setup.
+    void OnOpenTinted(object? sender, EventArgs e)
+        => _ = this.Navigation.PushModalAsync(new ShinyNavigationPage(new NavInboxPage())
+        {
+            BarBackgroundColor = Color.FromArgb("#3F2B96"),
+            BarTextColor = Colors.White
+        });
 }

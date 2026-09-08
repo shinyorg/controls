@@ -43,6 +43,7 @@ public partial class ShinyNavigationPage
         bar.BarPadding = this.BarPadding;
         bar.HasShadow = this.HasShadow;
         bar.HasSeparator = this.HasSeparator;
+        bar.RespectSafeArea = this.RespectSafeArea;
         bar.ItemSpacing = this.ItemSpacing;
         bar.IconSize = this.IconSize;
         bar.MaxVisibleItems = this.MaxVisibleItems;
@@ -91,6 +92,11 @@ public partial class ShinyNavigationPage
         bar.AttachScrollSource(bar.EffectiveLargeTitleDisplay == LargeTitleDisplay.Collapsing
             ? ShinyNav.GetScrollSource(page) ?? ShinyNavBar.FindScrollSource(install.Host)
             : null);
+
+        // ---- the status bar over it ---------------------------------------------------------------
+        // Last, and unconditionally: the colours above are what Auto is derived from, and a push onto
+        // a page with a different bar colour reaches here as a Refresh of the page being shown.
+        this.SyncStatusBar(page);
     }
 
 

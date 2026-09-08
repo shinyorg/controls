@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Lets ShinyNavigationPage.StatusBarStyle apply. UIKit only honours a directly-set status bar
+	     style when the view-controller-based one is turned off, and every controller in a MAUI app
+	     belongs to MAUI, so there is nowhere to override preferredStatusBarStyle. -->
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIDeviceFamily</key>

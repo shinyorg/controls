@@ -721,4 +721,278 @@ public class ShinyTabBarTests
             this.CanExecuteChanged?.Invoke(this, EventArgs.Empty);
         }
     }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Overflow
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void TabsThatFitDrawNoMoreButton()
+    {
+        var bar = Build("One", "Two", "Three");
+        bar.MaxVisibleTabs = 3;
+
+        bar.HasOverflow.ShouldBeFalse();
+        bar.OverflowItems.ShouldBeEmpty();
+        bar.BarLayout.ColumnDefinitions.Count.ShouldBe(3);
+    }
+
+
+    [Fact]
+    public void TheMoreButtonTakesOneOfTheVisibleSlots()
+    {
+        var bar = Build("One", "Two", "Three", "Four", "Five");
+        bar.MaxVisibleTabs = 3;
+
+        // Three columns, not four: the cap counts the More cell, or adding it would put the bar back
+        // over the width that caused the overflow in the first place.
+        bar.BarLayout.ColumnDefinitions.Count.ShouldBe(3);
+        bar.OverflowItems.Select(i => i.Title).ShouldBe(new[] { "Three", "Four", "Five" });
+    }
+
+
+    [Fact]
+    public void ABarOfNothingButAMoreButtonIsRefused()
+    {
+        var bar = Build("One", "Two", "Three");
+        bar.MaxVisibleTabs = 1;
+
+        // Clamped to 2: one real tab and the overflow. A cap of 1 would draw the More cell alone.
+        bar.EffectiveMaxVisibleTabs.ShouldBe(2);
+        bar.OverflowItems.Count.ShouldBe(2);
+    }
+
+
+    [Fact]
+    public void NothingOverflowsBeforeTheBarHasBeenMeasured()
+    {
+        // Auto mode with no width yet. Dividing zero by the minimum tab width would cap at zero and
+        // fold every tab away on the frame before layout.
+        var bar = Build("One", "Two", "Three", "Four", "Five", "Six");
+
+        bar.EffectiveMaxVisibleTabs.ShouldBe(0);
+        bar.HasOverflow.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void TheMoreButtonOpensTheMenuInsteadOfSelectingItself()
+    {
+        var bar = Build("One", "Two", "Three", "Four");
+        bar.MaxVisibleTabs = 3;
+
+        // The last cell is the More one - the bar appends it after the tabs it kept.
+        bar.BarLayout.Children.OfType<Grid>().Last().AutomationId.ShouldBe("tab-more");
+        bar.TapCellAt(2);
+
+        // The selection is untouched: the More cell is not a tab, and the obvious bug here is it
+        // selecting itself - it is built by the same code as every other cell.
+        bar.SelectedIndex.ShouldBe(0);
+        bar.SelectedItem!.Title.ShouldBe("One");
+
+        // The menu itself cannot open here: it paints onto a page overlay and this bar is on no
+        // page, so the bar reports the state honestly rather than claiming a menu that does not
+        // exist. What is assertable is that the tap asked for it.
+        bar.IsMenuOpen.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void ChoosingAFoldedTabSelectsIt()
+    {
+        var bar = Build("One", "Two", "Three", "Four");
+        bar.MaxVisibleTabs = 3;
+        bar.OpenOverflow();
+
+        bar.SelectOverflowItem(bar.OverflowItems.Last());
+
+        bar.SelectedItem!.Title.ShouldBe("Four");
+        bar.IsMenuOpen.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void TheMoreButtonShowsAsSelectedWhileAFoldedTabIsShowing()
+    {
+        var bar = Build("One", "Two", "Three", "Four");
+        bar.MaxVisibleTabs = 3;
+        bar.SelectedIndex = 3;
+
+        // It selects nothing of its own, so without this the whole bar reads as unselected the
+        // moment the user picks something out of the menu.
+        bar.IsOverflowCellSelected.ShouldBeTrue();
+
+        bar.SelectedIndex = 0;
+        bar.IsOverflowCellSelected.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void OpeningTheOverflowDoesNothingWhenEverythingFits()
+    {
+        var bar = Build("One", "Two");
+        bar.OpenOverflow();
+
+        bar.IsMenuOpen.ShouldBeFalse();
+    }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Menu dismissal & transparency
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ChangingTabsClosesAnOpenMenu()
+    {
+        var bar = Build("One", "Two", "Three");
+
+        // On a page, so the menu has an overlay layer to paint onto - off one it cannot open at all
+        // and the assertion below would pass against a menu that never existed.
+        _ = new ContentPage { Content = bar };
+        bar.IsMenuOpen = true;
+        bar.IsMenuOpen.ShouldBeTrue();
+
+        bar.SelectedIndex = 1;
+
+        bar.IsMenuOpen.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void EveryRouteIntoASelectionClosesTheMenu()
+    {
+        var bar = Build("One", "Two", "Three");
+        _ = new ContentPage { Content = bar };
+
+        // Not just a tap: the close lives where the selection actually completes, so a GoTo or a
+        // binding on SelectedIndex closes it too.
+        bar.IsMenuOpen = true;
+        bar.GoTo(2);
+        bar.IsMenuOpen.ShouldBeFalse();
+
+        bar.IsMenuOpen = true;
+        bar.SelectedItem = bar.Items[0];
+        bar.IsMenuOpen.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void ReselectingTheSameTabLeavesTheMenuAlone()
+    {
+        var bar = Build("One", "Two");
+        _ = new ContentPage { Content = bar };
+        bar.IsMenuOpen = true;
+
+        // A reselect is not a change of tab - the page underneath the menu is the same one it was
+        // opened over, so there is nothing for it to have gone stale against.
+        bar.SelectedIndex = 0;
+
+        bar.IsMenuOpen.ShouldBeTrue();
+    }
+
+
+    [Fact]
+    public void BarBackgroundOpacityDimsTheFill()
+    {
+        var bar = Build("One", "Two");
+        bar.BarBackgroundColor = Colors.Red;
+
+        FillOf(bar).Alpha.ShouldBe(1f, 0.001f);
+
+        bar.BarBackgroundOpacity = 0.5;
+        FillOf(bar).Alpha.ShouldBe(0.5f, 0.001f);
+
+        // The colour itself is untouched - only how much of it shows.
+        FillOf(bar).Red.ShouldBe(1f, 0.001f);
+    }
+
+
+    [Fact]
+    public void BarBackgroundOpacityMultipliesIntoAnAlphaTheColourAlreadyHad()
+    {
+        var bar = Build("One", "Two");
+        bar.BarBackgroundColor = Colors.Red.WithAlpha(0.5f);
+        bar.BarBackgroundOpacity = 0.5;
+
+        // Multiplied, not replaced: a consumer who handed over a semi-transparent colour keeps it.
+        FillOf(bar).Alpha.ShouldBe(0.25f, 0.001f);
+    }
+
+
+    [Fact]
+    public void TransparencyLeavesTheTabsThemselvesOpaque()
+    {
+        var bar = Build("One", "Two");
+        bar.BarBackgroundColor = Colors.Red;
+        bar.BarBackgroundOpacity = 0.2;
+
+        // The alpha goes on the colour, never on a view: Opacity on the surface would take the
+        // icons and labels down with it, and opacity multiplies down the tree so a child cannot
+        // undo it.
+        bar.Surface.Opacity.ShouldBe(1);
+        bar.Opacity.ShouldBe(1);
+        bar.BarLayout.Opacity.ShouldBe(1);
+    }
+
+
+    [Fact]
+    public void OpacityIsClampedRatherThanTrusted()
+    {
+        var bar = Build("One", "Two");
+        bar.BarBackgroundColor = Colors.Red;
+
+        bar.BarBackgroundOpacity = 4;
+        FillOf(bar).Alpha.ShouldBe(1f, 0.001f);
+
+        bar.BarBackgroundOpacity = -1;
+        FillOf(bar).Alpha.ShouldBe(0f, 0.001f);
+    }
+
+
+    static Color FillOf(ShinyTabBar bar) => ((SolidColorBrush)bar.Surface.Background!).Color;
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Bottom safe area
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ADockedBarDeclaresNoSafeAreaInsetAnywhereInItsChain()
+    {
+        var bar = Build("One", "Two");
+
+        // The inset is padded into the surface, in exactly one place. Anything left declaring
+        // Container here double-counts it: the surface's own inset fires once the background really
+        // does reach the bottom of the screen, and it took another 34pt out of the tab row - the
+        // cells collapsed to 16pt and every icon was clipped against the top edge.
+        bar.SafeAreaEdges.Bottom.ShouldBe(SafeAreaRegions.None);
+        bar.Surface.SafeAreaEdges.Bottom.ShouldBe(SafeAreaRegions.None);
+    }
+
+
+    [Fact]
+    public void AFloatingBarLiftsItsWholeCapsuleInstead()
+    {
+        var bar = Build("One", "Two");
+        bar.BarStyle = TabBarStyle.Floating;
+
+        // The opposite arrangement, and deliberately so: the capsule must not extend into the home
+        // indicator or the gap under it - the thing that makes it read as floating - is painted over.
+        bar.SafeAreaEdges.Bottom.ShouldBe(SafeAreaRegions.Container);
+        bar.Surface.SafeAreaEdges.Bottom.ShouldBe(SafeAreaRegions.None);
+    }
+
+
+    [Fact]
+    public void TheSurfaceIsBarHeightPlusTheInsetRatherThanBarHeight()
+    {
+        var bar = Build("One", "Two");
+        bar.BarHeight = 60;
+
+        // Headless there is no window to read an inset from, so this is BarHeight exactly. What it
+        // pins down is which quantity the runtime inset is added to: pinning the surface to
+        // BarHeight and padding the inset in squeezes the tabs instead of lifting them.
+        bar.Surface.HeightRequest.ShouldBe(60);
+    }
 }

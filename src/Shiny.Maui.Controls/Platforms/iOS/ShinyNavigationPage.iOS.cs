@@ -47,6 +47,38 @@ public partial class ShinyNavigationPage
     }
 
 
+    /// <summary>
+    /// Points the status bar's clock and icons at <paramref name="style"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>There is no background to set. iOS has never had a status bar background — what shows
+    /// behind the clock is whatever the app draws there, which is the bar's own surface extended
+    /// through the top safe-area inset. So <paramref name="background"/> is not used here: it has
+    /// already done its work by the time this runs, and only the foreground is left.</para>
+    /// <para><c>SetStatusBarStyle</c> is deprecated and takes effect only when the app's
+    /// <c>Info.plist</c> sets <c>UIViewControllerBasedStatusBarAppearance</c> to <c>false</c>. It is
+    /// used anyway because it is the same call MAUI itself makes for <c>BarTextColor</c> — the
+    /// alternative is <c>preferredStatusBarStyle</c>, which can only be answered by overriding a view
+    /// controller, and every controller in the chain here belongs to MAUI. Without the key the status
+    /// bar keeps the system's appearance and only the colour behind it follows the bar, which is why
+    /// nothing about this is allowed to throw.</para>
+    /// </remarks>
+    partial void ApplyStatusBar(Color? background, StatusBarStyle style)
+    {
+        var app = UIApplication.SharedApplication;
+        if (app is null)
+            return;
+
+        var resolved = style == StatusBarStyle.LightContent
+            ? UIStatusBarStyle.LightContent
+            : UIStatusBarStyle.DarkContent;
+
+#pragma warning disable CA1422 // see the remarks: MAUI's own status bar handling calls this too
+        app.SetStatusBarStyle(resolved, false);
+#pragma warning restore CA1422
+    }
+
+
     static UINavigationController? FindNavigationController(UIResponder? responder)
     {
         // Walked rather than cast: which type MAUI's iOS navigation handler exposes as its platform

@@ -48,6 +48,14 @@ public partial class ShinyTabBar : Grid
     readonly Border barSurface;
     readonly Grid barGrid;
     readonly Border travelIndicator;
+    readonly SolidColorBrush surfaceBrush;
+    readonly BoxView surfaceProbe;
+
+    /// <summary>
+    /// The bottom safe-area inset currently padded into the surface. Kept so a re-apply can be
+    /// skipped when the answer has not moved — see <see cref="OnBarSizeChanged"/>.
+    /// </summary>
+    double bottomInset;
     readonly VerticalStackLayout centerHost;
     readonly Border centerCircle;
     readonly Grid centerIconHost;
@@ -138,8 +146,24 @@ public partial class ShinyTabBar : Grid
         Grid.SetRow((BindableObject)this.barSurface, 1);
         Grid.SetRow((BindableObject)this.centerHost, 0);
         Grid.SetRowSpan((BindableObject)this.centerHost, 2);
+        // The fill is driven through a probe rather than assigned to the Border directly: the theme
+        // holds Colors and Border.Background takes a Brush, and a colour token cannot cross that gap
+        // on its own. The probe is a real (zero-sized, invisible) element, so it resolves the token
+        // and keeps resolving it across a theme swap - and having the resolved colour in hand is
+        // also what makes BarBackgroundOpacity possible, since an alpha cannot be applied to a token
+        // that has not become a colour yet.
+        (this.surfaceBrush, this.surfaceProbe) = ThemeProbe.Create();
+        this.barSurface.Background = this.surfaceBrush;
+
         this.Children.Add(this.barSurface);
         this.Children.Add(this.centerHost);
+        this.Children.Add(this.surfaceProbe);
+
+        this.surfaceProbe.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BoxView.Color))
+                this.ApplyBarFill();
+        };
 
         var centerTap = new TapGestureRecognizer();
         centerTap.Tapped += this.OnCenterTapped;
@@ -151,6 +175,19 @@ public partial class ShinyTabBar : Grid
 
         this.ApplySurface();
         this.ApplyMetrics();
+        // Auto overflow is a function of the bar's width, which does not exist until it has been
+        // laid out - and changes on rotation, on a window resize, and when a Shell bar moves to a
+        // page with different chrome.
+        this.SizeChanged += (_, _) =>
+        {
+            this.RefreshBottomInset();
+            this.OnBarSizeChanged();
+        };
+
+        // Loaded as well as SizeChanged: a bar that is measured once and never resized still needs
+        // the inset it could not read from the constructor.
+        this.Loaded += (_, _) => this.RefreshBottomInset();
+
         this.RebuildCells();
 
         // Last line: replays any styled property that was applied before the
@@ -309,6 +346,12 @@ public partial class ShinyTabBar : Grid
         if (oldIndex == newIndex && ReferenceEquals(oldItem, newItem))
             return;
 
+        // Both menus belong to the tab they were opened over, and changing tabs swaps the page
+        // underneath them - a card left standing is annotating content that is no longer there.
+        // Here rather than in the tap handlers so it holds however the selection moved: a tap, the
+        // overflow menu, GoTo, or a binding on SelectedIndex.
+        this.IsMenuOpen = false;
+
         this.ApplyAllCellStates(animateIndicator: true);
 
         if (this.AnimateIcons && newItem is not null && this.FindCell(newItem) is { } cell)
@@ -359,6 +402,12 @@ public partial class ShinyTabBar : Grid
     {
         if (!cell.Item.IsEnabled)
             return;
+
+        if (cell.IsOverflow)
+        {
+            this.OpenOverflow();
+            return;
+        }
 
         var index = this.items.IndexOf(cell.Item);
         if (index < 0)
@@ -424,6 +473,12 @@ public partial class ShinyTabBar : Grid
         public View? IconView { get; set; }
 
         /// <summary>
+        /// The synthesized <b>More</b> cell rather than one of the bar's own tabs. It looks like a
+        /// tab and is built by the same code, but it selects nothing — it opens the overflow menu.
+        /// </summary>
+        public bool IsOverflow { get; init; }
+
+        /// <summary>
         /// Null until the cell has been styled once. Nullable rather than false so the very first
         /// pass can settle the cell without animating every tab in the bar on launch.
         /// </summary>
@@ -455,6 +510,19 @@ public partial class ShinyTabBar : Grid
     /// <summary>The grid the tab cells live in. For tests; the layout is not part of the contract.</summary>
     internal Grid BarLayout => this.barGrid;
 
+    /// <summary>The border that paints the bar's background. For tests.</summary>
+    internal Border Surface => this.barSurface;
+
+    /// <summary>
+    /// Test seam: runs the tap handler for the cell at <paramref name="index"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TapGestureRecognizer.Tapped"/> cannot be raised from outside the recognizer, so
+    /// there is no way to reach a cell's behaviour through its gesture. This is the same entry point
+    /// the gesture uses and nothing more.
+    /// </remarks>
+    internal void TapCellAt(int index) => this.OnCellTapped(this.cells[index]);
+
     /// <summary>The centre button's own view, so a test can assert it is (or is not) there.</summary>
     internal View CenterHost => this.centerHost;
 
@@ -463,38 +531,101 @@ public partial class ShinyTabBar : Grid
     {
         var overhang = this.CenterButton is { } center ? center.EffectiveOverhang : 0d;
         this.overhangRow.Height = new GridLength(Math.Max(0, overhang));
-        this.barSurface.HeightRequest = this.BarHeight;
+
+        // The safe-area inset is extra height, not a squeeze. BarHeight is the room the tabs get,
+        // and the strip below them is on top of it - pinning the surface to BarHeight and padding
+        // the inset in would crush the tabs into a fixed box instead of lifting them out of the
+        // home indicator, which is exactly what it looked like.
+        this.barSurface.HeightRequest = this.BarHeight + this.bottomInset;
     }
 
 
     void ApplySurface()
     {
-        if (this.BarBackgroundColor is { } background)
-            this.barSurface.Background = new SolidColorBrush(background);
-        else
-            // A colour token cannot be assigned straight onto a Brush property - the dynamic resource
-            // is dropped - so the brush is built first and its Color carries the token.
-            this.barSurface.Background = ThemeTokens.TokenBrush(ShinyThemeKeys.Color.SurfaceContainer);
+        ThemeProbe.Tint(this.surfaceProbe, BoxView.ColorProperty, this.BarBackgroundColor, ShinyThemeKeys.Color.SurfaceContainer);
+        this.ApplyBarFill();
+
+        var floating = this.BarStyle == TabBarStyle.Floating;
 
         if (this.barSurface.StrokeShape is RoundRectangle shape)
-            shape.SetCornerTokenOrValue(this.BarCornerRadius, ShinyThemeKeys.Shape.CornerNoneRadius);
+        {
+            // A floating bar is a capsule unless it was given a radius of its own. Half the bar's
+            // height rather than a token: the token is a fixed radius, and on a capsule the radius
+            // has to track the height or the ends stop being semicircles.
+            if (floating && !ThemeTokens.IsSet(this.BarCornerRadius))
+                shape.CornerRadius = new CornerRadius(this.BarHeight / 2);
+            else
+                shape.SetCornerTokenOrValue(this.BarCornerRadius, ShinyThemeKeys.Shape.CornerNoneRadius);
+        }
 
-        this.barSurface.Margin = this.BarMargin;
-        this.barSurface.Padding = this.BarPadding;
+        // Zero reads as "not set" for a floating bar: a capsule welded to the page edges is not a
+        // look anyone asks for, whereas a docked bar's zero margin is exactly what it wants.
+        this.barSurface.Margin = floating && this.BarMargin == default ? FloatingMargin : this.BarMargin;
 
-        // Container, not All: the background keeps painting to the screen edge while the tabs inside
-        // are inset out of the home indicator. Setting it on the Border rather than on the bar
-        // itself is what keeps that distinction - insetting the bar would leave a strip of page
-        // showing under it.
-        this.barSurface.SafeAreaEdges = this.RespectSafeArea ? ContainerSafeArea : SafeAreaEdges.None;
+        // The bottom inset is padded in, not declared with SafeAreaEdges. Declaring it does nothing
+        // here: the bar is laid out inside a chain of Auto-sized rows and the inset arrives as zero,
+        // which is indistinguishable from a device that has no home indicator. Padding also gets the
+        // geometry right on both counts at once - the bar grows by the inset and is bottom-anchored,
+        // so the background reaches the screen edge, and the tabs inside are lifted clear of it.
+        // A floating bar is excluded: it lifts its whole capsule instead, a level up.
+        this.bottomInset = !floating && this.RespectSafeArea ? SafeAreaInsets.Bottom : 0;
+        this.barSurface.Padding = this.BarPadding + new Thickness(0, 0, 0, this.bottomInset);
+
+        // The surface's height carries the inset too, and it is ApplyMetrics that owns it.
+        this.ApplyMetrics();
+
+        if (floating)
+        {
+            // The inset moves up a level. The bar arranges its child out of the home indicator so
+            // the capsule clears it; the capsule itself must not extend into it, or the thing that
+            // makes it read as floating - the gap under it - is painted over.
+            this.SafeAreaEdges = this.RespectSafeArea ? ContainerSafeArea : SafeAreaEdges.None;
+            this.barSurface.SafeAreaEdges = SafeAreaEdges.None;
+        }
+        else
+        {
+            // Nothing in the docked chain declares an inset: the padding above is the single place
+            // it is expressed. Leaving Container on the surface double-counts it - now that the
+            // surface genuinely reaches the bottom of the screen, its own inset finally fires and
+            // takes another 34pt out of the tab row, squeezing the cells to 16pt and clipping every
+            // icon against the top edge.
+            this.SafeAreaEdges = SafeAreaEdges.None;
+            this.barSurface.SafeAreaEdges = SafeAreaEdges.None;
+        }
 
         if (this.HasShadow)
-            this.barSurface.WithElevation(ShinyThemeKeys.Elevation.Level2);
+            // A floating bar is detached from the page, so it casts the heavier of the two shadows -
+            // Level2 against nothing underneath it barely reads as a shadow at all.
+            this.barSurface.WithElevation(floating ? ShinyThemeKeys.Elevation.Level3 : ShinyThemeKeys.Elevation.Level2);
         else
             // ClearValue rather than assigning null: WithElevation left a dynamic resource behind,
             // and a literal null would sit on top of it rather than removing it - so turning the
             // shadow back on would find the binding already gone.
             this.barSurface.ClearValue(VisualElement.ShadowProperty);
+    }
+
+
+    /// <summary>
+    /// Paints the bar's background: the resolved colour, dimmed by <see cref="BarBackgroundOpacity"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>The alpha goes on the <em>colour</em>, never on a view. Setting <c>Opacity</c> on the
+    /// surface would fade everything inside it too — a translucent bar whose icons and labels are
+    /// also half gone is not a translucent bar, it is a faded one — and opacity multiplies down the
+    /// tree, so a child cannot undo it.</para>
+    /// <para>Called again whenever the probe resolves a new colour, which is how a theme swap keeps
+    /// its transparency instead of snapping back to opaque.</para>
+    /// </remarks>
+    void ApplyBarFill()
+    {
+        var color = this.surfaceProbe.Color;
+        if (color is null)
+            return;
+
+        // Multiplied into whatever alpha the colour already carried rather than replacing it, so a
+        // consumer who handed over a semi-transparent BarBackgroundColor keeps what they asked for.
+        var opacity = Math.Clamp(this.BarBackgroundOpacity, 0, 1);
+        this.surfaceBrush.Color = color.WithAlpha((float)(color.Alpha * opacity));
     }
 
 
@@ -505,14 +636,42 @@ public partial class ShinyTabBar : Grid
     static readonly SafeAreaEdges ContainerSafeArea = new(SafeAreaRegions.Container);
 
 
+    /// <summary>
+    /// What a <see cref="TabBarStyle.Floating"/> bar insets itself by when the consumer has not set
+    /// <see cref="BarMargin"/>. No top inset - the gap above the bar is the content showing through,
+    /// not a margin.
+    /// </summary>
+    static readonly Thickness FloatingMargin = new(16, 0, 16, 8);
+
+
+    /// <summary>
+    /// Raised when <see cref="BarStyle"/> changes. The bar can restyle itself, but whether the
+    /// content stops above it or runs underneath it is the host page's layout to change.
+    /// </summary>
+    internal event EventHandler? BarStyleChanged;
+
+
+    void ApplyBarStyle()
+    {
+        this.ApplySurface();
+        this.ApplyMetrics();
+        this.BarStyleChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+
     void RebuildCells()
     {
         this.barGrid.Children.Clear();
         this.barGrid.ColumnDefinitions.Clear();
         this.cells.Clear();
 
-        var visible = this.items.Where(i => i.IsVisible).ToList();
         var center = this.CenterButton;
+        var (shown, overflowed) = this.SplitForOverflow(this.items.Where(i => i.IsVisible).ToList());
+        this.overflowed = overflowed;
+
+        // The overflow tab occupies a column like any other, so the whole layout below - the centre
+        // button's split, the spacers, the indicator's span - counts it and needs no special case.
+        var visible = overflowed.Count == 0 ? shown : shown.Append(this.OverflowItem).ToList();
         var (left, _, spacers) = SplitColumns(visible.Count, center is not null);
 
         var totalColumns = visible.Count + (center is null ? 0 : 1) + spacers;
@@ -527,7 +686,7 @@ public partial class ShinyTabBar : Grid
 
         for (var i = 0; i < visible.Count; i++)
         {
-            var cell = this.BuildCell(visible[i]);
+            var cell = this.BuildCell(visible[i], ReferenceEquals(visible[i], this.overflowItem));
             var column = center is null || i < left ? i : i + 1;
             Grid.SetColumn(cell.Root, column);
             this.barGrid.Children.Add(cell.Root);
@@ -545,7 +704,163 @@ public partial class ShinyTabBar : Grid
     }
 
 
-    TabCell BuildCell(ShinyTabItem item)
+    // ---------------------------------------------------------------------------------------------
+    // Overflow
+    // ---------------------------------------------------------------------------------------------
+
+    ShinyTabItem? overflowItem;
+    IReadOnlyList<ShinyTabItem> overflowed = Array.Empty<ShinyTabItem>();
+    int lastAutoMax;
+
+    /// <summary>
+    /// The synthesized <b>More</b> tab. Built once and kept: it is handed to <see cref="BuildCell"/>
+    /// like any other item, and a fresh one per rebuild would drop its icon's playback state.
+    /// </summary>
+    ShinyTabItem OverflowItem
+    {
+        get
+        {
+            this.overflowItem ??= new ShinyTabItem { Route = "more" };
+            this.overflowItem.Title = this.OverflowTitle;
+            this.overflowItem.Icon = this.OverflowIcon;
+            return this.overflowItem;
+        }
+    }
+
+    /// <summary>The tabs currently folded away behind the overflow tab. Empty when they all fit.</summary>
+    public IReadOnlyList<ShinyTabItem> OverflowItems => this.overflowed;
+
+    /// <summary>Whether the bar is currently drawing an overflow tab.</summary>
+    public bool HasOverflow => this.overflowed.Count > 0;
+
+    /// <summary>Opens the overflow menu, as tapping the <b>More</b> tab does. No-op when nothing is folded away.</summary>
+    public void OpenOverflow()
+    {
+        if (!this.HasOverflow)
+            return;
+
+        this.menuKind = TabMenuKind.Overflow;
+        this.IsMenuOpen = true;
+    }
+
+
+    /// <summary>Selects a tab that is currently folded away and closes the menu.</summary>
+    /// <remarks>
+    /// Closed before selecting, not after: selecting swaps the page under the card, and a menu still
+    /// animating over the page it was opened from reads as the tap not having worked.
+    /// </remarks>
+    public void SelectOverflowItem(ShinyTabItem item)
+    {
+        if (!item.IsEnabled)
+            return;
+
+        this.IsMenuOpen = false;
+
+        var index = this.items.IndexOf(item);
+        if (index >= 0)
+            this.SelectedIndex = index;
+    }
+
+
+    /// <summary>
+    /// Whether the <b>More</b> cell is drawing as the selected tab — which it does whenever the tab
+    /// that is showing is one of the ones it folded away.
+    /// </summary>
+    public bool IsOverflowCellSelected
+        => this.overflowed.Any(i => ReferenceEquals(i, this.SelectedItem) || this.items.IndexOf(i) == this.SelectedIndex);
+
+    /// <summary>
+    /// Divides the visible tabs into the ones the bar will draw and the ones that fold away.
+    /// </summary>
+    /// <remarks>
+    /// The cap counts the overflow tab itself, so the drawn tabs are one fewer than the cap whenever
+    /// anything is folded - otherwise adding the <b>More</b> cell would push the bar right back over
+    /// the width that caused it.
+    /// </remarks>
+    (List<ShinyTabItem> Shown, IReadOnlyList<ShinyTabItem> Overflowed) SplitForOverflow(List<ShinyTabItem> visible)
+    {
+        var max = this.EffectiveMaxVisibleTabs;
+        if (max <= 0 || visible.Count <= max)
+            return (visible, Array.Empty<ShinyTabItem>());
+
+        var keep = max - 1;
+        return (visible.Take(keep).ToList(), visible.Skip(keep).ToList());
+    }
+
+    /// <summary>
+    /// How many cells fit: what the consumer asked for, or what the bar's own width allows.
+    /// </summary>
+    /// <remarks>
+    /// Zero means "no limit", which is also the honest answer before the bar has been measured - a
+    /// width of zero would otherwise compute a cap of zero and fold every tab away on the frame
+    /// before layout. A width that admits everything is left uncapped rather than capped at the tab
+    /// count, so <see cref="HasOverflow"/> stays false.
+    /// </remarks>
+    internal int EffectiveMaxVisibleTabs
+    {
+        get
+        {
+            if (this.MaxVisibleTabs > 0)
+                return Math.Max(2, this.MaxVisibleTabs);
+
+            var available = this.barGrid.Width > 0 ? this.barGrid.Width : this.Width;
+            if (available <= 0 || this.MinTabWidth <= 0)
+                return 0;
+
+            // The centre button owns a fixed column that no tab can use.
+            if (this.CenterButton is { } center)
+                available -= center.Size + 16;
+
+            return Math.Max(2, (int)(available / this.MinTabWidth));
+        }
+    }
+
+    /// <summary>
+    /// Re-splits the tabs when the width the split was computed from has changed enough to change it.
+    /// </summary>
+    /// <remarks>
+    /// Guarded on the computed cap rather than on the width. Rebuilding on every size change would
+    /// run on every frame of a rotation, and - because a rebuild changes the bar's own desired size -
+    /// is a plausible way to make layout oscillate. Comparing the answer means a resize that does not
+    /// change how many tabs fit costs nothing at all.
+    /// </remarks>
+    void OnBarSizeChanged()
+    {
+        if (this.MaxVisibleTabs > 0)
+            return;
+
+        var max = this.EffectiveMaxVisibleTabs;
+        if (max == this.lastAutoMax)
+            return;
+
+        this.lastAutoMax = max;
+        this.RebuildCells();
+    }
+
+
+    /// <summary>
+    /// Re-pads the surface when the window's bottom inset has changed under it.
+    /// </summary>
+    /// <remarks>
+    /// The inset is read off the window, and there is no window when the constructor runs - so the
+    /// first pass always computes zero and the tabs sit under the home indicator until something
+    /// else happens to restyle the bar. It also changes on rotation, and when a Shell bar moves to a
+    /// page with different chrome. Guarded on the value so the re-apply, which itself resizes the
+    /// bar, cannot chase its own SizeChanged.
+    /// </remarks>
+    void RefreshBottomInset()
+    {
+        var floating = this.BarStyle == TabBarStyle.Floating;
+        var inset = !floating && this.RespectSafeArea ? SafeAreaInsets.Bottom : 0;
+
+        if (Math.Abs(inset - this.bottomInset) < 0.5)
+            return;
+
+        this.ApplySurface();
+    }
+
+
+    TabCell BuildCell(ShinyTabItem item, bool isOverflow = false)
     {
         var pill = new Border
         {
@@ -631,6 +946,7 @@ public partial class ShinyTabBar : Grid
         var cell = new TabCell
         {
             Item = item,
+            IsOverflow = isOverflow,
             Root = root,
             Pill = pill,
             Line = line,
@@ -702,7 +1018,13 @@ public partial class ShinyTabBar : Grid
     void ApplyCellState(TabCell cell)
     {
         var item = cell.Item;
-        var selected = ReferenceEquals(item, this.SelectedItem) || this.items.IndexOf(item) == this.SelectedIndex;
+
+        // The overflow cell selects nothing of its own, so it reads its state from the tabs behind
+        // it: it is the selected tab whenever the selected tab is one of the ones it folded away.
+        // Without this, choosing a tab from the menu would leave the whole bar looking unselected.
+        var selected = cell.IsOverflow
+            ? this.IsOverflowCellSelected
+            : ReferenceEquals(item, this.SelectedItem) || this.items.IndexOf(item) == this.SelectedIndex;
 
         // ---- colour ----
         var color = selected ? this.SelectedColor : this.UnselectedColor;
@@ -1072,7 +1394,10 @@ public partial class ShinyTabBar : Grid
         // Falls back to being a plain button when nothing anywhere has anything to present. A centre
         // button that opens an empty card is worse than one that just does its job.
         if (this.HasMenuToShow())
+        {
+            this.menuKind = TabMenuKind.Center;
             this.IsMenuOpen = true;
+        }
     }
 
 
@@ -1093,6 +1418,21 @@ public partial class ShinyTabBar : Grid
     {
         Layout GetTabMenuLayer();
     }
+
+
+    /// <summary>Which of the two menus <see cref="IsMenuOpen"/> is currently presenting.</summary>
+    /// <remarks>
+    /// One flag, one card and one animation drive both. They are never open at once - a menu is
+    /// modal over a backdrop - so the alternative would be a second copy of the open/close machinery
+    /// to keep in step with the first.
+    /// </remarks>
+    enum TabMenuKind
+    {
+        Center,
+        Overflow
+    }
+
+    TabMenuKind menuKind = TabMenuKind.Center;
 
 
     /// <summary>The rows the centre menu will show — the page's if it declared any, the button's otherwise.</summary>
@@ -1318,6 +1658,12 @@ public partial class ShinyTabBar : Grid
 
     void RotateCenterIcon(bool open, uint duration)
     {
+        // Only for the menu the centre button itself opened. The rotation is that button's
+        // open/close affordance - spinning it into a close glyph for the overflow menu would offer
+        // to close a menu it has nothing to do with.
+        if (this.menuKind != TabMenuKind.Center)
+            return;
+
         if (this.CenterButton is not { RotateOnOpen: not 0 } center || this.centerIconView is null)
             return;
 
@@ -1347,7 +1693,11 @@ public partial class ShinyTabBar : Grid
             StrokeThickness = 0,
             Stroke = null,
             Padding = new Thickness(0, 6),
-            HorizontalOptions = LayoutOptions.Center,
+
+            // The overflow menu belongs over the tab that opened it, which is the last one in the
+            // bar; the centre menu belongs over the centre button. Anchoring both in the middle
+            // would leave the overflow card pointing at nothing.
+            HorizontalOptions = this.menuKind == TabMenuKind.Overflow ? LayoutOptions.End : LayoutOptions.Center,
             VerticalOptions = LayoutOptions.End,
             MinimumWidthRequest = 200,
             Margin = new Thickness(16, 0, 16, this.BarHeight + this.BarMargin.Bottom + overhang + 12),
@@ -1362,6 +1712,15 @@ public partial class ShinyTabBar : Grid
 
     View BuildMenuBody()
     {
+        if (this.menuKind == TabMenuKind.Overflow)
+        {
+            var tabs = new VerticalStackLayout { Spacing = 0 };
+            foreach (var item in this.overflowed)
+                tabs.Children.Add(this.BuildOverflowRow(item));
+
+            return tabs;
+        }
+
         // A menu template replaces the card's contents wholesale - rows, layout and chrome - while
         // the bar keeps the backdrop, the anchoring above the button and the open/close animation.
         if (this.MenuTemplate is { } menuTemplate)
@@ -1386,6 +1745,69 @@ public partial class ShinyTabBar : Grid
             stack.Children.Add(this.BuildActionRow(action));
 
         return stack;
+    }
+
+
+    View BuildOverflowRow(ShinyTabItem item)
+    {
+        var label = new Label
+        {
+            Text = ShinyTabs.Resolve<string>(ShinyTabs.TitleProperty, this.TitleSources(item)) ?? item.Title,
+            VerticalTextAlignment = TextAlignment.Center,
+            LineBreakMode = LineBreakMode.TailTruncation
+        };
+
+        var selected = ReferenceEquals(item, this.SelectedItem) || this.items.IndexOf(item) == this.SelectedIndex;
+        var tint = selected ? ShinyThemeKeys.Color.Primary : ShinyThemeKeys.Color.OnSurface;
+
+        label.SetDynamicResource(Label.TextColorProperty, tint);
+        label.FontAttributes = selected ? FontAttributes.Bold : FontAttributes.None;
+
+        var row = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 14,
+            Padding = new Thickness(18, 12),
+            BackgroundColor = Colors.Transparent,
+            Opacity = item.IsEnabled ? 1 : 0.4
+        };
+
+        // Realized fresh rather than through the cell's cache: this view belongs to a card that is
+        // torn down on close, and handing it the cell's icon would take the icon off the bar.
+        if (TabIcons.Realize(item, null, 22) is { } icon)
+        {
+            TabIcons.Tint(icon, null, tint);
+            Grid.SetColumn(icon, 0);
+            row.Children.Add(icon);
+        }
+
+        Grid.SetColumn(label, 1);
+        row.Children.Add(label);
+
+        // The badge belongs on the row too: a tab folded into the menu is exactly the one whose
+        // unread count nobody can see any more.
+        var badgeText = ShinyTabs.Resolve<string>(ShinyTabs.BadgeProperty, this.TitleSources(item)) ?? item.Badge;
+        if (!String.IsNullOrEmpty(badgeText))
+        {
+            var badge = new PillView
+            {
+                Text = badgeText,
+                VerticalOptions = LayoutOptions.Center
+            };
+            Grid.SetColumn(badge, 2);
+            row.Children.Add(badge);
+        }
+
+        var tap = new TapGestureRecognizer();
+        tap.Tapped += (_, _) => this.SelectOverflowItem(item);
+        row.GestureRecognizers.Add(tap);
+
+        return row;
     }
 
 

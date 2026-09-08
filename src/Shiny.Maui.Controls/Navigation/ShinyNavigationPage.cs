@@ -83,7 +83,19 @@ public partial class ShinyNavigationPage : NavigationPage
 
 
     /// <summary>The grid a page's content is wrapped in: the bar in row 0, the content in row 1.</summary>
-    internal sealed class NavHost : Grid;
+    /// <remarks>
+    /// Edge-to-edge, unlike every other layout: a <see cref="Grid"/> defaults to
+    /// <see cref="SafeAreaRegions.Container"/>, which would inset the host and so stop the bar's
+    /// background short of the status bar - leaving a strip of page above a bar that is supposed to
+    /// run to the top of the screen. The bar takes the top inset itself, on its background surface,
+    /// so the colour reaches the top edge while the title and items do not. The page's own content
+    /// in row 1 keeps whatever MAUI's default for its type is, so a layout still insets itself out
+    /// of the home indicator without this having to reach into it.
+    /// </remarks>
+    internal sealed class NavHost : Grid
+    {
+        public NavHost() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
 
 
     void Init()
@@ -141,11 +153,104 @@ public partial class ShinyNavigationPage : NavigationPage
     }
 
 
+    /// <inheritdoc/>
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+
+        // The status bar is global, so whatever was showing before this page owned it last. Coming
+        // back from a modal, or forward onto one, is the moment to claim it again - a Refresh alone
+        // does not fire on a page whose properties have not changed.
+        if (this.CurrentPage is ContentPage current)
+            this.SyncStatusBar(current);
+    }
+
+
     /// <summary>
     /// Platform polish that only exists on one head. Implemented for iOS in
     /// <c>Platforms/iOS/ShinyNavigationPage.iOS.cs</c>; compiled away everywhere else.
     /// </summary>
     partial void ApplySwipeBack();
+
+
+    /// <summary>
+    /// Hands the resolved status bar appearance to the platform. Implemented for iOS and Android;
+    /// compiled away on Windows, GTK4 and macOS AppKit, none of which has a status bar.
+    /// </summary>
+    /// <param name="background">
+    /// What is painted behind the clock, or null when the bar cannot be reduced to one colour.
+    /// Android below 15 fills the status bar with it; everywhere else it is only what
+    /// <see cref="Shiny.Maui.Controls.StatusBarStyle.Auto"/> is derived from.
+    /// </param>
+    /// <param name="style">Already resolved — never <c>Inherit</c>, and never <c>Auto</c>.</param>
+    partial void ApplyStatusBar(Color? background, StatusBarStyle style);
+
+
+    /// <summary>
+    /// Works out what the status bar should look like over <paramref name="page"/> and applies it.
+    /// </summary>
+    /// <remarks>
+    /// Only for the page that is showing. Refreshing the whole stack is how every other setting is
+    /// pushed - see <see cref="RefreshAll"/> - and doing the same here would leave the status bar
+    /// wearing the colours of whichever page happened to be walked last.
+    /// </remarks>
+    internal void SyncStatusBar(ContentPage page)
+    {
+        if (!ReferenceEquals(this.CurrentPage, page))
+            return;
+
+        var style = this.ResolvedStatusBarStyle(page);
+        if (style == StatusBarStyle.None)
+            return;
+
+        this.ApplyStatusBar(this.StatusBarColorFor(page), style);
+    }
+
+
+    /// <summary>
+    /// What the status bar should actually be set to over <paramref name="page"/> — the page's answer
+    /// over this one's, with <see cref="StatusBarStyle.Auto"/> already resolved against the bar.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="StatusBarStyle.None"/> comes back for "leave it alone", which covers both an
+    /// explicit <c>None</c> and an <c>Auto</c> with nothing to derive from — a bar painted with an
+    /// image brush, or a theme token that has not resolved yet. Guessing in that case is how a light
+    /// bar ends up with a white clock on it.
+    /// </remarks>
+    internal StatusBarStyle ResolvedStatusBarStyle(ContentPage page)
+    {
+        var declared = ShinyNav.GetStatusBarStyle(page);
+        var style = declared == StatusBarStyle.Inherit ? this.StatusBarStyle : declared;
+
+        if (style != StatusBarStyle.Auto)
+            return style;
+
+        return this.StatusBarColorFor(page) switch
+        {
+            null => StatusBarStyle.None,
+            { } background => IsDark(background) ? StatusBarStyle.LightContent : StatusBarStyle.DarkContent
+        };
+    }
+
+
+    /// <summary>What is painted behind the clock: the pinned colour, the page's, then the bar's.</summary>
+    Color? StatusBarColorFor(ContentPage page)
+        => this.StatusBarColor
+        ?? ShinyNav.GetBarBackgroundColor(page)
+        ?? GetNavBar(page)?.EffectiveBarColor;
+
+
+    /// <summary>
+    /// Whether white text reads better on <paramref name="color"/> than black does.
+    /// </summary>
+    /// <remarks>
+    /// Relative luminance, not <c>Color.GetLuminosity</c>: HSL lightness calls pure blue and pure
+    /// yellow equally light, and the status bar over an indigo bar is exactly the case that gets
+    /// wrong. Weighted the way WCAG weights the channels, against the 0.5 midpoint rather than the
+    /// contrast ratio - there are only two answers to pick between.
+    /// </remarks>
+    internal static bool IsDark(Color color)
+        => (0.2126 * color.Red) + (0.7152 * color.Green) + (0.0722 * color.Blue) < 0.5;
 
 
     /// <inheritdoc/>
@@ -284,6 +389,10 @@ public partial class ShinyNavigationPage : NavigationPage
 
         bar.BackAction = () => _ = this.PopAsync();
         bar.ItemInvoked += (_, e) => this.NavBarItemInvoked?.Invoke(this, e);
+
+        // Auto is derived from the bar's background, and a theme token only becomes a colour once the
+        // dictionary has merged - which is after every Refresh this install will run.
+        bar.EffectiveBarColorChanged += (_, _) => this.SyncStatusBar(page);
 
         this.Refresh(page);
     }
