@@ -1,0 +1,27 @@
+/*
+ * The host takes the layout and does the clipping; the surface takes the transform. Zoom is a paint
+ * transform, so without the clip a zoomed surface draws straight over whatever is laid out next to
+ * it.
+ */
+.shiny-zoompan {
+    position: relative;
+    overflow: hidden;
+}
+
+.shiny-zoompan-surface {
+    /* Scale about the middle, which is what the pan limits in zoom-pan-core.js are written against. */
+    transform-origin: 50% 50%;
+    will-change: transform;
+}
+
+/* Text selection fights a drag: a pan reads as a select and the browser paints the highlight. */
+.shiny-zoompan.is-zoomed .shiny-zoompan-surface {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-zoompan-surface {
+        transition-duration: 1ms !important;
+    }
+}

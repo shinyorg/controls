@@ -112,8 +112,9 @@ Focus moves into the panel on open (the first focusable, or whatever carries `da
 |---|---|---|---|
 | `Size` | `ModalSize` | `Medium` | `Small` 360 / `Medium` 520 / `Large` 760 / `ExtraLarge` 1080 / `Full`. Caps, not fixed widths. |
 | `Placement` | `ModalPlacement` | `Center` | `Center`, `Top`, `Bottom`. |
-| `Width` / `Height` / `MaxWidth` / `MaxHeight` | `string?` | — | CSS. `Width` beats `Size`. |
-| `ScrollBody` | `bool` | `true` | Body scrolls, header and footer stay pinned. |
+| `Width` / `Height` / `MaxWidth` / `MaxHeight` | `string?` | — | CSS. `Width` beats `Size`. `MaxHeight` caps the whole panel; unset it is the viewport less the layer's gutter. |
+| `ContentMaxHeight` | `string?` | — | CSS. Caps the **scrolling region**, not the panel — the panel shrink-wraps its content up to here, then scrolls. Use this instead of doing header + footer arithmetic to land on a `MaxHeight`. Always scrolls, whatever `ScrollBody` says. |
+| `ScrollBody` | `bool` | `true` | Body scrolls, header and footer stay pinned — this is what keeps the footer buttons reachable. `false` lets the panel outgrow the viewport and scrolls the layer instead, taking the chrome with it. |
 | `Animation` | `ModalAnimation` | `Pop` | `None`, `Fade`, `Zoom`, `Pop`, `SlideTop`, `SlideBottom`. |
 | `AnimationDuration` | `int` | `200` | Milliseconds. |
 | `ShowBackdrop` / `BackdropOpacity` / `BlurBackdrop` | `bool` / `double` / `bool` | `true` / `0.45` / `false` | With no backdrop the click surface stays, invisible. |
@@ -128,6 +129,8 @@ Focus moves into the panel on open (the first focusable, or whatever carries `da
 | `ShowMaximizeButton` | `bool` | `false` | The header button. Implies `AllowMaximize`. |
 | `MaximizeOnHeaderDoubleClick` | `bool` | `true` | Only acts when maximising is allowed. |
 | `IsMaximized` / `IsMaximizedChanged` | `bool` | `false` | Two-way bindable. Maximising drops any drag offset and resized size. |
+
+Neither gesture can push the header or footer off screen: the grip stops at the layer's box, the drag keeps the whole panel inside the viewport, and shrinking the browser window pulls an overhanging panel back in. A panel taller than the viewport is the exception — the drag there is a range between its own edges, so the rest of it can still be read.
 
 ### Accessibility
 `AriaLabel`, `AriaDescribedBy`, `AutoFocus` (default true), `TrapFocus` (default true), `RestoreFocus` (default true), `LockScroll` (default true).

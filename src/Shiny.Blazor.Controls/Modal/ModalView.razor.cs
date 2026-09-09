@@ -192,8 +192,19 @@ public partial class ModalView : IAsyncDisposable
     [Parameter] public string? MaxHeight { get; set; }
 
     /// <summary>
+    /// Cap on the scrolling content region, as CSS - <c>MaxHeight</c> for the body rather than for the
+    /// whole panel. The panel then shrink-wraps its content up to this point and scrolls beyond it,
+    /// with the header and footer keeping their own height either way, so there is no arithmetic over
+    /// the chrome to work out a panel height. Requires <see cref="ScrollBody"/>.
+    /// </summary>
+    [Parameter] public string? ContentMaxHeight { get; set; }
+
+    /// <summary>
     /// Scroll the body when the content is taller than the panel, keeping the header and footer
-    /// pinned. False lets the whole panel grow instead.
+    /// pinned - which is what guarantees the footer's buttons stay reachable however long the content
+    /// runs. False instead lets the panel grow past the viewport and scrolls the layer behind it,
+    /// taking the header and footer with it. Setting <see cref="ContentMaxHeight"/> overrides false,
+    /// since a capped region that does not scroll only hides the rest.
     /// </summary>
     [Parameter] public bool ScrollBody { get; set; } = true;
 
@@ -613,6 +624,13 @@ public partial class ModalView : IAsyncDisposable
     // Rendering
     // ---------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Asking for a <see cref="ContentMaxHeight"/> is asking for the content to stop there, so it
+    /// turns the body's scrolling on whatever <see cref="ScrollBody"/> says. The alternative reading -
+    /// cap the region and let it overflow - only ever clips the rest away silently.
+    /// </summary>
+    bool EffectiveScrollBody => this.ScrollBody || !String.IsNullOrWhiteSpace(this.ContentMaxHeight);
+
     bool HasFooter => this.FooterTemplate is not null || this.Buttons is { Count: > 0 };
 
     /// <summary>Maximising is available - by the button, by double-click, or through code.</summary>
@@ -635,7 +653,7 @@ public partial class ModalView : IAsyncDisposable
         ? this.titleId
         : null;
 
-    string RootClasses
+    internal string RootClasses
     {
         get
         {
@@ -647,11 +665,16 @@ public partial class ModalView : IAsyncDisposable
                 ModalPlacement.Bottom => " place-bottom",
                 _ => " place-center"
             });
+
+            // The layer, not the panel, is what has to scroll when the panel is free to outgrow it.
+            if (!this.EffectiveScrollBody)
+                builder.Append(" grow-body");
+
             return builder.ToString();
         }
     }
 
-    string PanelClasses
+    internal string PanelClasses
     {
         get
         {
@@ -676,7 +699,7 @@ public partial class ModalView : IAsyncDisposable
 
             if (this.IsMaximized)
                 builder.Append(" is-maximized");
-            if (this.ScrollBody)
+            if (this.EffectiveScrollBody)
                 builder.Append(" scroll-body");
             if (this.Draggable && this.ShowHeader)
                 builder.Append(" is-draggable");
@@ -700,7 +723,7 @@ public partial class ModalView : IAsyncDisposable
         }
     }
 
-    string PanelStyle
+    internal string PanelStyle
     {
         get
         {
@@ -712,6 +735,7 @@ public partial class ModalView : IAsyncDisposable
             Css.Append(style, "border-radius", this.CornerRadius);
             Css.Append(style, "background", this.Background);
             Css.Append(style, "--shiny-modal-content-padding", LayoutAttributes.Spacing(this.ContentPadding));
+            Css.Append(style, "--shiny-modal-content-max-height", this.ContentMaxHeight);
 
             return LayoutAttributes.Append(style.ToString(), this.UserStyle);
         }

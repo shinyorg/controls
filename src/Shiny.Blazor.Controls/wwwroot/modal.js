@@ -282,6 +282,65 @@ function lockScroll(locked) {
 // Drag and resize
 // -------------------------------------------------------------------------------------------------
 
+const MIN_PANEL_WIDTH = 260;
+const MIN_PANEL_HEIGHT = 160;
+
+
+/**
+ * The box the panel is allowed to fill: the viewport, less whatever gutter the layer keeps around it.
+ * Read off the root rather than assumed, because that gutter narrows at the phone breakpoint and goes
+ * to zero once the panel is maximised.
+ */
+function availableBox(entry) {
+    const style = getComputedStyle(entry.root);
+    const horizontal = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+    const vertical = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+
+    return {
+        width: Math.max(MIN_PANEL_WIDTH, window.innerWidth - horizontal),
+        height: Math.max(MIN_PANEL_HEIGHT, window.innerHeight - vertical)
+    };
+}
+
+
+/**
+ * Pins a drag offset so the panel stays on screen.
+ *
+ * The whole panel, not merely a grabbable strip of it: the footer usually holds the only buttons that
+ * answer the modal, and a window that can be shoved until those buttons are off screen is a window
+ * you cannot answer. A panel taller than the viewport is the one case where the two limits invert -
+ * there the same clamp becomes a range between its own edges, so an oversized window can still be
+ * dragged up and down to read the rest of it.
+ */
+function clampOffset(entry, next) {
+    // getBoundingClientRect already carries the current transform, so back it out to get the box the
+    // panel would occupy at rest.
+    const rect = entry.panel.getBoundingClientRect();
+    const left = rect.left - entry.offset.x;
+    const right = rect.right - entry.offset.x;
+    const top = rect.top - entry.offset.y;
+    const bottom = rect.bottom - entry.offset.y;
+
+    const between = (value, a, b) => Math.min(Math.max(a, b), Math.max(Math.min(a, b), value));
+
+    return {
+        x: between(next.x, -left, window.innerWidth - right),
+        y: between(next.y, -top, window.innerHeight - bottom)
+    };
+}
+
+
+/** Writes the offset out, without introducing a transform the panel did not already carry. */
+function applyOffset(entry) {
+    // An inline transform overrides the stylesheet's, which is what runs the exit animation - so a
+    // panel sitting at the origin is left alone rather than pinned to translate(0, 0).
+    if (entry.offset.x === 0 && entry.offset.y === 0 && !entry.panel.style.transform)
+        return;
+
+    entry.panel.style.transform = `translate(${entry.offset.x}px, ${entry.offset.y}px)`;
+}
+
+
 /**
  * Dragging and resizing, both delegated from the panel.
  *
@@ -293,6 +352,16 @@ function lockScroll(locked) {
 function wireGestures(entry) {
     const { panel, options } = entry;
     entry.offset = entry.offset ?? { x: 0, y: 0 };
+
+    // Shrinking the browser window would otherwise leave a dragged or resized panel hanging off the
+    // edge, with no gesture having taken place to correct it.
+    const onViewportChange = () => {
+        entry.offset = clampOffset(entry, entry.offset);
+        applyOffset(entry);
+    };
+
+    window.addEventListener('resize', onViewportChange);
+    entry.cleanups.push(() => window.removeEventListener('resize', onViewportChange));
 
     const onPointerDown = (e) => {
         // Left button (or touch/pen) only.
@@ -339,23 +408,10 @@ function startDrag(entry, e) {
     panel.style.transition = 'none';
 
     const onMove = (move) => {
-        const rect = panel.getBoundingClientRect();
-        const next = {
+        entry.offset = clampOffset(entry, {
             x: origin.x + (move.clientX - startX),
             y: origin.y + (move.clientY - startY)
-        };
-
-        // Keep a grabbable strip on screen in every direction, so a panel can never be thrown
-        // somewhere it cannot be dragged back from.
-        const margin = 40;
-        const left = rect.left - entry.offset.x;
-        const top = rect.top - entry.offset.y;
-        const right = rect.right - entry.offset.x;
-
-        entry.offset = {
-            x: Math.min(window.innerWidth - margin - left, Math.max(margin - right, next.x)),
-            y: Math.min(window.innerHeight - margin - top, Math.max(-top, next.y))
-        };
+        });
         panel.style.transform = `translate(${entry.offset.x}px, ${entry.offset.y}px)`;
     };
 
@@ -387,11 +443,19 @@ function startResize(entry, e) {
 
     const onMove = (move) => {
         // maxWidth/maxHeight from the stylesheet would cap what the user just asked for, so the
-        // explicit size wins for as long as it is set.
+        // explicit size wins for as long as it is set - but only out to the layer's own box. Past
+        // that the panel grows through the viewport and takes the header and footer with it.
+        const box = availableBox(entry);
+
         panel.style.maxWidth = 'none';
         panel.style.maxHeight = 'none';
-        panel.style.width = Math.max(260, Math.min(window.innerWidth, rect.width + (move.clientX - startX))) + 'px';
-        panel.style.height = Math.max(160, Math.min(window.innerHeight, rect.height + (move.clientY - startY))) + 'px';
+        panel.style.width = Math.max(MIN_PANEL_WIDTH, Math.min(box.width, rect.width + (move.clientX - startX))) + 'px';
+        panel.style.height = Math.max(MIN_PANEL_HEIGHT, Math.min(box.height, rect.height + (move.clientY - startY))) + 'px';
+
+        // A panel already dragged down grows downwards, so the size that just fit the viewport can
+        // still push the footer off the bottom of it.
+        entry.offset = clampOffset(entry, entry.offset);
+        applyOffset(entry);
     };
 
     const onUp = () => {

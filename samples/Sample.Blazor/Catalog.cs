@@ -116,6 +116,7 @@ public static class Catalog
             new("mediaelement", "Media Element", "▶", "Audio and video with a themed transport bar"),
             new("shinyimage", "Shiny Image", "🖼", "Placeholder, download progress and error artwork"),
             new("imageviewer", "Image Viewer", "▣", "Pinch, pan and double-tap zoom"),
+            new("zoompan", "Zoom Pan View", "⤢", "Pinch, pan and wheel zoom over any content"),
             new("imageeditor", "Image Editor", "✎", "Crop, rotate, draw, text, undo and export"),
             new("mediapicker", "Media Picker", "📷", "Pick or capture photos and video")
         ]),

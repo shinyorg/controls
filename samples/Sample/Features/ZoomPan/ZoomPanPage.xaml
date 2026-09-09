@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<shiny:ShinyContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             xmlns:local="clr-namespace:Sample.Features.ZoomPan"
+             x:Class="Sample.Features.ZoomPan.ZoomPanPage"
+             x:DataType="local:ZoomPanViewModel"
+             Title="Zoom Pan View"
+             AutomationId="ZoomPanPage">
+
+    <shiny:ShinyContentPage.PageContent>
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="16">
+
+                <Label Text="ZoomPanView wraps any content"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center" />
+
+                <Label Text="The image viewer's zoom machinery with the picture taken out - both drive the same ZoomPanController. Pinch to zoom, drag to pan once zoomed, double-tap to toggle."
+                       FontSize="14"
+                       TextColor="Gray"
+                       HorizontalTextAlignment="Center" />
+
+                <HorizontalStackLayout Spacing="12" HorizontalOptions="Center">
+                    <Button Text="Zoom to 2x" Command="{Binding ZoomInCommand}" AutomationId="ZoomInButton" />
+                    <Button Text="Reset" Command="{Binding ResetZoomCommand}" AutomationId="ResetZoomButton" />
+                    <Label Text="{Binding ZoomLevel, StringFormat='{0:0.00}x'}"
+                           VerticalOptions="Center"
+                           AutomationId="ZoomLevelLabel" />
+                </HorizontalStackLayout>
+
+                <HorizontalStackLayout Spacing="16" HorizontalOptions="Center">
+                    <HorizontalStackLayout Spacing="6">
+                        <Switch IsToggled="{Binding IsZoomEnabled}" AutomationId="ZoomEnabledSwitch" />
+                        <Label Text="IsZoomEnabled" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="6">
+                        <Switch IsToggled="{Binding DoubleTapToZoom}" AutomationId="DoubleTapSwitch" />
+                        <Label Text="DoubleTapToZoom" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </HorizontalStackLayout>
+
+                <!-- The content is a live layout, not an image: the button and entry still work at
+                     every scale, because the pan recognizer is only attached while zoomed. -->
+                <Border StrokeThickness="1" HeightRequest="280">
+                    <shiny:ZoomPanView MaxZoom="4"
+                                       ZoomLevel="{Binding ZoomLevel}"
+                                       IsZoomEnabled="{Binding IsZoomEnabled}"
+                                       DoubleTapToZoom="{Binding DoubleTapToZoom}"
+                                       AutomationId="ZoomPanView">
+                        <VerticalStackLayout Padding="20" Spacing="12">
+                            <Label Text="Still a live control tree"
+                                   FontAttributes="Bold"
+                                   FontSize="16" />
+                            <Button Text="{Binding Taps, StringFormat='Tapped {0} times'}"
+                                    Command="{Binding TapCommand}"
+                                    AutomationId="InnerTapButton" />
+                            <Entry Placeholder="type in here"
+                                   Text="{Binding Typed}"
+                                   AutomationId="InnerEntry" />
+                            <Label Text="{Binding Typed, StringFormat='You typed: {0}'}"
+                                   TextColor="Gray" />
+                        </VerticalStackLayout>
+                    </shiny:ZoomPanView>
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </shiny:ShinyContentPage.PageContent>
+</shiny:ShinyContentPage>

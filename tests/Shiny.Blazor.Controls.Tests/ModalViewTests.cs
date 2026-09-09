@@ -340,4 +340,66 @@ public class ModalViewTests
 
         changes.ShouldBe(0);
     }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Long content. The footer holds the buttons that answer the modal, so which element is allowed
+    // to scroll is not cosmetic - the class the panel carries decides whether those buttons survive
+    // content taller than the screen.
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ScrollBodyIsOnByDefaultSoTheFooterStaysPut()
+    {
+        var modal = new ModalView();
+
+        modal.PanelClasses.ShouldContain("scroll-body");
+        modal.RootClasses.ShouldNotContain("grow-body");
+    }
+
+
+    [Fact]
+    public void ScrollBodyOffMovesTheScrollToTheLayer()
+    {
+        var modal = new ModalView { ScrollBody = false };
+
+        // Both halves matter: the panel must stop capping itself, and something else has to scroll -
+        // capping without scrolling is how the overflow used to be clipped away silently.
+        modal.PanelClasses.ShouldNotContain("scroll-body");
+        modal.RootClasses.ShouldContain("grow-body");
+    }
+
+
+    [Fact]
+    public void ContentMaxHeightCapsTheBodyRatherThanThePanel()
+    {
+        var modal = new ModalView { ContentMaxHeight = "320px" };
+
+        modal.PanelStyle.ShouldContain("--shiny-modal-content-max-height:320px");
+        // ...and not as the panel's own cap. Checked with the leading ';' so the custom property,
+        // which ends in the same characters, does not satisfy it.
+        modal.PanelStyle.ShouldNotContain(";max-height:");
+        modal.PanelStyle.ShouldNotStartWith("max-height:");
+    }
+
+
+    [Fact]
+    public void ContentMaxHeightScrollsEvenWithScrollBodyOff()
+    {
+        var modal = new ModalView { ScrollBody = false, ContentMaxHeight = "320px" };
+
+        // Asking for a cap is asking for the content to stop there. Honouring the cap without the
+        // scroll would just hide everything past it.
+        modal.PanelClasses.ShouldContain("scroll-body");
+        modal.RootClasses.ShouldNotContain("grow-body");
+    }
+
+
+    [Fact]
+    public void MaxHeightStillCapsTheWholePanel()
+    {
+        var modal = new ModalView { MaxHeight = "50vh" };
+
+        modal.PanelStyle.ShouldContain("max-height:50vh");
+    }
 }

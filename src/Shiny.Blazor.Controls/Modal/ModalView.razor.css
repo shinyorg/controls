@@ -26,6 +26,36 @@
     align-items: flex-end;
 }
 
+/*
+ * ScrollBody off: the panel is allowed to outgrow the viewport and the layer scrolls instead, rather
+ * than the panel being capped and quietly clipping whatever did not fit. The header and footer travel
+ * with the panel in this mode - which is the whole reason ScrollBody defaults on.
+ *
+ * Flex centring puts the overflowing edge outside the scroll range, so centring here is done with
+ * auto margins, which stay reachable.
+ */
+.shiny-modal-root.grow-body {
+    overflow: auto;
+    align-items: flex-start;
+}
+
+.grow-body > .shiny-modal {
+    max-height: none;
+}
+
+.grow-body.place-center > .shiny-modal {
+    margin-block: auto;
+}
+
+.grow-body.place-bottom > .shiny-modal {
+    margin-top: auto;
+}
+
+/* The layer scrolls in this mode, and an absolutely positioned backdrop would scroll away with it. */
+.grow-body > .shiny-modal-backdrop {
+    position: fixed;
+}
+
 .shiny-modal-backdrop {
     position: absolute;
     inset: 0;
@@ -248,9 +278,18 @@
  * Body and footer
  * --------------------------------------------------------------------------------------------- */
 
+/*
+ * The one part of the panel that gives: the header and footer are flex: 0 0 auto above and below, so
+ * whatever the panel's height turns out to be, they keep theirs and the body absorbs the difference.
+ * min-height: 0 is what lets it shrink below its content - without it a long body refuses to give and
+ * pushes the footer straight out of the panel.
+ */
 .shiny-modal-body {
     flex: 1 1 auto;
     min-height: 0;
+    /* A cap on the scrolling region itself, so a modal can shrink-wrap its content up to a point and
+       start scrolling there - no arithmetic over the header and footer to work out a panel height. */
+    max-height: var(--shiny-modal-content-max-height, none);
     padding: var(--shiny-modal-content-padding, 20px);
 }
 

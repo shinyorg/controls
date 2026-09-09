@@ -1,0 +1,9 @@
+@namespace Shiny.Blazor.Controls
+
+@* Two elements, not one: the host takes the layout and does the clipping, and the surface takes the
+   transform. Transforming the element that also clips would move its own clip along with it. *@
+<div class="@HostClasses" style="@UserStyle" @ref="hostEl" @attributes="ExtraAttributes">
+    <div class="shiny-zoompan-surface" @ref="surfaceEl">
+        @ChildContent
+    </div>
+</div>

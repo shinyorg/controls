@@ -330,6 +330,7 @@ colour, and why appearance properties default to `-1` rather than a real value.
 |---|---|
 | **[ShinyImage](docs/controls/shiny-image.md)** | Remote image loading with placeholder, progress ring, caching, and SVG on MAUI |
 | **[ImageViewer](docs/controls/image-viewer.md)** | Full-screen overlay with pinch, pan and double-tap zoom |
+| **[ZoomPanView](docs/controls/zoom-pan-view.md)** | Pinch, pan and double-tap zoom over any content, not only a picture |
 | **[ImageEditor](docs/controls/image-editor.md)** | Crop, rotate, draw, shapes, text annotations, undo/redo and export |
 | **[CameraView](docs/controls/camera.md)** | Preview, photo/video capture, an effects pipeline, and pluggable frame analyzers |
 | **[IMediaService](docs/controls/media-service.md)** | MAUI service over a modal CameraView — permissions, capture, gallery, and Scan… for barcodes/OCR/documents |

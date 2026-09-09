@@ -17,7 +17,6 @@ namespace Shiny.Maui.Controls;
 /// </remarks>
 public partial class ImageViewer : ContentView, IDisposable
 {
-    const double MinScale = 1.0;
     const double DefaultMaxZoom = 5.0;
     const uint AnimationDuration = 250;
     const string DefaultCloseButtonText = "✕";
@@ -33,18 +32,14 @@ public partial class ImageViewer : ContentView, IDisposable
     internal View closeView;
     View? headerView;
     View? footerView;
-    readonly TapGestureRecognizer doubleTapGesture;
-    readonly PinchGestureRecognizer pinchGesture;
-    readonly PanGestureRecognizer panGesture;
+    /// <summary>
+    /// The zoom machinery, shared with <see cref="ZoomPanView"/>. It owns the scale, the pan limits
+    /// and the recognizers — the viewer only says what the ceiling is and when to drop the transform.
+    /// </summary>
+    readonly ZoomPanController zoomPan;
 
-    double currentScale = 1;
-    double startScale = 1;
-    double xOffset;
-    double yOffset;
-    double startX;
-    double startY;
+    /// <summary>The overlay's own open/close animation, which is not the zoom's.</summary>
     bool isAnimating;
-    bool isPinching;
     bool isDisposed;
 
     // Track where the overlay is hosted
@@ -96,17 +91,16 @@ public partial class ImageViewer : ContentView, IDisposable
             InputTransparent = false
         };
 
-        doubleTapGesture = new TapGestureRecognizer { NumberOfTapsRequired = 2 };
-        doubleTapGesture.Tapped += OnDoubleTapped;
-
-        pinchGesture = new PinchGestureRecognizer();
-        pinchGesture.PinchUpdated += OnPinchUpdated;
-
-        panGesture = new PanGestureRecognizer();
-        panGesture.PanUpdated += OnPanUpdated;
-
-        overlayImage.GestureRecognizers.Add(pinchGesture);
-        overlayImage.GestureRecognizers.Add(doubleTapGesture);
+        zoomPan = new ZoomPanController(overlayImage)
+        {
+            MaxZoom = this.MaxZoom,
+            DoubleTapping = () =>
+            {
+                if (this.UseFeedback)
+                    FeedbackHelper.Execute(this, "DoubleTapped");
+            }
+        };
+        zoomPan.Attach();
 
         closeView = CreateDefaultCloseButton();
 
@@ -496,158 +490,10 @@ public partial class ImageViewer : ContentView, IDisposable
             command.Execute(null);
     }
 
-    void ResetTransform()
-    {
-        currentScale = 1;
-        xOffset = 0;
-        yOffset = 0;
-        overlayImage.Scale = 1;
-        overlayImage.TranslationX = 0;
-        overlayImage.TranslationY = 0;
-        overlayImage.GestureRecognizers.Remove(panGesture);
-    }
+    void ResetTransform() => this.zoomPan.Reset();
 
     #endregion
 
-    #region Gestures
-
-    void OnPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e)
-    {
-        switch (e.Status)
-        {
-            case GestureStatus.Started:
-                isPinching = true;
-                startScale = currentScale;
-                break;
-
-            case GestureStatus.Running:
-                currentScale += (e.Scale - 1) * startScale;
-                currentScale = Math.Clamp(currentScale, MinScale, MaxZoom);
-
-                var pinchX = (e.ScaleOrigin.X - 0.5) * overlayImage.Width;
-                var pinchY = (e.ScaleOrigin.Y - 0.5) * overlayImage.Height;
-                var scaleDelta = currentScale - startScale;
-
-                var targetX = xOffset - pinchX * scaleDelta;
-                var targetY = yOffset - pinchY * scaleDelta;
-
-                overlayImage.TranslationX = ClampX(targetX);
-                overlayImage.TranslationY = ClampY(targetY);
-                overlayImage.Scale = currentScale;
-                break;
-
-            case GestureStatus.Completed:
-            case GestureStatus.Canceled:
-                isPinching = false;
-                xOffset = overlayImage.TranslationX;
-                yOffset = overlayImage.TranslationY;
-
-                if (currentScale <= MinScale)
-                    _ = AnimateResetAsync();
-                else if (!overlayImage.GestureRecognizers.Contains(panGesture))
-                    overlayImage.GestureRecognizers.Add(panGesture);
-                break;
-        }
-    }
-
-    void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
-    {
-        if (isPinching || currentScale <= MinScale) return;
-
-        switch (e.StatusType)
-        {
-            case GestureStatus.Started:
-                startX = xOffset;
-                startY = yOffset;
-                break;
-
-            case GestureStatus.Running:
-                overlayImage.TranslationX = ClampX(startX + e.TotalX);
-                overlayImage.TranslationY = ClampY(startY + e.TotalY);
-                break;
-
-            case GestureStatus.Completed:
-                xOffset = overlayImage.TranslationX;
-                yOffset = overlayImage.TranslationY;
-                break;
-        }
-    }
-
-    void OnDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (isAnimating) return;
-
-        if (UseFeedback)
-            FeedbackHelper.Execute(this, "DoubleTapped");
-
-        if (currentScale > MinScale)
-            _ = AnimateResetAsync();
-        else
-            _ = AnimateZoomInAsync(e);
-    }
-
-    async Task AnimateZoomInAsync(TappedEventArgs e)
-    {
-        isAnimating = true;
-
-        var targetScale = Math.Min(2.5, MaxZoom);
-        var point = e.GetPosition(overlayImage);
-
-        double tx = 0, ty = 0;
-        if (point.HasValue)
-        {
-            tx = -(point.Value.X - overlayImage.Width / 2) * (targetScale - 1);
-            ty = -(point.Value.Y - overlayImage.Height / 2) * (targetScale - 1);
-        }
-
-        currentScale = targetScale;
-        tx = ClampX(tx);
-        ty = ClampY(ty);
-        xOffset = tx;
-        yOffset = ty;
-
-        await Task.WhenAll(
-            overlayImage.ScaleToAsync(targetScale, AnimationDuration, Easing.CubicOut),
-            overlayImage.TranslateToAsync(tx, ty, AnimationDuration, Easing.CubicOut)
-        );
-
-        if (!overlayImage.GestureRecognizers.Contains(panGesture))
-            overlayImage.GestureRecognizers.Add(panGesture);
-
-        isAnimating = false;
-    }
-
-    async Task AnimateResetAsync()
-    {
-        isAnimating = true;
-        overlayImage.GestureRecognizers.Remove(panGesture);
-
-        await Task.WhenAll(
-            overlayImage.ScaleToAsync(1, AnimationDuration, Easing.CubicOut),
-            overlayImage.TranslateToAsync(0, 0, AnimationDuration, Easing.CubicOut)
-        );
-
-        currentScale = 1;
-        xOffset = 0;
-        yOffset = 0;
-        isAnimating = false;
-    }
-
-    double ClampX(double x)
-    {
-        if (currentScale <= MinScale) return 0;
-        var maxX = overlayImage.Width * (currentScale - 1) / 2;
-        return Math.Clamp(x, -maxX, maxX);
-    }
-
-    double ClampY(double y)
-    {
-        if (currentScale <= MinScale) return 0;
-        var maxY = overlayImage.Height * (currentScale - 1) / 2;
-        return Math.Clamp(y, -maxY, maxY);
-    }
-
-    #endregion
 
     /// <summary>Cancels any in-flight load and releases the control's resources.</summary>
     public void Dispose()

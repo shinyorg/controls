@@ -1,0 +1,108 @@
+@page "/zoompan"
+
+<PageTitle>Zoom Pan View</PageTitle>
+
+<h1>Zoom Pan View</h1>
+
+<p>
+    <code>ZoomPanView</code> is the image viewer's zoom machinery with the picture taken out — the
+    same <code>zoom-pan-core.js</code> drives both. Wrap anything in it: a stack of controls, a chart,
+    a table, a form. Pinch, drag, double-click, or hold <kbd>Ctrl</kbd>/<kbd>⌘</kbd> and scroll.
+</p>
+
+<div class="demo-section">
+    <h2>A live control tree, not a picture</h2>
+    <p>
+        The content stays interactive at every zoom level. A gesture that starts on a button or an
+        input is left to that control until the surface is actually zoomed, and a pan only takes the
+        pointer capture once it has travelled far enough to be a drag — so the buttons below still
+        click, and the text box still takes text, while zoomed in.
+    </p>
+    <div class="row">
+        <button class="btn" @onclick="() => zoomPan!.ZoomToAsync(2)">Zoom to 2×</button>
+        <button class="btn" @onclick="() => zoomPan!.ResetZoomAsync()">Reset</button>
+        <span class="state">@($"{zoom:0.00}×") @(isZoomed ? "— panning" : "— at rest")</span>
+    </div>
+
+    <ZoomPanView @ref="zoomPan"
+                 MaxZoom="4"
+                 ZoomLevel="zoom"
+                 ZoomLevelChanged="OnZoomLevelChanged"
+                 ZoomChanged="OnZoomChanged"
+                 CssClass="demo-zoompan">
+        <div style="padding:20px; display:flex; flex-direction:column; gap:12px;">
+            <h3 style="margin:0;">Still a live control tree</h3>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <button class="btn" @onclick="() => clicks++">Clicked @clicks times</button>
+                <input @bind="typed" @bind:event="oninput" placeholder="type in here" />
+            </div>
+            <p style="margin:0; color:#6B7280;">You typed: <strong>@(String.IsNullOrEmpty(typed) ? "nothing yet" : typed)</strong></p>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
+                @for (var i = 1; i <= 8; i++)
+                {
+                    var n = i;
+                    <div style="padding:12px; border-radius:8px; background:#EEF2FF; text-align:center;">@n</div>
+                }
+            </div>
+        </div>
+    </ZoomPanView>
+</div>
+
+<div class="demo-section">
+    <h2>Every gesture on its own switch</h2>
+    <p>
+        Turn the pieces off independently. <code>IsZoomEnabled</code> hands the content's gestures
+        straight back and drops any zoom already applied; <code>MinZoom</code> below 1 lets the
+        content sit smaller than its box and <em>stay</em> there.
+    </p>
+    <div class="row">
+        <label><input type="checkbox" @bind="enabled" /> IsZoomEnabled</label>
+        <label><input type="checkbox" @bind="doubleTap" /> DoubleTapToZoom</label>
+        <label>Wheel
+            <select @bind="wheel">
+                <option value="@ZoomPanWheelMode.Modifier">Modifier (Ctrl/⌘)</option>
+                <option value="@ZoomPanWheelMode.Always">Always</option>
+                <option value="@ZoomPanWheelMode.Disabled">Disabled</option>
+            </select>
+        </label>
+        <label>MinZoom
+            <select @bind="minZoom">
+                <option value="1">1 — natural size is the floor</option>
+                <option value="0.5">0.5 — may sit smaller than its box</option>
+            </select>
+        </label>
+    </div>
+
+    <ZoomPanView IsZoomEnabled="enabled"
+                 DoubleTapToZoom="doubleTap"
+                 WheelMode="wheel"
+                 MinZoom="minZoom"
+                 MaxZoom="6"
+                 CssClass="demo-zoompan">
+        <div style="padding:24px;">
+            <svg viewBox="0 0 240 120" style="width:100%; height:auto;" role="img" aria-label="Sparkline">
+                <polyline fill="none" stroke="#6366F1" stroke-width="2"
+                          points="0,90 30,70 60,80 90,40 120,55 150,20 180,45 210,15 240,30" />
+                <text x="4" y="112" font-size="9" fill="#6B7280">Vectors stay crisp at any zoom</text>
+            </svg>
+        </div>
+    </ZoomPanView>
+</div>
+
+@code {
+    ZoomPanView? zoomPan;
+
+    double zoom = 1;
+    bool isZoomed;
+    int clicks;
+    string typed = "";
+
+    bool enabled = true;
+    bool doubleTap = true;
+    ZoomPanWheelMode wheel = ZoomPanWheelMode.Modifier;
+    double minZoom = 1;
+
+    void OnZoomLevelChanged(double value) => this.zoom = value;
+
+    void OnZoomChanged(ZoomPanChangedEventArgs e) => this.isZoomed = e.IsZoomed;
+}

@@ -376,7 +376,8 @@ public partial class ImageViewer
         nameof(MaxZoom),
         typeof(double),
         typeof(ImageViewer),
-        DefaultMaxZoom);
+        DefaultMaxZoom,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ImageViewer>(b, ctrl => ctrl.zoomPan.MaxZoom = (double)n));
 
     /// <inheritdoc cref="MaxZoomProperty" />
     public double MaxZoom

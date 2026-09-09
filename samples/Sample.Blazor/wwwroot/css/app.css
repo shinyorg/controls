@@ -196,3 +196,12 @@ hr {
     height: 18px;
     accent-color: var(--shiny-color-primary, #7C3AED);
 }
+
+/* ZoomPanView demo: give the surface a visible box so the clipping is legible. */
+.demo-zoompan {
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    background: #fff;
+    min-height: 220px;
+    touch-action: pan-y;
+}

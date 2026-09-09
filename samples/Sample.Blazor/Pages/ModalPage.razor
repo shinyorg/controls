@@ -143,6 +143,51 @@
 </section>
 
 <section class="demo-section">
+    <h2>Long content, pinned chrome</h2>
+    <p>
+        <code>ScrollBody</code> (on by default) scrolls the body and leaves the header and footer where
+        they are, so the action buttons stay reachable however long the content runs.
+        <code>ContentMaxHeight</code> caps the scrolling region itself — the panel shrink-wraps its
+        content up to that point and starts scrolling there, with no arithmetic over the chrome to work
+        out a panel height. <code>MaxHeight</code> caps the whole panel instead, and unset it is the
+        viewport.
+    </p>
+    <div class="row">
+        <label>Content max height
+            <select @bind="contentCap">
+                <option value="">unset — panel fills the viewport</option>
+                <option value="200px">200px</option>
+                <option value="320px">320px</option>
+                <option value="50vh">50vh</option>
+            </select>
+        </label>
+        <label>Paragraphs
+            <select @bind="paragraphCount">
+                <option value="2">2 — shorter than the cap</option>
+                <option value="40">40</option>
+            </select>
+        </label>
+        <label><input type="checkbox" @bind="scrollBody" /> ScrollBody</label>
+        <button class="btn" @onclick="() => longOpen = true">Open long</button>
+    </div>
+
+    <ModalView @bind-IsOpen="longOpen"
+               Title="Terms of service"
+               Subtitle="The footer never leaves"
+               ContentMaxHeight="@(String.IsNullOrEmpty(contentCap) ? null : contentCap)"
+               ScrollBody="scrollBody"
+               Buttons="@longButtons">
+        @for (var i = 1; i <= paragraphCount; i++)
+        {
+            <p style="margin:0 0 12px;">
+                <strong>@i.</strong> Clause @i of the agreement, kept here only to make the body taller
+                than the panel so the header and footer have something to stay put against.
+            </p>
+        }
+    </ModalView>
+</section>
+
+<section class="demo-section">
     <h2>A window, not a card</h2>
     <p>
         <code>Draggable</code> moves it by the header, <code>Resizable</code> gives it a corner grip
@@ -267,6 +312,12 @@ order by members desc;</pre>
     IReadOnlyList<ModalButton> bareButtons = default!;
     IReadOnlyList<ModalButton> guardButtons = default!;
     IReadOnlyList<ModalButton> confirmButtons = default!;
+    IReadOnlyList<ModalButton> longButtons = default!;
+
+    bool longOpen;
+    bool scrollBody = true;
+    string contentCap = "320px";
+    int paragraphCount = 40;
     readonly IReadOnlyList<ModalButton> closeOnly =
     [
         new("Close") { Type = ButtonType.Secondary, Appearance = ButtonAppearance.Tonal }
@@ -287,6 +338,12 @@ order by members desc;</pre>
         ];
 
         this.bareButtons = [new("Get started") { Type = ButtonType.Primary }];
+
+        this.longButtons =
+        [
+            new("Decline") { Type = ButtonType.Secondary },
+            new("Accept") { Type = ButtonType.Primary }
+        ];
 
         // Close is the one that demonstrates the veto: it asks to close and changes nothing first, so
         // a dirty note refuses it. Discard and Save empty the field on the way out, which is what
