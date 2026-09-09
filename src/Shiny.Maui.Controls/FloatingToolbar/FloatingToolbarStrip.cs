@@ -283,7 +283,9 @@ class FloatingToolbarStrip : Border
 
     View BuildChevron(ShinyToolbarItem item)
     {
-        var path = this.orientation == ToolbarOrientation.Vertical || this.showLabels
+        // Down on a bar running across, right on one running down - and menus are always vertical,
+        // so a submenu's chevron points along the flyout. Labels do not change the direction.
+        var path = this.orientation == ToolbarOrientation.Vertical
             ? ChevronRight
             : ChevronDown;
 

@@ -34,13 +34,10 @@
                         </HorizontalStackLayout>
                     </HorizontalStackLayout>
 
-                    <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                        <Label Text="Animation" VerticalOptions="Center" />
-                        <Picker ItemsSource="{Binding Animations}"
-                                SelectedItem="{Binding SelectedAnimation}"
-                                WidthRequest="140"
-                                AutomationId="AnimationPicker" />
-                    </HorizontalStackLayout>
+                    <Button Text="{Binding SelectedAnimation, StringFormat='Animation: {0}'}"
+                            Command="{Binding CycleAnimationCommand}"
+                            HorizontalOptions="Center"
+                            AutomationId="AnimationButton" />
 
                     <Label Text="{Binding LastAction}"
                            FontSize="14"

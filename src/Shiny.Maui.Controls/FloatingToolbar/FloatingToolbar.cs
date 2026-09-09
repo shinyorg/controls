@@ -335,8 +335,9 @@ public partial class FloatingToolbar : ContentView
         this.strip.StrokeShape = this.BuildCorner();
         this.strip.Build(this.Items.ToList(), this.ResolveMaxVisible(), this.BuildOverflowItem());
 
-        if (this.isShown)
-            this.Reposition();
+        // Not Reposition(): the bar has just changed shape and still carries the old rect, so it has
+        // to be measured against the new content before it can be placed against the target.
+        this.Remeasure();
     }
 
 

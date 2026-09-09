@@ -53,6 +53,18 @@ Give the host a height in CSS — the component sets `overflow: hidden` and `pos
 **Methods:** `ResetZoomAsync()`, `ZoomToAsync(zoom)` (MAUI also takes an optional focus `Point`).
 **Events:** `ZoomChanged` → `ZoomPanChangedEventArgs(ZoomLevel, IsZoomed)`. MAUI adds `ZoomChangedCommand`.
 
+## Known gap: clipping on iOS
+
+A zoomed surface is **not clipped to the control's bounds on iOS**. The zoom itself is correct — the
+content scales, stays interactive, and reports its level — but content scaled past the control's box
+paints over whatever is laid out around it instead of being cut off at the edge. Neither
+`IsClippedToBounds` on the control, an explicit `Clip` geometry, nor an inner `Layout` with
+`IsClippedToBounds` holds a scaled child in on that platform, and an enclosing `Border` does not
+either. Blazor clips correctly (`overflow: hidden` on the host), so this is an iOS-only gap.
+
+Until it is resolved, give a MAUI `ZoomPanView` room around it, or keep `MaxZoom` low enough that the
+overflow does not reach neighbouring content.
+
 ## Rules
 
 - **The content stays interactive.** Zoom is a render transform, so nothing re-flows. The pan gesture is attached only while zoomed, so at rest the content owns its gestures; on Blazor `touch-action` is claimed on the same terms, a gesture starting on a control is left to that control until the surface is zoomed, and a pan takes the pointer capture only after it has travelled far enough to be a drag.

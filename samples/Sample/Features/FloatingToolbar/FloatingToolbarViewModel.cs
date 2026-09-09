@@ -19,7 +19,7 @@ public partial class FloatingToolbarViewModel : ObservableObject
     bool showLabels;
 
     /// <summary>The same enum the tooltip animates with — one vocabulary, not two.</summary>
-    public IReadOnlyList<string> Animations { get; } = ["Scale", "Fade", "Slide", "None"];
+    static readonly string[] AnimationNames = ["Scale", "Fade", "Slide", "None"];
 
     [ObservableProperty]
     string selectedAnimation = "Scale";
@@ -29,6 +29,13 @@ public partial class FloatingToolbarViewModel : ObservableObject
         : TooltipAnimation.Scale;
 
     partial void OnSelectedAnimationChanged(string value) => this.OnPropertyChanged(nameof(this.Animation));
+
+    [RelayCommand]
+    void CycleAnimation()
+    {
+        var next = Array.IndexOf(AnimationNames, this.SelectedAnimation) + 1;
+        this.SelectedAnimation = AnimationNames[next % AnimationNames.Length];
+    }
 
     public ToolbarOrientation Orientation => this.IsVertical
         ? ToolbarOrientation.Vertical

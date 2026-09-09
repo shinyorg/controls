@@ -2,9 +2,9 @@
 
 **MAUI + Blazor.** Wraps any content in pinch-to-zoom, pan and double-tap zoom — a `StackLayout`, a chart, a form, a table, a `Grid` of anything at all. Not only a picture.
 
-![ZoomPanView](../../assets/zoompanview1.png)
+![ZoomPanView on iOS](../../assets/zoompanview1.png)
+![ZoomPanView zoomed in the browser](../../assets/zoompanview2.png)
 
-<!-- TODO: capture screenshots for zoom-pan-view -->
 
 ## What it is
 
@@ -61,6 +61,18 @@ Zoom is a render transform, so the content keeps its laid-out size: nothing re-f
 - **Wheel zoom is Blazor-only.** MAUI has no equivalent cross-platform hook for a scroll wheel over a view, so on desktop MAUI the gestures are pinch (trackpad), double-tap and the programmatic API.
 - **Pinch needs two fingers**, so on a desktop MAUI head without a trackpad, `ZoomToAsync` and `ZoomLevel` are the way in.
 - A `ZoomPanView` inside a `ScrollView` shares the drag with it. Give the view a fixed height and keep it out of the scroll direction where you can, or drive the zoom from `ZoomLevel` instead.
+
+## Known gap: clipping on iOS
+
+A zoomed surface is **not clipped to the control's bounds on iOS**. The zoom itself is correct — the
+content scales, stays interactive, and reports its level — but content scaled past the control's box
+paints over whatever is laid out around it instead of being cut off at the edge. Neither
+`IsClippedToBounds` on the control, an explicit `Clip` geometry, nor an inner `Layout` with
+`IsClippedToBounds` holds a scaled child in on that platform, and an enclosing `Border` does not
+either. Blazor clips correctly (`overflow: hidden` on the host), so this is an iOS-only gap.
+
+Until it is resolved, give a MAUI `ZoomPanView` room around it, or keep `MaxZoom` low enough that the
+overflow does not reach neighbouring content.
 
 ## See also
 

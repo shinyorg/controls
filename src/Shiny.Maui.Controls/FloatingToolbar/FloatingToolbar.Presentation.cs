@@ -4,6 +4,35 @@ namespace Shiny.Maui.Controls;
 
 public partial class FloatingToolbar
 {
+    /// <summary>
+    /// The size the bar was last placed at. Placing writes an explicit rect, so the bar's size is
+    /// whatever we last told it — and the only way to tell a real re-measure from the echo of our
+    /// own write is to compare against this.
+    /// </summary>
+    Size lastPlacedSize;
+
+
+    /// <summary>
+    /// Hands the bar back its natural size so the next measurement is of the new content.
+    /// </summary>
+    /// <remarks>
+    /// The strip outlives a single open, so it carries the size it had last time — which is why the
+    /// expectation is cleared too. Without that, showing a bar that has changed orientation since it
+    /// was last up places it at the old shape and the Border clips everything that no longer fits.
+    /// </remarks>
+    void Remeasure()
+    {
+        if (this.strip is null)
+            return;
+
+        this.lastPlacedSize = Size.Zero;
+        AbsoluteLayout.SetLayoutBounds(
+            this.strip,
+            new Rect(0, 0, AbsoluteLayout.AutoSize, AbsoluteLayout.AutoSize)
+        );
+    }
+
+
     void OnUnloaded()
     {
         // The bar lives in the page's overlay layer, not under this element, so navigating away
@@ -113,6 +142,22 @@ public partial class FloatingToolbar
         this.strip.ItemInvoked += this.OnItemInvoked;
         this.strip.MenuRequested += this.OnMenuRequested;
 
+        // Placing writes an explicit rect, which then dictates the size - so the bar can never
+        // re-measure to fit new content, and the measurement is circular. Rebuilds break the cycle
+        // by putting the bounds back to AutoSize and waiting for the natural size to arrive here.
+        // Without this, turning Vertical on kept the one-row height and clipped every item but the
+        // first, and turning it back off kept the narrow column and clipped the row.
+        this.strip.SizeChanged += (_, _) =>
+        {
+            if (!this.isShown)
+                return;
+
+            // Only when the size is not the one we ourselves just wrote. Placing sets an explicit
+            // rect, which raises SizeChanged in turn, so without this the two would chase each other.
+            if (this.strip is not null && new Size(this.strip.Width, this.strip.Height) != this.lastPlacedSize)
+                this.Reposition();
+        };
+
         // Crossing from the target onto the bar has to cancel the pending close, or a hover bar can
         // be seen but never reached.
         var pointer = new PointerGestureRecognizer();
@@ -152,6 +197,8 @@ public partial class FloatingToolbar
         );
 
         AbsoluteLayout.SetLayoutBounds(view, layout.Bubble);
+        this.lastPlacedSize = layout.Bubble.Size;
+
         return layout.Placement;
     }
 

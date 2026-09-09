@@ -34,13 +34,31 @@ public class ZoomPanView : ContentView
 {
     readonly ZoomPanController controller;
 
+    /// <summary>
+    /// What actually carries the transform. Scaling the <see cref="ZoomPanView"/> itself would scale
+    /// its layout slot along with its content — the control would grow out of the space it was given
+    /// and paint over its neighbours, rather than zooming content inside a fixed frame. The outer
+    /// view keeps its size and clips; this inner one moves.
+    /// </summary>
+    readonly ContentView surface = new();
+
+    /// <summary>
+    /// A <see cref="Layout"/> purely to do the clipping. <c>IsClippedToBounds</c> is honoured by
+    /// layouts; on a <see cref="ContentView"/> it is not, and neither is a <c>Clip</c> geometry — a
+    /// 2x surface painted straight over the neighbouring content on iOS either way.
+    /// </summary>
+    readonly Grid clipHost;
+
     /// <summary>Guards the two-way loop between <see cref="ZoomLevel"/> and the controller.</summary>
     bool syncingZoom;
+
+    /// <summary>Guards the re-entrant <see cref="Content"/> write that installs the surface.</summary>
+    bool wrapping;
 
 
     public ZoomPanView()
     {
-        this.controller = new ZoomPanController(this)
+        this.controller = new ZoomPanController(this.surface)
         {
             DoubleTapping = () =>
             {
@@ -50,15 +68,73 @@ public class ZoomPanView : ContentView
         };
         this.controller.ZoomChanged += this.OnControllerZoomChanged;
 
-        // Zoom is a transform, so the content draws outside its box the moment it grows. Without
-        // this the content paints over whatever is laid out next to it.
+        // Zoom is a transform, so the content draws outside its box the moment it grows. On iOS
+        // IsClippedToBounds alone does not hold it in - a 2x surface painted straight over the
+        // neighbouring layout - so an explicit Clip geometry is tracked against the control's size.
         this.IsClippedToBounds = true;
+        this.clipHost = new Grid { IsClippedToBounds = true, Children = { this.surface } };
+        base.Content = this.clipHost;
 
         this.controller.Attach();
 
         // Last line: replays any styled property that was applied before the
         // children existed. See StyleGuard.
         StyleGuard.MarkReady(this, typeof(ZoomPanView));
+    }
+
+
+    /// <summary>The transformed view, for tests and for anything that needs the real target.</summary>
+    internal View Surface => this.surface;
+
+
+    /// <summary>
+    /// Keeps the clip rectangle the same size as the control it is clipping.
+    /// </summary>
+    /// <remarks>
+    /// Hooked from <see cref="OnSizeAllocated"/> rather than <c>SizeChanged</c>: the event fires
+    /// before the arrange that gives the control its final box, so a clip built from it is the wrong
+    /// size and the zoomed content spills over the neighbouring layout anyway.
+    /// </remarks>
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+
+        this.Clip = width > 0 && height > 0
+            ? new Microsoft.Maui.Controls.Shapes.RectangleGeometry(new Rect(0, 0, width, height))
+            : null;
+    }
+
+
+    protected override void OnPropertyChanged(string? propertyName = null)
+    {
+        base.OnPropertyChanged(propertyName);
+
+        if (propertyName == nameof(this.Content))
+            this.WrapContent();
+    }
+
+
+    /// <summary>
+    /// Moves whatever was assigned as <see cref="Content"/> inside the surface, so callers keep
+    /// writing the property they expect while the transform still lands on an inner view.
+    /// </summary>
+    void WrapContent()
+    {
+        // The comparison, not the flag alone, is what makes this safe: MAUI can defer a SetValue
+        // raised from inside a propertyChanged, so the write can land after the guard is released.
+        if (this.wrapping || this.Content is null || ReferenceEquals(this.Content, this.clipHost))
+            return;
+
+        this.wrapping = true;
+        try
+        {
+            this.surface.Content = this.Content;
+            base.Content = this.clipHost;
+        }
+        finally
+        {
+            this.wrapping = false;
+        }
     }
 
 

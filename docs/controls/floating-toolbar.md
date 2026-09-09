@@ -2,7 +2,9 @@
 
 **MAUI + Blazor.** A toolbar that floats over a control the way a tooltip does — icons, labels, badges, dropdown menus and an overflow, laid out **across or down**, anchored to whichever control triggered it.
 
-<!-- TODO: capture screenshots for floating-toolbar -->
+![FloatingToolbar on iOS](../../assets/floatingtoolbar1.png)
+![FloatingToolbar dropdown in the browser](../../assets/floatingtoolbar2.png)
+
 
 ## What it is
 
