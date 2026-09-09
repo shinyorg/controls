@@ -45,6 +45,12 @@ static class PageOverlay
 
     internal sealed class WalkthroughLayer : AbsoluteLayout, IOverlayLayer;
 
+    internal sealed class FloatingToolbarLayer : AbsoluteLayout, IOverlayLayer;
+
+    /// <summary>The dropdowns a floating toolbar opens. Its own layer so a menu draws over the bar
+    /// that opened it rather than under it, whatever order the two were added in.</summary>
+    internal sealed class FloatingToolbarMenuLayer : AbsoluteLayout, IOverlayLayer;
+
     /// <summary>
     /// Grid-based, unlike the layers above. An <see cref="AbsoluteLayout"/> child sized with
     /// <c>AutoSize</c> and positioned proportionally is not reliably arranged across MAUI's heads —
@@ -117,6 +123,16 @@ static class PageOverlay
         /// which can be raised over a menu line the pointer is resting on.
         /// </summary>
         public const int RibbonMenu = 8_700;
+
+        /// <summary>
+        /// A toolbar floating over a control, and the menus it opens. Below <see cref="Tooltip"/>
+        /// deliberately: the bar's own buttons carry tooltips, and a tip that renders under the bar
+        /// it names is worse than no tip at all.
+        /// </summary>
+        public const int FloatingToolbar = 8_800;
+
+        /// <inheritdoc cref="FloatingToolbar" />
+        public const int FloatingToolbarMenu = 8_850;
 
         public const int Tooltip = 9_000;
         public const int Walkthrough = 9_500;

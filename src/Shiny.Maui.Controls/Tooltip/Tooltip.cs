@@ -39,17 +39,16 @@ public partial class Tooltip : ContentView
     BoxView? catcher;
     AbsoluteLayout? layer;
 
-    View? wiredAnchor;
-    TapGestureRecognizer? anchorTap;
-    Button? clickAnchor;
-    ImageButton? imageClickAnchor;
-    PointerGestureRecognizer? anchorPointer;
-    DragTouchHook? pressHook;
     ScrollView? watchedScroll;
+
+    /// <summary>
+    /// Opening is delegated: every awkward detail of anchoring to an arbitrary view lives in the
+    /// binder, which <see cref="FloatingToolbar"/> shares rather than reimplementing.
+    /// </summary>
+    AnchorTriggerBinder? triggers;
 
     IDispatcherTimer? showTimer;
     IDispatcherTimer? dismissTimer;
-    IDispatcherTimer? longPressTimer;
 
     bool latestTarget;
     bool workerRunning;
@@ -149,141 +148,33 @@ public partial class Tooltip : ContentView
 
     void RewireTrigger()
     {
-        this.Unwire();
-
-        var anchor = this.Anchor;
-        if (anchor is null)
-            return;
-
-        this.wiredAnchor = anchor;
-
-        switch (this.Trigger)
+        this.triggers ??= new AnchorTriggerBinder(() => this.SafeDispatcher())
         {
-            case TooltipTrigger.Tap:
-                // Button and ImageButton consume touch natively and never route it to their
-                // GestureRecognizers, so a TapGestureRecognizer on one of them is silently dead.
-                // Those two anchor through Clicked instead — exclusively, or a platform that did
-                // deliver both would toggle twice and land back where it started.
-                switch (anchor)
-                {
-                    case Button button:
-                        this.clickAnchor = button;
-                        button.Clicked += this.OnAnchorClicked;
-                        break;
-
-                    case ImageButton imageButton:
-                        this.imageClickAnchor = imageButton;
-                        imageButton.Clicked += this.OnAnchorClicked;
-                        break;
-
-                    default:
-                        this.anchorTap = new TapGestureRecognizer();
-                        this.anchorTap.Tapped += this.OnAnchorTapped;
-                        anchor.GestureRecognizers.Add(this.anchorTap);
-                        break;
-                }
-                break;
-
-            case TooltipTrigger.LongPress:
-                // A pan cannot time a press — it does not begin until the finger has already moved —
-                // so the hold is measured from the native touch-down instead.
-                this.pressHook = new DragTouchHook(anchor)
-                {
-                    Pressed = this.OnAnchorPressed,
-                    Released = this.OnAnchorReleased
-                };
-                break;
-
-            case TooltipTrigger.Hover:
-                this.anchorPointer = new PointerGestureRecognizer();
-                this.anchorPointer.PointerEntered += this.OnPointerEntered;
-                this.anchorPointer.PointerExited += this.OnPointerExited;
-                anchor.GestureRecognizers.Add(this.anchorPointer);
-                break;
-
-            case TooltipTrigger.Focus:
-                anchor.Focused += this.OnAnchorFocused;
-                anchor.Unfocused += this.OnAnchorUnfocused;
-                break;
-        }
+            Show = this.Show,
+            Hide = this.Hide,
+            Toggle = this.Toggle
+        };
+        this.triggers.LongPressDelay = this.LongPressDelay;
+        this.triggers.Bind(this.Anchor, this.Trigger);
     }
 
 
-    void Unwire()
+    void Unwire() => this.triggers?.Unbind();
+
+
+    /// <summary>The dispatcher, or null off a window — where asking for it throws.</summary>
+    IDispatcher? SafeDispatcher()
     {
-        if (this.wiredAnchor is null)
-            return;
-
-        if (this.anchorTap is not null)
+        try
         {
-            this.anchorTap.Tapped -= this.OnAnchorTapped;
-            this.wiredAnchor.GestureRecognizers.Remove(this.anchorTap);
-            this.anchorTap = null;
+            return this.Dispatcher;
         }
-
-        if (this.clickAnchor is not null)
+        catch
         {
-            this.clickAnchor.Clicked -= this.OnAnchorClicked;
-            this.clickAnchor = null;
+            return null;
         }
-
-        if (this.imageClickAnchor is not null)
-        {
-            this.imageClickAnchor.Clicked -= this.OnAnchorClicked;
-            this.imageClickAnchor = null;
-        }
-
-        if (this.anchorPointer is not null)
-        {
-            this.anchorPointer.PointerEntered -= this.OnPointerEntered;
-            this.anchorPointer.PointerExited -= this.OnPointerExited;
-            this.wiredAnchor.GestureRecognizers.Remove(this.anchorPointer);
-            this.anchorPointer = null;
-        }
-
-        this.wiredAnchor.Focused -= this.OnAnchorFocused;
-        this.wiredAnchor.Unfocused -= this.OnAnchorUnfocused;
-
-        if (this.pressHook is not null)
-        {
-            this.pressHook.Pressed = null;
-            this.pressHook.Released = null;
-            this.pressHook = null;
-        }
-
-        this.wiredAnchor = null;
     }
 
-
-    void OnAnchorTapped(object? sender, TappedEventArgs e) => this.Toggle();
-
-    void OnAnchorClicked(object? sender, EventArgs e) => this.Toggle();
-
-    void OnAnchorFocused(object? sender, FocusEventArgs e) => this.Show();
-
-    void OnAnchorUnfocused(object? sender, FocusEventArgs e) => this.Hide();
-
-    void OnPointerEntered(object? sender, PointerEventArgs e) => this.Show();
-
-    void OnPointerExited(object? sender, PointerEventArgs e) => this.Hide();
-
-
-    void OnAnchorPressed()
-    {
-        this.longPressTimer?.Stop();
-        this.longPressTimer = this.Dispatcher.CreateTimer();
-        this.longPressTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(1, this.LongPressDelay));
-        this.longPressTimer.IsRepeating = false;
-        this.longPressTimer.Tick += (_, _) => this.Show();
-        this.longPressTimer.Start();
-    }
-
-
-    void OnAnchorReleased()
-    {
-        this.longPressTimer?.Stop();
-        this.longPressTimer = null;
-    }
 
 
     // ---------------------------------------------------------------------------------------------
@@ -603,10 +494,11 @@ public partial class Tooltip : ContentView
     {
         this.showTimer?.Stop();
         this.dismissTimer?.Stop();
-        this.longPressTimer?.Stop();
         this.showTimer = null;
         this.dismissTimer = null;
-        this.longPressTimer = null;
+
+        // The long-press timer belongs to the binder now, and unbinding is what stops it.
+        this.triggers?.Unbind();
     }
 
 
@@ -661,110 +553,16 @@ public partial class Tooltip : ContentView
 
     async Task AnimateInAsync(TooltipBubble view, TooltipPlacement placement)
     {
-        var duration = this.AnimationDuration;
+        // The tail is what the bubble grows out of, so its offset becomes the anchor fraction the
+        // shared animator scales from.
+        var along = placement is TooltipPlacement.Top or TooltipPlacement.Bottom
+            ? (view.Width > 0 ? view.TailOffset / view.Width : 0.5)
+            : (view.Height > 0 ? view.TailOffset / view.Height : 0.5);
 
-        try
-        {
-            switch (this.Animation)
-            {
-                case TooltipAnimation.None:
-                    view.Opacity = 1;
-                    break;
-
-                case TooltipAnimation.Scale:
-                    // Grow out of the tail rather than the bubble's middle, so it reads as coming from
-                    // the target.
-                    SetGrowthAnchor(view, placement);
-                    view.Scale = ScaleFrom;
-                    await Task.WhenAll(
-                        view.FadeToAsync(1, duration, Easing.CubicOut),
-                        view.ScaleToAsync(1, duration, Easing.CubicOut)
-                    );
-                    break;
-
-                case TooltipAnimation.Slide:
-                    var (dx, dy) = SlideFrom(placement);
-                    view.TranslationX = dx;
-                    view.TranslationY = dy;
-                    await Task.WhenAll(
-                        view.FadeToAsync(1, duration, Easing.CubicOut),
-                        view.TranslateToAsync(0, 0, duration, Easing.CubicOut)
-                    );
-                    break;
-
-                default:
-                    await view.FadeToAsync(1, duration, Easing.CubicOut);
-                    break;
-            }
-        }
-        catch
-        {
-            // An animation on a view detached mid-flight (the page navigated away) throws rather than
-            // completing. The end state is snapped below either way.
-        }
-
-        view.Opacity = 1;
-        view.Scale = 1;
-        view.TranslationX = 0;
-        view.TranslationY = 0;
+        await AnchoredPopoverAnimator.InAsync(view, placement, this.Animation, this.AnimationDuration, along);
     }
 
 
-    async Task AnimateOutAsync(TooltipBubble view)
-    {
-        var duration = this.AnimationDuration;
-
-        try
-        {
-            switch (this.Animation)
-            {
-                case TooltipAnimation.None:
-                    view.Opacity = 0;
-                    break;
-
-                case TooltipAnimation.Scale:
-                    await Task.WhenAll(
-                        view.FadeToAsync(0, duration, Easing.CubicIn),
-                        view.ScaleToAsync(ScaleFrom, duration, Easing.CubicIn)
-                    );
-                    break;
-
-                default:
-                    await view.FadeToAsync(0, duration, Easing.CubicIn);
-                    break;
-            }
-        }
-        catch
-        {
-            // See AnimateInAsync.
-        }
-
-        view.Opacity = 0;
-    }
-
-
-    static void SetGrowthAnchor(TooltipBubble view, TooltipPlacement placement)
-    {
-        var alongX = view.Width > 0 ? Math.Clamp(view.TailOffset / view.Width, 0, 1) : 0.5;
-        var alongY = view.Height > 0 ? Math.Clamp(view.TailOffset / view.Height, 0, 1) : 0.5;
-
-        (view.AnchorX, view.AnchorY) = placement switch
-        {
-            TooltipPlacement.Top => (alongX, 1d),
-            TooltipPlacement.Bottom => (alongX, 0d),
-            TooltipPlacement.Left => (1d, alongY),
-            TooltipPlacement.Right => (0d, alongY),
-            _ => (0.5, 0.5)
-        };
-    }
-
-
-    static (double X, double Y) SlideFrom(TooltipPlacement placement) => placement switch
-    {
-        TooltipPlacement.Top => (0, SlideDistance),
-        TooltipPlacement.Bottom => (0, -SlideDistance),
-        TooltipPlacement.Left => (SlideDistance, 0),
-        TooltipPlacement.Right => (-SlideDistance, 0),
-        _ => (0, 0)
-    };
+    Task AnimateOutAsync(TooltipBubble view)
+        => AnchoredPopoverAnimator.OutAsync(view, this.Animation, this.AnimationDuration);
 }

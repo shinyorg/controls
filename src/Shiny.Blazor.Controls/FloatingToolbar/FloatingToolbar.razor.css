@@ -1,0 +1,247 @@
+/*
+ * The bar and its menus are popovers, so they live in the browser's top layer: no overflow:hidden
+ * ancestor clips them and no z-index on the page outranks them. Position is written by tooltip.js.
+ *
+ * Everything INSIDE them is reached through ::deep. The cells are built with RenderTreeBuilder
+ * rather than declared in the .razor, so they never carry this stylesheet's scope attribute — and a
+ * scoped rule naming them directly matches nothing at all, silently, leaving every button to inherit
+ * whatever the host page styles a <button> as.
+ */
+.shiny-fbar,
+.shiny-fbar-menu {
+    position: fixed;
+    margin: 0;
+    padding: 4px;
+    border: 1px solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-radius: var(--shiny-fbar-radius, 10px);
+    background: var(--shiny-fbar-bg, var(--shiny-color-surface-container-high, #FFFFFF));
+    color: var(--shiny-fbar-fg, var(--shiny-color-on-surface, #1F2937));
+    box-shadow: var(--shiny-elevation-3, 0 8px 24px rgba(0, 0, 0, 0.18));
+    /* The popover default is a centred dialog box; these are positioned by script. */
+    inset: auto;
+    overflow: visible;
+    width: max-content;
+    max-width: none;
+    max-height: none;
+}
+
+.shiny-fbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.shiny-fbar.is-vertical {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.shiny-fbar-menu {
+    display: flex;
+    flex-direction: column;
+    min-width: 168px;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Motion. is-entering is the start state and is-entered the resting one, so the same declarations
+ * run the exit backwards - the bar is put back into is-entering and held there for the duration
+ * before it leaves the DOM.
+ *
+ * from-* is the side the placer actually chose, which is not always the side that was asked for:
+ * a bar with no room above flips below, and its entry has to grow from the other edge.
+ * --------------------------------------------------------------------------------------------- */
+
+.shiny-fbar {
+    transition: opacity var(--shiny-fbar-anim, 140ms) ease,
+                transform var(--shiny-fbar-anim, 140ms) cubic-bezier(0.2, 0, 0, 1);
+}
+
+.shiny-fbar.anim-none {
+    transition: none;
+}
+
+.shiny-fbar.is-entering {
+    opacity: 0;
+}
+
+.shiny-fbar.is-entered {
+    opacity: 1;
+    transform: none;
+}
+
+/* Scale grows out of the edge nearest the target, so it reads as coming from the control. */
+.shiny-fbar.anim-scale.from-top { transform-origin: 50% 100%; }
+.shiny-fbar.anim-scale.from-bottom { transform-origin: 50% 0%; }
+.shiny-fbar.anim-scale.from-left { transform-origin: 100% 50%; }
+.shiny-fbar.anim-scale.from-right { transform-origin: 0% 50%; }
+.shiny-fbar.anim-scale.is-entering { transform: scale(0.9); }
+
+/* Slide travels away from the target, which is the direction it appears to come from. */
+.shiny-fbar.anim-slide.from-top.is-entering { transform: translateY(10px); }
+.shiny-fbar.anim-slide.from-bottom.is-entering { transform: translateY(-10px); }
+.shiny-fbar.anim-slide.from-left.is-entering { transform: translateX(10px); }
+.shiny-fbar.anim-slide.from-right.is-entering { transform: translateX(-10px); }
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-fbar {
+        transition-duration: 1ms;
+    }
+
+    .shiny-fbar.is-entering {
+        transform: none;
+    }
+}
+
+
+/* The inline wrapper is a handle for the anchor and must not change how the target lays out. */
+.shiny-fbar-anchor {
+    display: contents;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * Cells
+ * --------------------------------------------------------------------------------------------- */
+
+.shiny-fbar ::deep .shiny-fbar-cell,
+.shiny-fbar-menu ::deep .shiny-fbar-menu-row {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 8px;
+    /* Stated rather than inherited: the host page's own button styling is the thing most likely to
+       be sitting underneath this, and a toolbar is not a page button. */
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+}
+
+.shiny-fbar ::deep .shiny-fbar-cell {
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+}
+
+.shiny-fbar.has-labels ::deep .shiny-fbar-cell {
+    padding: 6px 10px;
+}
+
+.shiny-fbar-menu ::deep .shiny-fbar-menu-row {
+    justify-content: flex-start;
+    width: 100%;
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.shiny-fbar ::deep .shiny-fbar-cell:hover:not(:disabled),
+.shiny-fbar-menu ::deep .shiny-fbar-menu-row:hover:not(:disabled) {
+    background: var(--shiny-color-surface-container-highest, #E5E7EB);
+}
+
+.shiny-fbar ::deep .shiny-fbar-cell:focus-visible,
+.shiny-fbar-menu ::deep .shiny-fbar-menu-row:focus-visible {
+    outline: 2px solid var(--shiny-color-primary, #0055D9);
+    outline-offset: 2px;
+}
+
+.shiny-fbar ::deep .shiny-fbar-cell:disabled,
+.shiny-fbar-menu ::deep .shiny-fbar-menu-row:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * Glyphs. The SVG is markup the component writes, so it is sized here rather than inline — and it
+ * is reached by the same ::deep as its wrapper, never by a second one.
+ * --------------------------------------------------------------------------------------------- */
+
+.shiny-fbar ::deep .shiny-fbar-icon,
+.shiny-fbar-menu ::deep .shiny-fbar-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+}
+
+.shiny-fbar ::deep .shiny-fbar-icon svg,
+.shiny-fbar ::deep .shiny-fbar-chev svg,
+.shiny-fbar-menu ::deep .shiny-fbar-icon svg,
+.shiny-fbar-menu ::deep .shiny-fbar-chev svg {
+    width: 100%;
+    height: 100%;
+}
+
+.shiny-fbar ::deep .shiny-fbar-chev,
+.shiny-fbar-menu ::deep .shiny-fbar-chev {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+}
+
+.shiny-fbar-menu ::deep .shiny-fbar-chev {
+    margin-left: auto;
+}
+
+.shiny-fbar ::deep .shiny-fbar-label,
+.shiny-fbar-menu ::deep .shiny-fbar-label {
+    white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * Separators and badges
+ * --------------------------------------------------------------------------------------------- */
+
+/* A separator runs across the bar, so it is thin on the axis the items run along. */
+.shiny-fbar ::deep .shiny-fbar-sep {
+    flex: 0 0 auto;
+    width: 1px;
+    align-self: stretch;
+    margin: 4px;
+    background: var(--shiny-color-outline-variant, #E5E7EB);
+}
+
+.shiny-fbar.is-vertical ::deep .shiny-fbar-sep {
+    width: auto;
+    height: 1px;
+    margin: 4px 6px;
+}
+
+.shiny-fbar-menu ::deep .shiny-fbar-menu-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--shiny-color-outline-variant, #E5E7EB);
+}
+
+.shiny-fbar ::deep .shiny-fbar-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+    transform: translate(25%, -25%);
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-fbar ::deep .shiny-fbar-cell,
+    .shiny-fbar-menu ::deep .shiny-fbar-menu-row {
+        transition: none;
+    }
+}

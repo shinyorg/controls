@@ -1,0 +1,51 @@
+@namespace Shiny.Blazor.Controls
+
+@* The bar wraps its target when ChildContent is given, exactly as Tooltip does - so the common case
+   needs no selector at all. *@
+@if (ChildContent is not null)
+{
+    <span class="shiny-fbar-anchor" @ref="anchorEl">@ChildContent</span>
+}
+
+@if (isRendered)
+{
+    @* popover="manual" puts the bar in the browser's top layer, where no overflow:hidden ancestor
+       can clip it and no z-index on the page can outrank it. *@
+    <div class="@BarClasses"
+         style="@BarStyle"
+         popover="manual"
+         role="toolbar"
+         aria-orientation="@(Orientation == ToolbarOrientation.Vertical ? "vertical" : "horizontal")"
+         aria-label="@AriaLabel"
+         @ref="barEl"
+         @onpointerenter="OnBarPointerEnter"
+         @onpointerleave="OnBarPointerLeave">
+
+        @foreach (var item in VisibleItems)
+        {
+            @Cell(item, false)
+        }
+
+        @if (HasOverflow)
+        {
+            @Cell(OverflowItem, true)
+        }
+    </div>
+
+    @for (var depth = 0; depth < menus.Count; depth++)
+    {
+        var menu = menus[depth];
+        <div class="shiny-fbar-menu"
+             style="@BarStyle"
+             popover="manual"
+             role="menu"
+             @ref="menu.Element"
+             @onpointerenter="OnBarPointerEnter"
+             @onpointerleave="OnBarPointerLeave">
+            @foreach (var child in menu.Items)
+            {
+                @MenuRow(child, menu.Depth)
+            }
+        </div>
+    }
+}

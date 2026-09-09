@@ -205,3 +205,18 @@ hr {
     min-height: 220px;
     touch-action: pan-y;
 }
+
+/* FloatingToolbar demo */
+.fbar-cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.fbar-card,
+.fbar-target {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 140px;
+    height: 90px;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    background: #fff;
+}
+.fbar-target { width: 200px; margin: 12px 0; }

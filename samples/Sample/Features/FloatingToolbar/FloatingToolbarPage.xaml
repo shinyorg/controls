@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<shiny:ShinyContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             xmlns:local="clr-namespace:Sample.Features.FloatingToolbar"
+             x:Class="Sample.Features.FloatingToolbar.FloatingToolbarPage"
+             x:DataType="local:FloatingToolbarViewModel"
+             Title="Floating Toolbar"
+             AutomationId="FloatingToolbarPage">
+
+    <shiny:ShinyContentPage.PageContent>
+        <Grid>
+            <ScrollView>
+                <VerticalStackLayout Padding="20" Spacing="16">
+
+                    <Label Text="A toolbar that floats over a control"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" />
+
+                    <Label Text="Anchoring is the tooltip's - the same trigger binder opens it and the same placement solver picks the side. Tap a card."
+                           FontSize="14"
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center" />
+
+                    <HorizontalStackLayout Spacing="16" HorizontalOptions="Center">
+                        <HorizontalStackLayout Spacing="6">
+                            <Switch IsToggled="{Binding IsVertical}" AutomationId="VerticalSwitch" />
+                            <Label Text="Vertical" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Spacing="6">
+                            <Switch IsToggled="{Binding ShowLabels}" AutomationId="LabelsSwitch" />
+                            <Label Text="Labels" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </HorizontalStackLayout>
+
+                    <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                        <Label Text="Animation" VerticalOptions="Center" />
+                        <Picker ItemsSource="{Binding Animations}"
+                                SelectedItem="{Binding SelectedAnimation}"
+                                WidthRequest="140"
+                                AutomationId="AnimationPicker" />
+                    </HorizontalStackLayout>
+
+                    <Label Text="{Binding LastAction}"
+                           FontSize="14"
+                           HorizontalTextAlignment="Center"
+                           AutomationId="LastActionLabel" />
+
+                    <!-- One bar, every card: AttachTo points each row at the same instance, and the
+                         bar re-anchors to whichever was triggered rather than one bar per row. -->
+                    <Border StrokeThickness="1" Padding="16" BindingContext="card one"
+                            shiny:FloatingToolbar.AttachTo="{x:Reference cardBar}"
+                            AutomationId="CardOne">
+                        <Label Text="Card one" HorizontalTextAlignment="Center" />
+                    </Border>
+
+                    <Border StrokeThickness="1" Padding="16" BindingContext="card two"
+                            shiny:FloatingToolbar.AttachTo="{x:Reference cardBar}"
+                            AutomationId="CardTwo">
+                        <Label Text="Card two" HorizontalTextAlignment="Center" />
+                    </Border>
+
+                    <Border StrokeThickness="1" Padding="16" BindingContext="card three"
+                            shiny:FloatingToolbar.AttachTo="{x:Reference cardBar}"
+                            AutomationId="CardThree">
+                        <Label Text="Card three" HorizontalTextAlignment="Center" />
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <!-- Draws nothing itself; it is a handle the cards point at. -->
+            <shiny:FloatingToolbar x:Name="cardBar"
+                                   Trigger="Tap"
+                                   Placement="Top"
+                                   Orientation="{Binding Orientation}"
+                                   ShowLabels="{Binding ShowLabels}"
+                                   Animation="{Binding Animation}"
+                                   AnimationLength="220"
+                                   ItemClickedCommand="{Binding ItemClickedCommand}"
+                                   AutomationId="CardToolbar">
+                <shiny:FloatingToolbar.Items>
+                    <shiny:ShinyToolbarItem Text="Cut" />
+                    <shiny:ShinyToolbarItem Text="Copy" />
+                    <shiny:ShinyToolbarItem IsSeparator="True" />
+                    <shiny:ShinyToolbarItem Text="Star" Badge="3" />
+                    <shiny:ShinyToolbarItem Text="More">
+                        <shiny:ShinyToolbarItem.Children>
+                            <shiny:ShinyToolbarItem Text="Rename" />
+                            <shiny:ShinyToolbarItem Text="Duplicate" />
+                            <shiny:ShinyToolbarItem Text="Delete" />
+                        </shiny:ShinyToolbarItem.Children>
+                    </shiny:ShinyToolbarItem>
+                </shiny:FloatingToolbar.Items>
+            </shiny:FloatingToolbar>
+        </Grid>
+    </shiny:ShinyContentPage.PageContent>
+</shiny:ShinyContentPage>

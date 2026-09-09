@@ -1,0 +1,180 @@
+@page "/floatingtoolbar"
+
+<PageTitle>Floating Toolbar</PageTitle>
+
+<h1>Floating Toolbar</h1>
+
+<p>
+    A toolbar that floats over a control the way a tooltip does. Placement, the top layer and the
+    reposition-on-scroll watcher all come from <code>tooltip.js</code> &mdash; anchoring a bar to a
+    control is the same problem as anchoring a bubble to one.
+</p>
+
+<div class="demo-section">
+    <h2>One bar, every card</h2>
+    <p>
+        <code>Target</code> is a selector, so one instance serves the whole list and re-anchors to
+        whichever card was triggered. The click args carry the index, which is how you know
+        <em>which</em> card you are acting on.
+    </p>
+    <div class="row">
+        <label>Trigger
+            <select @bind="trigger">
+                <option value="@TooltipTrigger.Hover">Hover</option>
+                <option value="@TooltipTrigger.Click">Click</option>
+                <option value="@TooltipTrigger.LongPress">Long press</option>
+                <option value="@TooltipTrigger.HoverOrFocus">Hover or focus</option>
+            </select>
+        </label>
+        <label>Orientation
+            <select @bind="orientation">
+                <option value="@ToolbarOrientation.Horizontal">Horizontal</option>
+                <option value="@ToolbarOrientation.Vertical">Vertical</option>
+            </select>
+        </label>
+        <label>Placement
+            <select @bind="placement">
+                <option value="@TooltipPlacement.Top">Top</option>
+                <option value="@TooltipPlacement.Right">Right</option>
+                <option value="@TooltipPlacement.Bottom">Bottom</option>
+                <option value="@TooltipPlacement.Auto">Auto</option>
+            </select>
+        </label>
+        <label><input type="checkbox" @bind="showLabels" /> ShowLabels</label>
+        <label>Animation
+            <select @bind="animation">
+                <option value="@TooltipAnimation.Scale">Scale</option>
+                <option value="@TooltipAnimation.Fade">Fade</option>
+                <option value="@TooltipAnimation.Slide">Slide</option>
+                <option value="@TooltipAnimation.None">None</option>
+            </select>
+        </label>
+        <label>Length
+            <select @bind="animationLength">
+                <option value="140">140ms</option>
+                <option value="400">400ms</option>
+                <option value="0">0 — snap</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="fbar-cards">
+        @for (var i = 1; i <= 4; i++)
+        {
+            var n = i;
+            <div class="fbar-card" tabindex="0">Card @n</div>
+        }
+    </div>
+
+    <p class="state">@lastAction</p>
+
+    <FloatingToolbar Target=".fbar-card"
+                     Trigger="trigger"
+                     Orientation="orientation"
+                     Placement="placement"
+                     ShowLabels="showLabels"
+                     Animation="animation"
+                     AnimationLength="animationLength"
+                     Items="@actions"
+                     ItemClicked="OnAction" />
+</div>
+
+<div class="demo-section">
+    <h2>Dropdowns and overflow</h2>
+    <p>
+        Items with <code>Children</code> open a dropdown, and those children may have children of
+        their own which fly out as submenus. Anything that does not fit folds into a &ldquo;⋯&rdquo;
+        &mdash; and the cap <strong>counts</strong> that button, because adding it to a full bar would
+        put the bar straight back over the width that caused the overflow.
+    </p>
+    <div class="row">
+        <label>MaxVisibleItems
+            <select @bind="maxVisible">
+                <option value="0">0 — measure what fits</option>
+                <option value="3">3</option>
+                <option value="5">5</option>
+            </select>
+        </label>
+        <button class="btn" @onclick="() => menuBar!.ShowAsync()">Open</button>
+    </div>
+
+    <div class="fbar-target" id="menu-target">Anchored here</div>
+
+    <FloatingToolbar @ref="menuBar"
+                     Target="#menu-target"
+                     Trigger="TooltipTrigger.Click"
+                     Placement="TooltipPlacement.Bottom"
+                     MaxVisibleItems="maxVisible"
+                     Items="@richActions"
+                     ShowLabels="true"
+                     DismissOnItemClick="true"
+                     ItemClicked="OnAction" />
+</div>
+
+@code {
+    FloatingToolbar? menuBar;
+
+    TooltipTrigger trigger = TooltipTrigger.Hover;
+    ToolbarOrientation orientation = ToolbarOrientation.Horizontal;
+    TooltipPlacement placement = TooltipPlacement.Top;
+    bool showLabels;
+    TooltipAnimation animation = TooltipAnimation.Scale;
+    int animationLength = 140;
+    int maxVisible;
+    string lastAction = "Nothing clicked yet";
+
+    List<ToolbarItem> actions = default!;
+    List<ToolbarItem> richActions = default!;
+
+    const string Cut = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='6' cy='6' r='3'/><circle cx='6' cy='18' r='3'/><path d='M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12'/></svg>";
+    const string Copy = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/></svg>";
+    const string Trash = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6'/></svg>";
+    const string Star = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'/></svg>";
+    const string Type = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M4 7V4h16v3M9 20h6M12 4v16'/></svg>";
+
+    protected override void OnInitialized()
+    {
+        this.actions =
+        [
+            new ToolbarItem { Icon = Cut, Text = "Cut", Tooltip = "Cut" },
+            new ToolbarItem { Icon = Copy, Text = "Copy", Tooltip = "Copy" },
+            new ToolbarItem { IsSeparator = true },
+            new ToolbarItem { Icon = Star, Text = "Favourite", Tooltip = "Favourite", Badge = "3" },
+            new ToolbarItem { Icon = Trash, Text = "Delete", Tooltip = "Delete" }
+        ];
+
+        this.richActions =
+        [
+            new ToolbarItem { Icon = Cut, Text = "Cut" },
+            new ToolbarItem { Icon = Copy, Text = "Copy" },
+            new ToolbarItem
+            {
+                Icon = Type,
+                Text = "Format",
+                Children =
+                [
+                    new ToolbarItem { Text = "Bold" },
+                    new ToolbarItem { Text = "Italic" },
+                    new ToolbarItem { IsSeparator = true },
+                    new ToolbarItem
+                    {
+                        Text = "Align",
+                        Children =
+                        [
+                            new ToolbarItem { Text = "Left" },
+                            new ToolbarItem { Text = "Centre" },
+                            new ToolbarItem { Text = "Right" }
+                        ]
+                    }
+                ]
+            },
+            new ToolbarItem { Icon = Star, Text = "Favourite" },
+            new ToolbarItem { Icon = Trash, Text = "Delete" },
+            new ToolbarItem { Text = "Rename" },
+            new ToolbarItem { Text = "Duplicate" }
+        ];
+    }
+
+    void OnAction(FloatingToolbarItemEventArgs e)
+        => this.lastAction = $"{e.Item.Text} on target #{e.TargetIndex}";
+}

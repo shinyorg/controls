@@ -14,6 +14,7 @@
                   xmlns:diagrams="clr-namespace:Sample.Features.Diagrams"
                   xmlns:imgviewer="clr-namespace:Sample.Features.ImageViewer"
                   xmlns:zoompan="clr-namespace:Sample.Features.ZoomPan"
+                  xmlns:fbar="clr-namespace:Sample.Features.FloatingToolbar"
                   xmlns:images="clr-namespace:Sample.Features.Images"
                   xmlns:imgeditor="clr-namespace:Sample.Features.ImageEditor"
                   xmlns:mediapicker="clr-namespace:Sample.Features.Media"
@@ -967,6 +968,14 @@
                              Color="{AppThemeBinding Light=#9333EA, Dark=#C084FC}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate imgviewer:ImageViewerPage}" Route="imageviewer" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Floating Toolbar">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2338;" Size="20"
+                             Color="{AppThemeBinding Light=#9333EA, Dark=#C084FC}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate fbar:FloatingToolbarPage}" Route="floatingtoolbar" />
     </FlyoutItem>
 
     <FlyoutItem Title="Zoom Pan View">
