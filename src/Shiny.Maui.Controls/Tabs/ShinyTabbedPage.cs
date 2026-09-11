@@ -92,7 +92,7 @@ public partial class ShinyTabbedPage : ContentPage, ShinyTabBar.ITabMenuHost
         this.rootGrid.Children.Add(this.tabBar);
 
         this.ApplyBarPlacement();
-        this.tabBar.BarStyleChanged += (_, _) => this.ApplyBarPlacement();
+        this.tabBar.BarPlacementChanged += (_, _) => this.ApplyBarPlacement();
 
         this.tabs.CollectionChanged += this.OnTabsChanged;
 
@@ -113,13 +113,16 @@ public partial class ShinyTabbedPage : ContentPage, ShinyTabBar.ITabMenuHost
     /// </summary>
     /// <remarks>
     /// A floating bar is a capsule laid over the page, so content running underneath it is not a
-    /// separate opt-in - it is what floating means. <see cref="ContentBehindTabBar"/> stays a
-    /// property of its own because a docked bar can want the same thing (a translucent one over a
-    /// photo, say), so the two are OR-ed rather than one driving the other.
+    /// separate opt-in - it is what floating means. A bar that ended up on glass is the same
+    /// argument: glass with nothing behind it is an expensive way to draw a grey rectangle. Both are
+    /// OR-ed with <see cref="ContentBehindTabBar"/> rather than driving it, because a plain docked
+    /// bar can want the same thing (a translucent one over a photo, say).
     /// </remarks>
     internal void ApplyBarPlacement()
     {
-        var behind = this.ContentBehindTabBar || this.tabBar.BarStyle == TabBarStyle.Floating;
+        var behind = this.ContentBehindTabBar
+            || this.tabBar.BarStyle == TabBarStyle.Floating
+            || this.tabBar.GlassActive;
         Grid.SetRowSpan(this.contentHost, behind ? 2 : 1);
     }
 

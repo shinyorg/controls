@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 using Shouldly;
 using Xunit;
 
@@ -201,6 +202,116 @@ public class ShinyNavBarTests
         bar.RightItems.Add(new NavBarItem { Icon = "bell", Badge = "" });
 
         Descendants(bar.TrailingHost).OfType<BadgeView>().Single().IsDot.ShouldBeTrue();
+    }
+
+
+    [Fact]
+    public void TheShadowCanBeTurnedOffAndBackOn()
+    {
+        // The shadow is a dynamic resource, so it is only a Shadow once a theme is merged.
+        Application.Current!.Resources.MergedDictionaries.Add(new Themes.BasicLightTheme());
+
+        var bar = Build();
+        bar.Surface.Shadow.ShouldNotBeNull();
+
+        // ClearValue does not clear a value that arrived from a dynamic resource, so this used to
+        // leave the bar casting the shadow it had just been told to drop.
+        bar.HasShadow = false;
+        bar.Surface.Shadow.ShouldBeNull();
+
+        bar.HasShadow = true;
+        bar.Surface.Shadow.ShouldNotBeNull();
+    }
+
+
+    [Fact]
+    public void APlainToolbarItemCanBeBadgedWithTheAttachedProperty()
+    {
+        var bar = Build();
+        var item = new ToolbarItem { Text = "Alerts" };
+        ShinyNav.SetBadge(item, "7");
+        bar.RightItems.Add(item);
+
+        var badge = Descendants(bar.TrailingHost).OfType<BadgeView>().Single();
+        badge.Text.ShouldBe("7");
+        badge.IsDot.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void TheAttachedBadgeIsHonouredOnANavBarItemThatHasNoneOfItsOwn()
+    {
+        var bar = Build();
+        var item = new NavBarItem { Icon = "bell" };
+        ShinyNav.SetBadge(item, "2");
+        bar.RightItems.Add(item);
+
+        Descendants(bar.TrailingHost).OfType<BadgeView>().Single().Text.ShouldBe("2");
+    }
+
+
+    [Fact]
+    public void ANavBarItemsOwnBadgeWinsOverTheAttachedOne()
+    {
+        var bar = Build();
+        var item = new NavBarItem { Icon = "bell", Badge = "3" };
+        ShinyNav.SetBadge(item, "99");
+        bar.RightItems.Add(item);
+
+        Descendants(bar.TrailingHost).OfType<BadgeView>().Single().Text.ShouldBe("3");
+    }
+
+
+    [Fact]
+    public void ChangingTheAttachedBadgeRedrawsTheItem()
+    {
+        var bar = Build();
+        var item = new ToolbarItem { Text = "Alerts" };
+        bar.RightItems.Add(item);
+
+        Descendants(bar.TrailingHost).OfType<BadgeView>().ShouldBeEmpty();
+
+        ShinyNav.SetBadge(item, "1");
+
+        Descendants(bar.TrailingHost).OfType<BadgeView>().Single().Text.ShouldBe("1");
+    }
+
+
+    [Fact]
+    public void TheAttachedBadgeColourReachesTheBadge()
+    {
+        var bar = Build();
+        var item = new ToolbarItem { Text = "Alerts" };
+        ShinyNav.SetBadge(item, "1");
+        ShinyNav.SetBadgeColor(item, Colors.Purple);
+        bar.RightItems.Add(item);
+
+        Descendants(bar.TrailingHost).OfType<BadgeView>().Single().BadgeColor.ShouldBe(Colors.Purple);
+    }
+
+
+    [Fact]
+    public void TheOverflowButtonShowsADotWhileAHiddenItemIsBadged()
+    {
+        var bar = Build();
+        bar.MaxVisibleItems = 1;
+        bar.RightItems.Add(new NavBarItem { Text = "One" });
+        bar.RightItems.Add(new NavBarItem { Text = "Two", Badge = "4" });
+
+        var badge = Descendants(bar.TrailingHost).OfType<BadgeView>().Single();
+        badge.IsDot.ShouldBeTrue();
+    }
+
+
+    [Fact]
+    public void TheOverflowButtonHasNoDotWhenNothingBehindItIsBadged()
+    {
+        var bar = Build();
+        bar.MaxVisibleItems = 1;
+        bar.RightItems.Add(new NavBarItem { Text = "One" });
+        bar.RightItems.Add(new NavBarItem { Text = "Two" });
+
+        Descendants(bar.TrailingHost).OfType<BadgeView>().ShouldBeEmpty();
     }
 
 

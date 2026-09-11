@@ -73,7 +73,30 @@ static class ThemeTokens
     /// <summary>Bind a drop shadow to a <c>ShinyThemeKeys.Elevation.Level…</c> token.</summary>
     public static T WithElevation<T>(this T element, string themeKey) where T : VisualElement
     {
+        // ClearValue first, and not defensively: WithoutElevation leaves an explicit null behind, and
+        // an explicitly-set local value silently wins over a dynamic resource - so a shadow that had
+        // been turned off could never be turned back on. Clearing a property that was never set is a
+        // no-op, which is every other call site.
+        element.ClearValue(VisualElement.ShadowProperty);
         element.SetDynamicResource(VisualElement.ShadowProperty, themeKey);
+        return element;
+    }
+
+    /// <summary>Takes a token-driven drop shadow back off.</summary>
+    /// <remarks>
+    /// <para>Neither half of this is optional, and the obvious one does not work at all.
+    /// <c>ClearValue</c> does <b>not</b> clear a property whose value came from a dynamic resource -
+    /// the resolved <c>Shadow</c> is still there afterwards, and calling it here would put the shadow
+    /// back. <c>RemoveDynamicResource</c> only stops a later theme swap re-applying it. The explicit
+    /// null is the only thing that actually takes the shadow off.</para>
+    /// <para>This is why <c>HasShadow="False"</c> read as a switch that did nothing. The null it
+    /// leaves is a local value that would then outrank the next dynamic resource, which is what
+    /// <see cref="WithElevation"/> clears before re-binding.</para>
+    /// </remarks>
+    public static T WithoutElevation<T>(this T element) where T : VisualElement
+    {
+        element.RemoveDynamicResource(VisualElement.ShadowProperty);
+        element.Shadow = null;
         return element;
     }
 

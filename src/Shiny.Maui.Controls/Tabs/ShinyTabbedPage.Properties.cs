@@ -129,6 +129,30 @@ public partial class ShinyTabbedPage
         set => this.SetValue(BarStyleProperty, value);
     }
 
+    /// <summary>Backing store for <see cref="BarMaterial"/>.</summary>
+    public static readonly BindableProperty BarMaterialProperty = BindableProperty.Create(
+        nameof(BarMaterial), typeof(TabBarMaterial), typeof(ShinyTabbedPage), TabBarMaterial.Solid,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.BarMaterial = (TabBarMaterial)n));
+
+    /// <inheritdoc cref="ShinyTabBar.BarMaterial"/>
+    public TabBarMaterial BarMaterial
+    {
+        get => (TabBarMaterial)this.GetValue(BarMaterialProperty);
+        set => this.SetValue(BarMaterialProperty, value);
+    }
+
+    /// <summary>Backing store for <see cref="BarGlassTint"/>.</summary>
+    public static readonly BindableProperty BarGlassTintProperty = BindableProperty.Create(
+        nameof(BarGlassTint), typeof(Color), typeof(ShinyTabbedPage), null,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.BarGlassTint = n as Color));
+
+    /// <inheritdoc cref="ShinyTabBar.BarGlassTint"/>
+    public Color? BarGlassTint
+    {
+        get => (Color?)this.GetValue(BarGlassTintProperty);
+        set => this.SetValue(BarGlassTintProperty, value);
+    }
+
     /// <summary>Backing store for <see cref="BarBackgroundOpacity"/>.</summary>
     public static readonly BindableProperty BarBackgroundOpacityProperty = BindableProperty.Create(
         nameof(BarBackgroundOpacity), typeof(double), typeof(ShinyTabbedPage), 1d,

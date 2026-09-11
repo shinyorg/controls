@@ -88,11 +88,25 @@ public partial class ShinyNavBar
         }
 
         if (overflow.Count > 0)
-            host.Children.Add(this.BuildOverflowButton(side));
+            host.Children.Add(this.BuildOverflowButton(side, overflow));
     }
 
 
     static bool IsItemVisible(ToolbarItem item) => item is not NavBarItem nav || nav.IsVisible;
+
+
+    /// <summary>
+    /// The badge an item shows, from either place it can be said. A <see cref="NavBarItem"/>'s own
+    /// <see cref="NavBarItem.Badge"/> wins while it is non-null; everything else — a page's plain
+    /// <see cref="ToolbarItem"/>s included — reads the attached <see cref="ShinyNav.BadgeProperty"/>.
+    /// </summary>
+    internal static string? ResolveBadge(ToolbarItem item)
+        => item is NavBarItem { Badge: { } badge } ? badge : ShinyNav.GetBadge(item);
+
+
+    /// <summary>The badge's fill, resolved the same way. Null falls through to the theme's error colour.</summary>
+    internal static Color? ResolveBadgeColor(ToolbarItem item)
+        => (item as NavBarItem)?.BadgeColor ?? ShinyNav.GetBadgeColor(item);
 
 
     /// <summary>A plain toolbar item seen through the icon contract; a nav item already is one.</summary>
@@ -152,13 +166,13 @@ public partial class ShinyNavBar
 
         View inner = content;
 
-        if (item is NavBarItem { Badge: { } badgeText })
+        if (ResolveBadge(item) is { } badgeText)
         {
             var badge = new BadgeView
             {
                 IsDot = badgeText.Length == 0,
                 Text = badgeText,
-                BadgeColor = (item as NavBarItem)?.BadgeColor,
+                BadgeColor = ResolveBadgeColor(item),
                 Content = content
             };
             inner = badge;
@@ -169,7 +183,7 @@ public partial class ShinyNavBar
     }
 
 
-    View BuildOverflowButton(NavBarSide side)
+    View BuildOverflowButton(NavBarSide side, IReadOnlyList<ToolbarItem> overflow)
     {
         View glyph;
 
@@ -203,6 +217,20 @@ public partial class ShinyNavBar
             }
 
             glyph = dots;
+        }
+
+        // A badged item that collapsed into the menu would otherwise take its badge off the bar
+        // entirely - the one place the count is worth seeing. A dot rather than a number: the button
+        // stands for several items, and summing counts that may not all be numbers invents a total
+        // nobody asked for.
+        if (overflow.Any(i => ResolveBadge(i) is not null))
+        {
+            glyph = new BadgeView
+            {
+                IsDot = true,
+                BadgeColor = overflow.Select(ResolveBadgeColor).FirstOrDefault(c => c is not null),
+                Content = glyph
+            };
         }
 
         return this.WrapAsButton(glyph, side == NavBarSide.Left ? "nav-overflow-left" : "nav-overflow-right", () => this.OpenMenu(side));
@@ -456,7 +484,12 @@ public partial class ShinyNavBar
 
         var row = new Grid
         {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) },
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
             ColumnSpacing = 14,
             Padding = new Thickness(18, 12),
             BackgroundColor = Colors.Transparent,
@@ -473,16 +506,24 @@ public partial class ShinyNavBar
         Grid.SetColumn(label, 1);
         row.Children.Add(label);
 
-        if (item is NavBarItem { Badge: { Length: > 0 } badgeText })
+        // The same pill the bar draws, in its own column: a badge that shared the title's column
+        // would sit over the end of a long row's text, and one drawn as plain grey text would drop
+        // the item's BadgeColor on the way into the menu.
+        if (ResolveBadge(item) is { } badgeText)
         {
-            var badge = new Label
+            var badge = new BadgeView
             {
+                IsDot = badgeText.Length == 0,
                 Text = badgeText,
-                VerticalTextAlignment = TextAlignment.Center,
-                HorizontalOptions = LayoutOptions.End
-            }.WithFontSize(ShinyThemeKeys.Type.LabelSmallSize);
-            badge.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
-            Grid.SetColumn(badge, 1);
+                BadgeColor = ResolveBadgeColor(item),
+
+                // The corner nudge is for a badge overlapping an icon; this one sits beside the row.
+                OffsetX = 0,
+                OffsetY = 0,
+                HorizontalOptions = LayoutOptions.End,
+                VerticalOptions = LayoutOptions.Center
+            };
+            Grid.SetColumn(badge, 2);
             row.Children.Add(badge);
         }
 

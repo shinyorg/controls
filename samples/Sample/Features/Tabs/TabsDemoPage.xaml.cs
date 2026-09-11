@@ -40,11 +40,39 @@ public partial class TabsDemoPage : ShinyTabbedPage
     void OnBarTranslucent(object? sender, EventArgs e) => this.BarBackgroundOpacity = 0.6;
 
     // Transparency on its own only reveals the page's own background. Running the content under the
-    // bar is what puts something behind the glass worth seeing.
-    void OnBarGlass(object? sender, EventArgs e)
+    // bar is what puts something behind it worth seeing.
+    void OnBarSheer(object? sender, EventArgs e)
     {
         this.BarBackgroundOpacity = 0.35;
         this.ContentBehindTabBar = true;
+    }
+
+    void OnMaterialSolid(object? sender, EventArgs e)
+    {
+        this.BarMaterial = TabBarMaterial.Solid;
+        this.BarGlassTint = null;
+    }
+
+    // No ContentBehindTabBar here on purpose: a glass bar turns it on for itself, because glass with
+    // nothing behind it is an expensive way to draw a grey rectangle.
+    void OnMaterialGlass(object? sender, EventArgs e)
+    {
+        this.BarMaterial = TabBarMaterial.Glass;
+        this.BarGlassTint = null;
+    }
+
+    void OnMaterialGlassClear(object? sender, EventArgs e)
+    {
+        this.BarMaterial = TabBarMaterial.GlassClear;
+        this.BarGlassTint = null;
+    }
+
+    // A tint on glass is not a fill - the surface is still refracting what is behind it, so an
+    // opaque colour gives tinted glass rather than a tinted rectangle.
+    void OnMaterialGlassTinted(object? sender, EventArgs e)
+    {
+        this.BarMaterial = TabBarMaterial.Glass;
+        this.BarGlassTint = Colors.MediumPurple;
     }
 
     void OnSlide(object? sender, EventArgs e) => this.Transition = StateTransition.Slide;

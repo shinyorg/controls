@@ -52,10 +52,20 @@
                 <HorizontalStackLayout Spacing="8">
                     <Button Text="Solid" Clicked="OnBarSolid" AutomationId="BarSolid" />
                     <Button Text="60%" Clicked="OnBarTranslucent" AutomationId="BarTranslucent" />
-                    <Button Text="Glass" Clicked="OnBarGlass" AutomationId="BarGlass" />
+                    <Button Text="35%" Clicked="OnBarSheer" AutomationId="BarSheer" />
                 </HorizontalStackLayout>
                 <Label FontSize="12" TextColor="Gray"
-                       Text="BarBackgroundOpacity fades the background only — the icons, labels and badges stay fully opaque. Glass turns ContentBehindTabBar on too, so there is something to see through it." />
+                       Text="BarBackgroundOpacity fades the background only — the icons, labels and badges stay fully opaque. The sheerest setting turns ContentBehindTabBar on too, so there is something to see through it." />
+
+                <Label Text="Bar material" FontAttributes="Bold" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Painted" Clicked="OnMaterialSolid" AutomationId="MaterialSolid" />
+                    <Button Text="Glass" Clicked="OnMaterialGlass" AutomationId="MaterialGlass" />
+                    <Button Text="Clear" Clicked="OnMaterialGlassClear" AutomationId="MaterialGlassClear" />
+                    <Button Text="Tinted" Clicked="OnMaterialGlassTinted" AutomationId="MaterialGlassTinted" />
+                </HorizontalStackLayout>
+                <Label FontSize="12" TextColor="Gray"
+                       Text="Real Apple Liquid Glass, and iOS 26 only — everywhere else the bar keeps painting its fill, which is why nothing changes here on Android, Windows or an older iOS. Where it does apply it takes over the background entirely, drops the shadow, and lets the content run underneath." />
 
                 <Label Text="Indicator motion" FontAttributes="Bold" />
                 <HorizontalStackLayout Spacing="8">

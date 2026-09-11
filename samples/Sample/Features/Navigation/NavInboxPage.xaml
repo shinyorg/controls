@@ -13,12 +13,21 @@
         <shiny:NavBarItem Icon="menu" AutomationId="nav-left-menu" Clicked="OnMenu" />
     </shiny:ShinyNav.LeftItems>
 
+    <!-- A page's own ToolbarItems are drawn on the right too, ahead of the declared ones. They are
+         plain ToolbarItems and have no Badge of their own, so ShinyNav.Badge attaches one. -->
+    <ContentPage.ToolbarItems>
+        <ToolbarItem x:Name="Drafts" Text="Drafts" AutomationId="nav-right-drafts"
+                     shiny:ShinyNav.Badge="2" Clicked="OnDrafts" />
+    </ContentPage.ToolbarItems>
+
     <!-- The right side. Order="Secondary" always folds into the overflow menu; anything past
          MaxVisibleItems (3 by default) folds in behind it. -->
     <shiny:ShinyNav.RightItems>
         <shiny:NavBarItem Icon="search" AutomationId="nav-right-search" Clicked="OnSearch" />
         <shiny:NavBarItem Icon="bell" Badge="3" AutomationId="nav-right-alerts" Clicked="OnAlerts" />
-        <shiny:NavBarItem Text="Mark all read" Icon="check" Order="Secondary" Clicked="OnMarkAll" />
+        <!-- Badged and in the overflow menu: the badge shows on its menu row, and the overflow
+             button itself carries a dot so the count is not hidden with the item. -->
+        <shiny:NavBarItem Text="Mark all read" Icon="check" Badge="5" Order="Secondary" Clicked="OnMarkAll" />
         <shiny:NavBarItem IsSeparator="True" Order="Secondary" />
         <shiny:NavBarItem Text="Delete all" Icon="trash" Order="Secondary" IsDestructive="True" Clicked="OnDeleteAll" />
     </shiny:ShinyNav.RightItems>
@@ -32,6 +41,7 @@
 
             <Button Text="Push a message" AutomationId="PushMessage" Clicked="OnPush" />
             <Button Text="Toggle the badge" AutomationId="ToggleBadge" Clicked="OnToggleBadge" />
+            <Button Text="Toggle the toolbar item badge" AutomationId="ToggleToolbarBadge" Clicked="OnToggleToolbarBadge" />
             <Button Text="Hide the bar" AutomationId="HideBar" Clicked="OnToggleBar" />
             <Button Text="Close" AutomationId="CloseNavDemo" Clicked="OnClose" />
 

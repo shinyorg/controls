@@ -21,6 +21,8 @@ public partial class NavInboxPage : ContentPage
 
     void OnAlerts(object? sender, EventArgs e) => this.Say("Right item: alerts");
 
+    void OnDrafts(object? sender, EventArgs e) => this.Say("Toolbar item: drafts");
+
     void OnMarkAll(object? sender, EventArgs e) => this.Say("Overflow: mark all read");
 
     void OnDeleteAll(object? sender, EventArgs e) => this.Say("Overflow: delete all");
@@ -34,6 +36,15 @@ public partial class NavInboxPage : ContentPage
         var alerts = ShinyNav.GetRightItems(this).OfType<NavBarItem>().First(i => i.Icon == "bell");
         alerts.Badge = alerts.Badge is null ? "9" : null;
         this.Say($"Badge is now {alerts.Badge ?? "off"}");
+    }
+
+    void OnToggleToolbarBadge(object? sender, EventArgs e)
+    {
+        // The same thing for a plain ToolbarItem: the attached property is bindable too, so setting
+        // it is all the bar needs to redraw the item.
+        var badge = ShinyNav.GetBadge(this.Drafts);
+        ShinyNav.SetBadge(this.Drafts, badge is null ? "2" : null);
+        this.Say($"Toolbar item badge is now {ShinyNav.GetBadge(this.Drafts) ?? "off"}");
     }
 
     void OnToggleBar(object? sender, EventArgs e)

@@ -412,4 +412,42 @@ public class ShinyTabbedPageTests
         var root = (Grid)page.Content!;
         root.SafeAreaEdges.Bottom.ShouldBe(SafeAreaRegions.None);
     }
+
+    [Fact]
+    public void ContentRunsUnderAGlassBar()
+    {
+        Shiny.Maui.Controls.Infrastructure.GlassSurface.SupportOverride = true;
+        try
+        {
+            var page = Build(out _);
+
+            // A docked, solid bar owns the bottom of the page: the content stops where it starts.
+            Grid.GetRowSpan(page.ContentHost).ShouldBe(1);
+
+            page.TabBar.BarMaterial = TabBarMaterial.Glass;
+
+            // Glass with nothing behind it is an expensive way to draw a grey rectangle, so the
+            // content is let underneath without a second opt-in - exactly as a floating bar does.
+            Grid.GetRowSpan(page.ContentHost).ShouldBe(2);
+
+            page.TabBar.BarMaterial = TabBarMaterial.Solid;
+            Grid.GetRowSpan(page.ContentHost).ShouldBe(1);
+        }
+        finally
+        {
+            Shiny.Maui.Controls.Infrastructure.GlassSurface.SupportOverride = null;
+        }
+    }
+
+
+    [Fact]
+    public void ABarThatCouldNotGetGlassDoesNotMoveTheContent()
+    {
+        var page = Build(out _);
+        page.TabBar.BarMaterial = TabBarMaterial.Glass;
+
+        // No glass on this head, so nothing about the layout changes either.
+        Grid.GetRowSpan(page.ContentHost).ShouldBe(1);
+    }
+
 }

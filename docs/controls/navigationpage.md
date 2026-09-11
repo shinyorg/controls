@@ -40,6 +40,20 @@ The items are declared on the **page**, the way `ToolbarItems` already are:
 
 `Order="Secondary"` folds an item into the overflow menu however much room there is; anything past `MaxVisibleItems` (3 per side by default) folds in behind it.
 
+### Badges
+
+`NavBarItem.Badge` badges a declared item; `ShinyNav.Badge` is the attached form, so a page's own plain `ToolbarItem`s can be badged too without being rewritten:
+
+```xml
+<ContentPage.ToolbarItems>
+    <ToolbarItem Text="Drafts" shiny:ShinyNav.Badge="{Binding DraftCount}" />
+</ContentPage.ToolbarItems>
+```
+
+An empty string draws a dot, `null` draws nothing, and `ShinyNav.BadgeColor` (or `NavBarItem.BadgeColor`) overrides the theme's error colour. On a `NavBarItem` its own `Badge` wins while it is non-null, so the attached one can be set on either kind of item.
+
+A badged item that folds into the overflow menu keeps its badge on its menu row, and the overflow button itself draws a dot while anything behind it is badged — so a count never disappears just because the bar ran out of room.
+
 Everything MAUI already gives a `NavigationPage` is honoured rather than reinvented — `Page.Title`, `Page.ToolbarItems`, `SetHasBackButton`, `SetBackButtonTitle`, `SetTitleView`, `SetTitleIconImageSource`, `SetIconColor`, and `BarBackground`/`BarBackgroundColor`/`BarTextColor`. The one exception is `SetHasNavigationBar`: it is honoured as the *starting* value, but that property is the slot this page had to take over to hide the native bar, so the runtime switch is `ShinyNav.SetIsNavBarVisible(page, false)` (or `IsNavBarVisible` on the navigation page, for all of them at once).
 
 `LargeTitleDisplay="Collapsing"` gives the iOS-style oversized title that folds into the bar as the page scrolls — it finds the first `ScrollView` or `ItemsView` in the page on its own, and `ShinyNav.ScrollSource` names a different one. A single page opts out with `shiny:ShinyNav.LargeTitleDisplay="None"`.

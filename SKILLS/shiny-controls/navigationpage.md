@@ -71,6 +71,17 @@ of anything in `RightItems`. Adopting this page never means rewriting a toolbar.
 - `IsSeparator` draws a divider **in the menu only** — on the bar itself it is skipped.
 - `IsVisible="False"` hides an item without removing it, which is what a binding needs.
 - `Badge=""` is a **dot**, `Badge=null` is nothing — the same rule as `ShinyTabs.Badge`.
+- A **plain `ToolbarItem`** has no `Badge` property of its own — use the attached
+  `shiny:ShinyNav.Badge` (and `shiny:ShinyNav.BadgeColor`) on it instead. Both work on a
+  `NavBarItem` too, where its own `Badge` wins while it is non-null.
+- A badged item that overflows keeps its badge on its menu row, and the overflow button draws a
+  **dot** while anything behind it is badged. Nothing to configure.
+
+```xml
+<ContentPage.ToolbarItems>
+    <ToolbarItem Text="Drafts" shiny:ShinyNav.Badge="{Binding DraftCount}" />
+</ContentPage.ToolbarItems>
+```
 
 ## What MAUI already gives you, honoured as-is
 
@@ -79,7 +90,7 @@ Do **not** invent new properties for these. The bar reads them straight off the 
 | MAUI API | Effect |
 | --- | --- |
 | `Page.Title` | the bar's title |
-| `Page.ToolbarItems` | drawn on the right |
+| `Page.ToolbarItems` | drawn on the right (badge one with `ShinyNav.Badge`) |
 | `NavigationPage.SetHasBackButton(page, false)` | hides the back affordance |
 | `NavigationPage.SetBackButtonTitle(page, "Inbox")` | labels it |
 | `NavigationPage.SetTitleView(page, view)` | replaces the title outright |

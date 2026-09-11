@@ -117,3 +117,32 @@ public enum TabBarStyle
     /// <summary>A capsule inset from the page edges, floating over content that scrolls beneath it.</summary>
     Floating
 }
+
+
+/// <summary>
+/// What <see cref="ShinyTabBar"/>'s background is made of — a painted fill, or real Apple glass.
+/// </summary>
+/// <remarks>
+/// <para>The glass values need <b>iOS 26</b>. Everywhere else — an older iOS, Android, Windows, GTK4,
+/// Mac Catalyst and macOS AppKit, neither of which the core package has a native build for yet — the
+/// bar keeps painting the fill <see cref="ShinyTabBar.BarBackgroundColor"/> and
+/// <see cref="ShinyTabBar.BarBackgroundOpacity"/> describe, so a bar declared as glass is never a
+/// bar that failed to draw.</para>
+/// <para>Glass needs something behind it: <c>ShinyTabbedPage</c> lets the content run under a glass
+/// bar the way it already does under a floating one, because glass over a blank strip of background
+/// is an expensive way to draw a grey rectangle.</para>
+/// </remarks>
+public enum TabBarMaterial
+{
+    /// <summary>A painted background. The default, and the only thing most heads can do.</summary>
+    Solid,
+
+    /// <summary>Apple's Liquid Glass, regular — the weight the system uses for its own bars.</summary>
+    Glass,
+
+    /// <summary>
+    /// Apple's Liquid Glass, clear. Far more of the content behind it comes through, which needs
+    /// content with contrast underneath to read as glass rather than as nothing at all.
+    /// </summary>
+    GlassClear
+}

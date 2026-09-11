@@ -451,7 +451,9 @@ public partial class ShinyNavBar : Grid
         if (this.HasShadow)
             this.surface.WithElevation(ShinyThemeKeys.Elevation.Level2);
         else
-            this.surface.ClearValue(VisualElement.ShadowProperty);
+            // Not ClearValue: it leaves WithElevation's dynamic resource in place, which puts the
+            // shadow straight back - see ThemeTokens.WithoutElevation.
+            this.surface.WithoutElevation();
 
         this.UpdateEffectiveBarColor();
     }

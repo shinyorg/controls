@@ -55,6 +55,12 @@ public partial class ShinyTabBar : Grid
     /// skipped when the answer has not moved — see <see cref="OnBarSizeChanged"/>.
     /// </summary>
     double bottomInset;
+
+    /// <summary>
+    /// Whether glass is currently attached. Kept so <see cref="ApplyGlass"/> can tell an ordinary
+    /// re-apply from the transition that changes where the page's content is allowed to go.
+    /// </summary>
+    bool glassActive;
     readonly VerticalStackLayout centerHost;
     readonly Border centerCircle;
     readonly Grid centerIconHost;
@@ -173,6 +179,23 @@ public partial class ShinyTabBar : Grid
             if (e.PropertyName == nameof(BoxView.Color))
                 this.ApplyBarFill();
         };
+
+        // The glass is a native view behind the surface, so it has to be re-attached every time MAUI
+        // builds the surface a new platform view - which is what a re-parented page does to every
+        // handler under it.
+        this.barSurface.HandlerChanged += (_, _) => this.ApplyGlass();
+
+        // A corner radius that came from a theme token resolves after the shape was handed to the
+        // Border, and the glass has its own copy of the shape. Without this the pane keeps whatever
+        // radius the token had not yet answered with - square corners under a rounded bar.
+        if (this.barSurface.StrokeShape is RoundRectangle surfaceShape)
+        {
+            surfaceShape.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(RoundRectangle.CornerRadius))
+                    this.ApplyGlass();
+            };
+        }
 
         var centerTap = new TapGestureRecognizer();
         centerTap.Tapped += this.OnCenterTapped;
@@ -605,15 +628,71 @@ public partial class ShinyTabBar : Grid
             this.barSurface.SafeAreaEdges = SafeAreaEdges.None;
         }
 
-        if (this.HasShadow)
+        // Glass brings its own edge shading, and a Material drop shadow under it reads as a sticker
+        // laid on the page rather than as depth. HasShadow is honoured again the moment the material
+        // goes back to Solid, or the app runs somewhere with no glass.
+        if (this.HasShadow && !this.GlassActive)
             // A floating bar is detached from the page, so it casts the heavier of the two shadows -
             // Level2 against nothing underneath it barely reads as a shadow at all.
             this.barSurface.WithElevation(floating ? ShinyThemeKeys.Elevation.Level3 : ShinyThemeKeys.Elevation.Level2);
         else
-            // ClearValue rather than assigning null: WithElevation left a dynamic resource behind,
-            // and a literal null would sit on top of it rather than removing it - so turning the
-            // shadow back on would find the binding already gone.
-            this.barSurface.ClearValue(VisualElement.ShadowProperty);
+            // Not ClearValue: the dynamic resource WithElevation left behind survives it and puts the
+            // shadow straight back, which is why HasShadow="False" used to do nothing at all.
+            this.barSurface.WithoutElevation();
+
+        this.ApplyGlass();
+    }
+
+
+    /// <summary>
+    /// Whether this bar is actually sitting on glass — asked for <em>and</em> available.
+    /// </summary>
+    /// <remarks>
+    /// Every consequence of glass hangs off this rather than off <see cref="BarMaterial"/> alone: the
+    /// fill goes transparent, the shadow comes off, and the page lets its content run underneath.
+    /// Doing any of that on a head with no glass to show would leave a bar that is simply not there.
+    /// </remarks>
+    internal bool GlassActive => this.BarMaterial != TabBarMaterial.Solid && GlassSurface.IsSupported;
+
+
+    /// <summary>
+    /// Attaches, updates or removes the pane of glass behind the bar's surface.
+    /// </summary>
+    /// <remarks>
+    /// Called from <see cref="ApplySurface"/> (which owns the shape and the margins the glass has to
+    /// match), when the surface gets a new handler, and when a token-driven corner radius finally
+    /// resolves. All three are cheap and idempotent - the pane is reused, never stacked.
+    /// </remarks>
+    void ApplyGlass()
+    {
+        var wasActive = this.glassActive;
+        this.glassActive = this.GlassActive;
+
+        if (!this.glassActive)
+        {
+            GlassSurface.Remove(this.barSurface);
+        }
+        else
+        {
+            // A floating bar with no radius of its own is a capsule, and a capsule tracks the bar's
+            // height natively - which matters here, because the radius ApplySurface wrote onto the
+            // shape is only correct for the height the bar had when it ran.
+            var floating = this.BarStyle == TabBarStyle.Floating;
+            var capsule = floating && !ThemeTokens.IsSet(this.BarCornerRadius);
+            var radius = this.barSurface.StrokeShape is RoundRectangle shape ? shape.CornerRadius.TopLeft : 0;
+
+            GlassSurface.Apply(this.barSurface, new GlassSurfaceOptions(
+                Clear: this.BarMaterial == TabBarMaterial.GlassClear,
+                Tint: this.BarGlassTint,
+                CornerRadius: radius,
+                Capsule: capsule
+            ));
+        }
+
+        // Whether the content runs under the bar is the page's business, and glass changes the answer
+        // the same way BarStyle does - so it goes out on the same event rather than a second one.
+        if (wasActive != this.glassActive)
+            this.BarPlacementChanged?.Invoke(this, EventArgs.Empty);
     }
 
 
@@ -630,6 +709,15 @@ public partial class ShinyTabBar : Grid
     /// </remarks>
     void ApplyBarFill()
     {
+        // Under glass the surface paints nothing at all: any fill it painted would sit between the
+        // glass and the page and there would be nothing left to refract. The tint that does colour a
+        // glass bar is BarGlassTint, which goes to the effect rather than to a brush.
+        if (this.GlassActive)
+        {
+            this.barSurface.Background = new SolidColorBrush(Colors.Transparent);
+            return;
+        }
+
         var color = this.surfaceProbe.Color;
         if (color is null)
             return;
@@ -663,17 +751,18 @@ public partial class ShinyTabBar : Grid
 
 
     /// <summary>
-    /// Raised when <see cref="BarStyle"/> changes. The bar can restyle itself, but whether the
+    /// Raised when something that decides where the page's content may go changes — the bar's
+    /// <see cref="BarStyle"/>, or whether it ended up on glass. The bar can restyle itself, but whether the
     /// content stops above it or runs underneath it is the host page's layout to change.
     /// </summary>
-    internal event EventHandler? BarStyleChanged;
+    internal event EventHandler? BarPlacementChanged;
 
 
     void ApplyBarStyle()
     {
         this.ApplySurface();
         this.ApplyMetrics();
-        this.BarStyleChanged?.Invoke(this, EventArgs.Empty);
+        this.BarPlacementChanged?.Invoke(this, EventArgs.Empty);
     }
 
 
@@ -1377,7 +1466,7 @@ public partial class ShinyTabBar : Grid
         // never asked for.
         this.centerCircle.Content = content;
         this.centerCircle.Background = null;
-        this.centerCircle.ClearValue(VisualElement.ShadowProperty);
+        this.centerCircle.WithoutElevation();
         this.centerCircle.WidthRequest = center.Size;
         this.centerCircle.HeightRequest = center.Size;
         this.centerCircle.Opacity = center.IsEnabled ? 1 : 0.5;

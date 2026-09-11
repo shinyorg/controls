@@ -65,6 +65,34 @@ public static class ShinyNav
         null,
         defaultValueCreator: _ => new NavBarItemCollection());
 
+    /// <summary>
+    /// Badge text drawn over any toolbar item's top-right corner — the badge a
+    /// <see cref="NavBarItem"/> has as its own <see cref="NavBarItem.Badge"/> property, made
+    /// available to the plain <see cref="ToolbarItem"/>s a page already had.
+    /// </summary>
+    /// <remarks>
+    /// <para>An empty string draws a dot; null draws nothing. Set it on the item, not the page.</para>
+    /// <para>On a <see cref="NavBarItem"/> the item's own <see cref="NavBarItem.Badge"/> wins when it
+    /// is non-null, so this can be attached to one without silently overriding what it already
+    /// says.</para>
+    /// <para>An item that ends up in the overflow menu keeps its badge there, and the overflow
+    /// button itself draws a dot while any item behind it is badged — so a count never disappears
+    /// just because the bar ran out of room.</para>
+    /// </remarks>
+    /// <example>
+    /// <code language="xaml">
+    /// &lt;ContentPage.ToolbarItems&gt;
+    ///     &lt;ToolbarItem Text="Alerts" shiny:ShinyNav.Badge="{Binding UnreadCount}" /&gt;
+    /// &lt;/ContentPage.ToolbarItems&gt;
+    /// </code>
+    /// </example>
+    public static readonly BindableProperty BadgeProperty = BindableProperty.CreateAttached(
+        "Badge", typeof(string), typeof(ShinyNav), null);
+
+    /// <summary>The badge's fill for this item. Unset follows the theme's error colour.</summary>
+    public static readonly BindableProperty BadgeColorProperty = BindableProperty.CreateAttached(
+        "BadgeColor", typeof(Color), typeof(ShinyNav), null);
+
     /// <summary>A second line under the title. Nothing is drawn when it is null or empty.</summary>
     public static readonly BindableProperty SubtitleProperty = BindableProperty.CreateAttached(
         "Subtitle", typeof(string), typeof(ShinyNav), null);
@@ -148,6 +176,18 @@ public static class ShinyNav
 
     /// <summary>Sets <see cref="RightItemsProperty"/>.</summary>
     public static void SetRightItems(BindableObject target, NavBarItemCollection value) => target.SetValue(RightItemsProperty, value);
+
+    /// <summary>Gets <see cref="BadgeProperty"/>.</summary>
+    public static string? GetBadge(BindableObject target) => (string?)target.GetValue(BadgeProperty);
+
+    /// <summary>Sets <see cref="BadgeProperty"/>.</summary>
+    public static void SetBadge(BindableObject target, string? value) => target.SetValue(BadgeProperty, value);
+
+    /// <summary>Gets <see cref="BadgeColorProperty"/>.</summary>
+    public static Color? GetBadgeColor(BindableObject target) => (Color?)target.GetValue(BadgeColorProperty);
+
+    /// <summary>Sets <see cref="BadgeColorProperty"/>.</summary>
+    public static void SetBadgeColor(BindableObject target, Color? value) => target.SetValue(BadgeColorProperty, value);
 
     /// <summary>Gets <see cref="SubtitleProperty"/>.</summary>
     public static string? GetSubtitle(BindableObject target) => (string?)target.GetValue(SubtitleProperty);

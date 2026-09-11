@@ -51,10 +51,61 @@ public partial class ShinyTabBar
         nameof(HasShadow), typeof(bool), typeof(ShinyTabBar), true,
         propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.ApplySurface()));
 
+    /// <summary>Backing store for <see cref="BarMaterial"/>.</summary>
+    public static readonly BindableProperty BarMaterialProperty = BindableProperty.Create(
+        nameof(BarMaterial), typeof(TabBarMaterial), typeof(ShinyTabBar), TabBarMaterial.Solid,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.ApplySurface()));
+
+    /// <summary>Backing store for <see cref="BarGlassTint"/>.</summary>
+    public static readonly BindableProperty BarGlassTintProperty = BindableProperty.Create(
+        nameof(BarGlassTint), typeof(Color), typeof(ShinyTabBar), null,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.ApplySurface()));
+
     /// <summary>Backing store for <see cref="BarBackgroundOpacity"/>.</summary>
     public static readonly BindableProperty BarBackgroundOpacityProperty = BindableProperty.Create(
         nameof(BarBackgroundOpacity), typeof(double), typeof(ShinyTabBar), 1d,
         propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.ApplySurface()));
+
+    /// <summary>
+    /// Whether the bar paints a background or sits on Apple's Liquid Glass. <see cref="TabBarMaterial.Solid"/>
+    /// by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>Glass is <b>iOS 26 and up</b>. Anywhere else the property is remembered and ignored, and
+    /// the bar paints the fill it always did — a glass bar that silently went transparent on Android
+    /// would just be a missing bar.</para>
+    /// <para>Where it does take effect it takes over the background entirely:
+    /// <see cref="BarBackgroundColor"/> and <see cref="BarBackgroundOpacity"/> stop being painted
+    /// (use <see cref="BarGlassTint"/> to colour the glass), and <see cref="HasShadow"/> is ignored,
+    /// because glass carries its own edge shading and a Material drop shadow under it reads as a
+    /// sticker rather than as depth.</para>
+    /// <para>The content is allowed to run underneath the bar for you, exactly as
+    /// <see cref="TabBarStyle.Floating"/> already does — see <c>ShinyTabbedPage.ContentBehindTabBar</c>.</para>
+    /// </remarks>
+    public TabBarMaterial BarMaterial
+    {
+        get => (TabBarMaterial)this.GetValue(BarMaterialProperty);
+        set => this.SetValue(BarMaterialProperty, value);
+    }
+
+    /// <summary>
+    /// A colour wash over the glass. Unset leaves the system's own, which already answers light and
+    /// dark on its own.
+    /// </summary>
+    /// <remarks>
+    /// <para>A tint on glass is not a fill: the colour is blended into a surface that is still
+    /// refracting what is behind it, so an opaque brand colour gives tinted glass rather than a
+    /// tinted rectangle. Point it at a theme token — <c>SetDynamicResource</c> with
+    /// <c>ShinyThemeKeys.Color.SurfaceContainer</c> or your primary — if the bar should follow the
+    /// theme rather than the system.</para>
+    /// <para>Ignored when <see cref="BarMaterial"/> is <see cref="TabBarMaterial.Solid"/>, and on
+    /// every head that has no glass to tint.</para>
+    /// </remarks>
+    public Color? BarGlassTint
+    {
+        get => (Color?)this.GetValue(BarGlassTintProperty);
+        set => this.SetValue(BarGlassTintProperty, value);
+    }
 
     /// <summary>
     /// How opaque the bar's background is, from <c>0</c> (invisible) to <c>1</c> (solid, the default).

@@ -988,6 +988,145 @@ public class ShinyTabBarTests
 
 
     // ---------------------------------------------------------------------------------------------
+    // Glass
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Runs <paramref name="test"/> as though the head had Liquid Glass. The test host is plain
+    /// net10.0, where the real answer is permanently false — and every consequence of glass is gated
+    /// on that answer, so without the seam none of them could be asserted.
+    /// </summary>
+    static void WithGlass(Action test)
+    {
+        Shiny.Maui.Controls.Infrastructure.GlassSurface.SupportOverride = true;
+        try
+        {
+            test();
+        }
+        finally
+        {
+            // A static that leaked would turn every later test in the collection into a glass one.
+            Shiny.Maui.Controls.Infrastructure.GlassSurface.SupportOverride = null;
+        }
+    }
+
+
+    /// <summary>
+    /// Merges a real theme, so the tokens the bar binds to resolve into values a test can read.
+    /// </summary>
+    static void MergeTheme()
+        => Application.Current!.Resources.MergedDictionaries.Add(new Themes.BasicLightTheme());
+
+
+    [Fact]
+    public void TheShadowCanBeTurnedOffAndBackOn()
+    {
+        MergeTheme();
+
+        var bar = Build("One", "Two");
+        bar.Surface.Shadow.ShouldNotBeNull();
+
+        // ClearValue does not clear a value that came from a dynamic resource, so HasShadow="False"
+        // used to leave the shadow exactly where it was - and the explicit null that does remove it
+        // then outranks the dynamic resource that would put it back.
+        bar.HasShadow = false;
+        bar.Surface.Shadow.ShouldBeNull();
+
+        bar.HasShadow = true;
+        bar.Surface.Shadow.ShouldNotBeNull();
+    }
+
+
+    [Fact]
+    public void AGlassBarPaintsNoFillOfItsOwn()
+    {
+        WithGlass(() =>
+        {
+            var bar = Build("One", "Two");
+            bar.BarBackgroundColor = Colors.Red;
+
+            bar.BarMaterial = TabBarMaterial.Glass;
+
+            // Anything painted here would sit between the glass and the page, leaving nothing to
+            // refract. The colour that tints a glass bar is BarGlassTint, and it goes to the effect.
+            FillOf(bar).Alpha.ShouldBe(0f, 0.001f);
+        });
+    }
+
+
+    [Fact]
+    public void GoingBackToSolidPaintsTheFillAgain()
+    {
+        WithGlass(() =>
+        {
+            var bar = Build("One", "Two");
+            bar.BarBackgroundColor = Colors.Red;
+            bar.BarMaterial = TabBarMaterial.Glass;
+
+            bar.BarMaterial = TabBarMaterial.Solid;
+
+            FillOf(bar).Alpha.ShouldBe(1f, 0.001f);
+            FillOf(bar).Red.ShouldBe(1f, 0.001f);
+        });
+    }
+
+
+    [Fact]
+    public void GlassDropsTheShadowAndGivesItBack()
+    {
+        WithGlass(() =>
+        {
+            // The shadow is a dynamic resource, so it only becomes a Shadow once a theme is merged -
+            // without one the property stays unset and both answers look identical.
+            MergeTheme();
+
+            var bar = Build("One", "Two");
+            bar.HasShadow = true;
+            bar.Surface.Shadow.ShouldNotBeNull();
+
+            // Glass carries its own edge shading; a Material drop shadow under it reads as a sticker.
+            bar.BarMaterial = TabBarMaterial.Glass;
+            bar.Surface.Shadow.ShouldBeNull();
+
+            bar.BarMaterial = TabBarMaterial.Solid;
+            bar.Surface.Shadow.ShouldNotBeNull();
+        });
+    }
+
+
+    [Fact]
+    public void AskingForGlassWhereThereIsNoneChangesNothing()
+    {
+        MergeTheme();
+
+        var bar = Build("One", "Two");
+        bar.BarBackgroundColor = Colors.Red;
+        bar.HasShadow = true;
+
+        bar.BarMaterial = TabBarMaterial.Glass;
+
+        // Android, Windows, GTK4, an older iOS: the bar keeps painting what it always did. A bar that
+        // went transparent with no glass behind it would simply be a missing bar.
+        bar.GlassActive.ShouldBeFalse();
+        FillOf(bar).Alpha.ShouldBe(1f, 0.001f);
+        bar.Surface.Shadow.ShouldNotBeNull();
+    }
+
+
+    [Fact]
+    public void TheMaterialIsRememberedEvenWhereItCannotBeHonoured()
+    {
+        var bar = Build("One", "Two");
+        bar.BarMaterial = TabBarMaterial.GlassClear;
+
+        // Remembered rather than coerced back to Solid: the same XAML runs on every head, and a
+        // property that rewrote itself per platform could never be bound to.
+        bar.BarMaterial.ShouldBe(TabBarMaterial.GlassClear);
+        bar.GlassActive.ShouldBeFalse();
+    }
+
+
+    // ---------------------------------------------------------------------------------------------
     // Bottom safe area
     // ---------------------------------------------------------------------------------------------
 

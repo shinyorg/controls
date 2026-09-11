@@ -76,7 +76,23 @@ The bar comes in two styles. `BarStyle` is `Docked` by default — welded to the
 
 > **Animations looking dead on an Android emulator is almost always the device, not the control.** MAUI skips animations and jumps to the final frame whenever the system reports them disabled, and emulator images often ship with `animator_duration_scale` off or unset. Check with `adb shell settings get global animator_duration_scale` and set it to `1.0`.
 
-`BarBackgroundOpacity` (`1` by default) makes the bar translucent. It fades the **background only** — icons, labels, badges and the indicator stay fully opaque, because a bar whose tabs fade with it is unreadable long before the background gets interesting. The alpha goes on the colour rather than on a view (opacity multiplies down the tree, so a child cannot undo it), multiplies into any alpha the colour already had, and follows a theme swap. Pair it with `ContentBehindTabBar`, or `BarStyle="Floating"` which implies it — without content running underneath there is nothing behind the glass to see.
+`BarBackgroundOpacity` (`1` by default) makes the bar translucent. It fades the **background only** — icons, labels, badges and the indicator stay fully opaque, because a bar whose tabs fade with it is unreadable long before the background gets interesting. The alpha goes on the colour rather than on a view (opacity multiplies down the tree, so a child cannot undo it), multiplies into any alpha the colour already had, and follows a theme swap. Pair it with `ContentBehindTabBar`, or `BarStyle="Floating"` which implies it — without content running underneath there is nothing behind it to see. For real glass rather than a translucent fill, see `BarMaterial` below.
+
+### Liquid Glass (iOS 26)
+
+`BarMaterial` swaps the painted background for real Apple glass — a `UIGlassEffect` behind the bar, not a blur approximation:
+
+```xml
+<shiny:ShinyTabbedPage BarMaterial="Glass" BarStyle="Floating" />
+```
+
+`Solid` is the default, `Glass` is the weight the system uses for its own bars, and `GlassClear` lets far more through (it needs content with contrast underneath to read as glass at all). `BarGlassTint` washes the glass with a colour — point it at a theme token with `SetDynamicResource` if the bar should follow your palette rather than the system, and remember a tint on glass is not a fill: the surface is still refracting, so an opaque brand colour gives tinted glass rather than a tinted rectangle.
+
+It applies on **iOS 26 and up**, and nowhere else — not on an older iOS, not on Android, Windows or GTK4, and not yet on Mac Catalyst or macOS AppKit, for which the core package has no native build. Everywhere else the property is remembered and the bar keeps painting the fill `BarBackgroundColor` and `BarBackgroundOpacity` describe, so the same XAML runs everywhere and a glass bar is never a missing bar.
+
+Where it does apply it takes the background over completely: `BarBackgroundColor` and `BarBackgroundOpacity` stop being painted, `HasShadow` is ignored (glass carries its own edge shading, and a Material drop shadow under it reads as a sticker), and the page lets its content run under the bar exactly as `BarStyle="Floating"` already does — so pad the bottom of anything scrollable by roughly `BarHeight`. A floating glass bar is a capsule natively, so its corners stay semicircles as the bar resizes.
+
+Two things Apple's own bar does that this does not, both by design for now: the glass does not respond to touch (`UIGlassEffect.Interactive` keys off touches delivered to the effect view, and every gesture in the bar belongs to the MAUI views above it), and a centre button does not merge with the bar the way `UIGlassContainerEffect` merges neighbouring panes.
 
 Both menus — the centre button's and the overflow tab's — close on any change of selected tab, whether that came from a tap, `GoTo`, or a binding on `SelectedIndex`. A menu belongs to the tab it was opened over. A reselect leaves it alone.
 

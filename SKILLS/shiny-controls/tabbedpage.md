@@ -131,7 +131,8 @@ Content: `Tabs`, `Transition`, `TransitionDuration`, `TransitionEasing`, `CacheT
 Bar: `TabBarIsVisible`, `ContentBehindTabBar` (full-bleed under a translucent bar — leave room at the
 bottom of your own content), `CenterButton`, `IndicatorStyle`, `LabelMode`, `SelectedColor`,
 `UnselectedColor`, `IndicatorColor`, `BarHeight`, `BarBackgroundColor`, `BarCornerRadius`,
-`BarMargin`, `BarStyle`, `HasShadow`, `IconSize`, `AnimateIcons`, and `TabBar` itself for everything else.
+`BarMargin`, `BarStyle`, `BarMaterial`, `BarGlassTint`, `HasShadow`, `IconSize`, `AnimateIcons`, and
+`TabBar` itself for everything else.
 
 ## ShinyTabItem
 
@@ -347,7 +348,32 @@ it down too, and opacity multiplies down the tree so a child cannot undo it. It 
 alpha the colour already carried, and follows a theme swap.
 
 Pair it with `ContentBehindTabBar` (or `BarStyle="Floating"`, which implies it) — without content
-running underneath, there is nothing behind the glass to see.
+running underneath, there is nothing behind it to see.
+
+## Liquid Glass — `BarMaterial` (iOS 26)
+
+Real Apple glass behind the bar, not a translucent fill:
+
+```xml
+<shiny:ShinyTabbedPage BarMaterial="Glass" BarStyle="Floating" />
+```
+
+`TabBarMaterial` is `Solid` (default), `Glass` (the system weight) or `GlassClear` (much more comes
+through; it needs contrast behind it). `BarGlassTint` washes the glass — `SetDynamicResource` it to a
+theme token to follow the palette. A tint on glass is not a fill: the surface still refracts, so an
+opaque colour gives tinted glass, not a tinted rectangle.
+
+**Rules that matter:**
+
+- **iOS 26 only.** Older iOS, Android, Windows, GTK4, Mac Catalyst and macOS AppKit keep painting the
+  fill. The property is remembered rather than coerced, so the same XAML runs on every head — never
+  branch on the platform to set it, and never assume it took effect.
+- It **takes over the background**: `BarBackgroundColor` and `BarBackgroundOpacity` are not painted,
+  and `HasShadow` is ignored (glass carries its own edge shading). Use `BarGlassTint` for colour.
+- It turns on content-behind for you, like `BarStyle="Floating"` — so leave roughly `BarHeight` of
+  room at the bottom of anything scrollable.
+- Not yet: interactive glass (the touch ripple) and merging with the centre button
+  (`UIGlassContainerEffect`). Do not describe either as available.
 
 ## Menus close when the tab changes
 
