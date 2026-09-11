@@ -40,7 +40,7 @@ static class ThemeProbe
         // Seeded non-null: a brush handed to a handler with a null Color throws inside MAUI's Windows
         // stroke mapper, and a token stays unresolved until the theme dictionary merges.
         var brush = new SolidColorBrush(Colors.Transparent);
-        brush.SetBinding(SolidColorBrush.ColorProperty, new Binding(nameof(BoxView.Color), source: probe));
+        brush.SetBinding(SolidColorBrush.ColorProperty, static (BoxView b) => b.Color, source: probe);
 
         return (brush, probe);
     }
