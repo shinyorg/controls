@@ -1,0 +1,44 @@
+@namespace Shiny.Blazor.Controls
+@using Shiny.Blazor.Controls.Theming
+@implements IDisposable
+@inject IShinyThemeService Theme
+
+@*
+    Put one of these in the layout and the theme becomes a service call rather than a DOM trick.
+
+    The pack's stylesheet is rendered HERE, as markup, rather than appended to <head> from code: a
+    link Blazor owns is a link Blazor can take away again when the pack changes or the host goes. The
+    hand-rolled version every app used to write appended one per switch and left the old ones behind,
+    so the "current" theme was whichever happened to be last in source order.
+
+    The scheme class and the token overrides go on <html> from the service, because color-scheme has
+    to reach the browser's own widgets. See theme.js.
+*@
+
+@if (this.Href is not null)
+{
+    <HeadContent>
+        <link rel="stylesheet" href="@this.Href" />
+    </HeadContent>
+}
+
+@code {
+    /// <summary>
+    /// Where a pack's stylesheet lives. The default is the convention every Shiny pack package
+    /// follows; an app serving its own theme from elsewhere can point this at it.
+    /// </summary>
+    [Parameter]
+    public Func<string, string> PackHref { get; set; } =
+        pack => $"_content/Shiny.Blazor.Controls.Themes.{Capitalize(pack)}/css/shiny-theme-{pack}.css";
+
+    string? Href => this.Theme.Pack is { } pack ? this.PackHref(pack) : null;
+
+    protected override void OnInitialized() => this.Theme.Changed += this.OnThemeChanged;
+
+    void OnThemeChanged(object? sender, EventArgs e) => this.InvokeAsync(this.StateHasChanged);
+
+    public void Dispose() => this.Theme.Changed -= this.OnThemeChanged;
+
+    static string Capitalize(string value) =>
+        value.Length == 0 ? value : char.ToUpperInvariant(value[0]) + value[1..];
+}

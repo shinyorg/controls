@@ -1,0 +1,155 @@
+/* The canvas takes the page; the dock is fixed to the bottom of the viewport so it never rides the
+   scroll, and the canvas gets matching bottom padding so nothing hides behind it. */
+
+.composer {
+    display: flex;
+    flex-direction: column;
+}
+
+.composer-canvas {
+    padding-bottom: 8rem;
+}
+
+.composer-intro h1 {
+    margin: 0 0 0.25rem;
+}
+
+.composer-intro p {
+    margin: 0 0 1.25rem;
+    max-width: 60ch;
+    color: var(--shiny-color-on-surface-variant);
+}
+
+.scene {
+    background: var(--shiny-color-surface-container-low);
+    border: var(--shiny-border-thin) solid var(--shiny-color-outline-variant);
+    border-radius: var(--shiny-shape-corner-medium);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.scene h2 {
+    margin: 0 0 0.75rem;
+    font-size: calc(16px * var(--shiny-type-scale));
+    color: var(--shiny-color-on-surface);
+}
+
+.scene .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.scene .field {
+    max-width: 26rem;
+    margin-bottom: 0.75rem;
+}
+
+.scene .state {
+    color: var(--shiny-color-on-surface-variant);
+    font-size: calc(13px * var(--shiny-type-scale));
+}
+
+.surfaces {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.5rem;
+}
+
+.surface {
+    border: var(--shiny-border-thin) solid var(--shiny-color-outline-variant);
+    border-radius: var(--shiny-shape-corner-small);
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.surface code {
+    font-size: 11px;
+    opacity: 0.75;
+}
+
+
+/* -- the dock ------------------------------------------------------------------------------------
+   Fixed at every width. The row scrolls sideways when the knobs do not fit rather than wrapping into
+   a second bar that would eat the canvas. */
+
+.composer-dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--shiny-color-surface-container);
+    border-top: var(--shiny-border-thin) solid var(--shiny-color-outline-variant);
+    /* A black shadow is invisible on a dark page, so the dock separates by elevation instead. */
+    box-shadow: 0 -12px 32px -16px color-mix(in srgb, var(--shiny-color-shadow) 40%, transparent);
+}
+
+.dock-knobs {
+    display: flex;
+    gap: 0.75rem;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.knob {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 8rem;
+}
+
+.knob-name {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--shiny-color-on-surface-variant);
+}
+
+.knob select {
+    font: inherit;
+    padding: 0.4rem 0.5rem;
+    border: var(--shiny-border-thin) solid var(--shiny-color-outline);
+    border-radius: var(--shiny-shape-corner-small);
+    background: var(--shiny-color-surface);
+    color: var(--shiny-color-on-surface);
+}
+
+.dock-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+}
+
+.dock-code {
+    padding: 0.35rem 0.6rem;
+    border-radius: var(--shiny-shape-corner-small);
+    background: var(--shiny-color-surface-container-highest);
+    color: var(--shiny-color-on-surface-variant);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+}
+
+.composer-code {
+    margin-bottom: 8rem;
+}
+
+.composer-code pre {
+    background: var(--shiny-color-surface-container-highest);
+    color: var(--shiny-color-on-surface);
+    border-radius: var(--shiny-shape-corner-small);
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+}

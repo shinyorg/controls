@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 public partial class SignaturePad : IAsyncDisposable
@@ -28,11 +30,16 @@ public partial class SignaturePad : IAsyncDisposable
 
     [Parameter] public string SignButtonText { get; set; } = "Sign";
     [Parameter] public string CancelButtonText { get; set; } = "Cancel";
-    [Parameter] public string SignButtonColor { get; set; } = "var(--shiny-color-primary, #6C63FF)";
-    [Parameter] public string CancelButtonColor { get; set; } = "var(--shiny-color-on-surface-variant, #94A3B8)";
+    // Mirrored in SignaturePad.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultSignButtonColor = "var(--shiny-color-primary, #0055D9)";
+    internal const string DefaultCancelButtonColor = "var(--shiny-color-on-surface-variant, #3B475B)";
+    internal const string DefaultPanelBackgroundColor = "var(--shiny-color-surface, #F6FAFE)";
+
+    [Parameter] public string SignButtonColor { get; set; } = DefaultSignButtonColor;
+    [Parameter] public string CancelButtonColor { get; set; } = DefaultCancelButtonColor;
     [Parameter] public bool ShowCancelButton { get; set; } = true;
 
-    [Parameter] public string PanelBackgroundColor { get; set; } = "var(--shiny-color-surface, #FFFFFF)";
+    [Parameter] public string PanelBackgroundColor { get; set; } = DefaultPanelBackgroundColor;
     [Parameter] public double PanelCornerRadius { get; set; } = 16;
     [Parameter] public bool HasBackdrop { get; set; } = true;
 

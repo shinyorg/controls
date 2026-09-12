@@ -8,9 +8,9 @@
 .shiny-captcha-missing,
 .shiny-captcha-failure {
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-error, #DC2626);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-error, #C20014);
     border-radius: var(--shiny-shape-corner-small, 6px);
-    background-color: var(--shiny-color-error-container, #FEE2E2);
-    color: var(--shiny-color-on-error-container, #991B1B);
+    background-color: var(--shiny-color-error-container, #F2CDCB);
+    color: var(--shiny-color-on-error-container, #832323);
     font-size: 0.8rem;
 }

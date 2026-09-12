@@ -71,43 +71,43 @@
 .shiny-btn--primary {
     --shiny-btn-base: var(--shiny-color-primary, #0055D9);
     --shiny-btn-on-base: var(--shiny-color-on-primary, #FFFFFF);
-    --shiny-btn-container: var(--shiny-color-primary-container, #C2D6FF);
-    --shiny-btn-on-container: var(--shiny-color-on-primary-container, #001886);
+    --shiny-btn-container: var(--shiny-color-primary-container, #C2D8FA);
+    --shiny-btn-on-container: var(--shiny-color-on-primary-container, #124294);
 }
 
 .shiny-btn--secondary {
     --shiny-btn-base: var(--shiny-color-secondary, #565F6D);
     --shiny-btn-on-base: var(--shiny-color-on-secondary, #FFFFFF);
-    --shiny-btn-container: var(--shiny-color-secondary-container, #D9E3F3);
-    --shiny-btn-on-container: var(--shiny-color-on-secondary-container, #131C28);
+    --shiny-btn-container: var(--shiny-color-secondary-container, #D0D6DC);
+    --shiny-btn-on-container: var(--shiny-color-on-secondary-container, #3E4652);
 }
 
 .shiny-btn--success {
     --shiny-btn-base: var(--shiny-color-success, #00711C);
     --shiny-btn-on-base: var(--shiny-color-on-success, #FFFFFF);
-    --shiny-btn-container: var(--shiny-color-success-container, #81FB9A);
-    --shiny-btn-on-container: var(--shiny-color-on-success-container, #002A00);
+    --shiny-btn-container: var(--shiny-color-success-container, #C5DBCC);
+    --shiny-btn-on-container: var(--shiny-color-on-success-container, #165225);
 }
 
 .shiny-btn--warning {
     --shiny-btn-base: var(--shiny-color-warning, #9C4500);
     --shiny-btn-on-base: var(--shiny-color-on-warning, #FFFFFF);
-    --shiny-btn-container: var(--shiny-color-warning-container, #FFC862);
-    --shiny-btn-on-container: var(--shiny-color-on-warning-container, #4D0000);
+    --shiny-btn-container: var(--shiny-color-warning-container, #E5D2C9);
+    --shiny-btn-on-container: var(--shiny-color-on-warning-container, #6B381E);
 }
 
 .shiny-btn--critical {
     --shiny-btn-base: var(--shiny-color-critical, #C20014);
     --shiny-btn-on-base: var(--shiny-color-on-critical, #FFFFFF);
-    --shiny-btn-container: var(--shiny-color-critical-container, #FFA78D);
-    --shiny-btn-on-container: var(--shiny-color-on-critical-container, #670000);
+    --shiny-btn-container: var(--shiny-color-critical-container, #F2CDCB);
+    --shiny-btn-on-container: var(--shiny-color-on-critical-container, #832323);
 }
 
 .shiny-btn--info {
     --shiny-btn-base: var(--shiny-color-info, #0055D9);
     --shiny-btn-on-base: var(--shiny-color-on-info, #FFFFFF);
-    --shiny-btn-container: var(--shiny-color-info-container, #C2D6FF);
-    --shiny-btn-on-container: var(--shiny-color-on-info-container, #001886);
+    --shiny-btn-container: var(--shiny-color-info-container, #C2D8FA);
+    --shiny-btn-on-container: var(--shiny-color-on-info-container, #124294);
 }
 
 

@@ -2,10 +2,10 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 12px);
     overflow: hidden;
-    background: var(--shiny-color-surface, white);
+    background: var(--shiny-color-surface, #F6FAFE);
     height: 100%;
     min-height: 500px;
 }
@@ -15,15 +15,15 @@
     display: flex;
     gap: var(--shiny-spacing-2, 8px);
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
-    background: var(--shiny-color-surface-container, #F9FAFB);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-container, #E8EEF6);
     align-items: center;
 }
 
 .shiny-agenda-allday-label {
     font-size: var(--shiny-type-label-small-size, 11px);
     font-weight: 700;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     text-transform: uppercase;
     flex: 0 0 auto;
 }
@@ -31,7 +31,7 @@
 .shiny-agenda-allday-list { display: flex; gap: calc(6px * var(--shiny-density-scale, 1)); flex-wrap: wrap; }
 
 .shiny-agenda-allday-event {
-    color: var(--shiny-color-on-primary, white);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     font-size: var(--shiny-type-body-small-size, 12px);
     padding: calc(2px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px);
     border-radius: var(--shiny-shape-corner-extra-small, 4px);
@@ -46,7 +46,7 @@
     display: flex;
     gap: var(--shiny-spacing-1, 4px);
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     overflow-x: auto;
 }
 
@@ -57,20 +57,20 @@
     padding: calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-1, 4px);
     border-radius: var(--shiny-shape-corner-small, 8px);
     cursor: pointer;
-    background: var(--shiny-color-surface-container, #F9FAFB);
+    background: var(--shiny-color-surface-container, #E8EEF6);
 }
 
-.shiny-agenda-date.is-selected { background: var(--shiny-color-primary-container, #DBEAFE); }
-.shiny-agenda-date.is-inrange { background: var(--shiny-color-secondary-container, #EFF6FF); }
-.shiny-agenda-date.is-today .shiny-agenda-date-num { color: var(--shiny-color-primary, #3B82F6); font-weight: 700; }
-.shiny-agenda-date-name { font-size: var(--shiny-type-label-small-size, 11px); color: var(--shiny-color-on-surface-variant, #6B7280); text-transform: uppercase; }
+.shiny-agenda-date.is-selected { background: var(--shiny-color-primary-container, #C2D8FA); }
+.shiny-agenda-date.is-inrange { background: var(--shiny-color-secondary-container, #D0D6DC); }
+.shiny-agenda-date.is-today .shiny-agenda-date-num { color: var(--shiny-color-primary, #0055D9); font-weight: 700; }
+.shiny-agenda-date-name { font-size: var(--shiny-type-label-small-size, 11px); color: var(--shiny-color-on-surface-variant, #3B475B); text-transform: uppercase; }
 .shiny-agenda-date-num { font-size: calc(18px * var(--shiny-type-scale, 1)); font-weight: 600; }
 
 /* ---- calendar sheet picker ---- */
 .shiny-agenda-calendar {
     flex: 0 0 auto;
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-agenda-calendar-head {
@@ -84,7 +84,7 @@
 
 .shiny-agenda-calendar-head button {
     border: none;
-    background: var(--shiny-color-surface-container-high, #F3F4F6);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
     border-radius: var(--shiny-shape-corner-small, 6px);
     width: 26px;
     height: 26px;
@@ -101,7 +101,7 @@
 .shiny-agenda-calendar-dow {
     font-size: calc(10px * var(--shiny-type-scale, 1));
     font-weight: 700;
-    color: var(--shiny-color-on-surface-variant, #9CA3AF);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     text-transform: uppercase;
     text-align: center;
     padding: calc(2px * var(--shiny-density-scale, 1)) 0;
@@ -115,28 +115,28 @@
     cursor: pointer;
 }
 
-.shiny-agenda-calendar-cell:hover { background: var(--shiny-color-surface-container-high, #F3F4F6); }
-.shiny-agenda-calendar-cell.is-selected { background: var(--shiny-color-primary-container, #DBEAFE); font-weight: 700; }
-.shiny-agenda-calendar-cell.is-today { color: var(--shiny-color-primary, #3B82F6); font-weight: 700; }
+.shiny-agenda-calendar-cell:hover { background: var(--shiny-color-surface-container-high, #E2E6EA); }
+.shiny-agenda-calendar-cell.is-selected { background: var(--shiny-color-primary-container, #C2D8FA); font-weight: 700; }
+.shiny-agenda-calendar-cell.is-today { color: var(--shiny-color-primary, #0055D9); font-weight: 700; }
 
 /* ---- day headers + timezone abbreviations ---- */
 .shiny-agenda-dayheaders {
     flex: 0 0 auto;
     display: grid;
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     align-items: center;
 }
 
 .shiny-agenda-tzabbr {
     font-size: calc(9px * var(--shiny-type-scale, 1));
     font-weight: 700;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     text-align: center;
     line-height: 1.3;
     padding: var(--shiny-spacing-1, 4px) 0;
 }
 
-.shiny-agenda-tzabbr--extra { color: var(--shiny-color-on-surface-variant, #64748B); }
+.shiny-agenda-tzabbr--extra { color: var(--shiny-color-on-surface-variant, #3B475B); }
 
 .shiny-agenda-dayheader {
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
@@ -161,14 +161,14 @@
 }
 
 .shiny-agenda-timecol {
-    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #F3F4F6);
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
-.shiny-agenda-timecol--extra { background: var(--shiny-color-surface-container-low, #FAFAFA); }
+.shiny-agenda-timecol--extra { background: var(--shiny-color-surface-container-low, #EFF4FB); }
 
 .shiny-agenda-timecell {
     font-size: var(--shiny-type-label-small-size, 11px);
-    color: var(--shiny-color-on-surface-variant, #9CA3AF);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     padding: calc(2px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px) 0 0;
     text-align: right;
     box-sizing: border-box;
@@ -176,24 +176,24 @@
 
 .shiny-agenda-timecol--extra .shiny-agenda-timecell {
     font-size: calc(10px * var(--shiny-type-scale, 1));
-    color: var(--shiny-color-on-surface-variant, #64748B);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-agenda-daycol {
     position: relative;
-    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #F3F4F6);
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     min-width: 0;
 }
 
 .shiny-agenda-hourcell {
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #F3F4F6);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     box-sizing: border-box;
     cursor: pointer;
 }
 
 .shiny-agenda-event {
     position: absolute;
-    color: var(--shiny-color-on-primary, white);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     border-radius: var(--shiny-shape-corner-small, 6px);
     padding: var(--shiny-spacing-1, 4px) var(--shiny-spacing-2, 8px);
     font-size: var(--shiny-type-body-small-size, 12px);
@@ -289,5 +289,5 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }

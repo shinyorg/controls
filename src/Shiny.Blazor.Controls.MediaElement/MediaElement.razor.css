@@ -131,7 +131,7 @@
 }
 
 .shiny-media-btn:focus-visible {
-    outline: var(--shiny-border-medium, 2px) solid var(--shiny-color-primary, #4f8cff);
+    outline: var(--shiny-border-medium, 2px) solid var(--shiny-color-primary, #0055D9);
     outline-offset: 1px;
 }
 
@@ -186,7 +186,7 @@
     border-radius: var(--shiny-shape-corner-extra-small, 2px);
     background: linear-gradient(
         to right,
-        var(--shiny-color-primary, #4f8cff) 0 var(--shiny-media-played, 0%),
+        var(--shiny-color-primary, #0055D9) 0 var(--shiny-media-played, 0%),
         rgba(255, 255, 255, 0.5) var(--shiny-media-played, 0%) var(--shiny-media-buffered, 0%),
         rgba(255, 255, 255, 0.26) var(--shiny-media-buffered, 0%) 100%);
 }
@@ -196,7 +196,7 @@
     border-radius: var(--shiny-shape-corner-extra-small, 2px);
     background: linear-gradient(
         to right,
-        var(--shiny-color-primary, #4f8cff) 0 var(--shiny-media-played, 0%),
+        var(--shiny-color-primary, #0055D9) 0 var(--shiny-media-played, 0%),
         rgba(255, 255, 255, 0.5) var(--shiny-media-played, 0%) var(--shiny-media-buffered, 0%),
         rgba(255, 255, 255, 0.26) var(--shiny-media-buffered, 0%) 100%);
 }
@@ -236,6 +236,6 @@
 
 .shiny-media-seek:focus-visible::-webkit-slider-thumb,
 .shiny-media-volume:focus-visible::-webkit-slider-thumb {
-    outline: var(--shiny-border-medium, 2px) solid var(--shiny-color-primary, #4f8cff);
+    outline: var(--shiny-border-medium, 2px) solid var(--shiny-color-primary, #0055D9);
     outline-offset: 2px;
 }

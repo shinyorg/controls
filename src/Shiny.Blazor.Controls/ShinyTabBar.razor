@@ -1,4 +1,5 @@
 @namespace Shiny.Blazor.Controls
+@using Shiny.Blazor.Controls.Theming
 
 <div class="@RootClass" style="@RootStyle">
     <div class="shiny-tabbar-inner">
@@ -8,13 +9,16 @@
             {
                 var active = IsActive(item);
                 var glyph = active && !string.IsNullOrEmpty(item.ActiveIcon) ? item.ActiveIcon : item.Icon;
-                var color = active ? ActiveColor : InactiveColor;
+                // .shiny-tabbar-item / --active carry these, so an app rule can restyle the tabs.
+                var color = active
+                    ? StyleDefaults.Override("color", ActiveColor, DefaultActiveColor)
+                    : StyleDefaults.Override("color", InactiveColor, DefaultInactiveColor);
 
                 if (!string.IsNullOrEmpty(item.Href))
                 {
                     <a class="@ItemClass(active)"
                        href="@item.Href"
-                       style="@($"color:{color};")"
+                       style="@color"
                        @onclick="@(_ => OnItemClicked(item))">
                         @TabBody(item, glyph)
                     </a>
@@ -23,7 +27,7 @@
                 {
                     <button type="button"
                             class="@ItemClass(active)"
-                            style="@($"color:{color};")"
+                            style="@color"
                             disabled="@item.IsDisabled"
                             @onclick="@(_ => OnItemClicked(item))">
                         @TabBody(item, glyph)
@@ -60,9 +64,15 @@
 
     // Tokens, not literals: a tab bar is app chrome and a white default painted straight through
     // dark mode (inline styles beat the stylesheet, so no theme could correct it).
-    [Parameter] public string BackgroundColor { get; set; } = "var(--shiny-color-surface-container-low, #FFFFFF)";
-    [Parameter] public string ActiveColor { get; set; } = "var(--shiny-color-primary, #2196F3)";
-    [Parameter] public string InactiveColor { get; set; } = "var(--shiny-color-on-surface-variant, #9CA3AF)";
+    // Mirrored in ShinyTabBar.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultBackgroundColor = "var(--shiny-color-surface-container-low, #EFF4FB)";
+    internal const string DefaultActiveColor = "var(--shiny-color-primary, #0055D9)";
+    internal const string DefaultInactiveColor = "var(--shiny-color-on-surface-variant, #3B475B)";
+    internal const string DefaultTintColor = "color-mix(in srgb, var(--shiny-color-surface-container-low, #EFF4FB) 70%, transparent)";
+
+    [Parameter] public string BackgroundColor { get; set; } = DefaultBackgroundColor;
+    [Parameter] public string ActiveColor { get; set; } = DefaultActiveColor;
+    [Parameter] public string InactiveColor { get; set; } = DefaultInactiveColor;
 
     [Parameter] public bool ShowLabels { get; set; } = true;
     [Parameter] public double Height { get; set; } = 56;
@@ -71,7 +81,7 @@
     // frosted glass
     [Parameter] public bool Frosted { get; set; }
     [Parameter] public double BlurRadius { get; set; } = 20;
-    [Parameter] public string TintColor { get; set; } = "color-mix(in srgb, var(--shiny-color-surface-container-low, #FFFFFF) 70%, transparent)";
+    [Parameter] public string TintColor { get; set; } = DefaultTintColor;
 
     [Parameter] public bool HasShadow { get; set; } = true;
     [Parameter] public string? BorderColor { get; set; }
@@ -121,13 +131,13 @@
 
             if (Frosted)
             {
-                sb.Append("background-color:").Append(TintColor).Append(';');
+                sb.Append(StyleDefaults.Override("background-color", TintColor, DefaultTintColor));
                 sb.Append("backdrop-filter:blur(").Append(BlurRadius.ToInv()).Append("px);");
                 sb.Append("-webkit-backdrop-filter:blur(").Append(BlurRadius.ToInv()).Append("px);");
             }
             else
             {
-                sb.Append("background-color:").Append(BackgroundColor).Append(';');
+                sb.Append(StyleDefaults.Override("background-color", BackgroundColor, DefaultBackgroundColor));
             }
 
             if (BorderThickness > 0 && !string.IsNullOrEmpty(BorderColor))

@@ -22,14 +22,14 @@
 }
 
 .shiny-ac-input::placeholder {
-    color: var(--shiny-ac-ph, var(--shiny-color-on-surface-variant, #9CA3AF));
+    color: var(--shiny-ac-ph, var(--shiny-color-on-surface-variant, #3B475B));
 }
 
 .shiny-ac-spinner {
     display: flex;
     align-items: center;
     padding-left: var(--shiny-spacing-2, 8px);
-    color: var(--shiny-ac-spinner, var(--shiny-color-on-surface-variant, #9CA3AF));
+    color: var(--shiny-ac-spinner, var(--shiny-color-on-surface-variant, #3B475B));
 }
 
 .shiny-ac-spin-svg {
@@ -47,8 +47,8 @@
     right: 0;
     z-index: 100;
     overflow-y: auto;
-    background: var(--shiny-ac-dd-bg, var(--shiny-color-surface, #fff));
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-ac-dd-border, var(--shiny-color-outline-variant, #D1D5DB));
+    background: var(--shiny-ac-dd-bg, var(--shiny-color-surface, #F6FAFE));
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-ac-dd-border, var(--shiny-color-outline-variant, #BBC7DF));
     max-height: var(--shiny-ac-dd-max-h, 200px);
     border-radius: var(--shiny-shape-corner-extra-small, 4px);
     box-shadow: var(--shiny-elevation-2, 0 3px 6px rgba(0,0,0,0.15));
@@ -61,5 +61,5 @@
 }
 
 .shiny-ac-item:hover {
-    background-color: var(--shiny-color-surface-container-high, rgba(0,0,0,0.05));
+    background-color: var(--shiny-color-surface-container-high, #E2E6EA);
 }

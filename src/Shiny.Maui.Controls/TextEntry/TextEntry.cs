@@ -212,7 +212,7 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
         }
         else
         {
-            outerBorder.Stroke = ThemeBrush.FromToken(token);
+            ThemeBrush.Apply(outerBorder, Border.StrokeProperty, token.AsBrush());
             leftSeparator.SetDynamicResource(BoxView.ColorProperty, token);
             rightSeparator.SetDynamicResource(BoxView.ColorProperty, token);
         }
@@ -447,10 +447,9 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
     // type into. Only the brush and opacity are touched from here on.
     void ShowGlow(Color? color, string token)
     {
-        if (color is Color c)
-            focusGlow.Brush = new SolidColorBrush(c);
-        else
-            focusGlow.Brush = ThemeBrush.FromToken(token);
+        // Shadow.Brush is Brush-typed too, and a Shadow assigned to an element is parented by it, so
+        // it sits in the resource chain like any other child.
+        ThemeBrush.Apply(focusGlow, Shadow.BrushProperty, color, token.AsBrush());
 
         focusGlow.Opacity = FocusGlowOpacity;
     }

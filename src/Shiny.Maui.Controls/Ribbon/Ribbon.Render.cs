@@ -252,7 +252,7 @@ public partial class Ribbon
             Stroke = null,
             BackgroundColor = Colors.Transparent,
             IsVisible = tab.IsVisible,
-            StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(6, 6, 0, 0) }
+            StrokeShape = new RoundRectangle()
         };
 
         if (!string.IsNullOrWhiteSpace(tab.AutomationId))
@@ -292,6 +292,11 @@ public partial class Ribbon
         border.GestureRecognizers.Add(pointer);
 
         this.tabButtons.Add((tab, border, underline, label));
+
+        // The probe has usually resolved long before a rebuild, so round this one now rather than
+        // waiting for the next theme swap to do it.
+        this.OnCornerRadiusChanged();
+
         return border;
     }
 

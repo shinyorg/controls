@@ -28,8 +28,6 @@ public class ButtonGroupText : ContentView
 
     readonly Border border;
     readonly Label label;
-    readonly SolidColorBrush strokeBrush;
-    readonly BoxView strokeProbe;
     readonly Grid rootGrid;
 
     CornerRadius? segmentCorners;
@@ -44,11 +42,8 @@ public class ButtonGroupText : ContentView
         }.WithFontSize(ShinyThemeKeys.Type.LabelLargeSize);
         this.label.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
 
-        (this.strokeBrush, this.strokeProbe) = ThemeProbe.Create();
-
         this.rootGrid = new Grid();
         this.rootGrid.Add(this.label);
-        this.rootGrid.Add(this.strokeProbe);
 
         this.border = new Border
         {
@@ -59,8 +54,7 @@ public class ButtonGroupText : ContentView
         }.WithStrokeThickness(ShinyThemeKeys.Border.Thin);
 
         this.border.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerLow);
-        this.strokeProbe.SetDynamicResource(BoxView.ColorProperty, ShinyThemeKeys.Color.Outline);
-        this.border.Stroke = this.strokeBrush;
+        ThemeBrush.Apply(this.border, Border.StrokeProperty, ShinyThemeKeys.Brush.Outline);
 
         this.Content = this.border;
         this.HorizontalOptions = LayoutOptions.Start;
@@ -184,7 +178,7 @@ public class ButtonGroupText : ContentView
         => ThemeProbe.Tint(this.border, VisualElement.BackgroundColorProperty, this.SegmentBackgroundColor, ShinyThemeKeys.Color.SurfaceContainerLow);
 
     void ApplyStroke()
-        => ThemeProbe.Tint(this.strokeProbe, BoxView.ColorProperty, this.BorderColor, ShinyThemeKeys.Color.Outline);
+        => ThemeBrush.Apply(this.border, Border.StrokeProperty, this.BorderColor, ShinyThemeKeys.Brush.Outline);
 
 
     protected override void OnPropertyChanged(string? propertyName = null)

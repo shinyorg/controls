@@ -136,15 +136,29 @@ class RibbonGroupView : Grid
 
 
     /// <summary>
-    /// The columns.
+    /// The lines.
     /// </summary>
     /// <remarks>
-    /// Nothing in the model declares a column. A large item takes one to itself, small items fill the
-    /// current one up to <see cref="Ribbon.SmallItemRows"/> deep, and a separator or a large item ends
-    /// it — which is the whole of a ribbon's layout language, and why reordering a group's items
-    /// re-flows it without anything else being touched.
+    /// Nothing in the model declares a column. In the default column flow a large item takes one to
+    /// itself, small items fill the current one up to <see cref="Ribbon.SmallItemRows"/> deep, and a
+    /// separator, a <see cref="RibbonLineBreak"/> or a large item ends it. In
+    /// a group built out of <see cref="RibbonRow"/>s the same rules run the other way round — which is
+    /// the whole of a ribbon's layout language, and why reordering a group's items re-flows it without
+    /// anything else being touched.
     /// </remarks>
     View BuildItemsHost()
+    {
+        // The rows are the signal; there is no mode to set. A group is one or the other, and a group
+        // that mixes them would have loose items with no answer to which row they are on.
+        var rows = this.group.VisibleItems.OfType<RibbonRow>().ToList();
+
+        return rows.Count > 0 && !this.simplified
+            ? this.BuildRowsHost(rows)
+            : this.BuildColumnsHost();
+    }
+
+
+    View BuildColumnsHost()
     {
         var host = new HorizontalStackLayout
         {
@@ -188,16 +202,18 @@ class RibbonGroupView : Grid
 
             switch (item)
             {
+                case RibbonRow:
+                    // A group that mixes rows and loose items draws the rows (BuildItemsHost picks
+                    // that path); a stray row reaching the column flow has nothing to contribute.
+                    continue;
+
                 case RibbonSeparator:
                     Flush();
                     host.Children.Add(this.BuildRule());
                     continue;
 
                 case RibbonContentItem { Content: { } content }:
-                    if (content.Parent is Layout parent)
-                        parent.Children.Remove(content);
-
-                    this.hostedContent.Add(content);
+                    this.Adopt(content);
 
                     if (size == RibbonItemSize.Small)
                     {
@@ -215,15 +231,7 @@ class RibbonGroupView : Grid
                     continue;
             }
 
-            var view = new RibbonItemView(
-                this.owner,
-                this.tab,
-                this.group,
-                item,
-                size,
-                showLabel: !this.simplified || item.Size == RibbonItemSize.Small
-            );
-            this.itemViews.Add(view);
+            var view = this.BuildItemView(item, size);
 
             if (size == RibbonItemSize.Large)
             {
@@ -238,6 +246,97 @@ class RibbonGroupView : Grid
         }
 
         return host;
+    }
+
+
+    /// <summary>
+    /// Rows: each <see cref="RibbonRow"/> is a line of its own, stacked top to bottom.
+    /// </summary>
+    /// <remarks>
+    /// The rows are pinned to <see cref="Ribbon.SmallItemRowHeight"/> rather than sized by their
+    /// contents, which is what keeps one group's rows on the same baselines as the group beside it —
+    /// the same reason the column flow pins each item.
+    /// </remarks>
+    View BuildRowsHost(IReadOnlyList<RibbonRow> rows)
+    {
+        var host = new VerticalStackLayout
+        {
+            Spacing = 1,
+            VerticalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Start
+        };
+
+        foreach (var row in rows)
+        {
+            var line = new HorizontalStackLayout
+            {
+                Spacing = 2,
+                VerticalOptions = LayoutOptions.Center
+            };
+
+            if (this.owner.SmallItemRowHeight > 0)
+                line.HeightRequest = this.owner.SmallItemRowHeight;
+
+            foreach (var item in row.VisibleItems)
+            {
+                switch (item)
+                {
+                    case RibbonSeparator:
+                        line.Children.Add(this.BuildRule());
+                        continue;
+
+                    case RibbonContentItem { Content: { } content }:
+                        this.Adopt(content);
+                        line.Children.Add(content);
+                        continue;
+
+                    case RibbonContentItem:
+                    case RibbonRow:
+                        // A row inside a row is nothing; a content item with no content is nothing to
+                        // draw and nothing to warn about at runtime.
+                        continue;
+                }
+
+                // Everything on a row is drawn small whatever it asked for: a large item is icon-over-
+                // label and two rows tall by construction, so one on a row would be the only thing on
+                // the bar breaking the row height every other group is lined up to.
+                line.Children.Add(this.BuildItemView(item, RibbonItemSize.Small));
+            }
+
+            host.Children.Add(line);
+        }
+
+        return host;
+    }
+
+
+    /// <summary>
+    /// Takes a hosted view off whatever it was parented to last time. MAUI throws when a view that
+    /// still has a parent is added somewhere else, and the whole point of hosted content is that it
+    /// survives a rebuild with its state intact.
+    /// </summary>
+    void Adopt(View content)
+    {
+        if (content.Parent is Layout parent)
+            parent.Children.Remove(content);
+
+        this.hostedContent.Add(content);
+    }
+
+
+    RibbonItemView BuildItemView(RibbonItem item, RibbonItemSize size)
+    {
+        var view = new RibbonItemView(
+            this.owner,
+            this.tab,
+            this.group,
+            item,
+            size,
+            showLabel: !this.simplified || item.Size == RibbonItemSize.Small
+        );
+
+        this.itemViews.Add(view);
+        return view;
     }
 
 

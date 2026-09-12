@@ -64,6 +64,10 @@ public partial class Ribbon : ContentView
     readonly List<(RibbonTab Tab, Border Button, BoxView Underline, Label Label)> tabButtons = new();
     readonly List<(RibbonTab Tab, ScrollView Panel, List<RibbonGroupView> Groups)> panels = new();
 
+    // A tab is rounded on top and square where it meets the strip, so the theme radius has to be a
+    // number before two of its corners can be zeroed. See CornerRadiusProbe.
+    readonly CornerRadiusProbe cornerProbe;
+
     readonly BoxView foregroundProbe;
     readonly BoxView outlineProbe;
     readonly BoxView accentProbe;
@@ -86,6 +90,8 @@ public partial class Ribbon : ContentView
         }.WithFontSize(ShinyThemeKeys.Type.LabelSmallSize);
         this.contextLabel.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnTertiaryContainer);
 
+        this.cornerProbe = new CornerRadiusProbe(ShinyThemeKeys.Shape.CornerSmallRadius, this.OnCornerRadiusChanged);
+
         this.contextBand = new Border
         {
             Content = this.contextLabel,
@@ -94,7 +100,7 @@ public partial class Ribbon : ContentView
             Stroke = null,
             IsVisible = false,
             HorizontalOptions = LayoutOptions.Start,
-            StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(6, 6, 0, 0) }
+            StrokeShape = new RoundRectangle()
         };
         this.contextBand.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.TertiaryContainer);
 
@@ -214,6 +220,9 @@ public partial class Ribbon : ContentView
         this.root.Add(this.foregroundProbe, 0, 0);
         this.root.Add(this.outlineProbe, 0, 0);
         this.root.Add(this.accentProbe, 0, 0);
+        this.root.Add(this.cornerProbe.View, 0, 0);
+
+        this.OnCornerRadiusChanged();
 
         this.tabs.CollectionChanged += this.OnTabsChanged;
         this.quickAccess.CollectionChanged += (_, _) => this.Rebuild();
@@ -664,6 +673,26 @@ public partial class Ribbon : ContentView
 
         foreach (var item in this.quickAccess)
             SetInheritedBindingContext(item, this.BindingContext);
+    }
+
+
+    /// <summary>
+    /// Re-rounds the tabs and the context band from the theme's small radius, top corners only. Runs
+    /// once the probe resolves and again on every theme swap, so the geometry follows a live change
+    /// rather than freezing at whatever was loaded first.
+    /// </summary>
+    void OnCornerRadiusChanged()
+    {
+        var corners = new CornerRadius(this.cornerProbe.Radius, this.cornerProbe.Radius, 0, 0);
+
+        if (this.contextBand.StrokeShape is RoundRectangle band)
+            band.CornerRadius = corners;
+
+        foreach (var (_, button, _, _) in this.tabButtons)
+        {
+            if (button.StrokeShape is RoundRectangle shape)
+                shape.CornerRadius = corners;
+        }
     }
 
 

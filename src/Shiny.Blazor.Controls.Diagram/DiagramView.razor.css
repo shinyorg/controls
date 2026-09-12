@@ -8,8 +8,8 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: var(--shiny-color-surface, #ffffff);
-    color: var(--shiny-color-on-surface, #111827);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
 
     /* The surface owns every pointer gesture it uses, including the two-finger ones, or the browser
        claims a pan before the marquee ever starts. */
@@ -20,7 +20,7 @@
 }
 
 .shiny-diagram:focus-visible {
-    outline: 2px solid var(--shiny-color-primary, #4f46e5);
+    outline: 2px solid var(--shiny-color-primary, #0055D9);
     outline-offset: -2px;
 }
 
@@ -32,27 +32,27 @@
 
 .shiny-diagram-grid {
     fill: none;
-    stroke: var(--shiny-color-outline-variant, #e5e7eb);
+    stroke: var(--shiny-color-outline-variant, #BBC7DF);
     stroke-width: 1;
 }
 
 /* ---- nodes ---- */
 
 .shiny-diagram-shape {
-    fill: var(--shiny-color-surface-container, #f3f4f6);
-    stroke: var(--shiny-color-outline, #9ca3af);
+    fill: var(--shiny-color-surface-container, #E8EEF6);
+    stroke: var(--shiny-color-outline, #6C788D);
     stroke-width: 1.5;
 }
 
 .shiny-diagram-shape.is-selected {
-    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke: var(--shiny-color-primary, #0055D9);
     stroke-width: 2.5;
 }
 
 /* A cylinder's lid is a second sub-path drawn over the body, so it must never be filled. */
 .shiny-diagram-shape-lid {
     fill: none;
-    stroke: var(--shiny-color-outline, #9ca3af);
+    stroke: var(--shiny-color-outline, #6C788D);
     stroke-width: 1.5;
 }
 
@@ -60,7 +60,7 @@
    markup - which is exactly what ::deep is for. Without it these rules compile, ship, and match
    nothing. */
 .shiny-diagram-nodes ::deep .shiny-diagram-label {
-    fill: var(--shiny-color-on-surface, #111827);
+    fill: var(--shiny-color-on-surface, #161C23);
     font-size: var(--shiny-type-body-small-size, 13px);
     font-family: inherit;
     text-anchor: middle;
@@ -69,7 +69,7 @@
 }
 
 .shiny-diagram-linklabels ::deep .shiny-diagram-linklabel {
-    fill: var(--shiny-color-on-surface-variant, #6b7280);
+    fill: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: var(--shiny-type-label-small-size, 11px);
     font-family: inherit;
     text-anchor: middle;
@@ -77,7 +77,7 @@
     paint-order: stroke;
 
     /* Drawn behind the glyphs, so a label sitting on its own line stays readable without a box. */
-    stroke: var(--shiny-color-surface, #ffffff);
+    stroke: var(--shiny-color-surface, #F6FAFE);
     stroke-width: 4px;
     stroke-linejoin: round;
     pointer-events: none;
@@ -87,14 +87,14 @@
 
 .shiny-diagram-link {
     fill: none;
-    stroke: var(--shiny-color-outline, #9ca3af);
+    stroke: var(--shiny-color-outline, #6C788D);
     stroke-width: 1.5;
     stroke-linejoin: round;
     stroke-linecap: round;
 }
 
 .shiny-diagram-link.is-selected {
-    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke: var(--shiny-color-primary, #0055D9);
     stroke-width: 2.5;
 }
 
@@ -117,37 +117,37 @@
 
 .shiny-diagram-cap {
     fill: none;
-    stroke: var(--shiny-color-outline, #9ca3af);
+    stroke: var(--shiny-color-outline, #6C788D);
     stroke-width: 1.5;
     stroke-linejoin: round;
 }
 
 .shiny-diagram-cap.is-filled {
-    fill: var(--shiny-color-outline, #9ca3af);
+    fill: var(--shiny-color-outline, #6C788D);
 }
 
 /* ---- adorners ---- */
 
 .shiny-diagram-pending {
     fill: none;
-    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke: var(--shiny-color-primary, #0055D9);
     stroke-width: 2;
     stroke-dasharray: 5 4;
     pointer-events: none;
 }
 
 .shiny-diagram-marquee {
-    fill: var(--shiny-color-primary, #4f46e5);
+    fill: var(--shiny-color-primary, #0055D9);
     fill-opacity: 0.1;
-    stroke: var(--shiny-color-primary, #4f46e5);
+    stroke: var(--shiny-color-primary, #0055D9);
     stroke-width: 1;
     stroke-dasharray: 4 3;
     pointer-events: none;
 }
 
 .shiny-diagram-port {
-    fill: var(--shiny-color-surface, #ffffff);
-    stroke: var(--shiny-color-primary, #4f46e5);
+    fill: var(--shiny-color-surface, #F6FAFE);
+    stroke: var(--shiny-color-primary, #0055D9);
     stroke-width: 1.5;
 }
 
@@ -165,13 +165,13 @@
     box-sizing: border-box;
     overflow: hidden;
     pointer-events: auto;
-    background: var(--shiny-color-surface-container, #f3f4f6);
-    border: 1px solid var(--shiny-color-outline, #9ca3af);
+    background: var(--shiny-color-surface-container, #E8EEF6);
+    border: 1px solid var(--shiny-color-outline, #6C788D);
     border-radius: var(--shiny-shape-corner-small, 8px);
 }
 
 .shiny-diagram-template.is-selected {
-    border-color: var(--shiny-color-primary, #4f46e5);
+    border-color: var(--shiny-color-primary, #0055D9);
     border-width: 2px;
 }
 
@@ -181,6 +181,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     pointer-events: none;
 }

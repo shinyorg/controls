@@ -83,13 +83,13 @@
 }
 
 .shiny-wizard__chev.is-complete .shiny-wizard__chev-btn {
-    background: var(--shiny-color-primary-container, #C2D6FF);
-    color: var(--shiny-color-on-primary-container, #001A41);
+    background: var(--shiny-color-primary-container, #C2D8FA);
+    color: var(--shiny-color-on-primary-container, #124294);
 }
 
 .shiny-wizard__chev.is-upcoming .shiny-wizard__chev-btn {
-    background: var(--shiny-color-surface-container-highest, #E2E2E9);
-    color: var(--shiny-color-on-surface-variant, #44464F);
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-wizard__chev.is-disabled .shiny-wizard__chev-btn {
@@ -132,11 +132,11 @@
     left: calc(50% + 18px);
     right: calc(-50% + 18px);
     height: 2px;
-    background: var(--shiny-color-surface-container-highest, #E2E2E9);
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
 }
 
 .shiny-wizard__dot.is-complete:not(:last-child)::after {
-    background: var(--shiny-color-primary-container, #C2D6FF);
+    background: var(--shiny-color-primary-container, #C2D8FA);
 }
 
 .shiny-wizard__dot-btn {
@@ -183,8 +183,8 @@
 
 /* A marker not yet reached lifts towards the accent, so hovering says "you can go here". */
 .shiny-wizard__dot:not(.is-current):not(.is-disabled) .shiny-wizard__dot-btn:not(:disabled):hover .shiny-wizard__dot-marker {
-    background: var(--shiny-color-primary-container, #C2D6FF);
-    color: var(--shiny-color-on-primary-container, #001A41);
+    background: var(--shiny-color-primary-container, #C2D8FA);
+    color: var(--shiny-color-on-primary-container, #124294);
 }
 
 .shiny-wizard__dot-marker {
@@ -196,8 +196,8 @@
     border-radius: 50%;
     font-size: 0.8125em;
     font-weight: 600;
-    background: var(--shiny-color-surface-container-highest, #E2E2E9);
-    color: var(--shiny-color-on-surface-variant, #44464F);
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
@@ -207,8 +207,8 @@
 }
 
 .shiny-wizard__dot.is-complete .shiny-wizard__dot-marker {
-    background: var(--shiny-color-primary-container, #C2D6FF);
-    color: var(--shiny-color-on-primary-container, #001A41);
+    background: var(--shiny-color-primary-container, #C2D8FA);
+    color: var(--shiny-color-on-primary-container, #124294);
 }
 
 .shiny-wizard__dot.is-disabled {
@@ -217,7 +217,7 @@
 
 .shiny-wizard__dot-text {
     font-size: 0.8125em;
-    color: var(--shiny-color-on-surface-variant, #44464F);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -237,7 +237,7 @@
 .shiny-wizard__bar-caption {
     font-size: 0.8125em;
     margin-bottom: 6px;
-    color: var(--shiny-color-on-surface-variant, #44464F);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-wizard__bar-track {
@@ -245,7 +245,7 @@
     height: 8px;
     border-radius: var(--shiny-shape-corner-extra-small, 4px);
     overflow: hidden;
-    background: var(--shiny-color-surface-container-highest, #E2E2E9);
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
 }
 
 .shiny-wizard__bar-fill {

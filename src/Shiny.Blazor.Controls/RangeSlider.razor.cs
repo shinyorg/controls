@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 public partial class RangeSlider : IAsyncDisposable
@@ -30,7 +32,13 @@ public partial class RangeSlider : IAsyncDisposable
     [Parameter] public string HotColor { get; set; } = "#EF4444";
     [Parameter] public double TrackHeight { get; set; } = 8;
     [Parameter] public double ThumbSize { get; set; } = 24;
-    [Parameter] public string ThumbColor { get; set; } = "var(--shiny-color-surface, #FFFFFF)";
+    // Mirrored in RangeSlider.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultThumbColor = "var(--shiny-color-surface, #F6FAFE)";
+    internal const string DefaultCornerRadius = "var(--shiny-shape-corner-extra-small, 4px)";
+    internal const string DefaultTooltipBackgroundColor = "var(--shiny-color-inverse-surface, #161C23)";
+    internal const string DefaultTooltipTextColor = "var(--shiny-color-inverse-on-surface, #F6FAFE)";
+
+    [Parameter] public string ThumbColor { get; set; } = DefaultThumbColor;
     /// <summary>
     /// Thumb width in px. The default, <c>-1</c>, keeps the thumbs square at <see cref="ThumbSize"/>. Set
     /// it when a thumb template puts content in them that is not square.
@@ -58,10 +66,10 @@ public partial class RangeSlider : IAsyncDisposable
     [Parameter] public RenderFragment<double>? UpperThumbTemplate { get; set; }
     /// <summary>Thumb ring width in px. The default, <c>-1</c>, follows the theme border scale.</summary>
     [Parameter] public double ThumbBorderWidth { get; set; } = -1;
-    [Parameter] public string CornerRadius { get; set; } = "var(--shiny-shape-corner-extra-small, 4px)";
+    [Parameter] public string CornerRadius { get; set; } = DefaultCornerRadius;
     [Parameter] public bool ShowTooltip { get; set; } = true;
-    [Parameter] public string TooltipBackgroundColor { get; set; } = "var(--shiny-color-inverse-surface, #1F2937)";
-    [Parameter] public string TooltipTextColor { get; set; } = "var(--shiny-color-inverse-on-surface, #FFFFFF)";
+    [Parameter] public string TooltipBackgroundColor { get; set; } = DefaultTooltipBackgroundColor;
+    [Parameter] public string TooltipTextColor { get; set; } = DefaultTooltipTextColor;
     /// <summary>Tooltip label size in px. The default, <c>-1</c>, follows the theme type scale.</summary>
     [Parameter] public double TooltipFontSize { get; set; } = -1;
     [Parameter] public string? ValueFormat { get; set; }
@@ -109,7 +117,8 @@ public partial class RangeSlider : IAsyncDisposable
         }
     }
 
-    string TrackStyle => $"height: {N(TrackHeight)}px; border-radius: {CornerRadius};";
+    string TrackStyle => $"height: {N(TrackHeight)}px;"
+        + StyleDefaults.Override("border-radius", CornerRadius, DefaultCornerRadius);
 
     string TrackFillStyle
     {
@@ -145,9 +154,13 @@ public partial class RangeSlider : IAsyncDisposable
     // Shift transform from 0% at left edge to -100% at right edge to keep the tooltip on-track.
     string TooltipTransform(double percentage) => $"transform: translateX({N(-percentage)}%);";
 
-    string TooltipBadgeStyle => $"background: {TooltipBackgroundColor}; color: {TooltipTextColor}; font-size: {(TooltipFontSize >= 0 ? $"{N(TooltipFontSize)}px" : "var(--shiny-type-body-small-size, 12px)")};";
+    string TooltipBadgeStyle =>
+        StyleDefaults.Override("background", TooltipBackgroundColor, DefaultTooltipBackgroundColor)
+        + StyleDefaults.Override("color", TooltipTextColor, DefaultTooltipTextColor)
+        + $"font-size: {(TooltipFontSize >= 0 ? $"{N(TooltipFontSize)}px" : "var(--shiny-type-body-small-size, 12px)")};";
 
-    string TooltipPointerStyle => $"border-top-color: {TooltipBackgroundColor};";
+    string TooltipPointerStyle =>
+        StyleDefaults.Override("border-top-color", TooltipBackgroundColor, DefaultTooltipBackgroundColor);
 
     /// <summary>CSS never reads the current culture, so every number written into a style has to be invariant.</summary>
     static string N(double value)

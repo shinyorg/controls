@@ -1,0 +1,333 @@
+@page "/themes"
+@using Sample.Blazor.Theming
+@using Shiny.Blazor.Controls.Theming
+@using Microsoft.JSInterop
+@implements IDisposable
+@inject IShinyThemeService Theme
+@inject NavigationManager Nav
+@inject IJSRuntime Js
+
+<PageTitle>Theme Composer</PageTitle>
+
+@*
+    The composer: knobs in a dock, real controls on the canvas above it.
+
+    Every knob writes AUTHORING tokens - an accent is one token, a radius is one token - and the
+    stylesheet derives the fifty-five roles and every ramp from them. That is what makes this page
+    possible at all: driving the old flat contract would have meant writing a hundred and fifty
+    variables per change and doing the tonal maths in the browser.
+
+    The whole selection round-trips through ?preset=, so a link restores a design.
+*@
+
+<div class="composer">
+    <div class="composer-canvas">
+        <header class="composer-intro">
+            <h1>Theme Composer</h1>
+            <p>
+                Every control below is the real thing, reading the same tokens your app would.
+                Change a knob and the page re-skins live — then take the code with you.
+            </p>
+        </header>
+
+        <section class="scene">
+            <h2>Buttons</h2>
+            <div class="row">
+                <ShinyButton Text="Filled" />
+                <ShinyButton Text="Tonal" Appearance="ButtonAppearance.Tonal" />
+                <ShinyButton Text="Outlined" Appearance="ButtonAppearance.Outlined" />
+                <ShinyButton Text="Text" Appearance="ButtonAppearance.Text" />
+                <ShinyButton Text="Elevated" Appearance="ButtonAppearance.Elevated" />
+            </div>
+            <div class="row">
+                <ShinyButton Text="Success" Type="ButtonType.Success" LeftMotionIcon="check" />
+                <ShinyButton Text="Warning" Type="ButtonType.Warning" LeftMotionIcon="warning" />
+                <ShinyButton Text="Delete" Type="ButtonType.Critical" Appearance="ButtonAppearance.Outlined" LeftMotionIcon="trash" />
+                <ShinyButton Text="Info" Type="ButtonType.Info" Appearance="ButtonAppearance.Tonal" LeftMotionIcon="info" />
+            </div>
+            <div class="row">
+                <ButtonGroup SelectionMode="ButtonGroupSelectionMode.Single" @bind-SelectedIndex="range">
+                    <ShinyButton Text="Day" />
+                    <ShinyButton Text="Week" />
+                    <ShinyButton Text="Month" />
+                </ButtonGroup>
+                <ButtonGroup>
+                    <ButtonGroupText Text="USD" />
+                    <ShinyButton Text="−" Appearance="ButtonAppearance.Outlined" />
+                    <ShinyButton Text="+" Appearance="ButtonAppearance.Outlined" />
+                </ButtonGroup>
+            </div>
+        </section>
+
+        <section class="scene">
+            <h2>Input</h2>
+            <div class="field">
+                <TextEntry @bind-Text="email" Placeholder="Email address" />
+            </div>
+            <div class="field">
+                <TagEntry @bind-Tags="tags" Placeholder="Add a topic..." />
+            </div>
+            <div class="field">
+                <Slider @bind-Value="temperature" Minimum="0" Maximum="100" ValueFormat="0°" />
+            </div>
+            <div class="row">
+                <ShinyButton Text="Save" Clicked="@(() => saved = DateTime.Now.ToString("T"))" />
+                <ShinyButton Text="Cancel" Appearance="ButtonAppearance.Text" />
+                @if (saved is not null)
+                {
+                    <span class="state">Saved at @saved</span>
+                }
+            </div>
+        </section>
+
+        <section class="scene">
+            <h2>Status</h2>
+            <div class="row">
+                <Pill Text="Active" Type="PillType.Success" />
+                <Pill Text="Pending" Type="PillType.Warning" />
+                <Pill Text="Failed" Type="PillType.Critical" />
+                <Pill Text="Draft" Type="PillType.None" />
+                <Pill Text="Info" Type="PillType.Info" />
+            </div>
+            <div class="field">
+                <ProgressBar Value="0.62" ShowText="true" />
+            </div>
+            <div class="field">
+                <Expander HeaderText="What the tokens reach">
+                    <p>
+                        Corners, control heights, the spacing ramp, the type scale and every colour
+                        role — all derived from the handful of values the dock is writing.
+                    </p>
+                </Expander>
+            </div>
+        </section>
+
+        <section class="scene">
+            <h2>Surfaces</h2>
+            <div class="surfaces">
+                @foreach (var (label, token) in Surfaces)
+                {
+                    <div class="surface" style="background: var(--shiny-color-@token); color: var(--shiny-color-on-surface);">
+                        <strong>@label</strong>
+                        <code>--shiny-color-@token</code>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    @* A fixed dock rather than a sidebar: the canvas keeps the full width, and the knobs stay put
+       while it scrolls. *@
+    <aside class="composer-dock">
+        <div class="dock-knobs">
+            @for (var i = 0; i < ThemeComposer.Knobs.Length; i++)
+            {
+                var knob = i;
+                var (name, options) = ThemeComposer.Knobs[knob];
+
+                <label class="knob">
+                    <span class="knob-name">@name</span>
+                    <select value="@selection[knob]" @onchange="@(e => this.OnKnobAsync(knob, e))">
+                        @for (var o = 0; o < options.Length; o++)
+                        {
+                            <option value="@o">@options[o].Label</option>
+                        }
+                    </select>
+                </label>
+            }
+
+            <label class="knob">
+                <span class="knob-name">Mode</span>
+                <select value="@(selection.Dark ? "dark" : "light")" @onchange="this.OnModeAsync">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="dock-actions">
+            <code class="dock-code" title="The preset code for this design">@selection.ToCode()</code>
+            <ShinyButton Text="@(copied == true ? "Copied" : "Copy link")"
+                         Appearance="ButtonAppearance.Outlined"
+                         Type="@(copied == false ? ButtonType.Critical : ButtonType.Primary)"
+                         Clicked="this.CopyLinkAsync" />
+            <ShinyButton Text="@(showCode ? "Hide code" : "Get code")" Clicked="@(() => showCode = !showCode)" />
+            <ShinyButton Text="Reset" Appearance="ButtonAppearance.Text" Clicked="this.ResetAsync" />
+        </div>
+    </aside>
+</div>
+
+@if (showCode)
+{
+    <div class="composer-code">
+        <h3>Blazor — your own stylesheet, linked after the Shiny theme</h3>
+        <pre class="state">@this.CssSnippet()</pre>
+
+        <h3>MAUI — the same values, in a resource dictionary</h3>
+        <pre class="state">@this.XamlSnippet()</pre>
+    </div>
+}
+
+@code {
+    static readonly (string Label, string Token)[] Surfaces =
+    [
+        ("Background", "background"),
+        ("Surface", "surface"),
+        ("Container low", "surface-container-low"),
+        ("Container", "surface-container"),
+        ("Container high", "surface-container-high"),
+        ("Primary container", "primary-container")
+    ];
+
+    ThemeSelection selection = ThemeSelection.Default;
+    bool showCode;
+    bool? copied;
+
+    // Canvas state
+    int range = 1;
+    string? email;
+    double temperature = 50;
+    string? saved;
+    IReadOnlyList<string> tags = ["design", "engineering"];
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "preset")]
+    public string? Preset { get; set; }
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var incoming = ThemeSelection.FromCode(this.Preset);
+
+        // Only adopt a code that differs, or typing in the dock would be undone by the query string
+        // it just wrote.
+        if (incoming.ToCode() != this.selection.ToCode())
+        {
+            this.selection = incoming;
+            await this.ApplyAsync();
+        }
+    }
+
+
+    async Task OnKnobAsync(int knob, ChangeEventArgs e)
+    {
+        if (!Int32.TryParse(e.Value?.ToString(), out var option))
+            return;
+
+        this.selection = this.selection.With(knob, option);
+        this.copied = null;
+        await this.ApplyAsync();
+        this.UpdateUrl();
+    }
+
+
+    async Task OnModeAsync(ChangeEventArgs e)
+    {
+        this.selection = this.selection with { Dark = e.Value?.ToString() == "dark" };
+        await this.ApplyAsync();
+        this.UpdateUrl();
+    }
+
+
+    /// <summary>
+    /// Pushes the selection into the theme service: the pack, the scheme, and the token overrides.
+    /// </summary>
+    /// <remarks>
+    /// The overrides are written for the scheme being designed in, which is why the composer offers
+    /// Light and Dark rather than System. They land as inline custom properties on the document root,
+    /// and an inline declaration beats the stylesheet's own — so a value chosen for light would
+    /// otherwise follow you into dark and be unreadable there.
+    /// </remarks>
+    async Task ApplyAsync()
+    {
+        await this.Theme.SetPackAsync(this.selection.Pack);
+        await this.Theme.SetModeAsync(this.selection.Dark ? ShinyThemeMode.Dark : ShinyThemeMode.Light);
+        await this.Theme.SetOverridesAsync(this.selection.Tokens());
+    }
+
+
+    void UpdateUrl()
+        => this.Nav.NavigateTo(
+            this.Nav.GetUriWithQueryParameter("preset", this.selection.ToCode()),
+            forceLoad: false,
+            replace: true
+        );
+
+
+    async Task CopyLinkAsync()
+    {
+        var url = this.Nav.GetUriWithQueryParameter("preset", this.selection.ToCode());
+
+        try
+        {
+            await this.Js.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            this.copied = true;
+        }
+        catch (JSException)
+        {
+            // Clipboard access is refused outside a secure context, and in a few browsers unless the
+            // call is inside a user gesture. Saying so beats a button that looks like it worked.
+            this.copied = false;
+        }
+    }
+
+
+    async Task ResetAsync()
+    {
+        this.selection = ThemeSelection.Default;
+        await this.ApplyAsync();
+        this.UpdateUrl();
+    }
+
+
+    string CssSnippet()
+    {
+        var tokens = this.selection.Tokens();
+        if (tokens.Count == 0)
+            return "/* Nothing overridden — this is the pack's own theme. */";
+
+        var scope = this.selection.Dark ? ".shiny-theme-dark" : ":root";
+        var lines = tokens.OrderBy(x => x.Key, StringComparer.Ordinal)
+            .Select(x => $"    --shiny-{x.Key}: {x.Value};");
+
+        return $"{scope} {{\n{String.Join("\n", lines)}\n}}";
+    }
+
+
+    string XamlSnippet()
+    {
+        var tokens = this.selection.Tokens()
+            .Where(x => x.Value.StartsWith('#'))
+            .OrderBy(x => x.Key, StringComparer.Ordinal)
+            .ToList();
+
+        if (tokens.Count == 0)
+            return "<!-- Nothing overridden — this is the pack's own theme. -->";
+
+        var lines = tokens.Select(x => $"    <Color x:Key=\"Shiny.Color.{Pascal(x.Key)}\">{x.Value}</Color>");
+
+        return "<ResourceDictionary xmlns=\"http://schemas.microsoft.com/dotnet/2021/maui\"\n"
+            + "                    xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\">\n"
+            + String.Join("\n", lines)
+            + "\n</ResourceDictionary>";
+    }
+
+
+    /// <summary>
+    /// The authoring token names are the web's; the MAUI keys are the Material roles. <c>primary</c>
+    /// and <c>ring</c> are the same colour in the contract, so both land on <c>Shiny.Color.Primary</c>.
+    /// </summary>
+    static string Pascal(string token) => token switch
+    {
+        "primary" or "ring" => "Primary",
+        "primary-foreground" => "OnPrimary",
+        _ => String.Concat(token.Split('-').Select(p => char.ToUpperInvariant(p[0]) + p[1..]))
+    };
+
+
+    protected override void OnInitialized() => this.Theme.Changed += this.OnThemeChanged;
+
+    void OnThemeChanged(object? sender, EventArgs e) => this.InvokeAsync(this.StateHasChanged);
+
+    public void Dispose() => this.Theme.Changed -= this.OnThemeChanged;
+}

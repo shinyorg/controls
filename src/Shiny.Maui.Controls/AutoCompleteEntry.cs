@@ -155,7 +155,7 @@ public class AutoCompleteEntry : ContentView
         }
         else
         {
-            dropDownBorder.Stroke = ThemeBrush.FromToken(ShinyThemeKeys.Color.Outline);
+            ThemeBrush.Apply(dropDownBorder, Border.StrokeProperty, ShinyThemeKeys.Brush.Outline);
         }
     }
 

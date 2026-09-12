@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls.Chat;
 
 public partial class ChatView : IAsyncDisposable
@@ -59,10 +61,16 @@ public partial class ChatView : IAsyncDisposable
     // Bubbles are chrome, so they follow the theme by default rather than shipping a fixed pale
     // green and white - both of which stayed exactly as light in dark mode, since these land as
     // inline styles. An app that wants the messenger look still sets them and that still pins.
-    [Parameter] public string MyBubbleColor { get; set; } = "var(--shiny-color-primary-container, #DCF8C6)";
-    [Parameter] public string MyTextColor { get; set; } = "var(--shiny-color-on-primary-container, #000000)";
-    [Parameter] public string OtherBubbleColor { get; set; } = "var(--shiny-color-surface-container-high, #FFFFFF)";
-    [Parameter] public string OtherTextColor { get; set; } = "var(--shiny-color-on-surface, #000000)";
+    // Mirrored in ChatView.razor.css on .is-me/.is-other; only a caller-chosen value inlines.
+    internal const string DefaultMyBubbleColor = "var(--shiny-color-primary-container, #C2D8FA)";
+    internal const string DefaultMyTextColor = "var(--shiny-color-on-primary-container, #124294)";
+    internal const string DefaultOtherBubbleColor = "var(--shiny-color-surface-container-high, #E2E6EA)";
+    internal const string DefaultOtherTextColor = "var(--shiny-color-on-surface, #161C23)";
+
+    [Parameter] public string MyBubbleColor { get; set; } = DefaultMyBubbleColor;
+    [Parameter] public string MyTextColor { get; set; } = DefaultMyTextColor;
+    [Parameter] public string OtherBubbleColor { get; set; } = DefaultOtherBubbleColor;
+    [Parameter] public string OtherTextColor { get; set; } = DefaultOtherTextColor;
     [Parameter] public string PlaceholderText { get; set; } = "Type a message...";
     [Parameter] public string SendButtonText { get; set; } = "Send";
     [Parameter] public bool IsInputBarVisible { get; set; } = true;

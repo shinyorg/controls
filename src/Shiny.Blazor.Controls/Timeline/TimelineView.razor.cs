@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 /// <summary>
@@ -76,9 +78,13 @@ public partial class TimelineView<TItem>
     [Parameter] public double RailSpacing { get; set; } = 12;
 
     /// <summary>The filled part of the rail, and any marker at or behind the active position.</summary>
-    [Parameter] public string ActiveColor { get; set; } = "var(--shiny-color-primary, #0055D9)";
+    // Mirrored in the component stylesheet; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultActiveColor = "var(--shiny-color-primary, #0055D9)";
+    internal const string DefaultPendingColor = "var(--shiny-color-surface-container-highest, #D7DCE1)";
 
-    [Parameter] public string PendingColor { get; set; } = "var(--shiny-color-surface-container-highest, #E2E2E9)";
+    [Parameter] public string ActiveColor { get; set; } = DefaultActiveColor;
+
+    [Parameter] public string PendingColor { get; set; } = DefaultPendingColor;
 
     /// <summary>Raised when a node is clicked, with the item and its index.</summary>
     [Parameter] public EventCallback<(TItem Item, int Index)> NodeClicked { get; set; }
@@ -124,8 +130,8 @@ public partial class TimelineView<TItem>
         $"--shiny-timeline-line:{Css(this.LineThickness)}px;" +
         $"--shiny-timeline-gap:{Css(this.ItemSpacing)}px;" +
         $"--shiny-timeline-rail-gap:{Css(this.RailSpacing)}px;" +
-        $"--shiny-timeline-active:{this.ActiveColor};" +
-        $"--shiny-timeline-pending:{this.PendingColor};" +
+        StyleDefaults.Override("--shiny-timeline-active", this.ActiveColor, DefaultActiveColor) +
+        StyleDefaults.Override("--shiny-timeline-pending", this.PendingColor, DefaultPendingColor) +
         this.Style;
 
     static string Css(double value)

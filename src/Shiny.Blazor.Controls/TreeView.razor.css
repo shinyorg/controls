@@ -26,11 +26,11 @@
 }
 
 .shiny-treeview-row:hover {
-    background-color: var(--shiny-color-surface-container-high, rgba(0, 0, 0, 0.04));
+    background-color: var(--shiny-color-surface-container-high, #E2E6EA);
 }
 
 .shiny-treeview-item.selected > .shiny-treeview-row {
-    background-color: var(--shiny-color-secondary-container, #E3F2FD);
+    background-color: var(--shiny-color-secondary-container, #D0D6DC);
 }
 
 .shiny-treeview-row.focused {
@@ -45,7 +45,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background-color: var(--shiny-color-primary, #0078D7);
+    background-color: var(--shiny-color-primary, #0055D9);
     pointer-events: none;
     z-index: 1;
 }
@@ -60,11 +60,12 @@
 
 .shiny-treeview-row.drop-into {
     background-color: rgba(0, 120, 215, 0.15);
-    outline: var(--shiny-border-thin, 1px) solid var(--shiny-color-primary, #0078D7);
+    outline: var(--shiny-border-thin, 1px) solid var(--shiny-color-primary, #0055D9);
     outline-offset: -1px;
 }
 
 .shiny-treeview-chevron {
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -80,7 +81,7 @@
     flex: 0 0 auto;
     margin: 0 var(--shiny-spacing-1, 4px) 0 0;
     cursor: pointer;
-    accent-color: var(--shiny-color-primary, #6750A4);
+    accent-color: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-treeview-check:disabled {
@@ -103,7 +104,7 @@
     top: 0;
     bottom: 0;
     width: 1px;
-    background-color: var(--shiny-color-outline-variant, #E0E0E0);
+    background-color: var(--shiny-color-outline-variant, #BBC7DF);
     pointer-events: none;
 }
 
@@ -122,7 +123,7 @@
     border-right-color: transparent;
     border-radius: 50%;
     animation: shiny-treeview-spin 0.8s linear infinite;
-    color: var(--shiny-color-on-surface-variant, #666);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 @keyframes shiny-treeview-spin {
@@ -131,7 +132,7 @@
 
 .shiny-treeview-error {
     padding: var(--shiny-spacing-4, 16px);
-    color: var(--shiny-color-error, #B00020);
+    color: var(--shiny-color-error, #C20014);
     text-align: center;
     cursor: pointer;
 }

@@ -7,7 +7,7 @@
 .shiny-mediapicker-empty {
     text-align: center;
     padding: var(--shiny-spacing-5, 24px) 0;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-mediapicker-strip {
@@ -27,7 +27,7 @@
     overflow: hidden;
     cursor: pointer;
     scroll-snap-align: start;
-    background: var(--shiny-color-surface-variant, #e5e7eb);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
 }
 
 .shiny-mediapicker-thumb img {
@@ -59,7 +59,7 @@
     border-radius: var(--shiny-shape-corner-medium, 12px);
     overflow: hidden;
     cursor: pointer;
-    background: var(--shiny-color-surface-variant, #e5e7eb);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
 }
 
 .shiny-mediapicker-compact img {
@@ -82,17 +82,17 @@
 
 .shiny-mediapicker-add {
     padding: var(--shiny-spacing-3, 12px) var(--shiny-spacing-4, 16px);
-    border: var(--shiny-border-thin, 1px) dashed var(--shiny-color-outline-variant, #9ca3af);
+    border: var(--shiny-border-thin, 1px) dashed var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 12px);
     background: transparent;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     cursor: pointer;
     font-size: calc(15px * var(--shiny-type-scale, 1));
 }
 
 .shiny-mediapicker-denied {
     text-align: center;
-    color: var(--shiny-color-error, #dc2626);
+    color: var(--shiny-color-error, #C20014);
     font-size: var(--shiny-type-body-medium-size, 14px);
 }
 
@@ -123,8 +123,8 @@
     padding: var(--shiny-spacing-4, 16px);
     border: none;
     border-radius: var(--shiny-shape-corner-medium, 12px);
-    background: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #111827);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     font-size: var(--shiny-type-body-large-size, 16px);
     cursor: pointer;
 }
@@ -159,8 +159,8 @@
     height: 44px;
     border: none;
     border-radius: var(--shiny-shape-corner-extra-large, 22px);
-    background: var(--shiny-color-primary, #6750a4);
-    color: var(--shiny-color-on-primary, #fff);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     font-size: calc(15px * var(--shiny-type-scale, 1));
     cursor: pointer;
 }
@@ -169,7 +169,7 @@
     position: fixed;
     inset: 0;
     z-index: 1200;
-    background: var(--shiny-color-scrim, #000);
+    background: var(--shiny-color-scrim, #000000);
     display: flex;
     flex-direction: column;
 }
@@ -195,8 +195,8 @@
 }
 
 .shiny-mediapicker-editor-save {
-    background: var(--shiny-color-primary, #6750a4);
-    color: var(--shiny-color-on-primary, #fff);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
 }
 
 .shiny-mediapicker-editor-cancel {

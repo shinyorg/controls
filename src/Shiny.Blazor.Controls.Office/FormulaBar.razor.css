@@ -4,8 +4,8 @@
     align-items: center;
     gap: 6px;
     padding: 4px 6px;
-    border-bottom: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
-    background: var(--shiny-color-surface, #fff);
+    border-bottom: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .shiny-formula-name {
@@ -14,9 +14,9 @@
     width: 88px;
     height: 26px;
     padding: 0 6px;
-    border: 1px solid var(--shiny-color-outline, #d1d5db);
+    border: 1px solid var(--shiny-color-outline, #6C788D);
     border-radius: 4px;
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     color: inherit;
     font: inherit;
     font-size: 12px;
@@ -27,7 +27,7 @@
 .shiny-formula-fx {
     flex: 0 0 auto;
     padding: 0 2px;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: 12px;
     font-style: italic;
 }
@@ -40,9 +40,9 @@
     min-width: 0;
     height: 26px;
     padding: 0 8px;
-    border: 1px solid var(--shiny-color-outline, #d1d5db);
+    border: 1px solid var(--shiny-color-outline, #6C788D);
     border-radius: 4px;
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     color: inherit;
     font-family: var(--shiny-type-font-family-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
     font-size: 12px;
@@ -55,6 +55,6 @@
 }
 
 .shiny-formula-input:read-only {
-    background: var(--shiny-color-surface-variant, #f3f4f6);
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }

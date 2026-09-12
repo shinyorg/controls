@@ -48,8 +48,11 @@
 
             @* Clipboard leads, as it does in Excel: cut/copy/paste apply to whatever is selected and
                are reached far more often than any formatting command. *@
+            @* Paste is large and the other two stack beside it - Excel's own arrangement, and the
+               shape three items want: filling two-deep columns left copy alone in a second column
+               with a hole under it. *@
             <RibbonGroup Title="Clipboard" Priority="110">
-                <RibbonButton Size="RibbonItemSize.Small" Text="Paste" Tooltip="Paste"
+                <RibbonButton Text="Paste" Tooltip="Paste"
                               Icon="@Ico(OfficeIcon.Paste)"
                               Disabled="@(Disabled || !(Controller?.CanPaste ?? false))"
                               Clicked="() => Run(c => c.Paste())" />
@@ -59,12 +62,12 @@
                               Disabled="Disabled" Clicked="() => Run(c => c.Copy())" />
             </RibbonGroup>
 
+            @* Rows, which is how Excel's Font group is arranged: the two boxes on top, the run of
+               marks underneath. Filling columns instead put bold above italic and underline above
+               strikethrough, and forced the font picker to share a column with a toggle - where the
+               column took the picker's width and stretched the 16px B across all of it. *@
             <RibbonGroup Title="Font" Priority="100">
-                @* One row each, not a block spanning both. Hosted content that spans the rows is
-                   centred across them, so a 30px picker floated in the middle of a 76px column while
-                   the buttons beside it sat on the rows - three different vertical alignments in one
-                   group. A row each puts the pickers on the same two lines as everything else, which
-                   is also how Excel's Font group is arranged. *@
+                <RibbonRow>
                 <RibbonContent Size="RibbonItemSize.Small">
                     <FontPickerButton AvailableFonts="FontFamilies"
                                       SelectedFont="@Format.FontName"
@@ -77,7 +80,9 @@
                                           Disabled="Disabled"
                                           SelectedFontSizeChanged="OnSizeChanged" />
                 </RibbonContent>
+                </RibbonRow>
 
+                <RibbonRow>
                 <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold" Icon="@Ico(OfficeIcon.Bold)"
                                     Checked="Format.Bold" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleBold())" />
                 <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic" Icon="@Ico(OfficeIcon.Italic)"
@@ -87,13 +92,18 @@
                 <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
                                     Checked="Format.Strike" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
 
+                <RibbonSeparator />
+
                 @* Both are pickers with their own popup, so they are hosted rather than made into
-                   ribbon buttons - a ribbon button cannot own a colour surface. *@
+                   ribbon buttons - a ribbon button cannot own a colour surface. Sized to the row: a
+                   solid swatch is the heaviest mark on the bar, and at the picker's own 30px beside
+                   16px glyphs it read as the one thing on the ribbon that had gone wrong. *@
                 <RibbonContent Size="RibbonItemSize.Small">
                     <ColorPickerButton Text="Text colour"
                                        SelectedColor="@ColorHex"
                                        ShowOpacity="false"
                                        Disabled="Disabled"
+                                       Style="--shiny-picker-height: 24px"
                                        SelectedColorChanged="OnColorChanged" />
                 </RibbonContent>
                 <RibbonContent Size="RibbonItemSize.Small">
@@ -102,48 +112,75 @@
                                            ShowTooltips="ShowTooltips"
                                            Picked="OnFillPicked" />
                 </RibbonContent>
+                </RibbonRow>
             </RibbonGroup>
 
+            @*
+                Excel's own two rows: how the text sits in the cell top-to-bottom on one, left-to-right
+                on the other, with the things that nudge it inside that box at the end of each. Filling
+                columns turned three runs of three into a 2xN grid that read align-left / align-right
+                down the first column, and put the wrap toggle under an indent arrow.
+            *@
             <RibbonGroup Title="Alignment" Priority="90">
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
-                                    Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Left)" Disabled="Disabled"
-                                    Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Left))" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
-                                    Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Center)" Disabled="Disabled"
-                                    Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Center))" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
-                                    Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Right)" Disabled="Disabled"
-                                    Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Right))" />
+                <RibbonRow>
+                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align top" Icon="@Ico(OfficeIcon.AlignTop)"
+                                        Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Top)" Disabled="Disabled"
+                                        Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Top))" />
+                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align middle" Icon="@Ico(OfficeIcon.AlignMiddle)"
+                                        Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Center)" Disabled="Disabled"
+                                        Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Center))" />
+                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align bottom" Icon="@Ico(OfficeIcon.AlignBottom)"
+                                        Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Bottom)" Disabled="Disabled"
+                                        Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Bottom))" />
 
-                @* The two axes are separated for the same reason they always were: side by side and
-                   unbroken, the six read as one run of six horizontal alignments. *@
-                <RibbonSeparator />
+                    @* Wrapping is about the height the text takes in the cell, which is what the row
+                       above it is about. *@
+                    <RibbonSeparator />
 
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align top" Icon="@Ico(OfficeIcon.AlignTop)"
-                                    Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Top)" Disabled="Disabled"
-                                    Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Top))" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align middle" Icon="@Ico(OfficeIcon.AlignMiddle)"
-                                    Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Center)" Disabled="Disabled"
-                                    Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Center))" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align bottom" Icon="@Ico(OfficeIcon.AlignBottom)"
-                                    Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Bottom)" Disabled="Disabled"
-                                    Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Bottom))" />
+                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Wrap text" Icon="@Ico(OfficeIcon.WrapText)"
+                                        Checked="Format.WrapText" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleWrapText())" />
+                </RibbonRow>
 
-                @* The indent pair moves text inside the cell it is already aligned in, which is a
-                   third thing again - and the two arrows are close enough to the alignment marks to
-                   need the break. *@
-                <RibbonSeparator />
+                <RibbonRow>
+                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
+                                        Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Left)" Disabled="Disabled"
+                                        Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Left))" />
+                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
+                                        Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Center)" Disabled="Disabled"
+                                        Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Center))" />
+                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
+                                        Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Right)" Disabled="Disabled"
+                                        Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Right))" />
 
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease indent" Icon="@Ico(OfficeIcon.Outdent)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.AdjustIndent(-1))" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase indent" Icon="@Ico(OfficeIcon.Indent)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.AdjustIndent(1))" />
+                    @* The indent pair moves text inside the cell it is already aligned in, which is a
+                       third thing again - and the two arrows are close enough to the alignment marks
+                       to need the break. *@
+                    <RibbonSeparator />
 
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Wrap text" Icon="@Ico(OfficeIcon.WrapText)"
-                                    Checked="Format.WrapText" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleWrapText())" />
+                    <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease indent" Icon="@Ico(OfficeIcon.Outdent)"
+                                  Disabled="Disabled" Clicked="() => Run(c => c.AdjustIndent(-1))" />
+                    <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase indent" Icon="@Ico(OfficeIcon.Indent)"
+                                  Disabled="Disabled" Clicked="() => Run(c => c.AdjustIndent(1))" />
+                </RibbonRow>
             </RibbonGroup>
 
+            @* The named formats on top and the four marks that nudge one underneath - Excel's
+               arrangement. Filling columns put "Formats" in a column of its own with a hole beneath
+               it, and split the decimal pair across two columns. *@
             <RibbonGroup Title="Number" Priority="80">
+                <RibbonRow>
+                    @* Was a hand-rolled chevron button over a backdrop and an absolutely positioned
+                       panel. A ribbon menu button is the same thing with the dismissal, keyboard and
+                       flipping already handled.
+
+                       No icon, deliberately: the only mark that fits is the currency one sitting on
+                       the row below, and the same glyph twice in one group reads as a duplicated
+                       command. The label and the chevron say what it is. *@
+                    <RibbonMenuButton Size="RibbonItemSize.Small" Text="Formats" Tooltip="More number formats"
+                                      Disabled="Disabled" Menu="FormatMenu" />
+                </RibbonRow>
+
+                <RibbonRow>
                 <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Currency" Icon="@Ico(OfficeIcon.Currency)"
                                     Checked="@(Preset == NumberFormatPreset.Currency)" Disabled="Disabled"
                                     Clicked="_ => Run(c => c.SetNumberFormat(NumberFormatPreset.Currency))" />
@@ -154,15 +191,7 @@
                               Disabled="Disabled" Clicked="() => Run(c => c.AdjustDecimals(-1))" />
                 <RibbonButton Size="RibbonItemSize.Small" Tooltip="More decimal places" Icon="@Ico(OfficeIcon.DecimalIncrease)"
                               Disabled="Disabled" Clicked="() => Run(c => c.AdjustDecimals(1))" />
-
-                @* Was a hand-rolled chevron button over a backdrop and an absolutely positioned panel.
-                   A ribbon menu button is the same thing with the dismissal, keyboard and flipping
-                   already handled. *@
-                @* No icon, deliberately: the only mark that fits is the currency one already sitting
-                   two buttons to the left, and the same glyph twice in one group reads as a
-                   duplicated command. The label and the chevron say what it is. *@
-                <RibbonMenuButton Size="RibbonItemSize.Small" Text="Formats" Tooltip="More number formats"
-                                  Disabled="Disabled" Menu="FormatMenu" />
+                </RibbonRow>
             </RibbonGroup>
 
             <RibbonGroup Title="Editing" Priority="70">
@@ -171,7 +200,7 @@
                    both tabs, as it is in Excel - the face of this group and the head of the Data tab's
                    function library. It is the one command here reached often enough that a tab switch
                    in front of it would be felt. *@
-                <RibbonSplitButton Size="RibbonItemSize.Small" Text="AutoSum" Tooltip="AutoSum"
+                <RibbonSplitButton Text="AutoSum" Tooltip="AutoSum"
                                    Icon="@Ico(OfficeIcon.Sum)" Disabled="Disabled"
                                    Clicked="() => Run(c => c.ApplyAutoFunction(AutoFunction.Sum))"
                                    Menu="FunctionMenu" />
@@ -189,7 +218,9 @@
                 on Disabled, because a read-only workbook can still be searched.
             *@
             <RibbonGroup Title="Find" Priority="65">
-                <RibbonContent Size="RibbonItemSize.Small">
+                @* Large: the bar is one control as tall as the group, and on a row of its own it left
+                   the row underneath empty for the width of a search box. *@
+                <RibbonContent>
                     <OfficeFindBar Find="@Controller?.Find"
                                    ShowTooltips="ShowTooltips"
                                    Moved="StateHasChanged" />
@@ -418,7 +449,9 @@
         @* A sheet has no page setup to put this beside, so it sits with the other things that are about
    the sheet rather than about a cell. *@
             <RibbonGroup Title="Sheet" Priority="76">
-                <RibbonContent Size="RibbonItemSize.Small">
+                @* Large: one control is the whole group, and on a single row it left the row
+                   underneath it empty for the width of a menu button. *@
+                <RibbonContent>
                     <OfficeWatermarkButton Disabled="Disabled"
                                            ShowTooltips="ShowTooltips"
                                            HasWatermark="@(Watermark is not null)"
@@ -426,26 +459,27 @@
                 </RibbonContent>
             </RibbonGroup>
 
-            <RibbonGroup Title="Cells" Priority="60">
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Insert row above" Icon="@Ico(OfficeIcon.InsertRow)"
-                          Disabled="Disabled" Clicked="() => Run(c => c.InsertRows())" />
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Insert column left" Icon="@Ico(OfficeIcon.InsertColumn)"
-                          Disabled="Disabled" Clicked="() => Run(c => c.InsertColumns())" />
-
-            @* Insert and delete are one gesture in two directions, and their icons say so - which is
-               why the break is here rather than between the row commands and the column ones. *@
-            <RibbonSeparator />
-
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Delete rows" Icon="@Ico(OfficeIcon.DeleteRow)"
-                          Disabled="Disabled" Clicked="() => Run(c => c.DeleteRows())" />
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Delete columns" Icon="@Ico(OfficeIcon.DeleteColumn)"
-                          Disabled="Disabled" Clicked="() => Run(c => c.DeleteColumns())" />
+        @* Insert on one row and delete on the other, rows and columns in the same order on both -
+           so the pair a command belongs to is its line rather than a rule you have to notice. *@
+        <RibbonGroup Title="Cells" Priority="60">
+            <RibbonRow>
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Insert row above" Icon="@Ico(OfficeIcon.InsertRow)"
+                              Disabled="Disabled" Clicked="() => Run(c => c.InsertRows())" />
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Insert column left" Icon="@Ico(OfficeIcon.InsertColumn)"
+                              Disabled="Disabled" Clicked="() => Run(c => c.InsertColumns())" />
+            </RibbonRow>
+            <RibbonRow>
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Delete rows" Icon="@Ico(OfficeIcon.DeleteRow)"
+                              Disabled="Disabled" Clicked="() => Run(c => c.DeleteRows())" />
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Delete columns" Icon="@Ico(OfficeIcon.DeleteColumn)"
+                              Disabled="Disabled" Clicked="() => Run(c => c.DeleteColumns())" />
+            </RibbonRow>
         </RibbonGroup>
 
         <RibbonGroup Title="Columns" Priority="50">
             @* Fitting to contents is the common case, so it stays the face; the presets behind the
                chevron are the only way back to a chosen width, which a fit cannot give you. *@
-            <RibbonSplitButton Size="RibbonItemSize.Small" Text="Width" Tooltip="Fit columns to contents"
+            <RibbonSplitButton Text="Width" Tooltip="Fit columns to contents"
                                Icon="@Ico(OfficeIcon.ColumnWidth)" Disabled="Disabled"
                                Clicked="() => Run(c => c.AutoFitColumns())"
                                Menu="WidthMenu" />

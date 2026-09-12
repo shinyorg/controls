@@ -3,7 +3,7 @@
     flex-direction: column;
     height: 100%;
     width: 100%;
-    background: var(--shiny-color-background, #f0f0f0);
+    background: var(--shiny-color-background, #F6FAFE);
     font-family: var(--shiny-type-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
@@ -20,17 +20,17 @@
 .shiny-chat-loadmore {
     align-self: center;
     background: transparent;
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ccc);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-large, 16px);
     padding: calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-4, 16px);
     font-size: calc(13px * var(--shiny-type-scale, 1));
-    color: var(--shiny-color-on-surface-variant, #666);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     cursor: pointer;
     margin-bottom: 12px;
 }
 
 .shiny-chat-loadmore:hover {
-    background: var(--shiny-color-surface-container-high, #e0e0e0);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
 }
 
 /* Bubble wrap */
@@ -72,7 +72,7 @@
     justify-content: center;
     font-size: var(--shiny-type-label-small-size, 11px);
     font-weight: 600;
-    color: var(--shiny-color-on-primary, white);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     overflow: hidden;
     flex-shrink: 0;
 }
@@ -85,11 +85,27 @@
 
 .shiny-chat-name {
     font-size: var(--shiny-type-body-small-size, 12px);
-    color: var(--shiny-color-on-surface-variant, #666);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-weight: 500;
 }
 
 /* Bubble */
+/* The bubble paints live here so an app rule can beat them; ChatView.razor inlines a colour only
+   where the caller chose one. */
+.shiny-chat-bubble-wrap.is-me .shiny-chat-bubble {
+    background: var(--shiny-color-primary-container, #C2D8FA);
+    color: var(--shiny-color-on-primary-container, #124294);
+}
+
+.shiny-chat-bubble-wrap.is-other .shiny-chat-bubble {
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+    color: var(--shiny-color-on-surface, #161C23);
+}
+
+.shiny-chat-avatar {
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+}
+
 .shiny-chat-bubble {
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
     border-radius: var(--shiny-shape-corner-large, 18px);
@@ -116,7 +132,7 @@
 }
 
 .shiny-chat-bubble a {
-    color: var(--shiny-color-primary, #007AFF);
+    color: var(--shiny-color-primary, #0055D9);
     text-decoration: underline;
 }
 
@@ -137,7 +153,7 @@
 /* Timestamp */
 .shiny-chat-time {
     font-size: var(--shiny-type-label-small-size, 11px);
-    color: var(--shiny-color-on-surface-variant, #999);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     margin-top: 2px;
     padding: 0 var(--shiny-spacing-1, 4px);
 }
@@ -145,8 +161,8 @@
 /* New Messages pill */
 .shiny-chat-newmessages {
     align-self: center;
-    background: var(--shiny-color-primary, #007AFF);
-    color: var(--shiny-color-on-primary, white);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     border: none;
     border-radius: var(--shiny-shape-corner-large, 16px);
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-4, 16px);
@@ -169,7 +185,7 @@
     gap: calc(6px * var(--shiny-density-scale, 1));
     padding: calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-4, 16px);
     font-size: calc(13px * var(--shiny-type-scale, 1));
-    color: var(--shiny-color-on-surface-variant, #888);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-chat-typing-dots {
@@ -182,7 +198,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--shiny-color-on-surface-variant, #999);
+    background: var(--shiny-color-on-surface-variant, #3B475B);
     animation: shiny-chat-dot-bounce 1s infinite;
 }
 
@@ -203,8 +219,8 @@
    between the message list and the bar - that hairline read as a stray 1px artefact. */
 
 .shiny-chat-send {
-    background: var(--shiny-color-primary, #007AFF);
-    color: var(--shiny-color-on-primary, white);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     border: none;
     border-radius: var(--shiny-shape-corner-large, 18px);
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-4, 16px);
@@ -229,7 +245,7 @@
     display: inline-flex;
     align-items: center;
     gap: calc(2px * var(--shiny-density-scale, 1));
-    background: var(--shiny-color-surface-container-high, #E5E7EB);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
     border-radius: var(--shiny-shape-corner-medium, 10px);
     padding: calc(2px * var(--shiny-density-scale, 1)) calc(6px * var(--shiny-density-scale, 1));
     font-size: var(--shiny-type-body-small-size, 12px);
@@ -241,7 +257,7 @@
 
 .shiny-chat-ack-count {
     font-size: var(--shiny-type-label-small-size, 11px);
-    color: var(--shiny-color-on-surface-variant, #666);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-chat-ack-badge {
@@ -250,14 +266,14 @@
 }
 
 .shiny-chat-ack-badge.is-mine {
-    border-color: var(--shiny-color-primary, #007AFF);
-    background: var(--shiny-color-primary-container, #DCEBFF);
+    border-color: var(--shiny-color-primary, #0055D9);
+    background: var(--shiny-color-primary-container, #C2D8FA);
 }
 
 /* Connection banner */
 .shiny-chat-banner {
-    background: var(--shiny-color-error-container, #FFE0E0);
-    color: var(--shiny-color-on-error-container, #8a1f1f);
+    background: var(--shiny-color-error-container, #F2CDCB);
+    color: var(--shiny-color-on-error-container, #832323);
     text-align: center;
     font-size: calc(13px * var(--shiny-type-scale, 1));
     padding: calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-3, 12px);
@@ -274,8 +290,8 @@
 .shiny-chat-spinner {
     width: 28px;
     height: 28px;
-    border: var(--shiny-border-thick, 3px) solid var(--shiny-color-outline-variant, #ddd);
-    border-top-color: var(--shiny-color-primary, #007AFF);
+    border: var(--shiny-border-thick, 3px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-top-color: var(--shiny-color-primary, #0055D9);
     border-radius: 50%;
     animation: shiny-chat-spin 0.8s linear infinite;
 }
@@ -287,7 +303,7 @@
 /* Error state */
 .shiny-chat-error {
     margin: auto;
-    color: var(--shiny-color-error, #c0392b);
+    color: var(--shiny-color-error, #C20014);
     font-size: var(--shiny-type-body-medium-size, 14px);
     text-align: center;
     padding: var(--shiny-spacing-5, 24px);
@@ -300,7 +316,7 @@
 
 .shiny-chat-status {
     font-size: var(--shiny-type-label-small-size, 11px);
-    color: var(--shiny-color-on-surface-variant, #999);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     margin-top: 2px;
     padding: 0 var(--shiny-spacing-1, 4px);
     display: flex;
@@ -309,13 +325,13 @@
 }
 
 .shiny-chat-status.is-error {
-    color: var(--shiny-color-error, #c0392b);
+    color: var(--shiny-color-error, #C20014);
 }
 
 .shiny-chat-linkbtn {
     background: none;
     border: none;
-    color: var(--shiny-color-primary, #007AFF);
+    color: var(--shiny-color-primary, #0055D9);
     cursor: pointer;
     font-size: var(--shiny-type-body-small-size, 12px);
     padding: 0;
@@ -334,8 +350,8 @@
     height: 22px;
     border-radius: 50%;
     border: none;
-    background: var(--shiny-color-surface-container-high, #e0e0e0);
-    color: var(--shiny-color-on-surface-variant, #555);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: calc(13px * var(--shiny-type-scale, 1));
     line-height: 1;
     cursor: pointer;
@@ -351,8 +367,8 @@
     display: flex;
     gap: var(--shiny-spacing-1, 4px);
     margin-top: 4px;
-    background: var(--shiny-color-surface, #fff);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #e0e0e0);
+    background: var(--shiny-color-surface, #F6FAFE);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 12px);
     padding: var(--shiny-spacing-1, 4px);
     box-shadow: var(--shiny-elevation-2, 0 2px 8px rgba(0,0,0,0.12));
@@ -365,15 +381,15 @@
     font-size: calc(13px * var(--shiny-type-scale, 1));
     padding: var(--shiny-spacing-1, 4px) var(--shiny-spacing-2, 8px);
     border-radius: var(--shiny-shape-corner-small, 8px);
-    color: var(--shiny-color-on-surface, #222);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-chat-actions-menu button:hover {
-    background: var(--shiny-color-surface-container-high, #eee);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
 }
 
 .shiny-chat-actions-menu button.is-destructive {
-    color: var(--shiny-color-error, #c0392b);
+    color: var(--shiny-color-error, #C20014);
 }
 
 /* Reaction picker */
@@ -382,8 +398,8 @@
     flex-wrap: wrap;
     gap: calc(2px * var(--shiny-density-scale, 1));
     margin-top: 4px;
-    background: var(--shiny-color-surface, #fff);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #e0e0e0);
+    background: var(--shiny-color-surface, #F6FAFE);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-large, 16px);
     padding: var(--shiny-spacing-1, 4px) var(--shiny-spacing-2, 8px);
     box-shadow: var(--shiny-elevation-2, 0 2px 8px rgba(0,0,0,0.12));
@@ -399,7 +415,7 @@
 }
 
 .shiny-chat-reaction-picker button:hover {
-    background: var(--shiny-color-surface-container-high, #eee);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
 }
 
 /* Inline edit */
@@ -425,15 +441,15 @@
     font-size: calc(15px * var(--shiny-type-scale, 1));
     line-height: 1.4;
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ddd);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 12px);
     outline: none;
-    background: var(--shiny-color-surface-container-lowest, #fff);
-    color: var(--shiny-color-on-surface, #222);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-chat-input:focus {
-    border-color: var(--shiny-color-primary, #007AFF);
+    border-color: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-chat-input:disabled,

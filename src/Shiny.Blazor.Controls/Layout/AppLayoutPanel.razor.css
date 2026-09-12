@@ -32,7 +32,7 @@
     bottom: 0;
     z-index: 30;
     box-shadow: var(--shiny-elevation-5, 0 0 28px rgba(0, 0, 0, .28));
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .shiny-applayout-panel--left.is-overlay {
@@ -47,7 +47,7 @@
     position: absolute;
     inset: 0;
     z-index: 29;
-    background: var(--shiny-color-scrim, #000);
+    background: var(--shiny-color-scrim, #000000);
     opacity: .38;
 }
 
@@ -102,7 +102,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--shiny-color-primary, #0055d9);
+    background: var(--shiny-color-primary, #0055D9);
     opacity: 0;
     transition: opacity 120ms ease;
 }

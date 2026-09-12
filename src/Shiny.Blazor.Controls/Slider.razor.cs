@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 public partial class Slider : IAsyncDisposable, ISliderMarkHost
@@ -32,7 +34,16 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
     [Parameter] public string HotColor { get; set; } = "#EF4444";
     [Parameter] public double TrackHeight { get; set; } = 8;
     [Parameter] public double ThumbSize { get; set; } = 24;
-    [Parameter] public string ThumbColor { get; set; } = "var(--shiny-color-surface, #FFFFFF)";
+    // Also declared in Slider.razor.css. The style builders inline these only where the caller chose
+    // something else, so a consumer's own .shiny-gs-* rule is not beaten by an inline declaration.
+    internal const string DefaultThumbColor = "var(--shiny-color-surface, #F6FAFE)";
+    internal const string DefaultCornerRadius = "var(--shiny-shape-corner-extra-small, 4px)";
+    internal const string DefaultTooltipBackgroundColor = "var(--shiny-color-inverse-surface, #161C23)";
+    internal const string DefaultTooltipTextColor = "var(--shiny-color-inverse-on-surface, #F6FAFE)";
+    internal const string DefaultMarkColor = "var(--shiny-color-surface, #F6FAFE)";
+    internal const string DefaultMarkTextColor = "var(--shiny-color-on-surface-variant, #3B475B)";
+
+    [Parameter] public string ThumbColor { get; set; } = DefaultThumbColor;
     /// <summary>
     /// Thumb width in px. The default, <c>-1</c>, keeps the thumb square at <see cref="ThumbSize"/>. Set
     /// it when <see cref="ThumbTemplate"/> puts content in the thumb that is not square.
@@ -55,10 +66,10 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
     [Parameter] public RenderFragment<double>? ThumbTemplate { get; set; }
     /// <summary>Thumb ring width in px. The default, <c>-1</c>, follows the theme border scale.</summary>
     [Parameter] public double ThumbBorderWidth { get; set; } = -1;
-    [Parameter] public string CornerRadius { get; set; } = "var(--shiny-shape-corner-extra-small, 4px)";
+    [Parameter] public string CornerRadius { get; set; } = DefaultCornerRadius;
     [Parameter] public bool ShowTooltip { get; set; } = true;
-    [Parameter] public string TooltipBackgroundColor { get; set; } = "var(--shiny-color-inverse-surface, #1F2937)";
-    [Parameter] public string TooltipTextColor { get; set; } = "var(--shiny-color-inverse-on-surface, #FFFFFF)";
+    [Parameter] public string TooltipBackgroundColor { get; set; } = DefaultTooltipBackgroundColor;
+    [Parameter] public string TooltipTextColor { get; set; } = DefaultTooltipTextColor;
     /// <summary>Tooltip label size in px. The default, <c>-1</c>, follows the theme type scale.</summary>
     [Parameter] public double TooltipFontSize { get; set; } = -1;
     [Parameter] public string? ValueFormat { get; set; }
@@ -92,10 +103,10 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
     [Parameter] public double MarkSize { get; set; } = 10;
 
     /// <summary>Fill for marks that do not set <see cref="SliderMark.Color"/>.</summary>
-    [Parameter] public string MarkColor { get; set; } = "var(--shiny-color-surface, #FFFFFF)";
+    [Parameter] public string MarkColor { get; set; } = DefaultMarkColor;
 
     /// <summary>Text colour for marks that do not set <see cref="SliderMark.TextColor"/>.</summary>
-    [Parameter] public string MarkTextColor { get; set; } = "var(--shiny-color-on-surface-variant, #4B5563)";
+    [Parameter] public string MarkTextColor { get; set; } = DefaultMarkTextColor;
 
     /// <summary>Mark label size in px.</summary>
     [Parameter] public double MarkFontSize { get; set; } = 11;
@@ -175,9 +186,18 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
         }
     }
 
-    internal string TrackStyle => IsVertical
-        ? $"width: {N(TrackHeight)}px; height: {N(VerticalLength)}px; border-radius: {CornerRadius}; background: {BlendedColor};"
-        : $"height: {N(TrackHeight)}px; border-radius: {CornerRadius}; background: {BlendedColor};";
+    internal string TrackStyle
+    {
+        get
+        {
+            // BlendedColor is computed per value, so it is never the stylesheet's default and always inlines.
+            var radius = StyleDefaults.Override("border-radius", CornerRadius, DefaultCornerRadius);
+
+            return IsVertical
+                ? $"width: {N(TrackHeight)}px; height: {N(VerticalLength)}px; {radius} background: {BlendedColor};"
+                : $"height: {N(TrackHeight)}px; {radius} background: {BlendedColor};";
+        }
+    }
 
     internal string ThumbStyle
     {
@@ -193,7 +213,8 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
                 : ThumbCornerRadius;
 
             var common = $"width: {N(ResolvedThumbWidth)}px; height: {N(ResolvedThumbHeight)}px;"
-                + $" border: {border} solid {BlendedColor}; border-radius: {radius}; background: {ThumbColor};";
+                + $" border: {border} solid {BlendedColor}; border-radius: {radius};"
+                + StyleDefaults.Override("background", ThumbColor, DefaultThumbColor);
 
             if (!string.IsNullOrWhiteSpace(ThumbPadding))
                 common += $" padding: {ThumbPadding};";
@@ -223,19 +244,23 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
         get
         {
             var size = TooltipFontSize >= 0 ? $"{N(TooltipFontSize)}px" : "var(--shiny-type-body-small-size, 12px)";
-            return $"background: {TooltipBackgroundColor}; color: {TooltipTextColor}; font-size: {size};";
+            return StyleDefaults.Override("background", TooltipBackgroundColor, DefaultTooltipBackgroundColor)
+                + StyleDefaults.Override("color", TooltipTextColor, DefaultTooltipTextColor)
+                + $"font-size: {size};";
         }
     }
 
     string TooltipPointerStyle => IsVertical
-        ? $"border-left-color: {TooltipBackgroundColor};"
-        : $"border-top-color: {TooltipBackgroundColor};";
+        ? StyleDefaults.Override("border-left-color", TooltipBackgroundColor, DefaultTooltipBackgroundColor)
+        : StyleDefaults.Override("border-top-color", TooltipBackgroundColor, DefaultTooltipBackgroundColor);
 
     internal string MarkerStyle(SliderMark mark, SliderMarkShape shape)
     {
         // No edge clamping: the marker has to line up with the thumb, which itself overhangs the ends.
         var pct = N(PercentFor(mark));
-        var color = mark.Color ?? MarkColor;
+        var background = mark.Color is { Length: > 0 } own
+            ? $"background: {own};"
+            : StyleDefaults.Override("background", MarkColor, DefaultMarkColor);
         var size = mark.Size > 0 ? mark.Size : MarkSize;
 
         var box = shape == SliderMarkShape.Line
@@ -245,8 +270,8 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
             : $"width: {N(size)}px; height: {N(size)}px; border-radius: 50%;";
 
         return IsVertical
-            ? $"bottom: {pct}%; {box} background: {color};"
-            : $"left: {pct}%; {box} background: {color};";
+            ? $"bottom: {pct}%; {box} {background}"
+            : $"left: {pct}%; {box} {background}";
     }
 
     internal string MarkLabelStyle(SliderMark mark, SliderMarkShape shape)
@@ -254,9 +279,15 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
         var percent = PercentFor(mark);
         var pct = N(percent);
 
-        var paint = $"color: {mark.TextColor ?? MarkTextColor}; font-size: {N(MarkFontSize)}px;";
+        var paint = (mark.TextColor is { Length: > 0 } ownText
+                ? $"color: {ownText};"
+                : StyleDefaults.Override("color", MarkTextColor, DefaultMarkTextColor))
+            + $"font-size: {N(MarkFontSize)}px;";
+
         if (shape == SliderMarkShape.Bubble)
-            paint += $" background: {mark.Color ?? MarkColor};";
+            paint += mark.Color is { Length: > 0 } ownBubble
+                ? $" background: {ownBubble};"
+                : StyleDefaults.Override(" background", MarkColor, DefaultMarkColor);
 
         // Slide the transform from 0% at the low end to -100% at the high one, the way the tooltip does,
         // so the first and last label stay inside the track instead of hanging off it.

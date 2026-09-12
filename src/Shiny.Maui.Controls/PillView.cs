@@ -17,6 +17,10 @@ public class PillView : ContentView
 
     bool isUpdatingFromType;
 
+    // Whether the Style currently on this pill is one ApplyPillType installed. A consumer's own Style
+    // is not ours to remove - see ApplyPillType.
+    bool styleIsOurs;
+
     public PillView()
     {
         label = new Label
@@ -225,13 +229,23 @@ public class PillView : ContentView
         // flow through the normal property-changed handlers to the visuals.
         if (StyleKeys.TryGetValue(type, out var key) && TryFindStyle(key, out var style))
         {
-            Style = style;
+            this.Style = style;
+            this.styleIsOurs = true;
             return;
+        }
+
+        // Hand back a Style the consumer set themselves rather than nulling it: writing `Style = null`
+        // unconditionally meant an explicit `<shiny:PillView Style="{StaticResource MyPill}" />` was
+        // wiped the first time the type was applied - which is at construction, so it never survived
+        // at all. Only a Style this control installed is ours to remove.
+        if (this.styleIsOurs)
+        {
+            this.Style = null;
+            this.styleIsOurs = false;
         }
 
         // Fall back to theme tokens — bound via dynamic resources so a runtime theme/appearance
         // switch restyles the pill automatically. Explicit Pill*Color properties still win.
-        Style = null;
         var (bgKey, textKey, borderKey) = TypeTokens[type];
 
         isUpdatingFromType = true;
@@ -243,8 +257,8 @@ public class PillView : ContentView
         }
         else
         {
-            // Stroke is a Brush; drive its Color from the token so theme swaps propagate.
-            border.Stroke = ThemeBrush.FromToken(borderKey);
+            // Stroke is Brush-typed, so it takes the Brush twin of the token rather than the Color.
+            ThemeBrush.Apply(border, Microsoft.Maui.Controls.Border.StrokeProperty, borderKey.AsBrush());
         }
 
         if (PillTextColor is Color textColor)
@@ -255,15 +269,43 @@ public class PillView : ContentView
         isUpdatingFromType = false;
     }
 
+    /// <summary>
+    /// Looks a pill style up the way XAML would: this element's own resources first, then every
+    /// ancestor's, then the application's.
+    /// </summary>
+    /// <remarks>
+    /// It used to read <c>Application.Current.Resources</c> and nothing else, so the documented
+    /// override worked only from App.xaml — a <c>ResourceDictionary</c> on the page, which is the
+    /// ordinary place to scope one, was invisible. Nothing failed; the pill simply kept the theme
+    /// colours and the style looked like it had been ignored.
+    /// </remarks>
     bool TryFindStyle(string key, out Style style)
     {
         style = null!;
-        if (Application.Current?.Resources.TryGetValue(key, out var value) == true && value is Style s && s.TargetType == typeof(PillView))
+
+        for (Element? element = this; element is not null; element = element.Parent)
         {
-            style = s;
-            return true;
+            if (element is VisualElement visual && Matches(visual.Resources, out style))
+                return true;
+
+            if (element is Application app && Matches(app.Resources, out style))
+                return true;
         }
-        return false;
+
+        return Application.Current is not null && Matches(Application.Current.Resources, out style);
+
+        bool Matches(ResourceDictionary? resources, out Style found)
+        {
+            found = null!;
+
+            if (resources?.TryGetValue(key, out var value) == true && value is Style s && s.TargetType == typeof(PillView))
+            {
+                found = s;
+                return true;
+            }
+
+            return false;
+        }
     }
 
     void ApplyBaseColor(Color baseColor)

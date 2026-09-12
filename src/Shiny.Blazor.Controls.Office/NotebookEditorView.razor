@@ -35,10 +35,10 @@
             <Ribbon ShowTabStrip="true"
                     AllowCollapse="true"
                     SmallItemRows="2"
-                    HeaderBackgroundColor="@(AccentBackground ?? ToolbarBackground)"
+                    HeaderBackgroundColor="@(AccentBackground ?? ChosenToolbarBackground)"
                     HeaderForegroundColor="@AccentInk"
                     AccentColor="@AccentInk"
-                    BodyBackgroundColor="@ToolbarBackground">
+                    BodyBackgroundColor="@ChosenToolbarBackground">
 
                 <QuickAccess>
                     <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo (Ctrl+Z)" Icon="@Ico(OfficeIcon.Undo)"
@@ -52,7 +52,10 @@
                 <ChildContent>
                     <RibbonTab Title="Home" Key="home">
 
+                        @* Rows: the two boxes on top, the run of marks underneath - the same shape the
+                           document and slide editors draw, so the three bars are learned once. *@
                         <RibbonGroup Title="Font" Priority="100">
+                            <RibbonRow>
                             <RibbonContent Size="RibbonItemSize.Small">
                                 <FontPickerButton AvailableFonts="FontFamilies"
                                                   SelectedFont="@Format.FontFamily"
@@ -66,6 +69,9 @@
                                                       SelectedFontSizeChanged="OnSizeChanged" />
                             </RibbonContent>
 
+                            </RibbonRow>
+
+                            <RibbonRow>
                             <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
                                                 Checked="Format.Bold" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleBold())" />
                             <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
@@ -75,11 +81,17 @@
                             <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
                                                 Checked="Format.Strike" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
 
+                            <RibbonSeparator />
+
+                            @* Sized to the row: a solid swatch is the heaviest mark on the bar, and at
+                               the picker's own 30px beside 16px glyphs it read as the one thing on the
+                               ribbon that had gone wrong. *@
                             <RibbonContent Size="RibbonItemSize.Small">
                                 <ColorPickerButton Text="Text colour"
                                                    SelectedColor="@TextColorHex"
                                                    ShowOpacity="false"
                                                    Disabled="@(!HasText)"
+                                                   Style="--shiny-picker-height: 24px"
                                                    SelectedColorChanged="OnTextColorChanged" />
                             </RibbonContent>
                             <RibbonContent Size="RibbonItemSize.Small">
@@ -88,47 +100,54 @@
                                                        ShowTooltips="ShowToolbarTooltips"
                                                        Picked="OnHighlightPicked" />
                             </RibbonContent>
+                            </RibbonRow>
                         </RibbonGroup>
 
                         <RibbonGroup Title="Paragraph" Priority="90">
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
-                                                Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="@(!HasText)"
-                                                Clicked="_ => Align(TextAlignment.Left)" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
-                                                Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="@(!HasText)"
-                                                Clicked="_ => Align(TextAlignment.Center)" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
-                                                Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="@(!HasText)"
-                                                Clicked="_ => Align(TextAlignment.Right)" />
+                            <RibbonRow>
+                                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bulleted list" Icon="@Ico(OfficeIcon.BulletList)"
+                                                    Checked="@(Format.List == ListStyle.Bullet)" Disabled="@(!HasText)"
+                                                    Clicked="_ => Run(c => c.ToggleBulletList())" />
+                                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbered list" Icon="@Ico(OfficeIcon.NumberedList)"
+                                                    Checked="@(Format.List == ListStyle.Numbered)" Disabled="@(!HasText)"
+                                                    Clicked="_ => Run(c => c.ToggleNumberedList())" />
+                                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Outdent (Shift+Tab)" Icon="@Ico(OfficeIcon.Outdent)"
+                                              Disabled="@(!HasText || Format.Level == 0)" Clicked="() => Run(c => c.ShiftLevel(-1))" />
+                                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Indent (Tab)" Icon="@Ico(OfficeIcon.Indent)"
+                                              Disabled="@(!HasText)" Clicked="() => Run(c => c.ShiftLevel(1))" />
+                            </RibbonRow>
 
-                            <RibbonSeparator />
-
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bulleted list" Icon="@Ico(OfficeIcon.BulletList)"
-                                                Checked="@(Format.List == ListStyle.Bullet)" Disabled="@(!HasText)"
-                                                Clicked="_ => Run(c => c.ToggleBulletList())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbered list" Icon="@Ico(OfficeIcon.NumberedList)"
-                                                Checked="@(Format.List == ListStyle.Numbered)" Disabled="@(!HasText)"
-                                                Clicked="_ => Run(c => c.ToggleNumberedList())" />
-
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Outdent (Shift+Tab)" Icon="@Ico(OfficeIcon.Outdent)"
-                                          Disabled="@(!HasText || Format.Level == 0)" Clicked="() => Run(c => c.ShiftLevel(-1))" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Indent (Tab)" Icon="@Ico(OfficeIcon.Indent)"
-                                          Disabled="@(!HasText)" Clicked="() => Run(c => c.ShiftLevel(1))" />
+                            <RibbonRow>
+                                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
+                                                    Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="@(!HasText)"
+                                                    Clicked="_ => Align(TextAlignment.Left)" />
+                                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
+                                                    Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="@(!HasText)"
+                                                    Clicked="_ => Align(TextAlignment.Center)" />
+                                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
+                                                    Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="@(!HasText)"
+                                                    Clicked="_ => Align(TextAlignment.Right)" />
+                            </RibbonRow>
                         </RibbonGroup>
 
-                        <RibbonGroup Title="Arrange" Priority="70">
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Bring to front" Icon="@Ico(OfficeIcon.BringToFront)"
-                                          Disabled="@(!HasSelection)" Clicked="() => Run(c => c.BringToFront())" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Send to back" Icon="@Ico(OfficeIcon.SendToBack)"
-                                          Disabled="@(!HasSelection)" Clicked="() => Run(c => c.SendToBack())" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Duplicate (Ctrl+D)" Icon="@Ico(OfficeIcon.Duplicate)"
-                                          Disabled="@(!HasSelection)" Clicked="() => Run(c => c.DuplicateSelection())" />
+                    @* Ordering and duplicating on one row; deleting on its own underneath, which says
+                       "this one is different" better than the rule that used to sit beside it in a
+                       column flow that put delete under bring-to-front anyway. *@
+                    <RibbonGroup Title="Arrange" Priority="70">
+                            <RibbonRow>
+                                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Bring to front" Icon="@Ico(OfficeIcon.BringToFront)"
+                                              Disabled="@(!HasSelection)" Clicked="() => Run(c => c.BringToFront())" />
+                                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Send to back" Icon="@Ico(OfficeIcon.SendToBack)"
+                                              Disabled="@(!HasSelection)" Clicked="() => Run(c => c.SendToBack())" />
+                                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Duplicate (Ctrl+D)" Icon="@Ico(OfficeIcon.Duplicate)"
+                                              Disabled="@(!HasSelection)" Clicked="() => Run(c => c.DuplicateSelection())" />
+                            </RibbonRow>
 
-                            @* Destructive, and the only one on the group that is - hence the rule. *@
-                            <RibbonSeparator />
-
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Delete the selection" Icon="@Ico(OfficeIcon.Delete)"
-                                          Disabled="@(!HasSelection)" Clicked="() => Run(c => c.DeleteSelection())" />
+                            <RibbonRow>
+                                <RibbonButton Size="RibbonItemSize.Small" Text="Delete" Tooltip="Delete the selection"
+                                              Icon="@Ico(OfficeIcon.Delete)"
+                                              Disabled="@(!HasSelection)" Clicked="() => Run(c => c.DeleteSelection())" />
+                            </RibbonRow>
                         </RibbonGroup>
                     </RibbonTab>
 
@@ -365,7 +384,14 @@
 
     // Theme tokens rather than literals: the bar sits in the app's chrome, not on the page the editor
     // is drawing, so it has to follow light/dark with everything else.
-    [Parameter] public string ToolbarBackground { get; set; } = "var(--shiny-color-surface-container-low, #FFFFFF)";
+    // The Ribbon's own stylesheet carries this; forwarding it unconditionally would beat any rule an
+    // app writes against the ribbon, so only a caller-chosen value is passed on.
+    internal const string DefaultToolbarBackground = "var(--shiny-color-surface-container-low, #EFF4FB)";
+
+    [Parameter] public string ToolbarBackground { get; set; } = DefaultToolbarBackground;
+
+    string? ChosenToolbarBackground
+        => this.ToolbarBackground == DefaultToolbarBackground ? null : this.ToolbarBackground;
 
     /// <summary>
     /// The colour this control wears: its ribbon's header band and tab underline.

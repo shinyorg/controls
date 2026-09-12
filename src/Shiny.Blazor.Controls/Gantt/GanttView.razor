@@ -122,7 +122,7 @@
                 @foreach (var range in this.HighlightRanges)
                 {
                     <div class="shiny-gantt-highlight"
-                         style="left:@(Css(this.XOf(range.Start)))px;width:@(Css(this.XOf(range.End) - this.XOf(range.Start)))px;background:@(range.Color ?? "var(--shiny-color-primary, #6750A4)")"></div>
+                         style="left:@(Css(this.XOf(range.Start)))px;width:@(Css(this.XOf(range.End) - this.XOf(range.Start)))px;background:@(range.Color ?? "var(--shiny-color-primary, #0055D9)")"></div>
                 }
 
                 @if (this.ShowGridLines)

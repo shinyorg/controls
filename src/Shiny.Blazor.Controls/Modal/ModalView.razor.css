@@ -59,7 +59,7 @@
 .shiny-modal-backdrop {
     position: absolute;
     inset: 0;
-    background: var(--shiny-color-scrim, #000);
+    background: var(--shiny-color-scrim, #000000);
     opacity: 0;
     transition: opacity var(--shiny-modal-duration, 200ms) ease;
 }
@@ -85,7 +85,7 @@
     width: 100%;
     min-height: 0;
     max-height: calc(100dvh - 48px);
-    background: var(--shiny-color-surface-container-low, #fff);
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
     color: var(--shiny-color-on-surface, #161C23);
     border-radius: var(--shiny-shape-corner-large, 16px);
     box-shadow: var(--shiny-elevation-5, 0 24px 48px rgba(0, 0, 0, 0.28));
@@ -179,8 +179,8 @@
     align-items: flex-start;
     gap: 12px;
     padding: 16px 16px 12px 20px;
-    border-bottom: 1px solid var(--shiny-color-outline-variant, #E5E7EB);
-    background: var(--shiny-color-surface-container, #F3F4F6);
+    border-bottom: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-container, #E8EEF6);
 }
 
 .is-draggable > .shiny-modal-header {
@@ -251,7 +251,7 @@
 }
 
 .shiny-modal-header-button:hover {
-    background: var(--shiny-color-surface-container-highest, #DBE3EE);
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
     color: var(--shiny-color-on-surface, #161C23);
 }
 
@@ -306,8 +306,8 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px 16px;
-    border-top: 1px solid var(--shiny-color-outline-variant, #E5E7EB);
-    background: var(--shiny-color-surface-container-low, #fff);
+    border-top: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
 }
 
 .shiny-modal-resize-grip {
@@ -319,8 +319,8 @@
     cursor: nwse-resize;
     /* Two hairlines in the corner - the desktop grip, without an image to ship. */
     background:
-        linear-gradient(135deg, transparent 45%, var(--shiny-color-outline, #9CA3AF) 45%, var(--shiny-color-outline, #9CA3AF) 55%, transparent 55%),
-        linear-gradient(135deg, transparent 70%, var(--shiny-color-outline, #9CA3AF) 70%, var(--shiny-color-outline, #9CA3AF) 80%, transparent 80%);
+        linear-gradient(135deg, transparent 45%, var(--shiny-color-outline, #6C788D) 45%, var(--shiny-color-outline, #6C788D) 55%, transparent 55%),
+        linear-gradient(135deg, transparent 70%, var(--shiny-color-outline, #6C788D) 70%, var(--shiny-color-outline, #6C788D) 80%, transparent 80%);
     touch-action: none;
 }
 

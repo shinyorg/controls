@@ -15,9 +15,9 @@
     min-width: 132px;
     height: var(--shiny-picker-height, 30px);
     padding: 0 8px;
-    border: 1px solid var(--shiny-color-outline, #d1d5db);
+    border: 1px solid var(--shiny-color-outline, #6C788D);
     border-radius: var(--shiny-shape-corner-small, 5px);
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     color: inherit;
     font-size: 13px;
     line-height: 1;
@@ -68,9 +68,9 @@
     left: 0;
     z-index: 41;
     min-width: 280px;
-    border: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 8px);
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     box-shadow: var(--shiny-elevation-3, 0 8px 24px rgba(0, 0, 0, 0.18));
     overflow: hidden;
 }

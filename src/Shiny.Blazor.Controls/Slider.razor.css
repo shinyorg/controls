@@ -18,10 +18,13 @@
     padding-right: var(--shiny-gs-label-band, 0px);
 }
 
+/* The parameter defaults live here as well as on the component, so a consumer's own rule has
+   something to beat; Slider.razor.cs inlines them only where the caller chose otherwise. */
 .shiny-gs-track {
     position: relative;
     cursor: pointer;
-    background: var(--shiny-color-surface-variant, #e5e7eb);
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
 }
 
 .shiny-gs-horizontal .shiny-gs-track {
@@ -35,6 +38,7 @@
 .shiny-gs-thumb {
     position: absolute;
     box-sizing: border-box;
+    background: var(--shiny-color-surface, #F6FAFE);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -85,6 +89,8 @@
 
 .shiny-gs-tooltip-badge {
     position: relative;
+    background: var(--shiny-color-inverse-surface, #161C23);
+    color: var(--shiny-color-inverse-on-surface, #F6FAFE);
     padding: var(--shiny-spacing-1, 4px) calc(10px * var(--shiny-density-scale, 1));
     border-radius: var(--shiny-shape-corner-extra-small, 4px);
     white-space: nowrap;
@@ -103,6 +109,7 @@
 }
 
 .shiny-gs-horizontal .shiny-gs-tooltip-pointer {
+    border-top-color: var(--shiny-color-inverse-surface, #161C23);
     bottom: -6px;
     left: 50%;
     transform: translateX(-50%);
@@ -112,6 +119,7 @@
 }
 
 .shiny-gs-vertical .shiny-gs-tooltip-pointer {
+    border-left-color: var(--shiny-color-inverse-surface, #161C23);
     right: -6px;
     top: 50%;
     transform: translateY(-50%);
@@ -138,12 +146,17 @@
     transform: translate(-50%, 50%);
 }
 
+.shiny-gs-mark {
+    background: var(--shiny-color-surface, #F6FAFE);
+}
+
 .shiny-gs-mark-dot {
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .shiny-gs-mark-label {
     position: absolute;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     pointer-events: none;
     white-space: nowrap;
     line-height: 1.2;
@@ -163,6 +176,7 @@
 }
 
 .shiny-gs-mark-bubble {
+    background: var(--shiny-color-surface, #F6FAFE);
     padding: 3px 8px;
     border-radius: var(--shiny-shape-corner-full, 999px);
     font-weight: 500;

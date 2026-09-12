@@ -50,7 +50,7 @@
     pointer-events: none;
     z-index: 4;
     border-radius: 4px;
-    outline: 2px dashed var(--shiny-color-primary, #2f6fed);
+    outline: 2px dashed var(--shiny-color-primary, #0055D9);
     outline-offset: -6px;
-    background: color-mix(in srgb, var(--shiny-color-primary, #2f6fed) 8%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 8%, transparent);
 }

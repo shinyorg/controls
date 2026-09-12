@@ -14,7 +14,7 @@
        every press - and a consumer's Class is applied after this rule. */
     padding: 0;
     border: 0;
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
 
     /* The plan handles its own panning and zooming; letting the browser also scroll or pinch the
        page turns every drag into a fight with it, and on touch the plan simply will not pan. */

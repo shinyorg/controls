@@ -13,7 +13,7 @@
     position: relative;
     width: 100%;
     cursor: pointer;
-    background: var(--shiny-color-surface-variant, #e5e7eb);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
 }
 
 .shiny-rs-track-fill {

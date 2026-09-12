@@ -108,3 +108,38 @@ export function readSurface(el) {
         probe.remove();
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Applying a theme: the scheme class and the app's token overrides, both on <html>.
+//
+// On the document root rather than a container, because `color-scheme` is declared alongside the
+// colour tokens, and that declaration is what makes the browser's OWN widgets - selects, scrollbars,
+// date inputs, the popover backdrop - follow the theme. A class on a div themes everything except
+// those, which is how you end up with a stark white dropdown inside a dark app.
+// ---------------------------------------------------------------------------------------------
+
+// Which custom properties we put there, so a later call can take away the ones that have gone
+// without disturbing anything the app set for itself.
+let applied = [];
+
+export function applyTheme(mode, tokens) {
+    const root = document.documentElement;
+
+    root.classList.toggle('shiny-theme-dark', mode === 'dark');
+    root.classList.toggle('shiny-theme-light', mode === 'light');
+
+    const next = [];
+
+    for (const [name, value] of Object.entries(tokens || {})) {
+        const property = `--shiny-${name}`;
+        root.style.setProperty(property, value);
+        next.push(property);
+    }
+
+    for (const property of applied) {
+        if (!next.includes(property))
+            root.style.removeProperty(property);
+    }
+
+    applied = next;
+}

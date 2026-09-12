@@ -1,7 +1,7 @@
 .shiny-applayout {
     /* Region defaults — every child region reads these unless it overrides them. */
     --shiny-layout-border-width: var(--shiny-border-thin, 1px);
-    --shiny-layout-border-color: var(--shiny-color-outline-variant, #d5d9e0);
+    --shiny-layout-border-color: var(--shiny-color-outline-variant, #BBC7DF);
 
     position: relative;
     display: grid;
@@ -10,5 +10,5 @@
     width: 100%;
     box-sizing: border-box;
     overflow: hidden;
-    color: var(--shiny-color-on-surface, inherit);
+    color: var(--shiny-color-on-surface, #161C23);
 }

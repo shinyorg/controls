@@ -71,8 +71,17 @@ foreach (var file in jsonFiles)
         ? Path.Combine(root, "src", "Shiny.Blazor.Controls", "wwwroot", "css", "shiny-theme.css")
         : Path.Combine(root, "src", $"Shiny.Blazor.Controls.Themes.{theme.Name}", "wwwroot", "css", $"shiny-theme-{theme.Slug}.css");
 
-    WriteFile(Path.Combine(mauiDir, $"{theme.Name}LightTheme.cs"), Emitter.MauiDictionary(data, dark: false));
-    WriteFile(Path.Combine(mauiDir, $"{theme.Name}DarkTheme.cs"), Emitter.MauiDictionary(data, dark: true));
+    // The scheme dictionaries are XAML so they can be read, copied and overridden the way every
+    // other MAUI resource dictionary is. The C# ones they replace are deleted rather than left
+    // behind: the class names are the same, and two of each would not compile.
+    foreach (var scheme in new[] { false, true })
+    {
+        var name = $"{theme.Name}{(scheme ? "Dark" : "Light")}Theme";
+        WriteFile(Path.Combine(mauiDir, $"{name}.xaml"), Emitter.MauiXaml(data, scheme));
+        WriteFile(Path.Combine(mauiDir, $"{name}.xaml.cs"), Emitter.MauiXamlCodeBehind(data, scheme));
+        DeleteIfPresent(Path.Combine(mauiDir, $"{name}.cs"));
+    }
+
     WriteFile(Path.Combine(mauiDir, $"{theme.Name}Theme.cs"), Emitter.MauiTheme(data));
     WriteFile(blazorCss, Emitter.Css(data, core: isCore));
 
@@ -86,6 +95,15 @@ WriteFile(
 
 Console.WriteLine("\nDone.");
 return 0;
+
+static void DeleteIfPresent(string path)
+{
+    if (File.Exists(path))
+    {
+        File.Delete(path);
+        Console.WriteLine($"    removed {Path.GetFileName(path)} (replaced by XAML)");
+    }
+}
 
 static void WriteFile(string path, string content)
 {

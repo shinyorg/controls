@@ -14,18 +14,27 @@ public class ScreenGlowGeometryTests
 {
     static readonly ScreenGlowOptions Options = new() { BlobCount = 4 };
 
+    /// <summary>
+    /// BlobCount is a floor, not the count: pools spaced further apart than their own radius leave
+    /// unlit gaps, so Compute adds as many as the perimeter needs. What it must never do is honour
+    /// the request with fewer than were asked for.
+    /// </summary>
     [Fact]
-    public void Compute_produces_one_blob_per_requested_pool()
+    public void Compute_produces_at_least_the_requested_pool_count()
     {
         var blobs = ScreenGlowGeometry.Compute(1000, 600, 100, 0, 0, new ScreenGlowOptions { BlobCount = 7 });
-        blobs.Length.ShouldBe(7);
+        blobs.Length.ShouldBeGreaterThanOrEqualTo(7);
     }
 
+    /// <summary>
+    /// A tiny screen with a fat edge can need fewer pools than one; it can never need none, and a
+    /// zero-length array would leave the glow silently invisible rather than wrong.
+    /// </summary>
     [Fact]
     public void Compute_never_produces_zero_blobs()
     {
         var blobs = ScreenGlowGeometry.Compute(1000, 600, 100, 0, 0, new ScreenGlowOptions { BlobCount = 0 });
-        blobs.Length.ShouldBe(1);
+        blobs.Length.ShouldBeGreaterThanOrEqualTo(1);
     }
 
     [Fact]
@@ -69,12 +78,36 @@ public class ScreenGlowGeometryTests
     [Fact]
     public void Blobs_are_spaced_evenly_around_the_loop()
     {
+        // Measured as distance travelled along the edge rather than as fixed corner coordinates:
+        // Compute chooses its own count, so which blob lands on a corner is not fixed - but the gap
+        // between consecutive ones has to stay constant or the edge lights unevenly.
         var blobs = ScreenGlowGeometry.Compute(400, 400, 50, 0, 0, new ScreenGlowOptions { BlobCount = 4 });
+        blobs.Length.ShouldBeGreaterThan(2);
 
-        blobs[0].X.ShouldBe(0f, 0.01f);
-        blobs[1].X.ShouldBe(400f, 0.01f);
-        blobs[2].X.ShouldBe(400f, 0.01f);
-        blobs[3].X.ShouldBe(0f, 0.01f);
+        var perimeter = 2f * (400f + 400f);
+        var expected = perimeter / blobs.Length;
+
+        for (var i = 1; i < blobs.Length; i++)
+        {
+            var gap = PerimeterDistance(400, 400, blobs[i]) - PerimeterDistance(400, 400, blobs[i - 1]);
+            gap.ShouldBe(expected, 0.01f);
+        }
+    }
+
+
+    /// <summary>How far clockwise from the top-left corner a point sits, in pixels along the edge.</summary>
+    static float PerimeterDistance(float width, float height, ScreenGlowBlob blob)
+    {
+        if (blob.Y <= 0.01f && blob.X < width)
+            return blob.X;
+
+        if (blob.X >= width - 0.01f)
+            return width + blob.Y;
+
+        if (blob.Y >= height - 0.01f)
+            return width + height + (width - blob.X);
+
+        return width + height + width + (height - blob.Y);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 @namespace Shiny.Blazor.Controls
+@using Shiny.Blazor.Controls.Theming
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -113,8 +114,15 @@
 
     // Theme tokens, not literals - a bar is app chrome and has to follow light/dark. A literal
     // white default painted a white bar (with near-black text) straight through dark mode.
-    [Parameter] public string BackgroundColor { get; set; } = "var(--shiny-color-surface-container-low, #FFFFFF)";
-    [Parameter] public string TextColor { get; set; } = "var(--shiny-color-on-surface, #1F2937)";
+    // Mirrored in ShinyToolbar.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultBackgroundColor = "var(--shiny-color-surface-container-low, #EFF4FB)";
+    internal const string DefaultTextColor = "var(--shiny-color-on-surface, #161C23)";
+    internal const string DefaultMenuBackgroundColor = "var(--shiny-color-surface-container-high, #E2E6EA)";
+    internal const string DefaultMenuTextColor = "var(--shiny-color-on-surface, #161C23)";
+    internal const string DefaultTintColor = "color-mix(in srgb, var(--shiny-color-surface-container-low, #EFF4FB) 70%, transparent)";
+
+    [Parameter] public string BackgroundColor { get; set; } = DefaultBackgroundColor;
+    [Parameter] public string TextColor { get; set; } = DefaultTextColor;
     [Parameter] public double Height { get; set; } = 56;
     [Parameter] public double IconSize { get; set; } = 22;
     [Parameter] public bool ShowItemLabels { get; set; }
@@ -164,8 +172,8 @@
 
     // The dropdown is promoted into the top layer, where it inherits nothing from the bar, so it
     // carries its own surface. Tokens for the same reason the bar's do.
-    [Parameter] public string MenuBackgroundColor { get; set; } = "var(--shiny-color-surface-container-high, #FFFFFF)";
-    [Parameter] public string MenuTextColor { get; set; } = "var(--shiny-color-on-surface, #1F2937)";
+    [Parameter] public string MenuBackgroundColor { get; set; } = DefaultMenuBackgroundColor;
+    [Parameter] public string MenuTextColor { get; set; } = DefaultMenuTextColor;
 
     /// <summary>Chevron drawn on items that open a dropdown. Set to an empty string to drop it.</summary>
     [Parameter] public string DropdownIcon { get; set; } = ChevronDownIcon;
@@ -175,7 +183,7 @@
     [Parameter] public double BlurRadius { get; set; } = 20;
     // Frosted glass tints the blurred backdrop; in dark mode a white veil washes it out, so the
     // default is the themed surface at the same 70% and only the hue changes with the scheme.
-    [Parameter] public string TintColor { get; set; } = "color-mix(in srgb, var(--shiny-color-surface-container-low, #FFFFFF) 70%, transparent)";
+    [Parameter] public string TintColor { get; set; } = DefaultTintColor;
 
     // chrome
     [Parameter] public bool HasShadow { get; set; } = true;
@@ -255,18 +263,18 @@
             sb.Append("position:").Append(Sticky ? "sticky" : "relative").Append(';');
             sb.Append(IsTop ? "top:0;" : "bottom:0;");
             sb.Append("z-index:").Append(ZIndex).Append(';');
-            sb.Append("color:").Append(TextColor).Append(';');
+            sb.Append(StyleDefaults.Override("color", TextColor, DefaultTextColor));
             sb.Append("min-height:").Append(Height.ToInv()).Append("px;");
 
             if (Frosted)
             {
-                sb.Append("background-color:").Append(TintColor).Append(';');
+                sb.Append(StyleDefaults.Override("background-color", TintColor, DefaultTintColor));
                 sb.Append("backdrop-filter:blur(").Append(BlurRadius.ToInv()).Append("px);");
                 sb.Append("-webkit-backdrop-filter:blur(").Append(BlurRadius.ToInv()).Append("px);");
             }
             else
             {
-                sb.Append("background-color:").Append(BackgroundColor).Append(';');
+                sb.Append(StyleDefaults.Override("background-color", BackgroundColor, DefaultBackgroundColor));
             }
 
             if (BorderThickness > 0 && !string.IsNullOrEmpty(BorderColor))
@@ -291,7 +299,9 @@
         return sb.ToString();
     }
 
-    string MenuStyle => $"background-color:{MenuBackgroundColor};color:{MenuTextColor};";
+    string MenuStyle =>
+        StyleDefaults.Override("background-color", MenuBackgroundColor, DefaultMenuBackgroundColor)
+        + StyleDefaults.Override("color", MenuTextColor, DefaultMenuTextColor);
 
     /// <summary>
     /// Whether the themed <see cref="Tooltip"/> wraps items. Gated only by <see cref="ShowTooltips"/>:

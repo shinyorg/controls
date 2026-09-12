@@ -13,7 +13,7 @@
 .shiny-imgviewer-backdrop {
     position: absolute;
     inset: 0;
-    background: var(--shiny-color-scrim, black);
+    background: var(--shiny-color-scrim, #000000);
     opacity: 1;
     transition: opacity 250ms ease;
 }

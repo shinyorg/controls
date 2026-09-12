@@ -10,37 +10,37 @@
 }
 
 .shiny-pill-none {
-    background-color: var(--shiny-color-surface-container-high, #F3F4F6);
-    color: var(--shiny-color-on-surface-variant, #374151);
-    border-color: var(--shiny-color-outline-variant, #D1D5DB);
+    background-color: var(--shiny-color-surface-container-high, #E2E6EA);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    border-color: var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-pill-success {
-    background-color: var(--shiny-color-success-container, #DCFCE7);
-    color: var(--shiny-color-on-success-container, #166534);
-    border-color: var(--shiny-color-success, #86EFAC);
+    background-color: var(--shiny-color-success-container, #C5DBCC);
+    color: var(--shiny-color-on-success-container, #165225);
+    border-color: var(--shiny-color-success, #00711C);
 }
 
 .shiny-pill-info {
-    background-color: var(--shiny-color-info-container, #DBEAFE);
-    color: var(--shiny-color-on-info-container, #1E40AF);
-    border-color: var(--shiny-color-info, #93C5FD);
+    background-color: var(--shiny-color-info-container, #C2D8FA);
+    color: var(--shiny-color-on-info-container, #124294);
+    border-color: var(--shiny-color-info, #0055D9);
 }
 
 .shiny-pill-warning {
-    background-color: var(--shiny-color-warning-container, #FEF9C3);
-    color: var(--shiny-color-on-warning-container, #854D0E);
-    border-color: var(--shiny-color-warning, #FDE047);
+    background-color: var(--shiny-color-warning-container, #E5D2C9);
+    color: var(--shiny-color-on-warning-container, #6B381E);
+    border-color: var(--shiny-color-warning, #9C4500);
 }
 
 .shiny-pill-caution {
-    background-color: var(--shiny-color-caution-container, #FFEDD5);
-    color: var(--shiny-color-on-caution-container, #9A3412);
-    border-color: var(--shiny-color-caution, #FDBA74);
+    background-color: var(--shiny-color-caution-container, #EDCFC9);
+    color: var(--shiny-color-on-caution-container, #7B2C1E);
+    border-color: var(--shiny-color-caution, #B42800);
 }
 
 .shiny-pill-critical {
-    background-color: var(--shiny-color-critical-container, #FEE2E2);
-    color: var(--shiny-color-on-critical-container, #991B1B);
-    border-color: var(--shiny-color-critical, #FCA5A5);
+    background-color: var(--shiny-color-critical-container, #F2CDCB);
+    color: var(--shiny-color-on-critical-container, #832323);
+    border-color: var(--shiny-color-critical, #C20014);
 }

@@ -1,9 +1,9 @@
 .shiny-cal-list {
     display: flex;
     flex-direction: column;
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 12px);
-    background: var(--shiny-color-surface, white);
+    background: var(--shiny-color-surface, #F6FAFE);
     overflow: auto;
     height: 100%;
     min-height: 400px;
@@ -12,27 +12,31 @@
 .shiny-cal-list-empty {
     padding: var(--shiny-spacing-5, 24px);
     text-align: center;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-cal-list-day { display: flex; flex-direction: column; }
 
+/* The parameter defaults, mirrored so an app rule can beat them; the component inlines a value
+   only where the caller chose one. */
 .shiny-cal-list-header {
+    background: var(--shiny-color-surface-container, #E8EEF6);
+    color: var(--shiny-color-on-surface, #161C23);
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
-    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     position: sticky;
     top: 0;
     z-index: 1;
 }
 
-.shiny-cal-list-day.is-today .shiny-cal-list-header { color: var(--shiny-color-primary, #3B82F6); }
+.shiny-cal-list-day.is-today .shiny-cal-list-header { color: var(--shiny-color-primary, #0055D9); }
 
 .shiny-cal-list-date { font-size: calc(13px * var(--shiny-type-scale, 1)); font-weight: 600; }
-.shiny-cal-list-count { font-size: var(--shiny-type-body-small-size, 12px); color: var(--shiny-color-on-surface-variant, #6B7280); }
+.shiny-cal-list-count { font-size: var(--shiny-type-body-small-size, 12px); color: var(--shiny-color-on-surface-variant, #3B475B); }
 
 .shiny-cal-list-events { display: flex; flex-direction: column; }
 
@@ -40,11 +44,11 @@
     display: flex;
     gap: var(--shiny-spacing-3, 12px);
     padding: calc(10px * var(--shiny-density-scale, 1)) var(--shiny-spacing-3, 12px);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #F3F4F6);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     cursor: pointer;
 }
 
-.shiny-cal-list-event:hover { background: var(--shiny-color-surface-container, #F9FAFB); }
+.shiny-cal-list-event:hover { background: var(--shiny-color-surface-container, #E8EEF6); }
 
 .shiny-cal-list-event-bar {
     width: 4px;
@@ -53,6 +57,6 @@
 }
 
 .shiny-cal-list-event-body { flex: 1; min-width: 0; }
-.shiny-cal-list-event-title { font-size: var(--shiny-type-body-medium-size, 14px); font-weight: 600; color: var(--shiny-color-on-surface, #111827); }
-.shiny-cal-list-event-desc { font-size: var(--shiny-type-body-small-size, 12px); color: var(--shiny-color-on-surface-variant, #6B7280); margin-top: 2px; }
-.shiny-cal-list-event-time { font-size: var(--shiny-type-label-small-size, 11px); color: var(--shiny-color-on-surface-variant, #9CA3AF); margin-top: 4px; }
+.shiny-cal-list-event-title { font-size: var(--shiny-type-body-medium-size, 14px); font-weight: 600; color: var(--shiny-color-on-surface, #161C23); }
+.shiny-cal-list-event-desc { font-size: var(--shiny-type-body-small-size, 12px); color: var(--shiny-color-on-surface-variant, #3B475B); margin-top: 2px; }
+.shiny-cal-list-event-time { font-size: var(--shiny-type-label-small-size, 11px); color: var(--shiny-color-on-surface-variant, #3B475B); margin-top: 4px; }

@@ -392,7 +392,7 @@ public partial class PasswordStrength : ComponentBase, IDisposable
 
     string LevelAriaText => this.Level == PasswordStrengthLevel.None ? "Empty" : this.LevelText;
 
-    string TrackColorValue => this.TrackColor ?? "var(--shiny-color-surface-container-highest, #DBE3EE)";
+    string TrackColorValue => this.TrackColor ?? "var(--shiny-color-surface-container-highest, #D7DCE1)";
 
     string FillColor => this.Level switch
     {

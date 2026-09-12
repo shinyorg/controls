@@ -1,4 +1,5 @@
 @namespace Shiny.Blazor.Controls
+@using Shiny.Blazor.Controls.Theming
 
 <div class="shiny-frosted-glass @CssClass" style="@ComputedStyle">
     @ChildContent
@@ -9,7 +10,10 @@
     [Parameter] public double BlurRadius { get; set; } = 20;
     // The veil over the blur has to be the scheme's own surface - a white tint in dark mode reads
     // as fog rather than glass.
-    [Parameter] public string TintColor { get; set; } = "color-mix(in srgb, var(--shiny-color-surface, #FFFFFF) 60%, transparent)";
+    // Mirrored in FrostedGlass.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultTintColor = "color-mix(in srgb, var(--shiny-color-surface, #F6FAFE) 60%, transparent)";
+
+    [Parameter] public string TintColor { get; set; } = DefaultTintColor;
     [Parameter] public double CornerRadius { get; set; }
     [Parameter] public string? CssClass { get; set; }
     [Parameter] public string? Style { get; set; }
@@ -19,7 +23,7 @@
         {
             $"backdrop-filter: blur({BlurRadius}px)",
             $"-webkit-backdrop-filter: blur({BlurRadius}px)",
-            $"background-color: {TintColor}",
+            TintColor == DefaultTintColor ? null : $"background-color: {TintColor}",
             CornerRadius > 0 ? $"border-radius: {CornerRadius}px" : null,
             "overflow: hidden",
             Style

@@ -34,5 +34,5 @@
 }
 
 .shiny-pin-cell.is-current {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shiny-color-primary, #3B82F6) 30%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shiny-color-primary, #0055D9) 30%, transparent);
 }

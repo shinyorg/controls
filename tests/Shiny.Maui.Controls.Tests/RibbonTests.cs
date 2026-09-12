@@ -328,4 +328,59 @@ public class RibbonTests
         tab.Groups[0].VisibleItems.ShouldBe(new RibbonItem[] { shown });
         ribbon.VisibleTabs.Count.ShouldBe(1);
     }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Rows
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Rows are the signal, not a mode. A group holding them lays them out as rows; a group of loose
+    /// items keeps filling columns, which is what every existing bar relies on.
+    /// </summary>
+    [Fact]
+    public void ARowIsNotAnInteractiveItem()
+    {
+        var row = new RibbonRow();
+        row.Items.Add(Button("Bold"));
+        row.Items.Add(Button("Italic"));
+
+        row.Items.Count.ShouldBe(2);
+        row.IsVisible.ShouldBeTrue();
+    }
+
+
+    [Fact]
+    public void AHiddenItemLeavesItsRow()
+    {
+        var row = new RibbonRow();
+        var bold = Button("Bold");
+        var italic = Button("Italic");
+        row.Items.Add(bold);
+        row.Items.Add(italic);
+
+        italic.IsVisible = false;
+
+        row.VisibleItems.ShouldBe([bold]);
+    }
+
+
+    /// <summary>
+    /// The group redraws when a row's contents change, not only when its own do. Without this a row
+    /// built after the group was added to a tab would never reach the bar.
+    /// </summary>
+    [Fact]
+    public void AddingToARowRedrawsTheGroup()
+    {
+        var row = new RibbonRow();
+        var group = new RibbonGroup { Title = "Font" };
+        group.Items.Add(row);
+
+        var changed = 0;
+        group.Changed += (_, _) => changed++;
+
+        row.Items.Add(Button("Bold"));
+
+        changed.ShouldBeGreaterThan(0);
+    }
 }

@@ -1,9 +1,16 @@
+/* The component's parameter defaults, mirrored so an app rule can beat them; the inline style
+   appears only where the caller chose something else. */
 .shiny-tabbar {
     display: block;
+    background-color: var(--shiny-color-surface-container-low, #EFF4FB);
     width: 100%;
     box-sizing: border-box;
     font-family: var(--shiny-type-font-family, inherit);
     overflow: hidden;
+}
+
+.shiny-tabbar--frosted {
+    background-color: color-mix(in srgb, var(--shiny-color-surface-container-low, #EFF4FB) 70%, transparent);
 }
 
 .shiny-tabbar--shadow.shiny-tabbar--bottom {
@@ -22,6 +29,7 @@
 }
 
 .shiny-tabbar-item {
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     position: relative;
     flex: 1 1 0;
     display: inline-flex;
@@ -38,6 +46,11 @@
     line-height: 1;
     transition: color 120ms ease, transform 120ms ease;
     -webkit-tap-highlight-color: transparent;
+}
+
+/* Equal specificity with .shiny-tabbar-item, so this has to follow it. */
+.shiny-tabbar-item--active {
+    color: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-tabbar-item:active {
@@ -87,8 +100,8 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--shiny-shape-corner-small, 8px);
-    background: var(--shiny-color-error, #EF4444);
-    color: var(--shiny-color-on-error, #fff);
+    background: var(--shiny-color-error, #C20014);
+    color: var(--shiny-color-on-error, #FFFFFF);
     font-size: calc(10px * var(--shiny-type-scale, 1));
     font-weight: 600;
     line-height: 1;

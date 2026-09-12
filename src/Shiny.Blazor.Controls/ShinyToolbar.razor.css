@@ -1,10 +1,18 @@
+/* The component's parameter defaults, mirrored so an app rule can beat them; the inline style
+   appears only where the caller chose something else. */
 .shiny-toolbar {
     display: block;
+    background-color: var(--shiny-color-surface-container-low, #EFF4FB);
+    color: var(--shiny-color-on-surface, #161C23);
     width: 100%;
     box-sizing: border-box;
     font-family: var(--shiny-type-font-family, inherit);
     /* must stay visible so the overflow dropdown can escape the bar's bounds */
     overflow: visible;
+}
+
+.shiny-toolbar--frosted {
+    background-color: color-mix(in srgb, var(--shiny-color-surface-container-low, #EFF4FB) 70%, transparent);
 }
 
 .shiny-toolbar--shadow.shiny-toolbar--top {
@@ -101,6 +109,8 @@
 }
 
 .shiny-toolbar-menu {
+    background-color: var(--shiny-color-surface-container-high, #E2E6EA);
+    color: var(--shiny-color-on-surface, #161C23);
     position: absolute;
     left: 0;
     /* the UA's popover rules stretch the panel with inset:0 and centre it with margin:auto - undo both,
@@ -120,7 +130,7 @@
     gap: calc(2px * var(--shiny-density-scale, 1));
     border-radius: var(--shiny-shape-corner-medium, 12px);
     /* the hairline keeps a submenu readable where it overlaps the panel it came from */
-    border: 1px solid var(--shiny-color-outline-variant, rgba(0, 0, 0, 0.10));
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     box-shadow: var(--shiny-elevation-4, 0 8px 24px rgba(0, 0, 0, 0.18));
 }
 
@@ -173,7 +183,7 @@
 .shiny-toolbar-menu-separator {
     height: 1px;
     margin: calc(4px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px);
-    background: var(--shiny-color-outline-variant, rgba(0, 0, 0, 0.12));
+    background: var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-toolbar-menu-item {
@@ -242,8 +252,8 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--shiny-shape-corner-small, 9px);
-    background: var(--shiny-color-error, #EF4444);
-    color: var(--shiny-color-on-error, #fff);
+    background: var(--shiny-color-error, #C20014);
+    color: var(--shiny-color-on-error, #FFFFFF);
     font-size: calc(10px * var(--shiny-type-scale, 1));
     font-weight: 600;
     line-height: 1;
@@ -359,8 +369,8 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--shiny-shape-corner-small, 8px);
-    background: var(--shiny-color-error, #EF4444);
-    color: var(--shiny-color-on-error, #fff);
+    background: var(--shiny-color-error, #C20014);
+    color: var(--shiny-color-on-error, #FFFFFF);
     font-size: calc(10px * var(--shiny-type-scale, 1));
     font-weight: 600;
     line-height: 1;

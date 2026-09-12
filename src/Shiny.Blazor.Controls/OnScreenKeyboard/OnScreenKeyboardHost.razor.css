@@ -103,11 +103,11 @@
    palettes are for kiosks that pin one look regardless of what the rest of the app is doing. */
 
 .shiny-osk.theme-auto {
-    --shiny-osk-bg: var(--shiny-color-surface-container-high, #E2E9F2);
+    --shiny-osk-bg: var(--shiny-color-surface-container-high, #E2E6EA);
     --shiny-osk-border: var(--shiny-color-outline-variant, #BBC7DF);
     --shiny-osk-key-bg: var(--shiny-color-surface-container-lowest, #FFFFFF);
     --shiny-osk-key-fg: var(--shiny-color-on-surface, #161C23);
-    --shiny-osk-modifier-bg: var(--shiny-color-surface-container-highest, #DBE3EE);
+    --shiny-osk-modifier-bg: var(--shiny-color-surface-container-highest, #D7DCE1);
     --shiny-osk-key-pressed-bg: var(--shiny-color-primary, #0055D9);
     --shiny-osk-key-pressed-fg: var(--shiny-color-on-primary, #FFFFFF);
 }

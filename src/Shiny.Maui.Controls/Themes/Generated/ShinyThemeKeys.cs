@@ -67,6 +67,65 @@ public static class ShinyThemeKeys
         public const string OnCriticalContainer = "Shiny.Color.OnCriticalContainer";
     }
 
+    public static class Brush
+    {
+        public const string Primary = "Shiny.Brush.Primary";
+        public const string OnPrimary = "Shiny.Brush.OnPrimary";
+        public const string PrimaryContainer = "Shiny.Brush.PrimaryContainer";
+        public const string OnPrimaryContainer = "Shiny.Brush.OnPrimaryContainer";
+        public const string Secondary = "Shiny.Brush.Secondary";
+        public const string OnSecondary = "Shiny.Brush.OnSecondary";
+        public const string SecondaryContainer = "Shiny.Brush.SecondaryContainer";
+        public const string OnSecondaryContainer = "Shiny.Brush.OnSecondaryContainer";
+        public const string Tertiary = "Shiny.Brush.Tertiary";
+        public const string OnTertiary = "Shiny.Brush.OnTertiary";
+        public const string TertiaryContainer = "Shiny.Brush.TertiaryContainer";
+        public const string OnTertiaryContainer = "Shiny.Brush.OnTertiaryContainer";
+        public const string Error = "Shiny.Brush.Error";
+        public const string OnError = "Shiny.Brush.OnError";
+        public const string ErrorContainer = "Shiny.Brush.ErrorContainer";
+        public const string OnErrorContainer = "Shiny.Brush.OnErrorContainer";
+        public const string Background = "Shiny.Brush.Background";
+        public const string OnBackground = "Shiny.Brush.OnBackground";
+        public const string Surface = "Shiny.Brush.Surface";
+        public const string OnSurface = "Shiny.Brush.OnSurface";
+        public const string SurfaceVariant = "Shiny.Brush.SurfaceVariant";
+        public const string OnSurfaceVariant = "Shiny.Brush.OnSurfaceVariant";
+        public const string SurfaceContainerLowest = "Shiny.Brush.SurfaceContainerLowest";
+        public const string SurfaceContainerLow = "Shiny.Brush.SurfaceContainerLow";
+        public const string SurfaceContainer = "Shiny.Brush.SurfaceContainer";
+        public const string SurfaceContainerHigh = "Shiny.Brush.SurfaceContainerHigh";
+        public const string SurfaceContainerHighest = "Shiny.Brush.SurfaceContainerHighest";
+        public const string SurfaceTint = "Shiny.Brush.SurfaceTint";
+        public const string Outline = "Shiny.Brush.Outline";
+        public const string OutlineVariant = "Shiny.Brush.OutlineVariant";
+        public const string Shadow = "Shiny.Brush.Shadow";
+        public const string Scrim = "Shiny.Brush.Scrim";
+        public const string InverseSurface = "Shiny.Brush.InverseSurface";
+        public const string InverseOnSurface = "Shiny.Brush.InverseOnSurface";
+        public const string InversePrimary = "Shiny.Brush.InversePrimary";
+        public const string Success = "Shiny.Brush.Success";
+        public const string OnSuccess = "Shiny.Brush.OnSuccess";
+        public const string SuccessContainer = "Shiny.Brush.SuccessContainer";
+        public const string OnSuccessContainer = "Shiny.Brush.OnSuccessContainer";
+        public const string Info = "Shiny.Brush.Info";
+        public const string OnInfo = "Shiny.Brush.OnInfo";
+        public const string InfoContainer = "Shiny.Brush.InfoContainer";
+        public const string OnInfoContainer = "Shiny.Brush.OnInfoContainer";
+        public const string Warning = "Shiny.Brush.Warning";
+        public const string OnWarning = "Shiny.Brush.OnWarning";
+        public const string WarningContainer = "Shiny.Brush.WarningContainer";
+        public const string OnWarningContainer = "Shiny.Brush.OnWarningContainer";
+        public const string Caution = "Shiny.Brush.Caution";
+        public const string OnCaution = "Shiny.Brush.OnCaution";
+        public const string CautionContainer = "Shiny.Brush.CautionContainer";
+        public const string OnCautionContainer = "Shiny.Brush.OnCautionContainer";
+        public const string Critical = "Shiny.Brush.Critical";
+        public const string OnCritical = "Shiny.Brush.OnCritical";
+        public const string CriticalContainer = "Shiny.Brush.CriticalContainer";
+        public const string OnCriticalContainer = "Shiny.Brush.OnCriticalContainer";
+    }
+
     public static class Shape
     {
         public const string CornerNone = "Shiny.Shape.CornerNone";

@@ -69,7 +69,7 @@ public abstract class AppLayoutBorderedRegionBase : AppLayoutRegionBase
             : LayoutAttributes.Px(this.BorderWidth.Value);
 
         var color = this.BorderColor
-            ?? "var(--shiny-layout-border-color,var(--shiny-color-outline-variant,#d5d9e0))";
+            ?? "var(--shiny-layout-border-color,var(--shiny-color-outline-variant, #BBC7DF))";
 
         return $"border-{edge}:{width} solid {color};";
     }

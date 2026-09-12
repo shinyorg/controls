@@ -26,7 +26,7 @@
 .shiny-vgrid-group-header.shiny-vgrid-sticky {
     position: sticky;
     top: 0;
-    background: var(--vgrid-sticky-bg, var(--shiny-color-surface, white));
+    background: var(--vgrid-sticky-bg, var(--shiny-color-surface, #F6FAFE));
 }
 
 /* padding (not margin) so Virtualize height measurement includes the row spacing */
@@ -47,7 +47,7 @@
 
 .shiny-vgrid-loadmore-btn {
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-5, 24px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ccc);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-small, 6px);
     background: transparent;
     cursor: pointer;
@@ -55,7 +55,7 @@
 }
 
 .shiny-vgrid-loadmore-btn:hover {
-    background: var(--shiny-color-surface-container-high, rgba(0, 0, 0, 0.05));
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
 }
 
 .shiny-vgrid-loading {

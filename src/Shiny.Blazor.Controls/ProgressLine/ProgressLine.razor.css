@@ -38,7 +38,7 @@
     position: relative;
     overflow: hidden;
     width: var(--pl-progress, 0%);
-    background: var(--pl-bar, var(--shiny-color-primary, #3B82F6));
+    background: var(--pl-bar, var(--shiny-color-primary, #0055D9));
     border-radius: var(--pl-radius, 0);
     /* Symmetric, so a value that drops drains back rather than snapping. */
     transition: width var(--pl-duration, 250ms) var(--pl-easing, cubic-bezier(0.33, 1, 0.68, 1));

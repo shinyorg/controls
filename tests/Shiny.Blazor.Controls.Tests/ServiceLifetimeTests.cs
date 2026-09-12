@@ -7,6 +7,8 @@ using Shiny.Blazor.Controls.Toast;
 using Shouldly;
 using Xunit;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls.Tests;
 
 /// <summary>
@@ -23,7 +25,8 @@ public class ServiceLifetimeTests
         typeof(IDialogService), typeof(DialogService), typeof(DialogOptions),
         typeof(IOnScreenKeyboardService), typeof(OnScreenKeyboardService), typeof(OnScreenKeyboardOptions),
         typeof(ISplashScreen),
-        typeof(IWalkthroughStore)
+        typeof(IWalkthroughStore),
+        typeof(IShinyThemeService), typeof(ShinyThemeService)
     ];
 
     [Theory]

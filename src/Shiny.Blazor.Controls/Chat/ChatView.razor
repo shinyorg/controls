@@ -1,4 +1,5 @@
 @namespace Shiny.Blazor.Controls.Chat
+@using Shiny.Blazor.Controls.Theming
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
@@ -38,7 +39,13 @@
                 var mine = IsMine(msg);
                 var user = GetUser(msg.SenderId);
                 var showAvatar = !mine && isFirst && IsMultiPerson;
-                var bubbleColor = mine ? MyBubbleColor : (user?.BubbleColor ?? OtherBubbleColor);
+                // Emitted only where it is not what the stylesheet already paints, so an app rule on
+                // .shiny-chat-bubble can win. A per-user BubbleColor is always an explicit choice.
+                var bubbleStyle = mine
+                    ? StyleDefaults.Override("background", MyBubbleColor, DefaultMyBubbleColor)
+                    : (user?.BubbleColor is { Length: > 0 } ownBubble
+                        ? $"background:{ownBubble};"
+                        : StyleDefaults.Override("background", OtherBubbleColor, DefaultOtherBubbleColor));
 
                 // A per-user BubbleColor is a literal the app picked and does not follow the theme,
                 // so the themed ink is right only by coincidence - and in dark mode it is reliably
@@ -46,16 +53,20 @@
                 // from that colour instead. The themed defaults are var() references, which
                 // ContrastInk cannot measure and does not try to: they fall back to the pair the
                 // theme already matched.
-                var textColor = mine
-                    ? MyTextColor
-                    : (user?.BubbleColor is { } chosen ? ContrastInk.For(chosen, OtherTextColor) : OtherTextColor);
+                var inkStyle = mine
+                    ? StyleDefaults.Override("color", MyTextColor, DefaultMyTextColor)
+                    : (user?.BubbleColor is { } chosen
+                        ? $"color:{ContrastInk.For(chosen, OtherTextColor)};"
+                        : StyleDefaults.Override("color", OtherTextColor, DefaultOtherTextColor));
                 var tapMsg = msg;
 
                 <div class="shiny-chat-bubble-wrap @(mine ? "is-me" : "is-other") @(isFirst ? "group-first" : "") @(isLast ? "group-last" : "")">
                     @if (showAvatar)
                     {
                         <div class="shiny-chat-sender-row">
-                            <div class="shiny-chat-avatar" style="background:@(user?.BubbleColor ?? OtherBubbleColor);">
+                            <div class="shiny-chat-avatar" style="@(user?.BubbleColor is { Length: > 0 } av
+                                ? $"background:{av};"
+                                : StyleDefaults.Override("background", OtherBubbleColor, DefaultOtherBubbleColor))">
                                 @if (user?.AvatarUrl is not null)
                                 {
                                     <img src="@user.AvatarUrl" alt="@user.DisplayName" />
@@ -82,7 +93,7 @@
                     else
                     {
                         <div class="shiny-chat-bubble @(msg.Status == MessageStatus.Sending ? "is-sending" : "")"
-                             style="background:@bubbleColor;color:@textColor;">
+                             style="@(bubbleStyle + inkStyle)">
                             @if (msg.ImageUrl is not null)
                             {
                                 <img class="shiny-chat-image" src="@msg.ImageUrl" alt="Image"

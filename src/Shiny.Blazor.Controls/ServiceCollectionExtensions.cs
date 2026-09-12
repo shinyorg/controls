@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Shiny.Blazor.Controls.Theming;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shiny.Blazor.Controls.Captchas;
 using Shiny.Blazor.Controls.Dialogs;
@@ -47,6 +48,7 @@ public static class ShinyControlsServiceCollectionExtensions
         var cfg = new ShinyControlConfiguration(services);
         configure?.Invoke(cfg);
 
+        services.AddShinyTheme();
         services.AddShinyToast();
         services.AddShinyProgressLine();
         services.AddShinyDialogs(cfg.DialogConfigure);

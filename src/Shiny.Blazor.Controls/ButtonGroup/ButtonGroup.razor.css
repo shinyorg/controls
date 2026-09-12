@@ -94,8 +94,8 @@
     min-height: var(--shiny-density-control-height, 44px);
     padding: calc(10px * var(--shiny-density-scale, 1)) var(--shiny-spacing-3, 12px);
     border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #6C788D);
-    background: var(--shiny-color-surface-container-low, #F4F3F7);
-    color: var(--shiny-color-on-surface-variant, #46464F);
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-family: var(--shiny-type-font-family, inherit);
     font-size: calc(15px * var(--shiny-type-scale, 1));
     font-weight: var(--shiny-type-label-large-weight, 500);
@@ -108,7 +108,7 @@
     flex: 0 0 auto;
     align-self: stretch;
     width: var(--shiny-border-thin, 1px);
-    background: var(--shiny-color-outline-variant, #C7C5D0);
+    background: var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-btn-group--vertical ::deep .shiny-btn-group__sep {

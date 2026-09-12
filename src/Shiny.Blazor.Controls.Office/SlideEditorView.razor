@@ -34,10 +34,10 @@
         <Ribbon ShowTabStrip="ShowRibbonTabs"
                 AllowCollapse="ShowRibbonTabs"
                 SmallItemRows="2"
-                HeaderBackgroundColor="@(AccentBackground ?? ToolbarBackground)"
+                HeaderBackgroundColor="@(AccentBackground ?? ChosenToolbarBackground)"
                 HeaderForegroundColor="@AccentInk"
                 AccentColor="@AccentInk"
-                BodyBackgroundColor="@ToolbarBackground">
+                BodyBackgroundColor="@ChosenToolbarBackground">
             <QuickAccess>
                 <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo (Ctrl+Z)" Icon="@Ico(OfficeIcon.Undo)"
                               Disabled="@(Disabled || !(Controller?.CanUndo ?? false))"
@@ -92,7 +92,13 @@
                                       Clicked="() => StartPresentingAsync()" />
                     </RibbonGroup>
 
+                    @* Rows: the two boxes on top, the run of marks underneath. Filling columns put
+                       bold above italic and underline above strikethrough - a 2x2 block of a run
+                       people read across - and forced the font picker to share a column with a
+                       toggle, where the column took the picker's width and stretched the 16px B
+                       across all of it. *@
                     <RibbonGroup Title="Font" Priority="100">
+                        <RibbonRow>
                         <RibbonContent Size="RibbonItemSize.Small">
                             <FontPickerButton AvailableFonts="FontFamilies"
                                               SelectedFont="@Format.FontFamily"
@@ -106,6 +112,9 @@
                                                   SelectedFontSizeChanged="OnSizeChanged" />
                         </RibbonContent>
 
+                        </RibbonRow>
+
+                        <RibbonRow>
                         <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
                                             Checked="Format.Bold" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleBold())" />
                         <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
@@ -115,11 +124,17 @@
                         <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
                                             Checked="Format.Strike" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
 
+                        <RibbonSeparator />
+
+                        @* Sized to the row: a solid swatch is the heaviest mark on the bar, and at the
+                           picker's own 30px beside 16px glyphs it read as the one thing on the ribbon
+                           that had gone wrong. *@
                         <RibbonContent Size="RibbonItemSize.Small">
                             <ColorPickerButton Text="Text colour"
                                                SelectedColor="@ColorHex"
                                                ShowOpacity="false"
                                                Disabled="@(!HasText)"
+                                               Style="--shiny-picker-height: 24px"
                                                SelectedColorChanged="OnColorChanged" />
                         </RibbonContent>
                         <RibbonContent Size="RibbonItemSize.Small">
@@ -128,40 +143,54 @@
                                                    ShowTooltips="ShowToolbarTooltips"
                                                    Picked="OnHighlightPicked" />
                         </RibbonContent>
+                        </RibbonRow>
+                    </RibbonGroup>
+                    @*
+                        Lists and the indent pair on top, the alignments underneath - the same two rows
+                        the document editor draws, so the two bars are learned once.
+
+                        The watermark used to be in here, between the alignments and the lists. It is
+                        not a paragraph command at all: it is a picture drawn behind the whole slide,
+                        and it now sits in Design with the other things that are about the slide rather
+                        than about the text on it.
+                    *@
+                    <RibbonGroup Title="Paragraph" Priority="90">
+                        <RibbonRow>
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bulleted list" Icon="@Ico(OfficeIcon.BulletList)"
+                                                Checked="@(Format.List == ListStyle.Bullet)" Disabled="@(!HasText)"
+                                                Clicked="_ => Run(c => c.ToggleBulletList())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbered list" Icon="@Ico(OfficeIcon.NumberedList)"
+                                                Checked="@(Format.List == ListStyle.Numbered)" Disabled="@(!HasText)"
+                                                Clicked="_ => Run(c => c.ToggleNumberedList())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Outdent (Shift+Tab)" Icon="@Ico(OfficeIcon.Outdent)"
+                                          Disabled="@(!HasText || Format.Level == 0)" Clicked="() => Run(c => c.ShiftLevel(-1))" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Indent (Tab)" Icon="@Ico(OfficeIcon.Indent)"
+                                          Disabled="@(!HasText)" Clicked="() => Run(c => c.ShiftLevel(1))" />
+                        </RibbonRow>
+
+                        <RibbonRow>
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
+                                                Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="@(!HasText)"
+                                                Clicked="_ => Align(TextAlignment.Left)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
+                                                Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="@(!HasText)"
+                                                Clicked="_ => Align(TextAlignment.Center)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
+                                                Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="@(!HasText)"
+                                                Clicked="_ => Align(TextAlignment.Right)" />
+                        </RibbonRow>
                     </RibbonGroup>
 
-                    <RibbonGroup Title="Paragraph" Priority="90">
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
-                                            Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="@(!HasText)"
-                                            Clicked="_ => Align(TextAlignment.Left)" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
-                                            Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="@(!HasText)"
-                                            Clicked="_ => Align(TextAlignment.Center)" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
-                                            Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="@(!HasText)"
-                                            Clicked="_ => Align(TextAlignment.Right)" />
-
-                        <RibbonContent Size="RibbonItemSize.Small">
+                    @* Where the watermark belongs: what is drawn behind the slide, not what the text
+                       on it does. *@
+                    <RibbonGroup Title="Design" Priority="80">
+                        <RibbonContent>
                             <OfficeWatermarkButton Disabled="Disabled"
                                                    ShowTooltips="ShowToolbarTooltips"
                                                    HasWatermark="@(Watermark is not null)"
                                                    Picked="OnWatermarkPicked"
                                                    Rejected="DropRejected" />
                         </RibbonContent>
-
-                        <RibbonSeparator />
-
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bulleted list" Icon="@Ico(OfficeIcon.BulletList)"
-                                            Checked="@(Format.List == ListStyle.Bullet)" Disabled="@(!HasText)"
-                                            Clicked="_ => Run(c => c.ToggleBulletList())" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbered list" Icon="@Ico(OfficeIcon.NumberedList)"
-                                            Checked="@(Format.List == ListStyle.Numbered)" Disabled="@(!HasText)"
-                                            Clicked="_ => Run(c => c.ToggleNumberedList())" />
-
-                        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Outdent (Shift+Tab)" Icon="@Ico(OfficeIcon.Outdent)"
-                                      Disabled="@(!HasText || Format.Level == 0)" Clicked="() => Run(c => c.ShiftLevel(-1))" />
-                        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Indent (Tab)" Icon="@Ico(OfficeIcon.Indent)"
-                                      Disabled="@(!HasText)" Clicked="() => Run(c => c.ShiftLevel(1))" />
                     </RibbonGroup>
 
                     @*
@@ -172,7 +201,9 @@
                         narrow window. Not gated on HasText or ReadOnly: finding changes nothing.
                     *@
                     <RibbonGroup Title="Find" Priority="60">
-                        <RibbonContent Size="RibbonItemSize.Small">
+                        @* Large: the bar is one control as tall as the group, and on a row of its own
+                           it left the row underneath empty for the width of a search box. *@
+                        <RibbonContent>
                             <OfficeFindBar Find="@Controller?.Find"
                                            ShowTooltips="ShowToolbarTooltips"
                                            Moved="StateHasChanged" />
@@ -378,9 +409,16 @@
     // Theme tokens rather than literals: the bar sits in the app's chrome, not on the page the
     // editor is drawing, so it has to follow light/dark with everything else. A literal white
     // default left a stark white bar wrapped around a dark editor in dark mode.
-    [Parameter] public string ToolbarBackground { get; set; } = "var(--shiny-color-surface-container-low, #FFFFFF)";
-    [Parameter] public string ToolbarForeground { get; set; } = "var(--shiny-color-on-surface, #1F2937)";
-    [Parameter] public string ToolbarBorder { get; set; } = "var(--shiny-color-outline-variant, #E5E7EB)";
+    // The Ribbon's own stylesheet carries this; forwarding it unconditionally would beat any rule an
+    // app writes against the ribbon, so only a caller-chosen value is passed on.
+    internal const string DefaultToolbarBackground = "var(--shiny-color-surface-container-low, #EFF4FB)";
+
+    [Parameter] public string ToolbarBackground { get; set; } = DefaultToolbarBackground;
+
+    string? ChosenToolbarBackground
+        => this.ToolbarBackground == DefaultToolbarBackground ? null : this.ToolbarBackground;
+    [Parameter] public string ToolbarForeground { get; set; } = "var(--shiny-color-on-surface, #161C23)";
+    [Parameter] public string ToolbarBorder { get; set; } = "var(--shiny-color-outline-variant, #BBC7DF)";
 
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Style { get; set; }

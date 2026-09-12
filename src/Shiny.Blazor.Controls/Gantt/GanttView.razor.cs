@@ -488,13 +488,13 @@ public partial class GanttView : ComponentBase, IAsyncDisposable
             return task.Color!;
 
         if (critical)
-            return this.CriticalColor ?? "var(--shiny-color-error, #B3261E)";
+            return this.CriticalColor ?? "var(--shiny-color-error, #C20014)";
 
         return task.Kind switch
         {
-            GanttTaskKind.Milestone => this.MilestoneColor ?? "var(--shiny-color-tertiary, #7D5260)",
-            GanttTaskKind.Summary or GanttTaskKind.Project => this.SummaryColor ?? "var(--shiny-color-on-surface-variant, #49454F)",
-            _ => this.BarColor ?? "var(--shiny-color-primary, #6750A4)"
+            GanttTaskKind.Milestone => this.MilestoneColor ?? "var(--shiny-color-tertiary, #6A4CAD)",
+            GanttTaskKind.Summary or GanttTaskKind.Project => this.SummaryColor ?? "var(--shiny-color-on-surface-variant, #3B475B)",
+            _ => this.BarColor ?? "var(--shiny-color-primary, #0055D9)"
         };
     }
 

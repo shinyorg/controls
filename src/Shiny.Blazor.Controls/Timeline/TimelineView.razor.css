@@ -87,7 +87,7 @@
     left: 50%;
     transform: translateX(-50%);
     width: var(--shiny-timeline-line, 2px);
-    background: var(--shiny-timeline-pending, #E2E2E9);
+    background: var(--shiny-timeline-pending, var(--shiny-color-surface-container-highest, #D7DCE1));
 }
 
 .shiny-timeline__rail::before {
@@ -110,12 +110,12 @@
 /* Reached: the segment leading into this node is filled. */
 .shiny-timeline__node.is-complete .shiny-timeline__rail::before,
 .shiny-timeline__node.is-current .shiny-timeline__rail::before {
-    background: var(--shiny-timeline-active, #0055D9);
+    background: var(--shiny-timeline-active, var(--shiny-color-primary, #0055D9));
 }
 
 /* Passed: the segment leading out of it is filled only once the next node has been reached. */
 .shiny-timeline__node.is-linked .shiny-timeline__rail::after {
-    background: var(--shiny-timeline-active, #0055D9);
+    background: var(--shiny-timeline-active, var(--shiny-color-primary, #0055D9));
 }
 
 .shiny-timeline__marker {
@@ -125,7 +125,7 @@
     width: var(--shiny-timeline-marker, 14px);
     height: var(--shiny-timeline-marker, 14px);
     border-radius: 50%;
-    background: var(--shiny-timeline-pending, #E2E2E9);
+    background: var(--shiny-timeline-pending, var(--shiny-color-surface-container-highest, #D7DCE1));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -135,7 +135,7 @@
 
 .shiny-timeline__node.is-complete .shiny-timeline__marker,
 .shiny-timeline__node.is-current .shiny-timeline__marker {
-    background: var(--shiny-timeline-active, #0055D9);
+    background: var(--shiny-timeline-active, var(--shiny-color-primary, #0055D9));
 }
 
 /*
@@ -143,7 +143,7 @@
     real element so it costs no layout and cannot push the marker off the rail's centre line.
 */
 .shiny-timeline__node.is-current .shiny-timeline__marker {
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--shiny-timeline-active, #0055D9) 30%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--shiny-timeline-active, var(--shiny-color-primary, #0055D9)) 30%, transparent);
 }
 
 /*

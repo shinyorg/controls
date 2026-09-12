@@ -9,7 +9,7 @@
 .shiny-sigpad-title {
     text-align: center;
     font-size: var(--shiny-type-body-medium-size, 14px);
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     padding: var(--shiny-spacing-1, 4px) 0 0;
 }
 
@@ -19,7 +19,7 @@
     min-height: 120px;
     border-radius: var(--shiny-shape-corner-small, 8px);
     overflow: hidden;
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-sigpad-canvas {
@@ -68,13 +68,23 @@
     border-radius: var(--shiny-shape-corner-small, 8px);
     font-size: var(--shiny-type-body-large-size, 16px);
     font-weight: 600;
-    color: var(--shiny-color-on-primary, white);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     cursor: pointer;
 }
 
 .shiny-sigpad-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+/* The button paints live here so an app rule can beat them; SignaturePad.razor inlines a colour only
+   where the caller chose one. */
+.shiny-sigpad-btn-cancel {
+    background: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+.shiny-sigpad-btn-sign {
+    background: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-sigpad-btn-cancel:hover {

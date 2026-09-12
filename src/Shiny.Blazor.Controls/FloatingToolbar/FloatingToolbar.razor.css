@@ -12,10 +12,10 @@
     position: fixed;
     margin: 0;
     padding: 4px;
-    border: 1px solid var(--shiny-color-outline-variant, #E5E7EB);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-fbar-radius, 10px);
-    background: var(--shiny-fbar-bg, var(--shiny-color-surface-container-high, #FFFFFF));
-    color: var(--shiny-fbar-fg, var(--shiny-color-on-surface, #1F2937));
+    background: var(--shiny-fbar-bg, var(--shiny-color-surface-container-high, #E2E6EA));
+    color: var(--shiny-fbar-fg, var(--shiny-color-on-surface, #161C23));
     box-shadow: var(--shiny-elevation-3, 0 8px 24px rgba(0, 0, 0, 0.18));
     /* The popover default is a centred dialog box; these are positioned by script. */
     inset: auto;
@@ -141,7 +141,7 @@
 
 .shiny-fbar ::deep .shiny-fbar-cell:hover:not(:disabled),
 .shiny-fbar-menu ::deep .shiny-fbar-menu-row:hover:not(:disabled) {
-    background: var(--shiny-color-surface-container-highest, #E5E7EB);
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
 }
 
 .shiny-fbar ::deep .shiny-fbar-cell:focus-visible,
@@ -207,7 +207,7 @@
     width: 1px;
     align-self: stretch;
     margin: 4px;
-    background: var(--shiny-color-outline-variant, #E5E7EB);
+    background: var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-fbar.is-vertical ::deep .shiny-fbar-sep {
@@ -219,7 +219,7 @@
 .shiny-fbar-menu ::deep .shiny-fbar-menu-sep {
     height: 1px;
     margin: 4px 6px;
-    background: var(--shiny-color-outline-variant, #E5E7EB);
+    background: var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-fbar ::deep .shiny-fbar-badge {

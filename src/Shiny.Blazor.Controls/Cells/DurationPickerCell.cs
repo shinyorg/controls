@@ -16,7 +16,7 @@ public class DurationPickerCell : CellBase
 
     /// <summary>The "hrs"/"min" suffixes. Tokenised so the theme's palette and type scale reach them.</summary>
     const string UnitLabelStyle =
-        "color:var(--shiny-color-on-surface-variant, #6B7280);font-size:var(--shiny-type-body-medium-size, 14px);";
+        "color:var(--shiny-color-on-surface-variant, #3B475B);font-size:var(--shiny-type-body-medium-size, 14px);";
 
     protected override Task OnTapped() => Task.CompletedTask;
 

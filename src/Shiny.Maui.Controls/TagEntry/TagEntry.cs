@@ -42,8 +42,6 @@ public partial class TagEntry : ContentView
     readonly Border border;
     readonly TagWrapLayout wrap;
     readonly BorderlessEntry entry;
-    readonly SolidColorBrush strokeBrush;
-    readonly BoxView strokeProbe;
     readonly List<TagChipView> chips = new();
 
     INotifyCollectionChanged? tagsNotifier;
@@ -69,13 +67,10 @@ public partial class TagEntry : ContentView
         this.entry.Focused += this.OnEntryFocused;
         this.entry.Unfocused += this.OnEntryUnfocused;
 
-        (this.strokeBrush, this.strokeProbe) = ThemeProbe.Create();
-
         this.wrap = new TagWrapLayout
         {
             Padding = new Thickness(8, 6)
         };
-        this.wrap.Add(this.strokeProbe);
         this.wrap.Add(this.entry);
 
         this.border = new Border
@@ -86,7 +81,6 @@ public partial class TagEntry : ContentView
         }.WithStrokeThickness(ShinyThemeKeys.Border.Thin);
 
         this.border.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.Surface);
-        this.border.Stroke = this.strokeBrush;
 
         this.Content = this.border;
         this.MinimumHeightRequest = DefaultMinimumHeight;
@@ -546,7 +540,7 @@ public partial class TagEntry : ContentView
     {
         if (this.BorderColor is Color explicitColor)
         {
-            ThemeProbe.Tint(this.strokeProbe, BoxView.ColorProperty, explicitColor, ShinyThemeKeys.Color.Outline);
+            ThemeBrush.Apply(this.border, Border.StrokeProperty, explicitColor, ShinyThemeKeys.Brush.Outline);
         }
         else
         {
@@ -554,7 +548,7 @@ public partial class TagEntry : ContentView
             // Shadow has to be built rather than tokenised, and swapping one while the user is
             // interacting unfocuses the content inside it on Android.
             var token = this.entry.IsFocused ? ShinyThemeKeys.Color.Primary : ShinyThemeKeys.Color.Outline;
-            ThemeProbe.Tint(this.strokeProbe, BoxView.ColorProperty, null, token);
+            ThemeBrush.Apply(this.border, Border.StrokeProperty, null, token.AsBrush());
         }
 
         this.border.SetTokenOrValue(Border.StrokeThicknessProperty, this.BorderThickness, ShinyThemeKeys.Border.Thin);

@@ -387,39 +387,58 @@ public class NotebookEditorView : ContentView, IDisposable
 
         var home = new RibbonTab { Title = "Home", Key = "home" };
 
+        // Rows: the two boxes on top, the run of marks underneath - the same shape the document and
+        // slide editors draw, so the three bars are learned once. Filling columns put bold above italic
+        // and underline above strikethrough, and forced the font picker to share a column with a
+        // toggle, where the column took the picker's width and stretched the 16px B across all of it.
         var font = new RibbonGroup { Title = "Font", Priority = 100 };
 
+        var fontBoxes = new RibbonRow();
+
         if (this.fontPicker is not null)
-            font.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
+            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
 
         if (this.sizePicker is not null)
-            font.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
+            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
 
-        font.Items.Add(this.bold);
-        font.Items.Add(this.italic);
-        font.Items.Add(this.underline);
-        font.Items.Add(this.strike);
-        font.Items.Add(OfficeRibbonItems.Host(this.textColor));
-        font.Items.Add(this.highlight);
+        font.Items.Add(fontBoxes);
+        font.Items.Add(OfficeRibbonItems.Row(
+            this.bold,
+            this.italic,
+            this.underline,
+            this.strike,
+            new RibbonSeparator(),
+            OfficeRibbonItems.Host(this.textColor),
+            this.highlight
+        ));
         home.Groups.Add(font);
 
         var paragraph = new RibbonGroup { Title = "Paragraph", Priority = 90 };
-        paragraph.Items.Add(this.alignLeft);
-        paragraph.Items.Add(this.alignCenter);
-        paragraph.Items.Add(this.alignRight);
-        paragraph.Items.Add(new RibbonSeparator());
-        paragraph.Items.Add(this.bulletList);
-        paragraph.Items.Add(this.numberedList);
-        paragraph.Items.Add(this.outdent);
-        paragraph.Items.Add(this.indent);
+        paragraph.Items.Add(OfficeRibbonItems.Row(
+            this.bulletList,
+            this.numberedList,
+            this.outdent,
+            this.indent
+        ));
+        paragraph.Items.Add(OfficeRibbonItems.Row(
+            this.alignLeft,
+            this.alignCenter,
+            this.alignRight
+        ));
         home.Groups.Add(paragraph);
 
+        // Ordering and duplicating on one row; deleting on its own underneath, which says "this one is
+        // different" better than the rule that used to sit beside it in a column flow that put delete
+        // under bring-to-front anyway.
         var arrange = new RibbonGroup { Title = "Arrange", Priority = 70 };
-        arrange.Items.Add(this.bringToFront);
-        arrange.Items.Add(this.sendToBack);
-        arrange.Items.Add(this.duplicate);
-        arrange.Items.Add(new RibbonSeparator());
-        arrange.Items.Add(this.deleteItem);
+        arrange.Items.Add(OfficeRibbonItems.Row(
+            this.bringToFront,
+            this.sendToBack,
+            this.duplicate
+        ));
+
+        this.deleteItem.Text = "Delete";
+        arrange.Items.Add(OfficeRibbonItems.Row(this.deleteItem));
         home.Groups.Add(arrange);
 
         this.ribbon.Tabs.Add(home);
@@ -430,32 +449,42 @@ public class NotebookEditorView : ContentView, IDisposable
         // misled by the layout.
         var draw = new RibbonTab { Title = "Draw", Key = "draw" };
 
+        // The three ways to point at something on one row, the three ways to mark the page on the
+        // other - which is the distinction the rule between them was making, said better by the lines.
         var tools = new RibbonGroup { Title = "Tools", Priority = 100 };
-        tools.Items.Add(this.selectTool);
-        tools.Items.Add(this.lassoTool);
-        tools.Items.Add(this.panTool);
-        tools.Items.Add(new RibbonSeparator());
-        tools.Items.Add(this.penTool);
-        tools.Items.Add(this.highlighterTool);
-        tools.Items.Add(this.eraserTool);
+        tools.Items.Add(OfficeRibbonItems.Row(
+            this.selectTool,
+            this.lassoTool,
+            this.panTool
+        ));
+        tools.Items.Add(OfficeRibbonItems.Row(
+            this.penTool,
+            this.highlighterTool,
+            this.eraserTool
+        ));
         draw.Groups.Add(tools);
 
+        // A row each: the two pickers are different widths, and in one column the narrower was
+        // stretched to the wider one.
         var pen = new RibbonGroup { Title = "Pen", Priority = 90 };
-        pen.Items.Add(OfficeRibbonItems.Host(this.penColor));
-        pen.Items.Add(OfficeRibbonItems.Host(this.CreateWidthPicker()));
+        pen.Items.Add(OfficeRibbonItems.Row(OfficeRibbonItems.Host(this.penColor)));
+        pen.Items.Add(OfficeRibbonItems.Row(OfficeRibbonItems.Host(this.CreateWidthPicker())));
         draw.Groups.Add(pen);
 
         this.ribbon.Tabs.Add(draw);
 
         var insertTab = new RibbonTab { Title = "Insert", Key = "insert" };
+        // Labelled: these are things you insert by name, not marks you recognise.
         var insert = new RibbonGroup { Title = "Insert", Priority = 100 };
-        insert.Items.Add(this.addTextBox);
-        insert.Items.Add(this.insertPicture);
+        this.addTextBox.Text = "Text box";
+        this.insertPicture.Text = "Picture";
+        insert.Items.Add(OfficeRibbonItems.Row(this.addTextBox, this.insertPicture));
         insertTab.Groups.Add(insert);
 
         var pages = new RibbonGroup { Title = "Pages", Priority = 90 };
-        pages.Items.Add(this.newPage);
-        pages.Items.Add(this.newSection);
+        this.newPage.Text = "Page";
+        this.newSection.Text = "Section";
+        pages.Items.Add(OfficeRibbonItems.Row(this.newPage, this.newSection));
         insertTab.Groups.Add(pages);
 
         this.ribbon.Tabs.Add(insertTab);

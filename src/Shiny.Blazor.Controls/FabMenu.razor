@@ -1,4 +1,5 @@
 @namespace Shiny.Blazor.Controls
+@using Shiny.Blazor.Controls.Theming
 @using System.Globalization
 
 @if (HasBackdrop)
@@ -66,7 +67,7 @@
 </div>
 
 @code {
-    const string DefaultOutline = "var(--shiny-color-outline-variant, rgba(0,0,0,0.10))";
+    const string DefaultOutline = "var(--shiny-color-outline-variant, #BBC7DF)";
 
     bool isOpen;
 
@@ -88,7 +89,7 @@
     // main fab passthroughs
     [Parameter] public string? Icon { get; set; }
     [Parameter] public string? Text { get; set; }
-    [Parameter] public string FabBackgroundColor { get; set; } = "var(--shiny-color-primary, #2196F3)";
+    [Parameter] public string FabBackgroundColor { get; set; } = "var(--shiny-color-primary, #0055D9)";
     [Parameter] public string TextColor { get; set; } = "var(--shiny-color-on-primary, #FFFFFF)";
     [Parameter] public string? BorderColor { get; set; }
     [Parameter] public double BorderThickness { get; set; }
@@ -98,7 +99,10 @@
     [Parameter] public bool HasBackdrop { get; set; } = true;
     [Parameter] public bool CloseOnBackdropTap { get; set; } = true;
     [Parameter] public bool CloseOnItemTap { get; set; } = true;
-    [Parameter] public string BackdropColor { get; set; } = "var(--shiny-color-scrim, #000000)";
+    // Mirrored in FabMenu.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultBackdropColor = "var(--shiny-color-scrim, #000000)";
+
+    [Parameter] public string BackdropColor { get; set; } = DefaultBackdropColor;
     [Parameter] public double BackdropOpacity { get; set; } = 0.4;
 
     /// <summary>Set to "start" to grow the menu from the left edge; anything else keeps it right-aligned.</summary>
@@ -133,7 +137,8 @@
         {
             var op = isOpen ? BackdropOpacity : 0;
             var pe = isOpen ? "auto" : "none";
-            return $"background:{BackdropColor};opacity:{Num(op)};pointer-events:{pe};";
+            return StyleDefaults.Override("background", BackdropColor, DefaultBackdropColor)
+                + $"opacity:{Num(op)};pointer-events:{pe};";
         }
     }
 

@@ -10,7 +10,7 @@ public class ProgressLineConfig
     public ProgressLineAnchor Anchor { get; set; } = ProgressLineAnchor.Viewport;
 
     /// <inheritdoc cref="ProgressLine.BarColor"/>
-    public string BarColor { get; set; } = "var(--shiny-color-primary, #3B82F6)";
+    public string BarColor { get; set; } = "var(--shiny-color-primary, #0055D9)";
 
     /// <inheritdoc cref="ProgressLine.TrackColor"/>
     public string TrackColor { get; set; } = "transparent";
@@ -25,10 +25,10 @@ public class ProgressLineConfig
     public bool UseGradient { get; set; }
 
     /// <inheritdoc cref="ProgressLine.GradientStartColor"/>
-    public string GradientStartColor { get; set; } = "var(--shiny-color-primary, #3B82F6)";
+    public string GradientStartColor { get; set; } = "var(--shiny-color-primary, #0055D9)";
 
     /// <inheritdoc cref="ProgressLine.GradientEndColor"/>
-    public string GradientEndColor { get; set; } = "var(--shiny-color-tertiary, #8B5CF6)";
+    public string GradientEndColor { get; set; } = "var(--shiny-color-tertiary, #6A4CAD)";
 
     /// <inheritdoc cref="ProgressLine.PulseEnabled"/>
     public bool PulseEnabled { get; set; }

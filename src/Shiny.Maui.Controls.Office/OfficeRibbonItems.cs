@@ -47,6 +47,45 @@ static class OfficeRibbonItems
             Command = new Command(action)
         };
 
+    /// <summary>
+    /// A row of items, for a group whose commands are a run people read across.
+    /// </summary>
+    /// <remarks>
+    /// The three bars all have them: bold/italic/underline/strike, the alignments, insert-row beside
+    /// insert-column. Filling a group's columns instead turned each run into a 2×N block read top to
+    /// bottom - underline above italic - and put a font-name box in the same column as a toggle, where
+    /// the column took the box's width and stretched the 16px mark across all of it.
+    /// </remarks>
+    public static RibbonRow Row(params RibbonItem[] items)
+    {
+        var row = new RibbonRow();
+
+        foreach (var item in items)
+            row.Items.Add(item);
+
+        return row;
+    }
+
+    /// <summary>
+    /// A large command: the icon over its name, one column to itself.
+    /// </summary>
+    /// <remarks>
+    /// One per group at most, and only where the group has a command that is plainly its head — Paste,
+    /// AutoSum, a spell check. It is what gives a group a shape to recognise at a glance; a bar of
+    /// nothing but 16px marks has none, and it is also the shape three small items want, since two
+    /// rows of three leave a hole where the third would be.
+    /// </remarks>
+    public static RibbonButton LargeCommand(OfficeIcon icon, string text, string tooltip, Action action, string? automationId = null)
+        => new()
+        {
+            Text = text,
+            Tooltip = tooltip,
+            Size = RibbonItemSize.Large,
+            AutomationId = automationId,
+            IconTemplate = IconTemplateFor(icon),
+            Command = new Command(action)
+        };
+
     /// <summary>Hosts a control the ribbon has no item kind for - a picker with its own popup.</summary>
     /// <remarks>
     /// One row tall, deliberately. A row-spanning host is centred across the rows, so a 30px picker
@@ -56,6 +95,16 @@ static class OfficeRibbonItems
     /// </remarks>
     public static RibbonContentItem Host(View content)
         => new() { Size = RibbonItemSize.Small, Content = content };
+
+    /// <summary>
+    /// Hosts a control that is the whole of its group, spanning the rows rather than sitting on one.
+    /// </summary>
+    /// <remarks>
+    /// For the find bar and the single-control groups. On one small row they left the row underneath
+    /// them empty for the width of a search box, which is the widest hole a ribbon can have.
+    /// </remarks>
+    public static RibbonContentItem HostLarge(View content)
+        => new() { Size = RibbonItemSize.Large, Content = content };
 
     /// <summary>
     /// A tab of shapes, each drawn as the shape it inserts.

@@ -44,5 +44,5 @@
 .shiny-parallax-empty {
     padding: var(--shiny-spacing-5, 24px);
     text-align: center;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }

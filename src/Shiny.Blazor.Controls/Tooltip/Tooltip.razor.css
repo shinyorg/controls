@@ -17,8 +17,8 @@
    --------------------------------------------------------------------------------------------- */
 
 .shiny-tooltip {
-    --shiny-tooltip-bg: var(--shiny-color-inverse-surface, #313033);
-    --shiny-tooltip-fg: var(--shiny-color-inverse-on-surface, #f4eff4);
+    --shiny-tooltip-bg: var(--shiny-color-inverse-surface, #161C23);
+    --shiny-tooltip-fg: var(--shiny-color-inverse-on-surface, #F6FAFE);
     --shiny-tooltip-max-width: 280px;
     --shiny-tooltip-tail-offset: 16px;
     --shiny-tooltip-tail: 8px;

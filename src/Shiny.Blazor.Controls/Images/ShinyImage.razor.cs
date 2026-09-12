@@ -93,13 +93,13 @@ public partial class ShinyImage : IAsyncDisposable
     [Parameter] public bool ShowProgressText { get; set; } = true;
 
     /// <summary>Colour of the ring's progress arc.</summary>
-    [Parameter] public string RingColor { get; set; } = "var(--shiny-color-primary, #3B82F6)";
+    [Parameter] public string RingColor { get; set; } = "var(--shiny-color-primary, #0055D9)";
 
     /// <summary>Colour of the ring's unfilled track.</summary>
-    [Parameter] public string RingTrackColor { get; set; } = "var(--shiny-color-surface-container-highest, #E5E7EB)";
+    [Parameter] public string RingTrackColor { get; set; } = "var(--shiny-color-surface-container-highest, #D7DCE1)";
 
     /// <summary>Colour of the ring's percentage label.</summary>
-    [Parameter] public string ProgressTextColor { get; set; } = "var(--shiny-color-on-surface, #111827)";
+    [Parameter] public string ProgressTextColor { get; set; } = "var(--shiny-color-on-surface, #161C23)";
 
     /// <summary>
     /// Skips the streamed fetch and lets the browser load the URL directly. No percentage, but no

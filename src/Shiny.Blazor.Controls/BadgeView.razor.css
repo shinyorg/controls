@@ -3,8 +3,16 @@
     display: inline-block;
 }
 
+/* The parameter defaults, mirrored so an app rule has something to beat. BadgeView.razor.cs inlines
+   them only where the caller chose otherwise. */
 .shiny-badge {
     position: absolute;
+    background: var(--shiny-color-error, #C20014);
+    color: var(--shiny-color-on-error, #FFFFFF);
+    border: var(--shiny-border-thin, 1.5px) solid var(--shiny-color-surface, #F6FAFE);
+    border-radius: var(--shiny-shape-corner-full, 999px);
+    font-weight: var(--shiny-type-label-small-weight, 700);
+    padding: calc(2px * var(--shiny-density-scale, 1)) calc(6px * var(--shiny-density-scale, 1));
     display: inline-flex;
     align-items: center;
     justify-content: center;

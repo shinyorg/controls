@@ -99,19 +99,16 @@ public partial class ShinyButton
 
         if (thickness > 0)
         {
-            // The stroke colour goes onto the probe, not the brush - see BuildStroke for why a
-            // DynamicResource cannot reach Border.Stroke or a bare SolidColorBrush.
-            ThemeProbe.Tint(
-                this.strokeProbe,
-                BoxView.ColorProperty,
+            ThemeBrush.Apply(
+                this.border,
+                Border.StrokeProperty,
                 this.BorderColor,
-                strokeToken ?? ShinyThemeKeys.Color.Outline
+                (strokeToken ?? ShinyThemeKeys.Color.Outline).AsBrush()
             );
-
-            this.border.Stroke = this.strokeBrush;
         }
         else
         {
+            this.border.RemoveDynamicResource(Border.StrokeProperty);
             this.border.Stroke = null;
         }
 

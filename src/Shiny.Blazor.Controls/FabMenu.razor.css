@@ -12,7 +12,9 @@
     align-items: flex-start;
 }
 
+/* The scrim colour default, mirrored so an app rule can beat it. */
 .shiny-fab-backdrop {
+    background: var(--shiny-color-scrim, #000000);
     position: fixed;
     inset: 0;
     transition: opacity 200ms ease;
@@ -115,7 +117,7 @@
     justify-content: center;
     border-radius: 50%;
     flex: 0 0 auto;
-    color: var(--shiny-color-on-primary, #ffffff);
+    color: var(--shiny-color-on-primary, #FFFFFF);
 }
 
 .shiny-fab-menu-icon {

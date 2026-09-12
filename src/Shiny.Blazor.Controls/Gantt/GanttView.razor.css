@@ -6,10 +6,10 @@
     position: relative;
     display: grid;
     grid-template-rows: auto 1fr;
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 12px);
-    background: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #1F2937);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     overflow: hidden;
     height: 100%;
     min-height: 320px;
@@ -24,8 +24,8 @@
     display: flex;
     align-items: center;
     height: var(--gantt-header-height, 48px);
-    background: var(--shiny-color-surface, #fff);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    background: var(--shiny-color-surface, #F6FAFE);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     overflow: hidden;
 }
 
@@ -35,7 +35,7 @@
     font-size: var(--shiny-type-label-small-size, 11px);
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -46,7 +46,7 @@
     grid-row: 2;
     position: relative;
     overflow: hidden;
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 /* Translated by gantt.js on every scroll frame. will-change keeps it on its own layer so a long
@@ -61,14 +61,14 @@
     display: flex;
     align-items: center;
     box-sizing: border-box;
-    border-bottom: var(--shiny-border-thin, 1px) solid color-mix(in srgb, var(--shiny-color-outline-variant, #E5E7EB) 60%, transparent);
+    border-bottom: var(--shiny-border-thin, 1px) solid color-mix(in srgb, var(--shiny-color-outline-variant, #BBC7DF) 60%, transparent);
     cursor: pointer;
 }
 
-.shiny-gantt-row:hover { background: var(--shiny-color-surface-container, #F9FAFB); }
+.shiny-gantt-row:hover { background: var(--shiny-color-surface-container, #E8EEF6); }
 
 .shiny-gantt-row.is-selected {
-    background: color-mix(in srgb, var(--shiny-color-primary, #6750A4) 14%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 14%, transparent);
 }
 
 .shiny-gantt-row.is-rollup .shiny-gantt-celltext { font-weight: 700; }
@@ -100,7 +100,7 @@
     padding: 0;
     border: 0;
     background: none;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font: inherit;
     line-height: 1;
     cursor: pointer;
@@ -113,8 +113,8 @@
 .shiny-gantt-splitter {
     grid-column: 2;
     grid-row: 1 / 3;
-    background: var(--shiny-color-surface-container, #F3F4F6);
-    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    background: var(--shiny-color-surface-container, #E8EEF6);
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     touch-action: none;
 }
 
@@ -127,8 +127,8 @@
     grid-row: 1;
     position: relative;
     overflow: hidden;
-    background: var(--shiny-color-surface, #fff);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    background: var(--shiny-color-surface, #F6FAFE);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-gantt-head-inner {
@@ -144,7 +144,7 @@
     top: 0;
     bottom: 0;
     box-sizing: border-box;
-    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     display: flex;
     align-items: center;
     overflow: hidden;
@@ -157,7 +157,7 @@
 
 .shiny-gantt-tier.is-lower .shiny-gantt-tick {
     justify-content: center;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-gantt-tick > span {
@@ -166,11 +166,11 @@
     text-overflow: ellipsis;
 }
 
-.shiny-gantt-tick.is-nonworking { background: var(--shiny-color-surface-container, #F3F4F6); }
+.shiny-gantt-tick.is-nonworking { background: var(--shiny-color-surface-container, #E8EEF6); }
 
 .shiny-gantt-tick.is-today {
-    background: color-mix(in srgb, var(--shiny-color-error, #B3261E) 16%, transparent);
-    color: var(--shiny-color-error, #B3261E);
+    background: color-mix(in srgb, var(--shiny-color-error, #C20014) 16%, transparent);
+    color: var(--shiny-color-error, #C20014);
     font-weight: 700;
 }
 
@@ -197,7 +197,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-gantt-nonworking,
@@ -208,7 +208,7 @@
     pointer-events: none;
 }
 
-.shiny-gantt-nonworking { background: var(--shiny-color-surface-container, #F3F4F6); }
+.shiny-gantt-nonworking { background: var(--shiny-color-surface-container, #E8EEF6); }
 .shiny-gantt-highlight { opacity: 0.12; }
 
 .shiny-gantt-gridline {
@@ -216,7 +216,7 @@
     top: 0;
     bottom: 0;
     width: 1px;
-    background: var(--shiny-color-outline-variant, #E5E7EB);
+    background: var(--shiny-color-outline-variant, #BBC7DF);
     pointer-events: none;
 }
 
@@ -225,7 +225,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: color-mix(in srgb, var(--shiny-color-outline-variant, #E5E7EB) 60%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-outline-variant, #BBC7DF) 60%, transparent);
     pointer-events: none;
 }
 
@@ -234,7 +234,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--shiny-color-error, #B3261E);
+    background: var(--shiny-color-error, #C20014);
     pointer-events: none;
     z-index: 2;
 }
@@ -252,20 +252,20 @@
 
 .shiny-gantt-link {
     fill: none;
-    stroke: var(--shiny-color-on-surface-variant, #6B7280);
+    stroke: var(--shiny-color-on-surface-variant, #3B475B);
     stroke-width: 1;
 }
 
 .shiny-gantt-link.is-critical {
-    stroke: var(--shiny-color-error, #B3261E);
+    stroke: var(--shiny-color-error, #C20014);
     stroke-width: 2;
 }
 
-.shiny-gantt-arrow { fill: var(--shiny-color-on-surface-variant, #6B7280); }
-.shiny-gantt-arrow.is-critical { fill: var(--shiny-color-error, #B3261E); }
+.shiny-gantt-arrow { fill: var(--shiny-color-on-surface-variant, #3B475B); }
+.shiny-gantt-arrow.is-critical { fill: var(--shiny-color-error, #C20014); }
 
 .shiny-gantt-rubber line {
-    stroke: var(--shiny-color-primary, #6750A4);
+    stroke: var(--shiny-color-primary, #0055D9);
     stroke-width: 2;
     stroke-dasharray: 4 3;
 }
@@ -314,7 +314,7 @@
 .shiny-gantt-bar.is-selected,
 .shiny-gantt-summary.is-selected,
 .shiny-gantt-milestone.is-selected {
-    outline: 2px solid var(--shiny-color-primary, #6750A4);
+    outline: 2px solid var(--shiny-color-primary, #0055D9);
     outline-offset: 2px;
 }
 
@@ -332,7 +332,7 @@
 }
 
 .shiny-gantt-baseline {
-    background: color-mix(in srgb, var(--shiny-color-on-surface-variant, #6B7280) 45%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-on-surface-variant, #3B475B) 45%, transparent);
     border-radius: 1px;
     z-index: 3;
 }
@@ -345,19 +345,19 @@
     height: 0;
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
-    border-top: 12px solid var(--shiny-color-error, #B3261E);
+    border-top: 12px solid var(--shiny-color-error, #C20014);
     z-index: 5;
     pointer-events: none;
 }
 
-.shiny-gantt-deadline.is-missed { filter: drop-shadow(0 0 2px var(--shiny-color-error, #B3261E)); }
+.shiny-gantt-deadline.is-missed { filter: drop-shadow(0 0 2px var(--shiny-color-error, #C20014)); }
 
 .shiny-gantt-bar-label {
     position: absolute;
     white-space: nowrap;
     pointer-events: none;
     z-index: 4;
-    color: var(--shiny-color-on-surface, #1F2937);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-gantt-bar-label.is-inside {
@@ -376,7 +376,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--shiny-color-primary, #6750A4);
+    background: var(--shiny-color-primary, #0055D9);
     z-index: 6;
     pointer-events: none;
 }

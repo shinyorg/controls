@@ -1,15 +1,14 @@
 @namespace Sample.Blazor.Layout
+@using Shiny.Blazor.Controls.Theming
+@implements IDisposable
+@inject IShinyThemeService Theme
 
-@* Loads the selected theme pack stylesheet into <head> (overriding the core Basic :root vars). *@
-<HeadContent>
-    @if (themeHref is not null)
-    {
-        <link rel="stylesheet" href="@themeHref" />
-    }
-</HeadContent>
+@* The gallery's theme picker, over the library's own service. It used to inject a <link> into
+   <head> per switch and hand a bool up to the layout for the dark class - which is exactly the
+   hand-rolled arrangement IShinyThemeService exists to replace. *@
 
 <div class="theme-switcher">
-    <select aria-label="Theme" @onchange="OnThemeChange">
+    <select aria-label="Theme" value="@(this.Theme.Pack ?? "")" @onchange="this.OnPackChangedAsync">
         <option value="">Basic</option>
         <option value="ocean">Ocean</option>
         <option value="material">Material</option>
@@ -17,28 +16,20 @@
         <option value="aurora">Aurora</option>
     </select>
     <label class="theme-switcher-dark">
-        <input type="checkbox" @bind="Dark" @bind:after="OnDarkChanged" />
+        <input type="checkbox" checked="@(this.Theme.Mode == ShinyThemeMode.Dark)" @onchange="this.OnDarkChangedAsync" />
         Dark
     </label>
 </div>
 
 @code {
-    string? themeHref;
-    bool Dark { get; set; }
+    protected override void OnInitialized() => this.Theme.Changed += this.OnThemeChanged;
 
-    [Parameter] public EventCallback<bool> DarkChanged { get; set; }
+    Task OnPackChangedAsync(ChangeEventArgs e) => this.Theme.SetPackAsync(e.Value?.ToString());
 
-    void OnThemeChange(ChangeEventArgs e)
-    {
-        themeHref = e.Value?.ToString() switch
-        {
-            "ocean" => "_content/Shiny.Blazor.Controls.Themes.Ocean/css/shiny-theme-ocean.css",
-            "material" => "_content/Shiny.Blazor.Controls.Themes.Material/css/shiny-theme-material.css",
-            "terminal" => "_content/Shiny.Blazor.Controls.Themes.Terminal/css/shiny-theme-terminal.css",
-            "aurora" => "_content/Shiny.Blazor.Controls.Themes.Aurora/css/shiny-theme-aurora.css",
-            _ => null
-        };
-    }
+    Task OnDarkChangedAsync(ChangeEventArgs e)
+        => this.Theme.SetModeAsync((bool?)e.Value == true ? ShinyThemeMode.Dark : ShinyThemeMode.Light);
 
-    Task OnDarkChanged() => DarkChanged.InvokeAsync(Dark);
+    void OnThemeChanged(object? sender, EventArgs e) => this.InvokeAsync(this.StateHasChanged);
+
+    public void Dispose() => this.Theme.Changed -= this.OnThemeChanged;
 }

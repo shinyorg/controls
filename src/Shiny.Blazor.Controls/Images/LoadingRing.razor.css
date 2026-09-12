@@ -17,11 +17,11 @@
 }
 
 .shiny-ring-track {
-    stroke: var(--ring-track, var(--shiny-color-surface-container-highest, #e5e7eb));
+    stroke: var(--ring-track, var(--shiny-color-surface-container-highest, #D7DCE1));
 }
 
 .shiny-ring-arc {
-    stroke: var(--ring-color, var(--shiny-color-primary, #3b82f6));
+    stroke: var(--ring-color, var(--shiny-color-primary, #0055D9));
     transition: stroke-dashoffset 120ms linear;
 }
 
@@ -39,7 +39,7 @@
     position: absolute;
     font-size: var(--ring-label-size, var(--shiny-type-body-small-size, 12px));
     font-weight: 600;
-    color: var(--ring-text, var(--shiny-color-on-surface, #111827));
+    color: var(--ring-text, var(--shiny-color-on-surface, #161C23));
     line-height: 1;
     font-variant-numeric: tabular-nums;
 }

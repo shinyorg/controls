@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace Shiny.Maui.Controls.Ribbons;
 
 /// <summary>
@@ -151,6 +153,53 @@ public abstract class RibbonItem : BindableObject
 /// </summary>
 public class RibbonSeparator : RibbonItem
 {
+    internal override bool IsInteractive => false;
+}
+
+
+/// <summary>
+/// A row of items inside a group — the other way to fill a group, and the one a run of formatting
+/// marks wants.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A group's items normally fill a <em>column</em> top to bottom and start the next when it is full.
+/// That is right for a set of interchangeable commands and wrong for a run: bold, italic, underline and
+/// strikethrough are read left to right, and a two-row column turns four of them into a 2×2 block with
+/// underline above italic. It also forces a font-name box and a bold button into one column, where the
+/// column takes the box's width and the 16px B is stretched across all 150px of it.
+/// </para>
+/// <para>
+/// Put <see cref="RibbonRow"/>s in a group and it lays them out as rows instead — which is what Office
+/// actually draws. A group is one or the other: rows and loose items are not mixed, because an item
+/// with no row of its own has no answer to which row it is on.
+/// </para>
+/// </remarks>
+/// <example>
+/// <code language="xaml">
+/// &lt;shiny:RibbonGroup Title="Font"&gt;
+///     &lt;shiny:RibbonRow&gt;
+///         &lt;shiny:RibbonContentItem Size="Small"&gt;&lt;shiny:FontPicker /&gt;&lt;/shiny:RibbonContentItem&gt;
+///     &lt;/shiny:RibbonRow&gt;
+///     &lt;shiny:RibbonRow&gt;
+///         &lt;shiny:RibbonToggleButton Size="Small" Text="Bold" /&gt;
+///         &lt;shiny:RibbonToggleButton Size="Small" Text="Italic" /&gt;
+///     &lt;/shiny:RibbonRow&gt;
+/// &lt;/shiny:RibbonGroup&gt;
+/// </code>
+/// </example>
+[ContentProperty(nameof(Items))]
+public class RibbonRow : RibbonItem
+{
+    readonly ObservableCollection<RibbonItem> items = new();
+
+    public RibbonRow() => this.items.CollectionChanged += (_, _) => this.RaiseChanged();
+
+    /// <summary>The items on this row, left to right.</summary>
+    public IList<RibbonItem> Items => this.items;
+
+    internal IReadOnlyList<RibbonItem> VisibleItems => this.items.Where(x => x.IsVisible).ToList();
+
     internal override bool IsInteractive => false;
 }
 

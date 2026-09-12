@@ -1,14 +1,14 @@
 .shiny-dg {
     position: relative;
     width: 100%;
-    color: var(--shiny-color-on-surface, #1a1a1a);
-    background: var(--shiny-color-surface, #fff);
+    color: var(--shiny-color-on-surface, #161C23);
+    background: var(--shiny-color-surface, #F6FAFE);
     border-radius: var(--shiny-shape-corner-small, 8px);
     font-size: var(--shiny-type-body-medium-size, 14px);
 }
 
 .shiny-dg-outlined {
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #e0e0e0);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-dg-scroll {
@@ -38,9 +38,9 @@
 
 .shiny-dg-table thead th {
     font-weight: 600;
-    color: var(--shiny-color-on-surface, #1a1a1a);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #e0e0e0);
-    background: var(--shiny-color-surface, #fff);
+    color: var(--shiny-color-on-surface, #161C23);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface, #F6FAFE);
     user-select: none;
 }
 
@@ -59,19 +59,19 @@
 }
 
 .shiny-dg-sortable:hover {
-    background: color-mix(in srgb, var(--shiny-color-on-surface, #000) 4%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 4%, transparent);
 }
 
 .shiny-dg-sort-icon {
     font-size: calc(10px * var(--shiny-type-scale, 1));
-    color: var(--shiny-color-primary, #7c3aed);
+    color: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-dg-sort-badge {
     font-size: calc(9px * var(--shiny-type-scale, 1));
     font-weight: 700;
-    color: var(--shiny-color-on-primary, #fff);
-    background: var(--shiny-color-primary, #7c3aed);
+    color: var(--shiny-color-on-primary, #FFFFFF);
+    background: var(--shiny-color-primary, #0055D9);
     border-radius: 50%;
     width: 14px;
     height: 14px;
@@ -88,17 +88,17 @@
 }
 
 .shiny-dg-pager-host {
-    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #e0e0e0);
+    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-dg-quickfilter {
     flex: 1;
     max-width: 280px;
     padding: calc(7px * var(--shiny-density-scale, 1)) calc(10px * var(--shiny-density-scale, 1));
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ccc);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-small, 8px);
-    background: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #1a1a1a);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     font-size: calc(13px * var(--shiny-type-scale, 1));
 }
 
@@ -112,7 +112,7 @@
 .shiny-dg-filter-icon:hover,
 .shiny-dg-filter-active {
     opacity: 1;
-    color: var(--shiny-color-primary, #7c3aed);
+    color: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-dg-filter-menu {
@@ -124,8 +124,8 @@
     gap: calc(6px * var(--shiny-density-scale, 1));
     padding: calc(10px * var(--shiny-density-scale, 1));
     min-width: 200px;
-    background: var(--shiny-color-surface, #fff);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ddd);
+    background: var(--shiny-color-surface, #F6FAFE);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-small, 8px);
     box-shadow: var(--shiny-elevation-4, 0 6px 20px rgba(0, 0, 0, 0.18));
     font-weight: 400;
@@ -134,10 +134,10 @@
 .shiny-dg-filter-menu select,
 .shiny-dg-filter-menu input {
     padding: calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ccc);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-small, 6px);
-    background: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #1a1a1a);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     font-size: calc(13px * var(--shiny-type-scale, 1));
 }
 
@@ -153,8 +153,8 @@
     padding: calc(5px * var(--shiny-density-scale, 1)) var(--shiny-spacing-3, 12px);
     border-radius: var(--shiny-shape-corner-small, 6px);
     font-size: var(--shiny-type-body-small-size, 12px);
-    background: var(--shiny-color-surface-variant, #ececec);
-    color: var(--shiny-color-on-surface, #1a1a1a);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-dg-filter-row th {
@@ -165,10 +165,10 @@
     width: 100%;
     box-sizing: border-box;
     padding: calc(5px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ccc);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-small, 6px);
-    background: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #1a1a1a);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     font-size: var(--shiny-type-body-small-size, 12px);
     font-weight: 400;
 }
@@ -188,12 +188,12 @@
 .shiny-dg-group-icon:hover,
 .shiny-dg-group-active {
     opacity: 1;
-    color: var(--shiny-color-primary, #7c3aed);
+    color: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-dg-group-header {
     cursor: pointer;
-    background: color-mix(in srgb, var(--shiny-color-on-surface, #000) 4%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 4%, transparent);
 }
 
 .shiny-dg-group-header td {
@@ -203,11 +203,11 @@
 .shiny-dg-group-caret {
     display: inline-block;
     width: 16px;
-    color: var(--shiny-color-on-surface-variant, #777);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-dg-group-count {
-    color: var(--shiny-color-on-surface-variant, #999);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     margin-left: 4px;
 }
 
@@ -217,14 +217,14 @@
 }
 
 .shiny-dg-group-key {
-    color: var(--shiny-color-on-surface, #222);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-dg-group-footer td {
     font-weight: 600;
     font-size: var(--shiny-type-body-small-size, 12px);
-    color: var(--shiny-color-on-surface-variant, #555);
-    background: color-mix(in srgb, var(--shiny-color-on-surface, #000) 2%, transparent);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    background: color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 2%, transparent);
 }
 
 /* A cell that opted out of the bold total treatment (a label sitting beside the number). */
@@ -237,16 +237,16 @@
     width: 100%;
     box-sizing: border-box;
     padding: calc(5px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-primary, #7c3aed);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-primary, #0055D9);
     border-radius: var(--shiny-shape-corner-small, 6px);
-    background: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #1a1a1a);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     font-size: calc(13px * var(--shiny-type-scale, 1));
 }
 
 .shiny-dg-edit-actions td {
     text-align: right;
-    background: color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 6%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 6%, transparent);
 }
 
 .shiny-dg-edit-actions button {
@@ -260,13 +260,13 @@
 }
 
 .shiny-dg-edit-save {
-    background: var(--shiny-color-primary, #7c3aed);
-    color: var(--shiny-color-on-primary, #fff);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
 }
 
 .shiny-dg-edit-cancel {
-    background: var(--shiny-color-surface-variant, #ececec);
-    color: var(--shiny-color-on-surface, #1a1a1a);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-dg-resize-handle {
@@ -281,7 +281,7 @@
 }
 
 .shiny-dg-resize-handle:hover {
-    background: var(--shiny-color-primary, #7c3aed);
+    background: var(--shiny-color-primary, #0055D9);
     opacity: 0.4;
 }
 
@@ -292,7 +292,7 @@
 }
 
 .shiny-dg-resizing .shiny-dg-resize-handle {
-    background: var(--shiny-color-primary, #7c3aed);
+    background: var(--shiny-color-primary, #0055D9);
     opacity: 0.4;
 }
 
@@ -315,7 +315,7 @@
     top: 0;
     bottom: 0;
     width: 3px;
-    background: var(--shiny-color-primary, #7c3aed);
+    background: var(--shiny-color-primary, #0055D9);
     pointer-events: none;
     z-index: 4;
 }
@@ -329,25 +329,25 @@
 }
 
 .shiny-dg-table tbody td {
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #efefef);
-    color: var(--shiny-color-on-surface-variant, #444);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-dg-bordered .shiny-dg-table th,
 .shiny-dg-bordered .shiny-dg-table td {
-    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #efefef);
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-dg-striped tbody tr:nth-of-type(odd) {
-    background: color-mix(in srgb, var(--shiny-color-on-surface, #000) 3%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 3%, transparent);
 }
 
 .shiny-dg-hover tbody tr.shiny-dg-clickable:hover {
-    background: color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 8%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 8%, transparent);
 }
 
 .shiny-dg-row.shiny-dg-selected {
-    background: color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 14%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 14%, transparent);
 }
 
 .shiny-dg-clickable {
@@ -363,18 +363,18 @@
 .shiny-dg-norecords td {
     text-align: center;
     padding: var(--shiny-spacing-6, 32px) var(--shiny-spacing-4, 16px);
-    color: var(--shiny-color-on-surface-variant, #888);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-dg-table tfoot td {
     font-weight: 600;
-    border-top: var(--shiny-border-medium, 2px) solid var(--shiny-color-outline-variant, #e0e0e0);
-    background: var(--shiny-color-surface, #fff);
+    border-top: var(--shiny-border-medium, 2px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 /* Stacked summary rows (subtotal / tax / total): only the block's top edge is the heavy rule. */
 .shiny-dg-table tfoot tr + tr td {
-    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #e0e0e0);
+    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 /* ---- Sticky header + frozen columns ----
@@ -412,7 +412,7 @@
 .shiny-dg-table td.shiny-dg-frozen {
     position: sticky;
     z-index: 2;
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     background-clip: padding-box;
 }
 
@@ -436,23 +436,23 @@
    composited over the surface rather than layered on it, since a translucent pin would let the
    scrolled content show through. */
 .shiny-dg-striped tbody tr:nth-of-type(odd) td.shiny-dg-frozen {
-    background: color-mix(in srgb, var(--shiny-color-on-surface, #000) 3%, var(--shiny-color-surface, #fff));
+    background: color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 3%, var(--shiny-color-surface, #F6FAFE));
 }
 
 .shiny-dg-table tbody tr.shiny-dg-selected td.shiny-dg-frozen {
-    background: color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 14%, var(--shiny-color-surface, #fff));
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 14%, var(--shiny-color-surface, #F6FAFE));
 }
 
 .shiny-dg-table tbody tr.shiny-dg-group-footer td.shiny-dg-frozen {
-    background: color-mix(in srgb, var(--shiny-color-on-surface, #000) 2%, var(--shiny-color-surface, #fff));
+    background: color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 2%, var(--shiny-color-surface, #F6FAFE));
 }
 
 .shiny-dg-table tfoot td.shiny-dg-frozen {
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .shiny-dg-hover tbody tr.shiny-dg-clickable:hover td.shiny-dg-frozen {
-    background: color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 8%, var(--shiny-color-surface, #fff));
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 8%, var(--shiny-color-surface, #F6FAFE));
 }
 
 /* The outer edge of each pinned block gets a shadow so content visibly slides underneath it. */
@@ -468,12 +468,12 @@
 
 .shiny-dg-frozen-start-edge::after {
     right: -8px;
-    background: linear-gradient(to right, color-mix(in srgb, var(--shiny-color-on-surface, #000) 14%, transparent), transparent);
+    background: linear-gradient(to right, color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 14%, transparent), transparent);
 }
 
 .shiny-dg-frozen-end-edge::after {
     left: -8px;
-    background: linear-gradient(to left, color-mix(in srgb, var(--shiny-color-on-surface, #000) 14%, transparent), transparent);
+    background: linear-gradient(to left, color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 14%, transparent), transparent);
 }
 
 /* Loading overlay */
@@ -484,14 +484,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: color-mix(in srgb, var(--shiny-color-surface, #fff) 60%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-surface, #F6FAFE) 60%, transparent);
 }
 
 .shiny-dg-spinner {
     width: 32px;
     height: 32px;
-    border: var(--shiny-border-thick, 3px) solid color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 30%, transparent);
-    border-top-color: var(--shiny-color-primary, #7c3aed);
+    border: var(--shiny-border-thick, 3px) solid color-mix(in srgb, var(--shiny-color-primary, #0055D9) 30%, transparent);
+    border-top-color: var(--shiny-color-primary, #0055D9);
     border-radius: 50%;
     animation: shiny-dg-spin 0.7s linear infinite;
 }
@@ -519,7 +519,7 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    color: var(--shiny-color-on-surface-variant, #777);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: calc(15px * var(--shiny-type-scale, 1));
     line-height: 1;
     user-select: none;
@@ -527,8 +527,8 @@
 }
 
 .shiny-dg-expandcol:hover .shiny-dg-expander {
-    background: color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 12%, transparent);
-    color: var(--shiny-color-primary, #7c3aed);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 12%, transparent);
+    color: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-dg-dense .shiny-dg-expandcol {
@@ -556,7 +556,7 @@
     border-radius: 50%;
     vertical-align: middle;
     cursor: pointer;
-    color: var(--shiny-color-on-surface-variant, #777);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: calc(15px * var(--shiny-type-scale, 1));
     line-height: 1;
     user-select: none;
@@ -564,8 +564,8 @@
 }
 
 .shiny-dg-tree-caret:not(.shiny-dg-tree-leaf):hover {
-    background: color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 12%, transparent);
-    color: var(--shiny-color-primary, #7c3aed);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 12%, transparent);
+    color: var(--shiny-color-primary, #0055D9);
 }
 
 /* A leaf keeps the caret's width so its text lines up with its siblings' - it just has nothing
@@ -576,7 +576,7 @@
 
 .shiny-dg-detail > td {
     padding: 0;
-    background: var(--shiny-color-surface-container-low, color-mix(in srgb, var(--shiny-color-on-surface, #000) 3%, var(--shiny-color-surface, #fff)));
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
 }
 
 /* The detail cell spans every column, so it would slide out of view with them. Sticky + fit-content
@@ -599,8 +599,8 @@
     height: 12px;
     vertical-align: middle;
     box-sizing: border-box;
-    border: 2px solid color-mix(in srgb, var(--shiny-color-primary, #7c3aed) 30%, transparent);
-    border-top-color: var(--shiny-color-primary, #7c3aed);
+    border: 2px solid color-mix(in srgb, var(--shiny-color-primary, #0055D9) 30%, transparent);
+    border-top-color: var(--shiny-color-primary, #0055D9);
     border-radius: 50%;
     animation: shiny-dg-spin 0.7s linear infinite;
 }

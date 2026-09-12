@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 public partial class TreeView<TItem> : IAsyncDisposable
@@ -60,7 +62,10 @@ public partial class TreeView<TItem> : IAsyncDisposable
     // ------------- Layout / visuals -------------
     [Parameter] public double IndentSize { get; set; } = 20;
     [Parameter] public double ChevronSize { get; set; } = 14;
-    [Parameter] public string ChevronColor { get; set; } = "var(--shiny-color-on-surface-variant, #666)";
+    // Mirrored in the component stylesheet; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultChevronColor = "var(--shiny-color-on-surface-variant, #3B475B)";
+
+    [Parameter] public string ChevronColor { get; set; } = DefaultChevronColor;
     [Parameter] public bool ShowGuideLines { get; set; } = false;
     [Parameter] public bool EnableDragDrop { get; set; } = false;
     [Parameter] public string? CssClass { get; set; }

@@ -1,6 +1,8 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 public partial class BadgeView
@@ -15,13 +17,20 @@ public partial class BadgeView
     [Parameter] public BadgePosition Position { get; set; } = BadgePosition.TopRight;
 
     /// <summary>Badge fill color (any valid CSS color).</summary>
-    [Parameter] public string BadgeColor { get; set; } = "var(--shiny-color-error, #DC2626)";
+    // Mirrored in BadgeView.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultBadgeColor = "var(--shiny-color-error, #C20014)";
+    internal const string DefaultBadgeTextColor = "var(--shiny-color-on-error, #FFFFFF)";
+    internal const string DefaultBadgeBorderColor = "var(--shiny-color-surface, #F6FAFE)";
+    internal const string DefaultFontWeight = "var(--shiny-type-label-small-weight, 700)";
+    internal const string DefaultBadgePadding = "calc(2px * var(--shiny-density-scale, 1)) calc(6px * var(--shiny-density-scale, 1))";
+
+    [Parameter] public string BadgeColor { get; set; } = DefaultBadgeColor;
 
     /// <summary>Badge text color (any valid CSS color).</summary>
-    [Parameter] public string BadgeTextColor { get; set; } = "var(--shiny-color-on-error, #FFFFFF)";
+    [Parameter] public string BadgeTextColor { get; set; } = DefaultBadgeTextColor;
 
     /// <summary>Badge border color (any valid CSS color). Defaults to white for clean separation from the wrapped content.</summary>
-    [Parameter] public string BadgeBorderColor { get; set; } = "var(--shiny-color-surface, #FFFFFF)";
+    [Parameter] public string BadgeBorderColor { get; set; } = DefaultBadgeBorderColor;
 
     /// <summary>Badge border thickness in px.</summary>
     /// <summary>Badge border thickness in px. The default, <c>-1</c>, follows the theme border scale.</summary>
@@ -32,14 +41,14 @@ public partial class BadgeView
     [Parameter] public double FontSize { get; set; } = -1;
 
     /// <summary>Badge text font weight (CSS value).</summary>
-    [Parameter] public string FontWeight { get; set; } = "var(--shiny-type-label-small-weight, 700)";
+    [Parameter] public string FontWeight { get; set; } = DefaultFontWeight;
 
     /// <summary>Badge corner radius in px. Default is a fully rounded pill.</summary>
     /// <summary>Badge corner radius in px. The default, <c>-1</c>, follows the theme's full-round shape.</summary>
     [Parameter] public double CornerRadius { get; set; } = -1;
 
     /// <summary>Inner padding of the badge as a CSS value (e.g. "2px 6px").</summary>
-    [Parameter] public string BadgePadding { get; set; } = "calc(2px * var(--shiny-density-scale, 1)) calc(6px * var(--shiny-density-scale, 1))";
+    [Parameter] public string BadgePadding { get; set; } = DefaultBadgePadding;
 
     /// <summary>Horizontal nudge in px from the corner. Positive pushes outward (away from content).</summary>
     [Parameter] public double OffsetX { get; set; } = 4;
@@ -96,12 +105,18 @@ public partial class BadgeView
         get
         {
             var ci = CultureInfo.InvariantCulture;
+            // The border is one shorthand, so a caller-chosen width or colour has to write the whole
+            // declaration; leaving both alone leaves it to the stylesheet.
+            var border = BadgeBorderThickness >= 0 || BadgeBorderColor != DefaultBadgeBorderColor
+                ? $"border:{(BadgeBorderThickness >= 0 ? $"{BadgeBorderThickness.ToString(ci)}px" : "var(--shiny-border-thin, 1.5px)")} solid {BadgeBorderColor};"
+                : "";
+
             var common =
-                $"background:{BadgeColor};" +
-                $"color:{BadgeTextColor};" +
-                $"border:{(BadgeBorderThickness >= 0 ? $"{BadgeBorderThickness.ToString(ci)}px" : "var(--shiny-border-thin, 1.5px)")} solid {BadgeBorderColor};" +
-                $"border-radius:{(CornerRadius >= 0 ? $"{CornerRadius.ToString(ci)}px" : "var(--shiny-shape-corner-full, 999px)")};" +
-                $"font-weight:{FontWeight};";
+                StyleDefaults.Override("background", BadgeColor, DefaultBadgeColor) +
+                StyleDefaults.Override("color", BadgeTextColor, DefaultBadgeTextColor) +
+                border +
+                (CornerRadius >= 0 ? $"border-radius:{CornerRadius.ToString(ci)}px;" : "") +
+                StyleDefaults.Override("font-weight", FontWeight, DefaultFontWeight);
 
             if (IsDot)
             {
@@ -113,7 +128,7 @@ public partial class BadgeView
             else
             {
                 common +=
-                    $"padding:{BadgePadding};" +
+                    StyleDefaults.Override("padding", BadgePadding, DefaultBadgePadding) +
                     $"font-size:{(FontSize >= 0 ? $"{FontSize.ToString(ci)}px" : "calc(10px * var(--shiny-type-scale, 1))")};" +
                     "min-width:1em; line-height:1;";
             }

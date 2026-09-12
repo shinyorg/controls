@@ -46,7 +46,7 @@
     font-size: calc(2rem * var(--shiny-type-scale, 1));
     line-height: 1;
     opacity: 0.45;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 @media (prefers-reduced-motion: reduce) {

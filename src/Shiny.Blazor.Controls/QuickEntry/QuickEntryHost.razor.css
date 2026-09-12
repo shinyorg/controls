@@ -35,7 +35,7 @@
        fine but never runs: the fallback only applies when the token is *missing*, and with the
        token defined the scrim paints solid black and hides the page it is supposed to dim.
     */
-    background: var(--shiny-color-scrim, #000);
+    background: var(--shiny-color-scrim, #000000);
     opacity: var(--shiny-qe-scrim-opacity, 0.35);
     animation: shiny-qe-fade 140ms ease-out;
 }

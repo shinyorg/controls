@@ -29,7 +29,7 @@ public class ButtonCell : ComponentBase
 
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
-        var color = ButtonTextColor ?? ParentTableView?.CellAccentColor ?? "var(--shiny-color-primary, #2196F3)";
+        var color = ButtonTextColor ?? ParentTableView?.CellAccentColor ?? "var(--shiny-color-primary, #0055D9)";
         var size = TitleFontSize >= 0
             ? FormattableString.Invariant($"{TitleFontSize}px")
             : "var(--shiny-type-body-large-size, 16px)";

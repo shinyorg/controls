@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 public partial class SkeletonView
@@ -33,12 +35,16 @@ public partial class SkeletonView
         : "var(--shiny-shape-corner-small, 6px)";
 
     /// <summary>Base fill color of placeholder shapes.</summary>
-    [Parameter] public string BaseColor { get; set; } = "var(--shiny-color-surface-container-high, #e1e1e6)";
+    // Mirrored in SkeletonView.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultBaseColor = "var(--shiny-color-surface-container-high, #E2E6EA)";
+    internal const string DefaultHighlightColor = "color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 22%, transparent)";
+
+    [Parameter] public string BaseColor { get; set; } = DefaultBaseColor;
 
     /// <summary>Color of the sweeping shimmer highlight.</summary>
     // A flat white sweep blows out against a dark base; keyed off on-surface it stays a soft
     // lift of whatever the base is in either scheme.
-    [Parameter] public string HighlightColor { get; set; } = "color-mix(in srgb, var(--shiny-color-on-surface, #FFFFFF) 22%, transparent)";
+    [Parameter] public string HighlightColor { get; set; } = DefaultHighlightColor;
 
     /// <summary>Duration in seconds of a single shimmer sweep.</summary>
     [Parameter] public double AnimationDuration { get; set; } = 1.4;
@@ -52,8 +58,8 @@ public partial class SkeletonView
     public IDictionary<string, object>? AdditionalAttributes { get; set; }
 
     string RootStyle =>
-        $"--shiny-skeleton-base: {BaseColor};" +
-        $" --shiny-skeleton-highlight: {HighlightColor};" +
+        StyleDefaults.Override("--shiny-skeleton-base", BaseColor, DefaultBaseColor) +
+        StyleDefaults.Override("--shiny-skeleton-highlight", HighlightColor, DefaultHighlightColor) +
         $" --shiny-skeleton-duration: {AnimationDuration.ToString(System.Globalization.CultureInfo.InvariantCulture)}s;" +
         $" --shiny-skeleton-gap: {ItemSpacing.ToString(System.Globalization.CultureInfo.InvariantCulture)}px;";
 }

@@ -8,11 +8,11 @@
     flex-direction: column;
     box-sizing: border-box;
     max-width: 100%;
-    background: var(--shiny-color-surface-container-high, #fff);
-    border: 1px solid var(--shiny-color-outline-variant, rgba(0, 0, 0, 0.12));
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-extra-large, 18px);
     box-shadow: var(--shiny-elevation-3, 0 12px 28px rgba(0, 0, 0, 0.28));
-    color: var(--shiny-color-on-surface, #15151a);
+    color: var(--shiny-color-on-surface, #161C23);
     overflow: hidden;
 }
 
@@ -47,11 +47,11 @@
     height: 100%;
     border-radius: 50%;
     background:
-        radial-gradient(circle at 30% 32%, color-mix(in srgb, var(--shiny-color-primary, #6d4aff) 85%, transparent), transparent 55%),
-        radial-gradient(circle at 70% 38%, color-mix(in srgb, var(--shiny-color-tertiary, #ff4fa3) 75%, transparent), transparent 55%),
-        radial-gradient(circle at 50% 72%, color-mix(in srgb, var(--shiny-color-secondary, #35d6b0) 75%, transparent), transparent 55%),
-        radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--shiny-color-primary, #6d4aff) 18%, transparent), transparent 70%);
-    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--shiny-color-primary, #6d4aff) 45%, transparent);
+        radial-gradient(circle at 30% 32%, color-mix(in srgb, var(--shiny-color-primary, #0055D9) 85%, transparent), transparent 55%),
+        radial-gradient(circle at 70% 38%, color-mix(in srgb, var(--shiny-color-tertiary, #6A4CAD) 75%, transparent), transparent 55%),
+        radial-gradient(circle at 50% 72%, color-mix(in srgb, var(--shiny-color-secondary, #565F6D) 75%, transparent), transparent 55%),
+        radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--shiny-color-primary, #0055D9) 18%, transparent), transparent 70%);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--shiny-color-primary, #0055D9) 45%, transparent);
     animation: shiny-prompt-orb-drift 6s linear infinite;
 }
 
@@ -90,7 +90,7 @@
 }
 
 .shiny-prompt-field::placeholder {
-    color: var(--shiny-color-on-surface-variant, #8b8b95);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-prompt-actions {
@@ -106,17 +106,17 @@
     cursor: pointer;
     padding: 4px 8px;
     border-radius: var(--shiny-shape-corner-small, 8px);
-    color: var(--shiny-color-on-surface-variant, #65656f);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: var(--shiny-type-body-large-size, 15px);
     line-height: 1;
 }
 
 .shiny-prompt-button:hover {
-    background: var(--shiny-color-surface-container-highest, rgba(0, 0, 0, 0.06));
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
 }
 
 .shiny-prompt-submit {
-    color: var(--shiny-color-primary, #6d4aff);
+    color: var(--shiny-color-primary, #0055D9);
     font-size: var(--shiny-type-title-medium-size, 16px);
 }
 
@@ -150,8 +150,8 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--shiny-color-primary, #6d4aff) 30%, transparent);
-    border-top-color: var(--shiny-color-primary, #6d4aff);
+    border: 2px solid color-mix(in srgb, var(--shiny-color-primary, #0055D9) 30%, transparent);
+    border-top-color: var(--shiny-color-primary, #0055D9);
     animation: shiny-prompt-spin 0.8s linear infinite;
 }
 
@@ -161,13 +161,13 @@
 
 .shiny-prompt-separator {
     height: 1px;
-    background: var(--shiny-color-outline-variant, rgba(0, 0, 0, 0.12));
+    background: var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-prompt-busy {
     padding: 10px var(--shiny-spacing-4, 18px);
     font-size: var(--shiny-type-body-medium-size, 13px);
-    color: var(--shiny-color-on-surface-variant, #65656f);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 /* No height of its own by default, so the card shrink-wraps the dropdown. A DropdownHeight adds
@@ -195,7 +195,7 @@
 
 .shiny-prompt-suggestion:hover,
 .shiny-prompt-suggestion.is-highlighted {
-    background: var(--shiny-color-surface-container-highest, rgba(0, 0, 0, 0.07));
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
 }
 
 .shiny-prompt-suggestion-glyph {
@@ -212,12 +212,12 @@
 
 .shiny-prompt-suggestion-title {
     font-size: var(--shiny-type-body-medium-size, 14px);
-    color: var(--shiny-color-on-surface, #15151a);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-prompt-suggestion-description {
     font-size: var(--shiny-type-body-small-size, 12px);
-    color: var(--shiny-color-on-surface-variant, #65656f);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-prompt-response {
@@ -228,5 +228,5 @@
 
 .shiny-prompt-footer {
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-4, 18px);
-    border-top: 1px solid var(--shiny-color-outline-variant, rgba(0, 0, 0, 0.12));
+    border-top: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
 }

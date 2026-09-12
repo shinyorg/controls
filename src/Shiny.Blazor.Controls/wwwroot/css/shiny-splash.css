@@ -7,10 +7,10 @@
  */
 
 .shiny-splash {
-    --shiny-splash-bg: var(--shiny-color-surface, #FFFFFF);
+    --shiny-splash-bg: var(--shiny-color-surface, #F6FAFE);
     --shiny-splash-fg: var(--shiny-color-on-surface, #161C23);
     --shiny-splash-accent: var(--shiny-color-primary, #0055D9);
-    --shiny-splash-muted: var(--shiny-color-on-surface-variant, #6C788D);
+    --shiny-splash-muted: var(--shiny-color-on-surface-variant, #3B475B);
     --shiny-splash-fade-ms: 250ms;
 
     position: fixed;
@@ -29,11 +29,20 @@
     user-select: none;
 }
 
+/* The splash paints before the app has rendered, so it cannot wait for anything to resolve - but it
+   still has to follow a forced theme, not only the OS preference. */
+.shiny-theme-dark .shiny-splash,
+.shiny-splash.shiny-theme-dark {
+    --shiny-splash-bg: var(--shiny-color-surface, #F6FAFE);
+    --shiny-splash-fg: var(--shiny-color-on-surface, #161C23);
+    --shiny-splash-muted: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
 @media (prefers-color-scheme: dark) {
-    .shiny-splash {
-        --shiny-splash-bg: var(--shiny-color-surface, #12161C);
-        --shiny-splash-fg: var(--shiny-color-on-surface, #E2E9F2);
-        --shiny-splash-muted: var(--shiny-color-on-surface-variant, #9CA9BE);
+    :root:not(.shiny-theme-light) .shiny-splash {
+        --shiny-splash-bg: var(--shiny-color-surface, #F6FAFE);
+        --shiny-splash-fg: var(--shiny-color-on-surface, #161C23);
+        --shiny-splash-muted: var(--shiny-color-on-surface-variant, #3B475B);
     }
 }
 

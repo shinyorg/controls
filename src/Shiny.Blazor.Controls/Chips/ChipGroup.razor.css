@@ -6,8 +6,8 @@
     --shiny-chip-stroke: var(--shiny-color-outline, #6C788D);
     --shiny-chip-bg: transparent;
     --shiny-chip-fg: var(--shiny-color-on-surface-variant, #3B475B);
-    --shiny-chip-selected-bg: var(--shiny-color-secondary-container, #D9E3F3);
-    --shiny-chip-selected-fg: var(--shiny-color-on-secondary-container, #131C28);
+    --shiny-chip-selected-bg: var(--shiny-color-secondary-container, #D0D6DC);
+    --shiny-chip-selected-fg: var(--shiny-color-on-secondary-container, #3E4652);
 
     display: flex;
     flex-wrap: wrap;

@@ -22,17 +22,17 @@
     height: 30px;
     padding: 0 8px;
     border-radius: 5px;
-    border: 1px solid var(--shiny-color-outline-variant, #e4e4e7);
-    background: var(--shiny-color-surface, #fff);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .find-box:focus-within {
-    border-color: var(--shiny-color-primary, #2f6fed);
+    border-color: var(--shiny-color-primary, #0055D9);
 }
 
 .find-glass {
     display: inline-flex;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .find-glass ::deep svg {
@@ -47,7 +47,7 @@
     font: inherit;
     font-size: 13px;
     background: transparent;
-    color: var(--shiny-color-on-surface, #1f2937);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .find-input:disabled {
@@ -61,5 +61,5 @@
     text-align: center;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }

@@ -14,17 +14,17 @@
     padding: var(--shiny-spacing-1, 4px) var(--shiny-spacing-3, 12px);
     border: 0;
     background: transparent;
-    color: var(--shiny-color-on-surface, #111827);
+    color: var(--shiny-color-on-surface, #161C23);
     text-align: left;
     white-space: nowrap;
     cursor: pointer;
 }
 
-.shiny-fontsizepicker-item:hover { background: var(--shiny-color-surface-variant, rgba(0, 0, 0, 0.05)); }
+.shiny-fontsizepicker-item:hover { background: var(--shiny-color-surface-variant, #E8EEF6); }
 
 .shiny-fontsizepicker-item-on {
-    background: var(--shiny-color-secondary-container, rgba(37, 99, 235, 0.14));
-    color: var(--shiny-color-on-secondary-container, inherit);
+    background: var(--shiny-color-secondary-container, #D0D6DC);
+    color: var(--shiny-color-on-secondary-container, #3E4652);
 }
 
 .shiny-fontsizepicker-value {

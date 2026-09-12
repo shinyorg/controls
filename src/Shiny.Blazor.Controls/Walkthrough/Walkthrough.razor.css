@@ -1,9 +1,9 @@
 .shiny-walkthrough {
-    --shiny-wt-scrim: var(--shiny-color-scrim, #000);
-    --shiny-wt-card: var(--shiny-color-surface-container-high, #ece6f0);
-    --shiny-wt-fg: var(--shiny-color-on-surface, #1d1b20);
-    --shiny-wt-muted: var(--shiny-color-on-surface-variant, #49454f);
-    --shiny-wt-accent: var(--shiny-color-primary, #6750a4);
+    --shiny-wt-scrim: var(--shiny-color-scrim, #000000);
+    --shiny-wt-card: var(--shiny-color-surface-container-high, #E2E6EA);
+    --shiny-wt-fg: var(--shiny-color-on-surface, #161C23);
+    --shiny-wt-muted: var(--shiny-color-on-surface-variant, #3B475B);
+    --shiny-wt-accent: var(--shiny-color-primary, #0055D9);
     --shiny-wt-opacity: .8;
     --shiny-wt-move: 320ms;
     --shiny-wt-in: 260ms;
@@ -167,7 +167,7 @@
    --------------------------------------------------------------------------------------------- */
 
 .shiny-walkthrough__callout--spotlight {
-    color: var(--shiny-color-inverse-on-surface, #f4eff4);
+    color: var(--shiny-color-inverse-on-surface, #F6FAFE);
     max-width: min(var(--shiny-wt-max-width), calc(100vw - 48px));
 }
 
@@ -183,11 +183,11 @@
 
 .shiny-walkthrough__callout--spotlight .shiny-walkthrough__counter,
 .shiny-walkthrough__callout--spotlight .shiny-walkthrough__btn {
-    color: color-mix(in srgb, var(--shiny-color-inverse-on-surface, #f4eff4) 75%, transparent);
+    color: color-mix(in srgb, var(--shiny-color-inverse-on-surface, #F6FAFE) 75%, transparent);
 }
 
 .shiny-walkthrough__callout--spotlight .shiny-walkthrough__btn--primary {
-    color: var(--shiny-color-inverse-primary, #d0bcff);
+    color: var(--shiny-color-inverse-primary, #6C9BED);
 }
 
 

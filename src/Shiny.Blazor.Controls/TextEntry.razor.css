@@ -4,7 +4,9 @@
     width: 100%;
 }
 
+/* The parameter defaults, mirrored so an app rule can beat them. */
 .shiny-te-border {
+    border-radius: var(--shiny-shape-corner-small, 8px);
     display: flex;
     align-items: stretch;
     min-height: var(--shiny-density-control-height, 44px);
@@ -57,10 +59,11 @@
 .shiny-te-placeholder--up {
     top: 0;
     transform: translateY(-50%) scale(0.75);
-    background: var(--shiny-te-notch-bg, var(--shiny-color-surface, #FFFFFF));
+    background: var(--shiny-te-notch-bg, var(--shiny-color-surface, #F6FAFE));
 }
 
 .shiny-te-input {
+    font-family: var(--shiny-type-font-family, inherit);
     width: 100%;
     border: none;
     outline: none;
@@ -93,7 +96,7 @@
     justify-content: center;
     gap: var(--shiny-spacing-1, 4px);
     white-space: nowrap;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     transition: background 0.15s, color 0.15s;
 }
 
@@ -111,29 +114,29 @@
 }
 
 .shiny-te--tools-inline .shiny-te-tool-btn:hover {
-    background: var(--shiny-color-surface-container-high, rgba(0, 0, 0, 0.05));
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
 }
 
 .shiny-te--tools-inline .shiny-te-tool-btn:active {
-    background: var(--shiny-color-surface-container-highest, rgba(0, 0, 0, 0.09));
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
 }
 
 /* ---- Addon tools: the Bootstrap input-group block, opt-in ---- */
 .shiny-te--tools-addon .shiny-te-tools {
-    background: var(--shiny-te-addon-bg, var(--shiny-color-surface-container-high, #f8f9fa));
+    background: var(--shiny-te-addon-bg, var(--shiny-color-surface-container-high, #E2E6EA));
     /* Clips its own corners against the rounded border instead of the whole control clipping, which
        would eat the notch. */
     overflow: hidden;
 }
 
 .shiny-te--tools-addon .shiny-te-tools--left {
-    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-te-border-color, var(--shiny-color-outline-variant, #CCCCCC));
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-te-border-color, var(--shiny-color-outline-variant, #BBC7DF));
     border-top-left-radius: inherit;
     border-bottom-left-radius: inherit;
 }
 
 .shiny-te--tools-addon .shiny-te-tools--right {
-    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-te-border-color, var(--shiny-color-outline-variant, #CCCCCC));
+    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-te-border-color, var(--shiny-color-outline-variant, #BBC7DF));
     border-top-right-radius: inherit;
     border-bottom-right-radius: inherit;
 }
@@ -144,15 +147,15 @@
 }
 
 .shiny-te--tools-addon .shiny-te-tool-btn + .shiny-te-tool-btn {
-    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-te-border-color, var(--shiny-color-outline-variant, #CCCCCC));
+    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-te-border-color, var(--shiny-color-outline-variant, #BBC7DF));
 }
 
 .shiny-te--tools-addon .shiny-te-tool-btn:hover {
-    background: var(--shiny-te-addon-hover-bg, var(--shiny-color-surface-container-highest, #e9ecef));
+    background: var(--shiny-te-addon-hover-bg, var(--shiny-color-surface-container-highest, #D7DCE1));
 }
 
 .shiny-te--tools-addon .shiny-te-tool-btn:active {
-    background: var(--shiny-te-addon-active-bg, var(--shiny-color-surface-container-highest, #dee2e6));
+    background: var(--shiny-te-addon-active-bg, var(--shiny-color-surface-container-highest, #D7DCE1));
 }
 
 .shiny-te-hint {
@@ -163,11 +166,11 @@
 
 /* Focus state */
 .shiny-te--focused .shiny-te-border {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shiny-color-primary, #007AFF) 25%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shiny-color-primary, #0055D9) 25%, transparent);
 }
 
 .shiny-te--error .shiny-te-border {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shiny-color-error, #DC3545) 25%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shiny-color-error, #C20014) 25%, transparent);
 }
 
 .shiny-te-tool-icon {

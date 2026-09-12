@@ -443,42 +443,60 @@ public class DocumentEditorView : ContentView, IDisposable
 
         var tab = new RibbonTab { Title = "Home", Key = "home" };
 
+        // Rows, which is what Word actually draws: the two boxes on top and the run of marks
+        // underneath. Filling columns instead put bold above italic and underline above strikethrough -
+        // a 2x2 block of a run people read across - and forced the font picker to share a column with a
+        // toggle, where the column took the picker's width and stretched the 16px B across all of it.
         var font = new RibbonGroup { Title = "Font", Priority = 100 };
 
+        var fontBoxes = new RibbonRow();
+
         if (this.fontPicker is not null)
-            font.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
+            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
 
         if (this.sizePicker is not null)
-            font.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
+            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
 
-        font.Items.Add(this.bold);
-        font.Items.Add(this.italic);
-        font.Items.Add(this.underline);
-        font.Items.Add(this.strike);
-        font.Items.Add(OfficeRibbonItems.Host(this.textColor));
-        font.Items.Add(this.highlight);
+        font.Items.Add(fontBoxes);
+        font.Items.Add(OfficeRibbonItems.Row(
+            this.bold,
+            this.italic,
+            this.underline,
+            this.strike,
+            new RibbonSeparator(),
+            OfficeRibbonItems.Host(this.textColor),
+            this.highlight
+        ));
         tab.Groups.Add(font);
 
+        // Lists and the indent pair on top, the four alignments underneath - Word's own arrangement,
+        // and two full rows of four rather than a 2x4 grid that read align-left / align-right down the
+        // first column.
         var paragraph = new RibbonGroup { Title = "Paragraph", Priority = 90 };
-        paragraph.Items.Add(this.alignLeft);
-        paragraph.Items.Add(this.alignCenter);
-        paragraph.Items.Add(this.alignRight);
-        paragraph.Items.Add(this.alignJustify);
-
-        // The two are different kinds of rule - which way the text sits, and what marks the item - so
-        // a break keeps the run of four from reading as a run of six.
-        paragraph.Items.Add(new RibbonSeparator());
-
-        paragraph.Items.Add(this.bulletList);
-        paragraph.Items.Add(this.numberedList);
-        paragraph.Items.Add(this.outdent);
-        paragraph.Items.Add(this.indent);
+        paragraph.Items.Add(OfficeRibbonItems.Row(
+            this.bulletList,
+            this.numberedList,
+            this.outdent,
+            this.indent
+        ));
+        paragraph.Items.Add(OfficeRibbonItems.Row(
+            this.alignLeft,
+            this.alignCenter,
+            this.alignRight,
+            this.alignJustify
+        ));
         tab.Groups.Add(paragraph);
 
         // Proofing rides on Home rather than a Review tab of its own. Spelling is something you do
         // while writing, not a separate pass, and a tab holding three buttons costs a click to reach
         // and leaves most of a bar empty when you get there.
+        //
+        // The toggle is large and labelled: three icon-only buttons left a hole where the third row
+        // would be, and "check spelling" is not a mark anyone reads off a 16px glyph. The two steppers
+        // stack beside it, which is the column the hole used to be.
         var proofing = new RibbonGroup { Title = "Proofing", Priority = 70 };
+        this.spellCheck.Size = RibbonItemSize.Large;
+        this.spellCheck.Text = "Spelling";
         proofing.Items.Add(this.spellCheck);
         proofing.Items.Add(this.previousError);
         proofing.Items.Add(this.nextError);
@@ -488,8 +506,11 @@ public class DocumentEditorView : ContentView, IDisposable
         // separate pass, so it sits on the tab that opens - but it is reached less often than the
         // formatting beside it, which is what the priority orders and what decides which group folds
         // into the overflow first on a narrow window.
+        //
+        // The bar spans the rows: it is one control as tall as the group, and on a single row it left
+        // the row underneath empty for the width of a search box.
         var finding = new RibbonGroup { Title = "Find", Priority = 60 };
-        finding.Items.Add(OfficeRibbonItems.Host(this.findBar));
+        finding.Items.Add(OfficeRibbonItems.HostLarge(this.findBar));
         tab.Groups.Add(finding);
 
         this.ribbon.Tabs.Add(tab);
@@ -499,11 +520,10 @@ public class DocumentEditorView : ContentView, IDisposable
         // click to reach a bar with a single button on it.
         var layoutTab = new RibbonTab { Title = "Layout", Key = "layout" };
 
+        // The four presets on one row. Two deep in columns they came out as two pairs, and which
+        // preset was which then depended on counting down a column rather than along a row.
         var page = new RibbonGroup { Title = "Margins", Priority = 100 };
-
-        foreach (var button in this.marginButtons)
-            page.Items.Add(button);
-
+        page.Items.Add(OfficeRibbonItems.Row([.. this.marginButtons]));
         layoutTab.Groups.Add(page);
 
         var pageSetup = new RibbonGroup { Title = "Page", Priority = 90 };
@@ -514,11 +534,18 @@ public class DocumentEditorView : ContentView, IDisposable
         pageSetup.Items.Add(this.watermark);
         layoutTab.Groups.Add(pageSetup);
 
+        // Minus, readout, plus - on one row, in that order. Filling columns put the readout under the
+        // minus and the plus above "fit", which is a stepper whose two halves are on different lines
+        // with the number wedged between them.
         var zoom = new RibbonGroup { Title = "Zoom", Priority = 80 };
-        zoom.Items.Add(this.zoomOut);
-        zoom.Items.Add(OfficeRibbonItems.Host(this.zoomLabel));
-        zoom.Items.Add(this.zoomIn);
-        zoom.Items.Add(this.fitWidth);
+        zoom.Items.Add(OfficeRibbonItems.Row(
+            this.zoomOut,
+            OfficeRibbonItems.Host(this.zoomLabel),
+            this.zoomIn
+        ));
+
+        this.fitWidth.Text = "Fit width";
+        zoom.Items.Add(OfficeRibbonItems.Row(this.fitWidth));
         layoutTab.Groups.Add(zoom);
 
         this.ribbon.Tabs.Add(layoutTab);
@@ -528,18 +555,29 @@ public class DocumentEditorView : ContentView, IDisposable
         // number on every page, and the break between two of them).
         var insertTab = new RibbonTab { Title = "Insert", Key = "insert" };
 
+        // Labelled: these are things you insert by name, not marks you recognise - nobody reads
+        // "footer" off a 16px glyph.
         var objects = new RibbonGroup { Title = "Objects", Priority = 100 };
-        objects.Items.Add(this.insertTable);
-        objects.Items.Add(this.insertPicture);
+        this.insertTable.Text = "Table";
+        this.insertPicture.Text = "Picture";
+        objects.Items.Add(OfficeRibbonItems.Row(this.insertTable, this.insertPicture));
         insertTab.Groups.Add(objects);
 
+        // Two rows rather than three items filling columns two deep, which left the page-number menu
+        // alone in a second column with a hole under it.
         var chrome = new RibbonGroup { Title = "Header & Footer", Priority = 90 };
-        chrome.Items.Add(this.insertHeader);
-        chrome.Items.Add(this.insertFooter);
-        chrome.Items.Add(this.pageNumber);
+        this.insertHeader.Text = "Header";
+        this.insertFooter.Text = "Footer";
+        this.pageNumber.Text = "Page number";
+        chrome.Items.Add(OfficeRibbonItems.Row(this.insertHeader, this.insertFooter));
+        chrome.Items.Add(OfficeRibbonItems.Row(this.pageNumber));
         insertTab.Groups.Add(chrome);
 
-        var breaks = new RibbonGroup { Title = "Breaks", Priority = 80 };
+        // One command, so it is drawn the way a single command should be: large, with its name on it.
+        // A lone 16px glyph under a caption reading "Breaks" said nothing.
+        var breaks = new RibbonGroup { Title = "Pages", Priority = 80 };
+        this.pageBreak.Size = RibbonItemSize.Large;
+        this.pageBreak.Text = "Page break";
         breaks.Items.Add(this.pageBreak);
         insertTab.Groups.Add(breaks);
 

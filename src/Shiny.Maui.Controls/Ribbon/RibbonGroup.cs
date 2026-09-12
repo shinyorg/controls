@@ -54,6 +54,7 @@ public class RibbonGroup : BindableObject
     /// <summary>Raised when the small arrow in the group's corner is pressed.</summary>
     public event EventHandler? DialogLauncherClicked;
 
+
     /// <summary>The caption under the group. Also the label when the group collapses to a button.</summary>
     public string? Title
     {

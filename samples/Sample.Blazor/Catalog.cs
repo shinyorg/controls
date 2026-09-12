@@ -21,7 +21,8 @@ public static class Catalog
     [
         new("", "Home", "⌂", "Start here"),
         new("kitchensink", "Kitchen Sink", "⚙", "Every control on one page"),
-        new("theming", "Theming", "◐", "The design tokens every control reads")
+        new("theming", "Theming", "◐", "The design tokens every control reads"),
+            new("themes", "Theme Composer", "🎨", "Design a theme live against real controls, and take the code")
     ];
 
     public static readonly CatalogSection[] Sections =

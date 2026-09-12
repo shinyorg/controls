@@ -1,4 +1,5 @@
 @namespace Shiny.Blazor.Controls.Scheduler
+@using Shiny.Blazor.Controls.Theming
 @implements IDisposable
 
 <div class="shiny-cal-list" @ref="hostEl" @onscroll="OnScroll">
@@ -16,7 +17,8 @@
         {
             <div class="shiny-cal-list-day @(group.IsToday ? "is-today" : "")">
                 <div class="shiny-cal-list-header"
-                     style="background:@DayHeaderBackgroundColor;color:@DayHeaderTextColor;">
+                     style="@(StyleDefaults.Override("background", DayHeaderBackgroundColor, DefaultDayHeaderBackgroundColor)
+                              + StyleDefaults.Override("color", DayHeaderTextColor, DefaultDayHeaderTextColor))">
                     <div class="shiny-cal-list-date">@group.DateDisplay</div>
                     <div class="shiny-cal-list-count">@group.EventCountDisplay</div>
                 </div>
@@ -69,8 +71,12 @@
     [Parameter] public EventCallback<DateOnly> SelectedDateChanged { get; set; }
     [Parameter] public int DaysPerPage { get; set; } = 30;
     [Parameter] public string DefaultEventColor { get; set; } = "#6366F1";
-    [Parameter] public string DayHeaderBackgroundColor { get; set; } = "var(--shiny-color-surface-container, #F9FAFB)";
-    [Parameter] public string DayHeaderTextColor { get; set; } = "var(--shiny-color-on-surface, #111827)";
+    // Mirrored in the component stylesheet; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultDayHeaderBackgroundColor = "var(--shiny-color-surface-container, #E8EEF6)";
+    internal const string DefaultDayHeaderTextColor = "var(--shiny-color-on-surface, #161C23)";
+
+    [Parameter] public string DayHeaderBackgroundColor { get; set; } = DefaultDayHeaderBackgroundColor;
+    [Parameter] public string DayHeaderTextColor { get; set; } = DefaultDayHeaderTextColor;
     [Parameter] public DateOnly? MinDate { get; set; }
     [Parameter] public DateOnly? MaxDate { get; set; }
 

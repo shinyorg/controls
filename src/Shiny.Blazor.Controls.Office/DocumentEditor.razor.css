@@ -47,10 +47,10 @@
     z-index: 10;
     min-width: 160px;
     padding: 4px 0;
-    border: 1px solid var(--shiny-color-outline-variant, #d4d4d8);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: 8px;
-    background: var(--shiny-color-surface, #ffffff);
-    color: var(--shiny-color-on-surface, #18181b);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
     font-size: 13px;
 }
@@ -68,24 +68,24 @@
 }
 
 .shiny-doc-spelling-menu .doc-spell-item:hover {
-    background: var(--shiny-color-surface-variant, #f4f4f5);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
 }
 
 /* Corrections are the primary action; ignore/learn are secondary and read as such. */
 .shiny-doc-spelling-menu .doc-spell-action {
-    color: var(--shiny-color-on-surface-variant, #52525b);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-doc-spelling-menu .doc-spell-empty {
     padding: 6px 12px;
-    color: var(--shiny-color-on-surface-variant, #71717a);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-style: italic;
 }
 
 .shiny-doc-spelling-menu .doc-spell-sep {
     height: 1px;
     margin: 4px 0;
-    background: var(--shiny-color-outline-variant, #e4e4e7);
+    background: var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 /*
@@ -102,7 +102,7 @@
     pointer-events: none;
     z-index: 4;
     border-radius: 4px;
-    outline: 2px dashed var(--shiny-color-primary, #2f6fed);
+    outline: 2px dashed var(--shiny-color-primary, #0055D9);
     outline-offset: -6px;
-    background: color-mix(in srgb, var(--shiny-color-primary, #2f6fed) 8%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 8%, transparent);
 }

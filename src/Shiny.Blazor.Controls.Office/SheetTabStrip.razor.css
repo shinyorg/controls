@@ -5,8 +5,8 @@
     flex: 0 0 auto;
     align-items: stretch;
     padding: 3px 6px;
-    border-top: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
-    background: var(--shiny-color-surface-variant, #f3f4f6);
+    border-top: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
 
     /* The tabs are chrome, not content: a stray drag should not start a text selection across them. */
     user-select: none;
@@ -46,7 +46,7 @@
     border: 1px solid transparent;
     border-radius: 4px 4px 0 0;
     background: transparent;
-    color: var(--shiny-color-on-surface-variant, #4b5563);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font: inherit;
     font-size: 12px;
     line-height: 1;
@@ -59,10 +59,10 @@
 /* The current tab reads as continuous with the grid above it, which is what the flat bottom edge and
    the matching background are doing - not decoration. */
 .sheet-tab-on {
-    background: var(--shiny-color-surface, #fff);
-    border-color: var(--shiny-color-outline-variant, #e5e7eb);
-    border-bottom-color: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #111827);
+    background: var(--shiny-color-surface, #F6FAFE);
+    border-color: var(--shiny-color-outline-variant, #BBC7DF);
+    border-bottom-color: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     font-weight: 600;
 }
 
@@ -79,8 +79,8 @@
     min-width: 60px;
     border-radius: 4px 4px 0 0;
     border-color: var(--shiny-spreadsheet-selection, #217a3c);
-    background: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #111827);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     cursor: text;
     outline: none;
 }
@@ -88,7 +88,7 @@
 .sheet-error {
     align-self: center;
     margin-left: 8px;
-    color: var(--shiny-color-error, #b91c1c);
+    color: var(--shiny-color-error, #C20014);
     font-size: 11px;
     white-space: nowrap;
 }
@@ -113,9 +113,9 @@
     flex-direction: column;
     min-width: 180px;
     padding: 4px;
-    border: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: 6px;
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
@@ -124,7 +124,7 @@
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: var(--shiny-color-on-surface, #111827);
+    color: var(--shiny-color-on-surface, #161C23);
     font: inherit;
     font-size: 13px;
     text-align: left;
@@ -135,11 +135,11 @@
 .sheet-menu button:hover:not(:disabled) { background: color-mix(in srgb, currentColor 10%, transparent); }
 .sheet-menu button:disabled { opacity: 0.35; cursor: default; }
 
-.sheet-menu-danger { color: var(--shiny-color-error, #b91c1c); }
+.sheet-menu-danger { color: var(--shiny-color-error, #C20014); }
 
 .sheet-menu-heading {
     padding: 4px 10px;
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -148,5 +148,5 @@
 .sheet-menu-rule {
     height: 1px;
     margin: 4px 2px;
-    background: var(--shiny-color-outline-variant, #e5e7eb);
+    background: var(--shiny-color-outline-variant, #BBC7DF);
 }

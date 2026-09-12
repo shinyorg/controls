@@ -1,4 +1,5 @@
 @namespace Shiny.Blazor.Controls
+@using Shiny.Blazor.Controls.Theming
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -24,11 +25,11 @@
                 @if (ShowCancelButton)
                 {
                     <button class="shiny-sigpad-btn shiny-sigpad-btn-cancel"
-                            style="background:@CancelButtonColor;"
+                            style="@StyleDefaults.Override("background", CancelButtonColor, DefaultCancelButtonColor)"
                             @onclick="OnCancel">@CancelButtonText</button>
                 }
                 <button class="shiny-sigpad-btn shiny-sigpad-btn-sign"
-                        style="background:@SignButtonColor;"
+                        style="@StyleDefaults.Override("background", SignButtonColor, DefaultSignButtonColor)"
                         disabled="@(!hasSignature)"
                         @onclick="OnSign">@SignButtonText</button>
             </div>

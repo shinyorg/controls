@@ -64,10 +64,10 @@
         var radius = CellCornerRadius.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var border = isCurrent && CellFocusedBorderColor is not null
             ? CellFocusedBorderColor
-            : (CellBorderColor ?? "var(--shiny-color-outline-variant, #D1D5DB)");
+            : (CellBorderColor ?? "var(--shiny-color-outline-variant, #BBC7DF)");
         // "white" here painted a stark white cell in dark mode; the border beside it was already a
         // token, so the cell was half-themed.
-        var bg = CellBackgroundColor ?? "var(--shiny-color-surface-container-low, white)";
+        var bg = CellBackgroundColor ?? "var(--shiny-color-surface-container-low, #EFF4FB)";
         return $"width:{size}px;height:{size}px;border-radius:{radius}px;border:1px solid {border};background:{bg};";
     }
 

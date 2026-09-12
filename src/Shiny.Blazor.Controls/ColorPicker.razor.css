@@ -55,7 +55,7 @@
     width: 44px;
     height: 44px;
     border-radius: var(--shiny-shape-corner-small, 8px);
-    border: var(--shiny-border-medium, 2px) solid var(--shiny-color-outline-variant, #ccc);
+    border: var(--shiny-border-medium, 2px) solid var(--shiny-color-outline-variant, #BBC7DF);
     flex-shrink: 0;
 }
 
@@ -63,7 +63,7 @@
     font-family: var(--shiny-type-font-family-mono, monospace);
     font-size: var(--shiny-type-body-medium-size, 14px);
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ccc);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-small, 6px);
     width: 100%;
     box-sizing: border-box;
@@ -71,6 +71,6 @@
 
 .shiny-colorpicker-hex:focus {
     outline: none;
-    border-color: var(--shiny-color-primary, #007AFF);
+    border-color: var(--shiny-color-primary, #0055D9);
     box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
 }

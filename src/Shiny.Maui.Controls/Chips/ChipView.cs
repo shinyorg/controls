@@ -36,8 +36,6 @@ class ChipView : ContentView
     readonly Label label;
     readonly ContentView removeHost;
     readonly MotionIconView removeIcon;
-    readonly SolidColorBrush strokeBrush;
-    readonly BoxView strokeProbe;
 
     View? custom;
 
@@ -97,16 +95,12 @@ class ChipView : ContentView
             Children = { this.check, this.label, this.removeHost }
         };
 
-        (this.strokeBrush, this.strokeProbe) = ThemeProbe.Create();
-
         this.rootGrid = new Grid();
-        this.rootGrid.Add(this.strokeProbe);
         this.rootGrid.Add(this.row);
 
         this.border = new Border
         {
             Padding = new Thickness(12, 6),
-            Stroke = this.strokeBrush,
             Content = this.rootGrid,
             HorizontalOptions = LayoutOptions.Start,
             VerticalOptions = LayoutOptions.Center
@@ -256,7 +250,7 @@ class ChipView : ContentView
             ThemeProbe.Tint(this.border, VisualElement.BackgroundColorProperty, fill ?? Colors.Transparent, ShinyThemeKeys.Color.Surface);
             this.Ink(this.ChipTextColor, fill, ShinyThemeKeys.Color.OnSurfaceVariant);
 
-            ThemeProbe.Tint(this.strokeProbe, BoxView.ColorProperty, this.ChipBorderColor, ShinyThemeKeys.Color.Outline);
+            ThemeBrush.Apply(this.border, Border.StrokeProperty, this.ChipBorderColor, ShinyThemeKeys.Brush.Outline);
 
             // Cleared first: the selected branch writes 0 as a local value, and a local value outranks
             // the dynamic resource below - so without this a chip that had ever been selected would

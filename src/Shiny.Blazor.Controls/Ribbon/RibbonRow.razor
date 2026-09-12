@@ -1,0 +1,23 @@
+@namespace Shiny.Blazor.Controls
+
+@*
+    A row of items inside a group — the other way to fill one, and the one a run of formatting marks
+    wants.
+
+    A group's items normally fill a column top to bottom and start the next when it is full. That is
+    right for a set of interchangeable commands and wrong for a run: bold, italic, underline and
+    strikethrough are read left to right, and a two-row column turns four of them into a 2x2 block with
+    underline above italic. It also forces a font-name box and a bold button into one column, where
+    `min-content` sizes the column to the box and `justify-items: stretch` draws the 16px B across all
+    150px of it.
+
+    Put rows in a group and the group lays them out as rows instead. The group needs no mode set: the
+    stylesheet switches on :has(.shiny-ribbon-row), so the presence of a row IS the signal.
+*@
+<div class="shiny-ribbon-row" role="group">
+    @this.ChildContent
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

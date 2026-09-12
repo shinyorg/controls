@@ -7,7 +7,7 @@
     width: 100%;
     height: 100%;
     min-height: 240px;
-    background: var(--shiny-dock-host-bg, var(--shiny-color-surface-container, #f3f4f6));
+    background: var(--shiny-dock-host-bg, var(--shiny-color-surface-container, #E8EEF6));
     color: var(--shiny-dock-host-fg, inherit);
     font-family: var(--shiny-type-font-family, inherit);
     padding: var(--shiny-spacing-1, 4px);
@@ -20,10 +20,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--shiny-dock-placeholder-fg, var(--shiny-color-on-surface-variant, #888));
+    color: var(--shiny-dock-placeholder-fg, var(--shiny-color-on-surface-variant, #3B475B));
     font-size: var(--shiny-type-body-medium-size, 14px);
     font-style: italic;
-    border: var(--shiny-border-thin, 1px) dashed var(--shiny-dock-placeholder-border, var(--shiny-color-outline-variant, #ccc));
+    border: var(--shiny-border-thin, 1px) dashed var(--shiny-dock-placeholder-border, var(--shiny-color-outline-variant, #BBC7DF));
     border-radius: var(--shiny-shape-corner-extra-small, 4px);
     margin: 8px;
 }
@@ -92,8 +92,8 @@
     flex: 1;
     min-width: 0;
     min-height: 0;
-    background: var(--shiny-dock-group-bg, var(--shiny-color-surface, #ffffff));
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #d1d5db));
+    background: var(--shiny-dock-group-bg, var(--shiny-color-surface, #F6FAFE));
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF));
     border-radius: var(--shiny-shape-corner-small, 6px);
     overflow: hidden;
 }
@@ -104,7 +104,7 @@
     align-items: stretch;
     gap: calc(2px * var(--shiny-density-scale, 1));
     padding: var(--shiny-spacing-1, 4px) calc(6px * var(--shiny-density-scale, 1)) 0 calc(6px * var(--shiny-density-scale, 1));
-    background: var(--shiny-dock-tabs-bg, var(--shiny-color-surface-container, #e5e7eb));
+    background: var(--shiny-dock-tabs-bg, var(--shiny-color-surface-container, #E8EEF6));
     overflow-x: auto;
     -webkit-user-select: none;
     user-select: none;
@@ -116,7 +116,7 @@
     gap: calc(6px * var(--shiny-density-scale, 1));
     padding: calc(5px * var(--shiny-density-scale, 1)) calc(10px * var(--shiny-density-scale, 1));
     font-size: var(--shiny-type-body-small-size, 12px);
-    color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #4b5563));
+    color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #3B475B));
     background: var(--shiny-dock-tab-bg, transparent);
     border-radius: var(--shiny-shape-corner-extra-small, 5px) var(--shiny-shape-corner-extra-small, 5px) 0 0;
     cursor: pointer;
@@ -128,8 +128,8 @@
 }
 
 .shiny-dock-tab--active {
-    background: var(--shiny-dock-tab-active-bg, var(--shiny-color-surface, #ffffff));
-    color: var(--shiny-dock-tab-active-fg, var(--shiny-color-on-surface, #111827));
+    background: var(--shiny-dock-tab-active-bg, var(--shiny-color-surface, #F6FAFE));
+    color: var(--shiny-dock-tab-active-fg, var(--shiny-color-on-surface, #161C23));
     font-weight: 600;
 }
 
@@ -143,11 +143,11 @@
     line-height: 1;
     padding: 0 calc(2px * var(--shiny-density-scale, 1));
     border-radius: var(--shiny-shape-corner-extra-small, 3px);
-    color: var(--shiny-dock-tab-close-fg, var(--shiny-color-on-surface-variant, #9ca3af));
+    color: var(--shiny-dock-tab-close-fg, var(--shiny-color-on-surface-variant, #3B475B));
 }
 
 .shiny-dock-tab__close:hover {
-    color: var(--shiny-dock-tab-close-hover-fg, var(--shiny-color-on-surface, #111827));
+    color: var(--shiny-dock-tab-close-hover-fg, var(--shiny-color-on-surface, #161C23));
     background: var(--shiny-dock-tab-close-hover-bg, rgba(0, 0, 0, 0.08));
 }
 
@@ -158,7 +158,7 @@
     align-self: center;
     border: none;
     background: transparent;
-    color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #4b5563));
+    color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #3B475B));
     font-size: var(--shiny-type-body-medium-size, 14px);
     line-height: 1;
     padding: calc(2px * var(--shiny-density-scale, 1)) calc(7px * var(--shiny-density-scale, 1));
@@ -173,8 +173,8 @@
 .shiny-dock-railbar {
     display: flex;
     gap: var(--shiny-spacing-1, 4px);
-    background: var(--shiny-dock-tabs-bg, var(--shiny-color-surface-container, #e5e7eb));
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #d1d5db));
+    background: var(--shiny-dock-tabs-bg, var(--shiny-color-surface-container, #E8EEF6));
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF));
     border-radius: var(--shiny-shape-corner-small, 6px);
     padding: calc(6px * var(--shiny-density-scale, 1)) calc(3px * var(--shiny-density-scale, 1));
     overflow: hidden;
@@ -188,7 +188,7 @@
 .shiny-dock-railbar__item {
     border: none;
     background: transparent;
-    color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #4b5563));
+    color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #3B475B));
     font-size: var(--shiny-type-label-small-size, 11px);
     font-weight: 600;
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-1, 4px);
@@ -216,7 +216,7 @@
 
 .shiny-dock-railbar__item:hover {
     background: rgba(255, 255, 255, 0.7);
-    color: var(--shiny-dock-tab-active-fg, var(--shiny-color-on-surface, #111827));
+    color: var(--shiny-dock-tab-active-fg, var(--shiny-color-on-surface, #161C23));
 }
 
 .shiny-dock-group__content {
@@ -254,7 +254,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--shiny-color-error, #b91c1c);
+    color: var(--shiny-color-error, #C20014);
     font-size: var(--shiny-type-body-small-size, 12px);
     font-style: italic;
 }
@@ -264,14 +264,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: var(--shiny-border-thin, 1px) dashed var(--shiny-dock-placeholder-border, var(--shiny-color-outline-variant, #ccc));
+    border: var(--shiny-border-thin, 1px) dashed var(--shiny-dock-placeholder-border, var(--shiny-color-outline-variant, #BBC7DF));
     border-radius: var(--shiny-shape-corner-small, 6px);
 }
 
 .shiny-dock-empty__hint {
     font-size: var(--shiny-type-body-small-size, 12px);
     font-style: italic;
-    color: var(--shiny-dock-placeholder-fg, var(--shiny-color-on-surface-variant, #9ca3af));
+    color: var(--shiny-dock-placeholder-fg, var(--shiny-color-on-surface-variant, #3B475B));
     -webkit-user-select: none;
     user-select: none;
 }
@@ -284,8 +284,8 @@
     flex-direction: column;
     min-width: 180px;
     min-height: 120px;
-    background: var(--shiny-dock-group-bg, var(--shiny-color-surface, #ffffff));
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #9ca3af));
+    background: var(--shiny-dock-group-bg, var(--shiny-color-surface, #F6FAFE));
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF));
     border-radius: var(--shiny-shape-corner-small, 8px);
     box-shadow: var(--shiny-elevation-5, 0 12px 32px rgba(0, 0, 0, 0.25));
     overflow: hidden;
@@ -302,8 +302,8 @@
     padding: calc(5px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px) calc(5px * var(--shiny-density-scale, 1)) calc(10px * var(--shiny-density-scale, 1));
     font-size: var(--shiny-type-body-small-size, 12px);
     font-weight: 600;
-    color: var(--shiny-dock-float-header-fg, var(--shiny-color-inverse-on-surface, #f9fafb));
-    background: var(--shiny-dock-float-header-bg, var(--shiny-color-inverse-surface, #374151));
+    color: var(--shiny-dock-float-header-fg, var(--shiny-color-inverse-on-surface, #F6FAFE));
+    background: var(--shiny-dock-float-header-bg, var(--shiny-color-inverse-surface, #161C23));
     cursor: move;
     -webkit-user-select: none;
     user-select: none;

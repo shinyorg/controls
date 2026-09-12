@@ -3,10 +3,10 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 12px);
     overflow: hidden;
-    background: var(--shiny-color-surface, white);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .shiny-cal-header {
@@ -14,7 +14,7 @@
     grid-template-columns: 44px 1fr 44px;
     align-items: center;
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-cal-title {
@@ -26,7 +26,7 @@
 .shiny-cal-nav {
     border: 0;
     background: transparent;
-    color: var(--shiny-color-primary, #3B82F6);
+    color: var(--shiny-color-primary, #0055D9);
     font-size: calc(18px * var(--shiny-type-scale, 1));
     font-weight: 700;
     cursor: pointer;
@@ -39,8 +39,8 @@
 .shiny-cal-dayheaders {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    background: var(--shiny-color-surface-container, #F9FAFB);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    background: var(--shiny-color-surface-container, #E8EEF6);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-cal-dayheader {
@@ -48,7 +48,7 @@
     padding: var(--shiny-spacing-2, 8px) 0;
     font-size: var(--shiny-type-label-small-size, 11px);
     font-weight: 700;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     text-transform: uppercase;
 }
 
@@ -58,9 +58,12 @@
     grid-auto-rows: minmax(92px, 1fr);
 }
 
+/* The parameter defaults, mirrored so an app rule can beat them; the component inlines a value
+   only where the caller chose one. */
 .shiny-cal-cell {
-    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #F3F4F6);
-    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #F3F4F6);
+    background: var(--shiny-color-surface, #F6FAFE);
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     padding: var(--shiny-spacing-1, 4px) var(--shiny-spacing-1, 4px) calc(6px * var(--shiny-density-scale, 1));
     min-height: 92px;
     cursor: pointer;
@@ -70,12 +73,22 @@
     overflow: hidden;
 }
 
+/* Equal specificity with .shiny-cal-cell on the class itself, so this has to follow it. */
+.shiny-cal-cell.is-selected {
+    background: var(--shiny-color-primary-container, #C2D8FA);
+}
+
 .shiny-cal-cell.not-in-month { opacity: 0.35; }
+
+.shiny-cal-daynum.today {
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
+}
 
 .shiny-cal-daynum {
     font-size: var(--shiny-type-body-small-size, 12px);
     font-weight: 600;
-    color: var(--shiny-color-on-surface, #111827);
+    color: var(--shiny-color-on-surface, #161C23);
     min-width: 22px;
     height: 22px;
     line-height: 22px;
@@ -106,22 +119,22 @@
 
 .shiny-cal-overflow {
     font-size: calc(10px * var(--shiny-type-scale, 1));
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     padding-left: var(--shiny-spacing-1, 4px);
 }
 
 .shiny-cal-count {
     font-size: var(--shiny-type-label-small-size, 11px);
-    color: var(--shiny-color-primary, #3B82F6);
+    color: var(--shiny-color-primary, #0055D9);
     padding-left: var(--shiny-spacing-1, 4px);
 }
 
 .shiny-cal-loader {
     position: absolute;
     inset: 0;
-    background: color-mix(in srgb, var(--shiny-color-surface, #FFFFFF) 70%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-surface, #F6FAFE) 70%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--shiny-color-on-surface-variant, #6B7280);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }

@@ -32,8 +32,8 @@
     z-index: 41;
     padding: 6px;
     border-radius: 8px;
-    background: var(--shiny-color-surface, #fff);
-    border: 1px solid var(--shiny-color-outline-variant, #e4e4e7);
+    background: var(--shiny-color-surface, #F6FAFE);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
 }
 
@@ -58,13 +58,13 @@
 }
 
 .margin-item:hover {
-    border-color: var(--shiny-color-outline-variant, #e4e4e7);
-    background: var(--shiny-color-surface-variant, #f4f4f5);
+    border-color: var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-variant, #E8EEF6);
 }
 
 .margin-item.on {
-    border-color: var(--shiny-color-primary, #2f6fed);
-    background: color-mix(in srgb, var(--shiny-color-primary, #2f6fed) 12%, transparent);
+    border-color: var(--shiny-color-primary, #0055D9);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 12%, transparent);
 }
 
 .margin-name {

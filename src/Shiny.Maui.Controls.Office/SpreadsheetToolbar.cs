@@ -415,61 +415,84 @@ public class SpreadsheetToolbar : ContentView
 
         // Clipboard leads, as it does in Excel: cut/copy/paste apply to whatever is selected and are
         // reached far more often than any formatting command.
+        // Paste is large and the other two stack beside it - Excel's own arrangement, and the shape
+        // three items want: filling two-deep columns left copy alone in a second column with a hole
+        // under it.
         var clipboard = new RibbonGroup { Title = "Clipboard", Priority = 110 };
+        this.paste.Size = RibbonItemSize.Large;
+        this.paste.Text = "Paste";
         clipboard.Items.Add(this.paste);
         clipboard.Items.Add(this.cut);
         clipboard.Items.Add(this.copy);
         home.Groups.Add(clipboard);
 
+        // Rows, which is how Excel's Font group is arranged: the two boxes on top, the run of marks
+        // underneath. Filling columns instead put bold above italic and underline above strikethrough,
+        // and forced the font picker to share a column with a toggle - where the column took the
+        // picker's width and stretched the 16px B across all of it.
         var font = new RibbonGroup { Title = "Font", Priority = 100 };
-        // One hosted item per control, each one row tall. A stacked pair staircases in the simplified
-        // one-row layout, and a row-spanning block is centred across the rows so a 30px picker floats
-        // in the middle of a 76px column while the buttons beside it sit on the rows. A row each puts
-        // everything on the same lines, which is also how Excel's Font group is arranged.
-        font.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
-        font.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
-        font.Items.Add(this.bold);
-        font.Items.Add(this.italic);
-        font.Items.Add(this.underline);
-        font.Items.Add(this.strike);
-        font.Items.Add(OfficeRibbonItems.Host(this.textColor));
-        font.Items.Add(OfficeRibbonItems.Host(this.fill));
+        font.Items.Add(OfficeRibbonItems.Row(
+            OfficeRibbonItems.Host(this.fontPicker),
+            OfficeRibbonItems.Host(this.sizePicker)
+        ));
+        font.Items.Add(OfficeRibbonItems.Row(
+            this.bold,
+            this.italic,
+            this.underline,
+            this.strike,
+            new RibbonSeparator(),
+            OfficeRibbonItems.Host(this.textColor),
+            OfficeRibbonItems.Host(this.fill)
+        ));
         home.Groups.Add(font);
 
+        // Excel's own two rows: how the text sits in the cell top-to-bottom on one, left-to-right on
+        // the other, with the things that nudge it inside that box at the end of each. Filling columns
+        // turned three runs of three into a 2xN grid that read align-left / align-right down the first
+        // column, and put the wrap toggle under an indent arrow.
         var alignment = new RibbonGroup { Title = "Alignment", Priority = 90 };
-        alignment.Items.Add(this.alignLeft);
-        alignment.Items.Add(this.alignCenter);
-        alignment.Items.Add(this.alignRight);
+        alignment.Items.Add(OfficeRibbonItems.Row(
+            this.alignTop,
+            this.alignMiddle,
+            this.alignBottom,
 
-        // Both sets are rules on a grid; side by side without a break the six read as one run of six
-        // horizontal alignments.
-        alignment.Items.Add(new RibbonSeparator());
+            // Wrapping is about the height the text takes in the cell, which is what this row is about.
+            new RibbonSeparator(),
+            this.wrap
+        ));
+        alignment.Items.Add(OfficeRibbonItems.Row(
+            this.alignLeft,
+            this.alignCenter,
+            this.alignRight,
 
-        alignment.Items.Add(this.alignTop);
-        alignment.Items.Add(this.alignMiddle);
-        alignment.Items.Add(this.alignBottom);
-
-        // The indent pair moves text inside the cell it is already aligned in, which is a third thing
-        // again - and the two arrows are close enough to the alignment marks to need the break.
-        alignment.Items.Add(new RibbonSeparator());
-
-        alignment.Items.Add(this.outdent);
-        alignment.Items.Add(this.indent);
-        alignment.Items.Add(this.wrap);
+            // The indent pair moves text inside the cell it is already aligned in, which is a third
+            // thing again - and the two arrows are close enough to the alignment marks to need a break.
+            new RibbonSeparator(),
+            this.outdent,
+            this.indent
+        ));
         home.Groups.Add(alignment);
 
+        // The named formats on top and the four marks that nudge one underneath - Excel's arrangement.
+        // Filling columns put the format menu in a column of its own with a hole beneath it, and split
+        // the decimal pair across two columns.
         var number = new RibbonGroup { Title = "Number", Priority = 80 };
-        number.Items.Add(this.currency);
-        number.Items.Add(this.percent);
-        number.Items.Add(this.decimalDecrease);
-        number.Items.Add(this.decimalIncrease);
-        number.Items.Add(this.numberFormats);
+        number.Items.Add(OfficeRibbonItems.Row(this.numberFormats));
+        number.Items.Add(OfficeRibbonItems.Row(
+            this.currency,
+            this.percent,
+            this.decimalDecrease,
+            this.decimalIncrease
+        ));
         home.Groups.Add(number);
 
         // AutoSum is on both tabs, as it is in Excel - the face of Home's Editing group and the head of
         // the Data tab's function library. It is the one command here reached often enough that a tab
-        // switch in front of it would be felt.
+        // switch in front of it would be felt, and large enough to be the group's head: two icon-only
+        // rows of three left a hole where the third would be.
         var editing = new RibbonGroup { Title = "Editing", Priority = 70 };
+        this.sum.Size = RibbonItemSize.Large;
+        this.sum.Text = "AutoSum";
         editing.Items.Add(this.sum);
         editing.Items.Add(this.clearContents);
         editing.Items.Add(this.clearFormat);
@@ -477,9 +500,10 @@ public class SpreadsheetToolbar : ContentView
 
         // Its own group rather than a fourth item in Editing: finding changes nothing, and the box is
         // as wide as the three buttons beside it put together. Last on Home, which is what decides the
-        // order groups fold into the overflow in on a narrow window.
+        // order groups fold into the overflow in on a narrow window. It spans the rows: on a single row
+        // it left the row underneath empty for the width of a search box.
         var finding = new RibbonGroup { Title = "Find", Priority = 65 };
-        finding.Items.Add(OfficeRibbonItems.Host(this.findBar));
+        finding.Items.Add(OfficeRibbonItems.HostLarge(this.findBar));
         home.Groups.Add(finding);
 
         if (this.ToolbarItems.Count > 0)
@@ -501,25 +525,28 @@ public class SpreadsheetToolbar : ContentView
         // structural commands could never grow past the two that fitted.
         var data = new RibbonTab { Title = "Data", Key = "data" };
 
+        // Insert on one row and delete on the other, rows and columns in the same order on both - so
+        // the pair a command belongs to is its line rather than a rule you have to notice.
         var cells = new RibbonGroup { Title = "Cells", Priority = 110 };
-        cells.Items.Add(this.insertRow);
-        cells.Items.Add(this.insertColumn);
-
-        // Insert and delete are one gesture in two directions, and their icons say so - which is why
-        // the break is here rather than between the row commands and the column ones.
-        cells.Items.Add(new RibbonSeparator());
-
-        cells.Items.Add(this.deleteRow);
-        cells.Items.Add(this.deleteColumn);
+        cells.Items.Add(OfficeRibbonItems.Row(this.insertRow, this.insertColumn));
+        cells.Items.Add(OfficeRibbonItems.Row(this.deleteRow, this.deleteColumn));
         data.Groups.Add(cells);
 
         // A sheet has no page setup to put this beside, so it goes on the Data tab with the other
         // things that are about the sheet rather than about a cell.
+        // One command, so it is drawn the way a single command should be: large, with its name on it.
+        // A lone 16px glyph under a caption reading "Sheet" said nothing.
         var sheet = new RibbonGroup { Title = "Sheet", Priority = 105 };
+        this.watermark.Size = RibbonItemSize.Large;
+        this.watermark.Text = "Watermark";
         sheet.Items.Add(this.watermark);
         data.Groups.Add(sheet);
 
+        // Width is the head - fitting to contents is the common case - and hide/unhide stack beside it,
+        // which is the shape three items want.
         var columns = new RibbonGroup { Title = "Columns", Priority = 100 };
+        this.columnWidth.Size = RibbonItemSize.Large;
+        this.columnWidth.Text = "Width";
         columns.Items.Add(this.columnWidth);
         columns.Items.Add(this.hideColumns);
         columns.Items.Add(this.unhideColumns);

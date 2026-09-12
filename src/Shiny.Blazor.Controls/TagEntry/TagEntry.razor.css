@@ -4,8 +4,8 @@
 .shiny-tags {
     --shiny-tags-radius: var(--shiny-shape-corner-small, 8px);
     --shiny-tags-stroke: var(--shiny-color-outline, #6C788D);
-    --shiny-tags-chip-bg: var(--shiny-color-secondary-container, #DCE2F9);
-    --shiny-tags-chip-fg: var(--shiny-color-on-secondary-container, #151B2C);
+    --shiny-tags-chip-bg: var(--shiny-color-secondary-container, #D0D6DC);
+    --shiny-tags-chip-fg: var(--shiny-color-on-secondary-container, #3E4652);
 
     display: flex;
     flex-wrap: wrap;
@@ -17,8 +17,8 @@
     padding: var(--shiny-spacing-2, 8px);
     border: var(--shiny-border-thin, 1px) solid var(--shiny-tags-stroke);
     border-radius: var(--shiny-tags-radius);
-    background: var(--shiny-color-surface, #FBF8FD);
-    color: var(--shiny-color-on-surface, #1B1B21);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
     font-family: var(--shiny-type-font-family, inherit);
     cursor: text;
     transition: border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
@@ -41,7 +41,7 @@
 /* aria-invalid is set by a Field pairing, or by hand. It lands on the inner input, so the box reads it
    off its own descendant rather than needing a parameter of its own. */
 .shiny-tags:has(input[aria-invalid="true"]) {
-    border-color: var(--shiny-color-error, #BA1A1A);
+    border-color: var(--shiny-color-error, #C20014);
 }
 
 
@@ -119,7 +119,7 @@
 }
 
 .shiny-tags__input::placeholder {
-    color: var(--shiny-color-on-surface-variant, #46464F);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-tags__input:disabled {

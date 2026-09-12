@@ -17,8 +17,8 @@
     width: 100%;
     height: 100%;
     min-height: 0;
-    background: var(--shiny-color-surface, #ffffff);
-    color: var(--shiny-color-on-surface, #1f2937);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 /*
@@ -34,8 +34,8 @@
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
-    border-bottom: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
-    background: var(--shiny-color-surface-container-low, #fafafa);
+    border-bottom: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
 }
 
 .notebook-section {
@@ -56,12 +56,12 @@
 }
 
 .notebook-section:hover {
-    background: var(--shiny-color-surface-container, #f2f2f5);
+    background: var(--shiny-color-surface-container, #E8EEF6);
 }
 
 .notebook-section.is-current {
     font-weight: 600;
-    background: var(--shiny-color-surface, #ffffff);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .notebook-body {
@@ -86,8 +86,8 @@
     gap: 2px;
     padding: 6px;
     overflow-y: auto;
-    border-left: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
-    background: var(--shiny-color-surface-container-low, #fafafa);
+    border-left: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
 }
 
 .notebook-page {
@@ -106,11 +106,11 @@
 }
 
 .notebook-page:hover {
-    background: var(--shiny-color-surface-container, #f2f2f5);
+    background: var(--shiny-color-surface-container, #E8EEF6);
 }
 
 .notebook-page.is-current {
-    background: color-mix(in srgb, var(--shiny-color-primary, #7a338c) 15%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 15%, transparent);
     font-weight: 600;
 }
 
@@ -129,8 +129,8 @@
 .notebook-status {
     flex: 0 0 auto;
     padding: 4px 10px;
-    border-top: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    border-top: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: 12px;
 }
 
@@ -144,7 +144,74 @@
     font-size: 13px;
     padding: 0 6px;
     border-radius: 6px;
-    border: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
-    background: var(--shiny-color-surface, #ffffff);
-    color: var(--shiny-color-on-surface, #1f2937);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
+}
+
+
+/*
+    The Office toolbar buttons, restated here.
+
+    The highlight picker, the colour picker and the insert menu are separate components, and Blazor
+    scopes a stylesheet to the markup written in its own file - so the `.shiny-office-btn` rules in the
+    document, slide and spreadsheet views compile to `.shiny-office-btn[that-view]` and cannot reach a
+    button this one rendered. This view never restated them, which left the highlight control with no
+    styling at all: a native <button> drawn as a solid slab beside 16px glyphs, with its chevron as a
+    second slab next to it. It looked like the wrong control in the wrong place; it was the right
+    control with no CSS.
+
+    ::deep moves the scope onto .notebook-toolbar, so the rules reach every descendant of the bar
+    whatever component drew it.
+*/
+.notebook-toolbar ::deep .shiny-office-btn {
+    /* inline-flex + centre is what centres the icon in the box. */
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+
+    /* Without border-box the 1px border is added to the height, so a button is 32px while a picker
+       next to it is 30 - a two-pixel step that reads as a slight misalignment. */
+    box-sizing: border-box;
+    min-width: 30px;
+    height: var(--shiny-picker-height, 30px);
+    padding: 0 7px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.notebook-toolbar ::deep .shiny-office-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.notebook-toolbar ::deep .shiny-office-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* The active state has to survive the hover background, hence the border as well as the fill. */
+.notebook-toolbar ::deep .shiny-office-btn.on {
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 22%, transparent);
+    border-color: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 55%, transparent);
+}
+
+/*
+    The icons are inline SVG injected as a MarkupString, so they carry no CSS-isolation scope attribute
+    of their own and are only reachable through ::deep. display:block matters: an inline svg sits on a
+    text baseline and leaves a few pixels of descender under it, which is enough to push the icon
+    off-centre in a 30px button.
+*/
+.notebook-toolbar ::deep .shiny-office-btn svg {
+    display: block;
+    flex: 0 0 auto;
+}
+
+/* The chevron half of a split picker is narrower than a command button and carries no padding of its
+   own, or the pair reads as two buttons rather than one control with a menu. */
+.notebook-toolbar ::deep .shiny-office-btn-chevron {
+    min-width: 20px;
+    padding: 0 2px;
 }

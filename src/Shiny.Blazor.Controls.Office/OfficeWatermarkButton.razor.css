@@ -1,0 +1,33 @@
+/*
+    The watermark button's own stylesheet, and the reason it needs one.
+
+    The label below carries .shiny-office-btn-file, and that class was only ever declared in
+    OfficeInsertMenu.razor.css. Blazor scopes a stylesheet to the markup written in its own file, so
+    that rule compiles to .shiny-office-btn-file[insert-menu-scope] and cannot reach a label this
+    component rendered - which left the <InputFile> inside it with no styling at all and drew a native
+    "Choose File / No file chosen" control in the middle of the ribbon. It looked like a button that had
+    been dropped into the wrong group; it was a button with no CSS.
+
+    The surrounding .shiny-office-btn look still comes from the editor views, which reach it with
+    ::deep. Only the part that makes the file input invisible has to live here.
+*/
+
+/*
+    The file input is the button.
+
+    Kept in the layout and made invisible rather than display:none - a hidden input cannot be reached by
+    the keyboard, so the label would be focusable and pressing it would do nothing.
+*/
+.shiny-office-btn-file {
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.shiny-office-btn-file ::deep input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 0;
+}

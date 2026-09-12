@@ -11,10 +11,10 @@
     width: 46px;
     height: var(--shiny-picker-height, 30px);
     padding: 0 4px 0 6px;
-    border: 1px solid var(--shiny-color-outline, #d1d5db);
+    border: 1px solid var(--shiny-color-outline, #6C788D);
     border-right: 0;
     border-radius: var(--shiny-shape-corner-small, 5px) 0 0 var(--shiny-shape-corner-small, 5px);
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     color: inherit;
     font: inherit;
     font-size: 13px;
@@ -30,9 +30,9 @@
     width: 22px;
     height: var(--shiny-picker-height, 30px);
     padding: 0;
-    border: 1px solid var(--shiny-color-outline, #d1d5db);
+    border: 1px solid var(--shiny-color-outline, #6C788D);
     border-radius: 0 var(--shiny-shape-corner-small, 5px) var(--shiny-shape-corner-small, 5px) 0;
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     color: inherit;
     line-height: 1;
     cursor: pointer;
@@ -71,9 +71,9 @@
     left: 0;
     z-index: 41;
     min-width: 132px;
-    border: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-medium, 8px);
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     box-shadow: var(--shiny-elevation-3, 0 8px 24px rgba(0, 0, 0, 0.18));
     overflow: hidden;
 }

@@ -14,12 +14,12 @@ public class FabMenuItem
     public string? Text { get; set; }
 
     /// <summary>Fill of the circular icon chip - and of the whole pill when the item has no <see cref="Text"/>.</summary>
-    public string FabBackgroundColor { get; set; } = "var(--shiny-color-primary, #2196F3)";
+    public string FabBackgroundColor { get; set; } = "var(--shiny-color-primary, #0055D9)";
 
-    public string TextColor { get; set; } = "var(--shiny-color-on-surface, #1F2937)";
+    public string TextColor { get; set; } = "var(--shiny-color-on-surface, #161C23)";
 
     /// <summary>Fill of the pill body behind the label.</summary>
-    public string LabelBackgroundColor { get; set; } = "var(--shiny-color-surface-container-high, #FFFFFF)";
+    public string LabelBackgroundColor { get; set; } = "var(--shiny-color-surface-container-high, #E2E6EA)";
 
     /// <summary>Outline stroke of the pill. Defaults to the theme outline-variant hairline.</summary>
     public string? BorderColor { get; set; }

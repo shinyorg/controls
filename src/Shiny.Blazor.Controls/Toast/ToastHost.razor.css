@@ -17,8 +17,8 @@
     right: 0;
     display: flex;
     flex-direction: column;
-    background-color: var(--shiny-color-inverse-surface, #323232);
-    color: var(--shiny-color-inverse-on-surface, #fff);
+    background-color: var(--shiny-color-inverse-surface, #161C23);
+    color: var(--shiny-color-inverse-on-surface, #F6FAFE);
     font-size: var(--shiny-type-body-medium-size, 14px);
     padding: calc(10px * var(--shiny-density-scale, 1)) var(--shiny-spacing-4, 16px);
     box-shadow: var(--shiny-elevation-2, 0 2px 8px rgba(0, 0, 0, 0.3));
@@ -187,7 +187,7 @@
     width: 18px;
     height: 18px;
     border: var(--shiny-border-medium, 2px) solid rgba(255, 255, 255, 0.3);
-    border-top-color: var(--shiny-color-inverse-on-surface, #fff);
+    border-top-color: var(--shiny-color-inverse-on-surface, #F6FAFE);
     border-radius: 50%;
     animation: shiny-toast-spin 0.7s linear infinite;
     flex-shrink: 0;

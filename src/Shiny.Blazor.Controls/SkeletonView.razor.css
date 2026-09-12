@@ -16,11 +16,11 @@
    on the root element inherit down into that child content.
 */
 .shiny-skeleton__container ::deep .shiny-skeleton__shape {
-    background-color: var(--shiny-skeleton-base, var(--shiny-color-surface-container-high, #e1e1e6));
+    background-color: var(--shiny-skeleton-base, var(--shiny-color-surface-container-high, #E2E6EA));
     background-image: linear-gradient(
         90deg,
         transparent 0%,
-        var(--shiny-skeleton-highlight, rgba(255, 255, 255, 0.6)) 50%,
+        var(--shiny-skeleton-highlight, color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 22%, transparent)) 50%,
         transparent 100%
     );
     background-size: 200% 100%;

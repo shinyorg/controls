@@ -166,6 +166,54 @@ group re-flows it; that is the only lever.
 Set `Size="Small"` on the secondary commands and leave the primary one large. Three smalls per column
 is the shape to aim for.
 
+## Rows, for a run people read across
+
+Column fill is right for interchangeable commands and **wrong for a run**. Bold/italic/underline/strike
+and a set of alignments are read left to right; a two-row column turns four of them into a 2×2 block
+with underline above italic. It is also what puts a font-name box and a bold button in one column, where
+the column takes the box's width and the 16px mark is stretched across all of it.
+
+Put `RibbonRow`s in the group instead — one line each, filled left to right:
+
+```xml
+<shiny:RibbonGroup Title="Font">
+    <shiny:RibbonRow>
+        <shiny:RibbonContentItem Size="Small"><shiny:FontPicker /></shiny:RibbonContentItem>
+        <shiny:RibbonContentItem Size="Small"><shiny:FontSizePicker /></shiny:RibbonContentItem>
+    </shiny:RibbonRow>
+    <shiny:RibbonRow>
+        <shiny:RibbonToggleButton Size="Small" Tooltip="Bold" />
+        <shiny:RibbonToggleButton Size="Small" Tooltip="Italic" />
+        <shiny:RibbonToggleButton Size="Small" Tooltip="Underline" />
+    </shiny:RibbonRow>
+</shiny:RibbonGroup>
+```
+
+```razor
+<RibbonGroup Title="Font">
+    <RibbonRow>
+        <RibbonContent Size="RibbonItemSize.Small"><FontPickerButton /></RibbonContent>
+    </RibbonRow>
+    <RibbonRow>
+        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold" Icon="@bold" />
+        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic" Icon="@italic" />
+    </RibbonRow>
+</RibbonGroup>
+```
+
+Rules:
+
+- **No mode to set.** The presence of a row is the signal.
+- A group is one or the other. **Do not mix rows and loose items** in a group — a loose item has no
+  answer to which row it is on, and the rows win.
+- Everything on a row is drawn small whatever it asked for; a large item is two rows tall by
+  construction. Put a large item in the group *outside* the rows if the group needs a head.
+- A `RibbonSeparator` inside a row is a rule between the items either side of it, not a column break.
+- Rows are dropped in the simplified (one dense line) layout.
+
+**When to reach for which**: rows for formatting runs and steppers (`−  100%  +`); columns for a set of
+unrelated commands, and for a group with a large head plus two or three smalls beside it.
+
 ## Item kinds
 
 | Kind | Notes |
@@ -174,7 +222,8 @@ is the shape to aim for.
 | `RibbonToggleButton` | `IsChecked` (MAUI) / `Checked` (Blazor), **two-way by default** — bind it and skip the handler. A MAUI toggle's command receives the new bool when no `CommandParameter` is set |
 | `RibbonSplitButton` | Face runs the default action, chevron opens the menu. Use when one choice is overwhelmingly the common one |
 | `RibbonMenuButton` | Whole face opens the menu; no default action |
-| `RibbonSeparator` | Full-height rule + a column break |
+| `RibbonSeparator` | Full-height rule + a column break (a rule only, inside a row) |
+| `RibbonRow` | A line of items. A group holding rows fills rows instead of columns |
 | `RibbonContentItem` (MAUI) / `RibbonContent` (Blazor) | Hosts any view/markup — a picker, a combo, a swatch strip |
 
 Common item properties: `Text`, `Icon`, `Tooltip`, `Description`, `Size`, `AutomationId`, and

@@ -3,10 +3,10 @@
     flex-direction: column;
     width: 100%;
     min-height: 320px;
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-small, 8px);
     overflow: hidden;
-    background: var(--shiny-color-surface, white);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .shiny-md-editor.is-split { flex-direction: row; }
@@ -18,7 +18,7 @@
 }
 
 .shiny-md-editor.is-split .shiny-md-editor-input {
-    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #E5E7EB);
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
 }
 
 .shiny-md-editor-textarea {
@@ -31,8 +31,8 @@
     font-family: var(--shiny-type-font-family-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
     font-size: calc(13px * var(--shiny-type-scale, 1));
     line-height: 1.5;
-    color: var(--shiny-color-on-surface, #111827);
-    background: var(--shiny-color-surface, white);
+    color: var(--shiny-color-on-surface, #161C23);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .shiny-md-editor-preview {

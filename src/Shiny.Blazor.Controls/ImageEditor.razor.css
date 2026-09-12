@@ -2,7 +2,7 @@
     position: relative;
     width: 100%;
     height: 100%;
-    background: var(--shiny-color-scrim, #000);
+    background: var(--shiny-color-scrim, #000000);
     overflow: hidden;
     user-select: none;
     touch-action: none;
@@ -109,8 +109,8 @@
 }
 
 .shiny-imgeditor-tool.active {
-    background: var(--shiny-color-primary, #0a84ff);
-    color: var(--shiny-color-on-primary, #fff);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
 }
 
 .shiny-imgeditor-cap {
@@ -185,8 +185,8 @@
 
 /* The shape fill toggle is a chrome button that latches, so it takes the tool selection colour */
 .shiny-imgeditor-btn.active {
-    background: var(--shiny-color-primary, #0a84ff);
-    color: var(--shiny-color-on-primary, #fff);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
 }
 
 .shiny-imgeditor-zoomvalue {
@@ -219,8 +219,8 @@
 }
 
 .shiny-imgeditor-pill--accent {
-    background: var(--shiny-color-primary, #0a84ff);
-    color: var(--shiny-color-on-primary, #fff);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     font-weight: 600;
 }
 
@@ -262,11 +262,11 @@
 }
 
 .shiny-imgeditor-weight.active {
-    background: var(--shiny-color-primary, #0a84ff);
+    background: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-imgeditor-weight.active span {
-    color: var(--shiny-color-on-primary, #fff);
+    color: var(--shiny-color-on-primary, #FFFFFF);
 }
 
 .shiny-imgeditor-select {
@@ -281,8 +281,8 @@
 }
 
 .shiny-imgeditor-select option {
-    color: var(--shiny-color-on-surface, #111);
-    background: var(--shiny-color-surface, #fff);
+    color: var(--shiny-color-on-surface, #161C23);
+    background: var(--shiny-color-surface, #F6FAFE);
 }
 
 .shiny-imgeditor-color {
@@ -316,7 +316,7 @@
 .shiny-imgeditor-range {
     width: 72px;
     height: 36px;
-    accent-color: var(--shiny-color-primary, #0a84ff);
+    accent-color: var(--shiny-color-primary, #0055D9);
     cursor: pointer;
     flex-shrink: 0;
 }

@@ -62,7 +62,7 @@ public abstract class CellBase : ComponentBase
         => ParentTableView?.CellValueTextColor ?? "";
 
     protected string ResolveAccentColor()
-        => ParentTableView?.CellAccentColor ?? "var(--shiny-color-primary, #2196F3)";
+        => ParentTableView?.CellAccentColor ?? "var(--shiny-color-primary, #0055D9)";
 
     protected double ResolveDouble(double cellValue, double globalValue, double fallback)
     {

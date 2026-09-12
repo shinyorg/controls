@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 public partial class TextEntry : IDisposable
@@ -40,11 +42,15 @@ public partial class TextEntry : IDisposable
     [Parameter] public double BorderThickness { get; set; } = -1;
     /// <summary>Focused border width in px. The default, <c>-1</c>, follows the theme border scale.</summary>
     [Parameter] public double FocusedBorderThickness { get; set; } = -1;
-    [Parameter] public string CornerRadius { get; set; } = "var(--shiny-shape-corner-small, 8px)";
+    // Mirrored in the component stylesheet; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultCornerRadius = "var(--shiny-shape-corner-small, 8px)";
+    internal const string DefaultFontFamily = "var(--shiny-type-font-family, inherit)";
+
+    [Parameter] public string CornerRadius { get; set; } = DefaultCornerRadius;
     [Parameter] public string? EntryBackgroundColor { get; set; }
     /// <summary>Input text size in px. The default, <c>-1</c>, follows the theme type scale.</summary>
     [Parameter] public double FontSize { get; set; } = -1;
-    [Parameter] public string FontFamily { get; set; } = "var(--shiny-type-font-family, inherit)";
+    [Parameter] public string FontFamily { get; set; } = DefaultFontFamily;
     [Parameter] public string? TextColor { get; set; }
     [Parameter] public bool IsReadOnly { get; set; }
     [Parameter] public bool IsPassword { get; set; }
@@ -79,12 +85,12 @@ public partial class TextEntry : IDisposable
     public IDictionary<string, object>? AdditionalAttributes { get; set; }
 
     // ---- theme-token fallbacks -------------------------------------------------------------
-    const string OutlineToken = "var(--shiny-color-outline, #CBD5E1)";
-    const string PrimaryToken = "var(--shiny-color-primary, #007AFF)";
-    const string ErrorToken = "var(--shiny-color-error, #DC3545)";
-    const string OnSurfaceToken = "var(--shiny-color-on-surface, inherit)";
-    const string OnSurfaceVariantToken = "var(--shiny-color-on-surface-variant, #6B7280)";
-    const string SurfaceToken = "var(--shiny-color-surface, #FFFFFF)";
+    const string OutlineToken = "var(--shiny-color-outline, #6C788D)";
+    const string PrimaryToken = "var(--shiny-color-primary, #0055D9)";
+    const string ErrorToken = "var(--shiny-color-error, #C20014)";
+    const string OnSurfaceToken = "var(--shiny-color-on-surface, #161C23)";
+    const string OnSurfaceVariantToken = "var(--shiny-color-on-surface-variant, #3B475B)";
+    const string SurfaceToken = "var(--shiny-color-surface, #F6FAFE)";
 
     string PlaceholderColorValue => PlaceholderColor ?? OnSurfaceVariantToken;
     string FocusedPlaceholderColorValue => FocusedPlaceholderColor ?? PrimaryToken;
@@ -166,7 +172,9 @@ public partial class TextEntry : IDisposable
             var width = thickness >= 0
                 ? $"{thickness}px"
                 : IsFocused ? "var(--shiny-border-medium, 2px)" : "var(--shiny-border-thin, 1px)";
-            return $"border: {width} solid {color}; border-radius: {CornerRadius}; background: {EntryBackgroundColorValue};" +
+            return $"border: {width} solid {color};"
+                + StyleDefaults.Override("border-radius", CornerRadius, DefaultCornerRadius)
+                + $" background: {EntryBackgroundColorValue};" +
                    $" --shiny-te-border-color: {color}; --shiny-te-notch-bg: {EntryBackgroundColorValue};";
         }
     }
@@ -187,7 +195,8 @@ public partial class TextEntry : IDisposable
 
     string InputStyle
         => $"font-size: {(FontSize >= 0 ? $"{FontSize}px" : "calc(15px * var(--shiny-type-scale, 1))")};"
-         + $" font-family: {FontFamily}; color: {TextColorValue};";
+         + StyleDefaults.Override(" font-family", FontFamily, DefaultFontFamily)
+         + $" color: {TextColorValue};";
 
     string ToolStyleFor(TextEntryTool tool)
         => tool.ToolColor is null ? "" : $"color: {tool.ToolColor};";

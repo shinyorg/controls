@@ -1,6 +1,8 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 
+using Shiny.Blazor.Controls.Theming;
+
 namespace Shiny.Blazor.Controls;
 
 /// <summary>
@@ -31,7 +33,12 @@ public partial class ProgressLine
     [Parameter] public ProgressLineAnchor Anchor { get; set; } = ProgressLineAnchor.Viewport;
 
     /// <summary>Fill color. Any CSS color; defaults to the theme primary token.</summary>
-    [Parameter] public string BarColor { get; set; } = "var(--shiny-color-primary, #3B82F6)";
+    // Mirrored in ProgressLine.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultBarColor = "var(--shiny-color-primary, #0055D9)";
+    internal const string DefaultGradientStartColor = "var(--shiny-color-primary, #0055D9)";
+    internal const string DefaultGradientEndColor = "var(--shiny-color-tertiary, #6A4CAD)";
+
+    [Parameter] public string BarColor { get; set; } = DefaultBarColor;
 
     /// <summary>
     /// The unfilled remainder. Transparent by default, unlike <see cref="ProgressBar"/> — a rail
@@ -47,9 +54,9 @@ public partial class ProgressLine
 
     [Parameter] public bool UseGradient { get; set; }
 
-    [Parameter] public string GradientStartColor { get; set; } = "var(--shiny-color-primary, #3B82F6)";
+    [Parameter] public string GradientStartColor { get; set; } = DefaultGradientStartColor;
 
-    [Parameter] public string GradientEndColor { get; set; } = "var(--shiny-color-tertiary, #8B5CF6)";
+    [Parameter] public string GradientEndColor { get; set; } = DefaultGradientEndColor;
 
     /// <summary>Runs the shimmer sheen along the fill for as long as the line is up.</summary>
     [Parameter] public bool PulseEnabled { get; set; }
@@ -148,9 +155,11 @@ public partial class ProgressLine
     {
         get
         {
+            // A gradient is never the stylesheet's own value, so it always writes; a plain bar colour
+            // only does when it is not the one --pl-bar already falls back to.
             var fill = this.UseGradient
-                ? $"linear-gradient(to right, {this.GradientStartColor}, {this.GradientEndColor})"
-                : this.BarColor;
+                ? $"--pl-bar: linear-gradient(to right, {this.GradientStartColor}, {this.GradientEndColor}); "
+                : StyleDefaults.Override("--pl-bar", this.BarColor, DefaultBarColor);
 
             var duration = this.AnimateProgress && this.ProgressAnimationDuration > 0
                 ? this.ProgressAnimationDuration
@@ -164,7 +173,7 @@ public partial class ProgressLine
 
             var style =
                 $"--pl-progress: {this.Percentage.ToString("0.###", CultureInfo.InvariantCulture)}%; " +
-                $"--pl-bar: {fill}; " +
+                fill +
                 $"--pl-track: {this.TrackColor}; " +
                 $"--pl-height: {this.LineHeight.ToString(CultureInfo.InvariantCulture)}px; " +
                 $"--pl-radius: {this.CornerRadius}; " +

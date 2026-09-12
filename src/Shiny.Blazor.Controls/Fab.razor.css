@@ -1,5 +1,9 @@
+/* The component's parameter defaults, mirrored so an app rule can beat them; the inline style
+   appears only where the caller chose something else. */
 .shiny-fab {
     display: inline-flex;
+    background-color: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     align-items: center;
     justify-content: center;
     gap: var(--shiny-spacing-2, 8px);

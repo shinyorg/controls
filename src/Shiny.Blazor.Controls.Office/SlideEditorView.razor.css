@@ -37,8 +37,8 @@
 .slide-status {
     flex: 0 0 auto;
     padding: 4px 10px;
-    border-top: 1px solid var(--shiny-color-outline-variant, #e5e7eb);
-    color: var(--shiny-color-on-surface-variant, #6b7280);
+    border-top: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: 12px;
 }
 
@@ -115,8 +115,8 @@
 
 /* The active state has to survive the hover background, hence the border as well as the fill. */
 .slide-toolbar ::deep .shiny-office-btn.on {
-    background: color-mix(in srgb, var(--shiny-color-primary, #2563EB) 22%, transparent);
-    border-color: color-mix(in srgb, var(--shiny-color-primary, #2563EB) 55%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 22%, transparent);
+    border-color: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 55%, transparent);
 }
 
 /*
@@ -157,5 +157,5 @@
     width: 1px;
     height: 22px;
     margin: 0 3px;
-    background: var(--shiny-color-outline-variant, #e5e7eb);
+    background: var(--shiny-color-outline-variant, #BBC7DF);
 }

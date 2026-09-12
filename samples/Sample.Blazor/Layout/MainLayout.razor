@@ -1,14 +1,22 @@
 @namespace Sample.Blazor.Layout
 @inherits LayoutComponentBase
 @using Shiny.Blazor.Controls
+@using Shiny.Blazor.Controls.Theming
 @inject NavigationManager Nav
+@inject IShinyThemeService Theme
 @implements IDisposable
 
 @* The gallery shell is itself an AppLayout: the nav is a real AppLayoutPanel (drag-resizable,
    persisted, and it collapses to a drawer on narrow screens), the toolbar sits in the header
    region and the routed page owns the content region's scroll. HeaderSpan/FooterSpan are
    Content so the nav runs the full height of the window, as a sidebar should. *@
-<div class="page @(dark ? "shiny-theme-dark" : null)">
+@* The theme is the library's now: ShinyThemeHost renders the pack stylesheet and the service puts
+   the scheme class and any token overrides on <html> - which is what makes the browser's own
+   widgets follow too. The gallery used to append a <link> per switch and put the dark class on
+   this div, which left every previous pack in the head and the native selects stubbornly light. *@
+<ShinyThemeHost />
+
+<div class="page">
     <AppLayout Height="100dvh"
                HeaderSpan="LayoutSpan.Content"
                FooterSpan="LayoutSpan.Content">
@@ -71,7 +79,7 @@
                     <span class="app-title">@Catalog.LabelFor(CurrentRoute)</span>
                 </StartContent>
                 <EndContent>
-                    <ThemeSwitcher DarkChanged="d => dark = d" />
+                    <ThemeSwitcher />
                     <a class="toolbar-link" href="https://shinylib.net" target="_blank" rel="noopener"
                        title="Documentation" aria-label="Documentation">@((MarkupString)IconDocs)</a>
                     <a class="toolbar-link" href="https://github.com/shinyorg/controls" target="_blank" rel="noopener"
@@ -117,7 +125,6 @@
 </div>
 
 @code {
-    bool dark;
     AppLayoutPanel? navPanel;
 
     [Inject] ISplashScreen Splash { get; set; } = default!;
@@ -147,8 +154,25 @@
 
     string SelectedTabKey => this.CurrentRoute.Length == 0 ? "home" : this.CurrentRoute;
 
-    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    // The source panel's syntax theme is the one thing in the shell that still needs the scheme as a
+    // bool - MarkdownView takes an enum, not a CSS variable - so it is read off the theme service
+    // rather than tracked here. The layout used to own a `dark` field, which is exactly what
+    // IShinyThemeService replaced.
+    bool dark => this.Theme.Mode == ShinyThemeMode.Dark;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        this.Theme.Changed += OnThemeChanged;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        this.Theme.Changed -= OnThemeChanged;
+    }
+
+    void OnThemeChanged(object? sender, EventArgs e) => this.InvokeAsync(this.StateHasChanged);
 
     void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {

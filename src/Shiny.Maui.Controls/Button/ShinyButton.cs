@@ -45,9 +45,6 @@ public partial class ShinyButton : ContentView
     // while the user is interacting unfocuses the content inside it on Android.
     readonly Shadow shadow;
 
-    // The outline, and the trick that makes it follow the theme. See BuildStroke.
-    readonly SolidColorBrush strokeBrush;
-    readonly BoxView strokeProbe;
 
     // Each slot's own content, rebuilt only when the icon properties change, so a motion icon is not
     // torn down and restarted every time the state moves.
@@ -123,8 +120,6 @@ public partial class ShinyButton : ContentView
         this.rootGrid.Add(this.innerGrid);
         this.rootGrid.Add(this.busyOverlay);
 
-        (this.strokeBrush, this.strokeProbe) = BuildStroke();
-        this.rootGrid.Add(this.strokeProbe);
 
         // A SolidColorBrush rather than Brush.Black so the shadow colour can follow the theme's own
         // shadow token - a pack that lightens shadows should lighten these too.
@@ -185,40 +180,6 @@ public partial class ShinyButton : ContentView
         VerticalOptions = LayoutOptions.Center,
         IsVisible = false
     };
-
-    /// <summary>
-    /// Builds the outline brush and the invisible element whose <see cref="BoxView.Color"/> feeds it.
-    /// </summary>
-    /// <remarks>
-    /// <para>Two facts collide here. <see cref="Border.Stroke"/> is a <see cref="Brush"/>, and the
-    /// theme tokens are <see cref="Color"/>s — so <c>SetDynamicResource(Border.StrokeProperty, token)</c>
-    /// hands a Color to a Brush-typed property, the types never match, and the resource is silently
-    /// dropped, leaving <c>Stroke</c> null. The obvious fix — put the DynamicResource on a
-    /// <see cref="SolidColorBrush"/>'s own Color — does not work either: a brush is not in the visual
-    /// tree, so it has no resource chain to resolve through and simply keeps whatever colour it was
-    /// seeded with.</para>
-    /// <para>So the token is resolved by something that *is* in the tree, and the brush follows it by
-    /// binding. That keeps the outline live across a theme-pack swap, which a one-off
-    /// <c>Resources.TryGetValue</c> snapshot would not — the whole point of the token system is that
-    /// <c>ShinyThemeManager.SetTheme</c> restyles a running app.</para>
-    /// </remarks>
-    static (SolidColorBrush Brush, BoxView Probe) BuildStroke()
-    {
-        var probe = new BoxView
-        {
-            // Zero-sized and hidden: it exists only to resolve a resource, and must never affect
-            // measurement or paint anything.
-            IsVisible = false,
-            WidthRequest = 0,
-            HeightRequest = 0
-        };
-
-        var brush = new SolidColorBrush(Colors.Transparent);
-        brush.SetBinding(SolidColorBrush.ColorProperty, new Binding(nameof(BoxView.Color), source: probe));
-
-        return (brush, probe);
-    }
-
 
     /// <summary>Raised on tap, before <see cref="Command"/> runs.</summary>
     public event EventHandler? Clicked;

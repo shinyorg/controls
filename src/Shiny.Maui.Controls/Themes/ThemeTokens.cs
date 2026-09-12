@@ -19,6 +19,17 @@ static class ThemeTokens
 
     public static bool IsSet(double value) => value >= 0d && !double.IsNaN(value);
 
+    /// <summary>
+    /// The <c>Brush</c> twin of a <c>Color</c> token key — <c>Shiny.Color.Outline</c> becomes
+    /// <c>Shiny.Brush.Outline</c>.
+    /// </summary>
+    /// <remarks>
+    /// Both families are emitted from one list of roles, so there is a brush for every colour and the
+    /// two differ only in the group segment. It is a rewrite rather than a second lookup table because
+    /// a table would be a second thing to keep in step with the generator.
+    /// </remarks>
+    public static string AsBrush(this string colorKey) => colorKey.Replace(".Color.", ".Brush.");
+
     /// <summary>Apply an explicit value, or fall back to the theme token when unset.</summary>
     public static void SetTokenOrValue(this Element element, BindableProperty property, double value, string themeKey)
     {

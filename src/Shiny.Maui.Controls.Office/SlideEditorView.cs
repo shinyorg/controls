@@ -522,52 +522,72 @@ public class SlideEditorView : ContentView, IDisposable
 
         // Which slide you are on is navigation, not formatting, so it leads rather than sitting among
         // the text commands.
-        var slide = new RibbonGroup { Title = "Slide", Priority = 110 };
         // The counter belongs between the arrows, not after them: it is the thing the two arrows move,
         // and reading "< > 1/3" makes them look like two commands with an unrelated label beside them.
-        slide.Items.Add(this.previous);
-        slide.Items.Add(OfficeRibbonItems.Host(this.counter));
-        slide.Items.Add(this.next);
+        // A row is what keeps the three on one line - filling columns stacked the arrows and left the
+        // counter alone in the next one.
+        var slide = new RibbonGroup { Title = "Slide", Priority = 110 };
+        slide.Items.Add(OfficeRibbonItems.Row(
+            this.previous,
+            OfficeRibbonItems.Host(this.counter),
+            this.next
+        ));
 
         // Beside the arrows rather than on a tab of its own: playing the deck is what the slide you
         // are looking at is *for*, and a show that costs a tab switch is one nobody starts to check a
         // build.
+        this.present.Size = RibbonItemSize.Large;
         slide.Items.Add(this.present);
         tab.Groups.Add(slide);
 
+        // Rows: the two boxes on top, the run of marks underneath - the same shape the document editor
+        // draws, so the two bars are learned once. Filling columns put bold above italic and underline
+        // above strikethrough, and forced the font picker to share a column with a toggle.
         var font = new RibbonGroup { Title = "Font", Priority = 100 };
 
+        var fontBoxes = new RibbonRow();
+
         if (this.fontPicker is not null)
-            font.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
+            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
 
         if (this.sizePicker is not null)
-            font.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
+            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
 
-        font.Items.Add(this.bold);
-        font.Items.Add(this.italic);
-        font.Items.Add(this.underline);
-        font.Items.Add(this.strike);
-        font.Items.Add(OfficeRibbonItems.Host(this.textColor));
-        font.Items.Add(this.highlight);
+        font.Items.Add(fontBoxes);
+        font.Items.Add(OfficeRibbonItems.Row(
+            this.bold,
+            this.italic,
+            this.underline,
+            this.strike,
+            new RibbonSeparator(),
+            OfficeRibbonItems.Host(this.textColor),
+            this.highlight
+        ));
         tab.Groups.Add(font);
 
+        // Lists and the indent pair on top, the alignments underneath - the same two rows the document
+        // editor draws.
         var paragraph = new RibbonGroup { Title = "Paragraph", Priority = 90 };
-        paragraph.Items.Add(this.alignLeft);
-        paragraph.Items.Add(this.alignCenter);
-        paragraph.Items.Add(this.alignRight);
-        paragraph.Items.Add(new RibbonSeparator());
-        paragraph.Items.Add(this.bulletList);
-        paragraph.Items.Add(this.numberedList);
-        paragraph.Items.Add(this.outdent);
-        paragraph.Items.Add(this.indent);
+        paragraph.Items.Add(OfficeRibbonItems.Row(
+            this.bulletList,
+            this.numberedList,
+            this.outdent,
+            this.indent
+        ));
+        paragraph.Items.Add(OfficeRibbonItems.Row(
+            this.alignLeft,
+            this.alignCenter,
+            this.alignRight
+        ));
         tab.Groups.Add(paragraph);
 
         // On Home rather than a tab of its own: finding a word is something you do while building the
         // deck, and a search that costs a tab switch is one nobody uses. Last on the tab, because it is
         // reached less often than the formatting beside it - which is what decides the order groups
-        // fold into the overflow in on a narrow window.
+        // fold into the overflow in on a narrow window. It spans the rows: on a single row it left the
+        // row underneath empty for the width of a search box.
         var finding = new RibbonGroup { Title = "Find", Priority = 60 };
-        finding.Items.Add(OfficeRibbonItems.Host(this.findBar));
+        finding.Items.Add(OfficeRibbonItems.HostLarge(this.findBar));
         tab.Groups.Add(finding);
 
         this.ribbon.Tabs.Add(tab);
@@ -576,17 +596,28 @@ public class SlideEditorView : ContentView, IDisposable
         // split is only worth making because the second tab holds a real bar - a text box, three ways
         // to place an object and the way to remove one - rather than a token button.
         var insertTab = new RibbonTab { Title = "Insert", Key = "insert" };
+        // What goes on the slide, on one row; removing one underneath, which says "this one is
+        // different" better than a rule beside it in a column flow that put delete under a text box
+        // anyway.
         var insert = new RibbonGroup { Title = "Insert", Priority = 100 };
-        insert.Items.Add(this.addTextBox);
-        insert.Items.Add(this.insertTable);
-        insert.Items.Add(this.insertPicture);
-        insert.Items.Add(this.watermark);
-        insert.Items.Add(new RibbonSeparator());
+        insert.Items.Add(OfficeRibbonItems.Row(
+            this.addTextBox,
+            this.insertTable,
+            this.insertPicture
+        ));
 
-        // Removing is the opposite of the four beside it, so it belongs here rather than among the
-        // text commands - with a rule in front, because it is destructive and the others are not.
-        insert.Items.Add(this.deleteShape);
+        this.deleteShape.Text = "Delete";
+        insert.Items.Add(OfficeRibbonItems.Row(this.deleteShape));
         insertTab.Groups.Add(insert);
+
+        // The watermark is a picture drawn behind the whole slide, not a thing you place on it - so it
+        // is about the design of the slide rather than its contents, and sat oddly among the four
+        // commands that put an object under the pointer.
+        var design = new RibbonGroup { Title = "Design", Priority = 90 };
+        this.watermark.Size = RibbonItemSize.Large;
+        this.watermark.Text = "Watermark";
+        design.Items.Add(this.watermark);
+        insertTab.Groups.Add(design);
         this.ribbon.Tabs.Add(insertTab);
         this.ribbon.Tabs.Add(OfficeRibbonItems.ShapesTab(this.InsertShape));
 

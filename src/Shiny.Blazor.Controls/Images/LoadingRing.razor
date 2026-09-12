@@ -1,4 +1,5 @@
 @namespace Shiny.Blazor.Controls.Images
+@using Shiny.Blazor.Controls.Theming
 
 @* One control for both modes. Set Percent and the ring fills with a label; leave it null - which is
    what a queued request or a response without a Content-Length produces - and the same ring spins.
@@ -35,13 +36,18 @@
     [Parameter] public bool ShowPercentText { get; set; } = true;
 
     /// <summary>Colour of the progress arc. Defaults to the theme primary token.</summary>
-    [Parameter] public string RingColor { get; set; } = "var(--shiny-color-primary, #3B82F6)";
+    // Mirrored in LoadingRing.razor.css; only a caller-chosen value inlines. See StyleDefaults.
+    internal const string DefaultRingColor = "var(--shiny-color-primary, #0055D9)";
+    internal const string DefaultTrackColor = "var(--shiny-color-surface-container-highest, #D7DCE1)";
+    internal const string DefaultTextColor = "var(--shiny-color-on-surface, #161C23)";
+
+    [Parameter] public string RingColor { get; set; } = DefaultRingColor;
 
     /// <summary>Colour of the unfilled track.</summary>
-    [Parameter] public string TrackColor { get; set; } = "var(--shiny-color-surface-container-highest, #E5E7EB)";
+    [Parameter] public string TrackColor { get; set; } = DefaultTrackColor;
 
     /// <summary>Colour of the percentage label.</summary>
-    [Parameter] public string TextColor { get; set; } = "var(--shiny-color-on-surface, #111827)";
+    [Parameter] public string TextColor { get; set; } = DefaultTextColor;
 
     // The SVG is a fixed 100x100 viewBox scaled by CSS, so the stroke has to be expressed in those
     // units rather than pixels - otherwise a 24px ring and a 96px ring would draw different weights.
@@ -60,7 +66,11 @@
         : Format(Circumference * (1 - Math.Clamp(Percent.Value, 0, 1)));
 
     string RootStyle =>
-        $"--ring-size: {Format(Size)}px; --ring-color: {RingColor}; --ring-track: {TrackColor}; --ring-text: {TextColor}; --ring-label-size: {Format(Math.Max(9, Size * 0.26))}px;";
+        $"--ring-size: {Format(Size)}px;"
+        + StyleDefaults.Override("--ring-color", RingColor, DefaultRingColor)
+        + StyleDefaults.Override("--ring-track", TrackColor, DefaultTrackColor)
+        + StyleDefaults.Override("--ring-text", TextColor, DefaultTextColor)
+        + $"--ring-label-size: {Format(Math.Max(9, Size * 0.26))}px;";
 
     static string Format(double value) => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 }

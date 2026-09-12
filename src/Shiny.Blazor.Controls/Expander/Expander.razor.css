@@ -7,9 +7,9 @@
     overflow: hidden;
     border: var(--shiny-expander-border-width, var(--shiny-border-thin, 1px))
             solid
-            var(--shiny-expander-border-color, var(--shiny-color-outline-variant, #E5E7EB));
+            var(--shiny-expander-border-color, var(--shiny-color-outline-variant, #BBC7DF));
     border-radius: var(--shiny-expander-radius, var(--shiny-shape-corner-medium, 12px));
-    background: var(--shiny-expander-content-bg, var(--shiny-color-surface, #FFFFFF));
+    background: var(--shiny-expander-content-bg, var(--shiny-color-surface, #F6FAFE));
     font-family: var(--shiny-type-font-family, inherit);
 }
 
@@ -32,8 +32,8 @@
     gap: var(--shiny-spacing-2, 8px);
     min-height: var(--shiny-expander-header-min-height, var(--shiny-density-touch-target, 48px));
     padding: var(--shiny-expander-header-padding, var(--shiny-spacing-3, 12px) var(--shiny-spacing-4, 16px));
-    background: var(--shiny-expander-header-bg, var(--shiny-color-surface-container-low, #F7F7F8));
-    color: var(--shiny-expander-header-color, var(--shiny-color-on-surface, #1B1B1F));
+    background: var(--shiny-expander-header-bg, var(--shiny-color-surface-container-low, #EFF4FB));
+    color: var(--shiny-expander-header-color, var(--shiny-color-on-surface, #161C23));
     cursor: pointer;
     user-select: none;
     text-align: start;
@@ -45,7 +45,7 @@
 }
 
 .shiny-expander__header:focus-visible {
-    outline: 2px solid var(--shiny-color-primary, #3B82F6);
+    outline: 2px solid var(--shiny-color-primary, #0055D9);
     outline-offset: -2px;
 }
 
@@ -67,7 +67,7 @@
 
 .shiny-expander__detail {
     font-size: var(--shiny-type-body-small-size, 0.8rem);
-    color: var(--shiny-expander-detail-color, var(--shiny-color-on-surface-variant, #6B7280));
+    color: var(--shiny-expander-detail-color, var(--shiny-color-on-surface-variant, #3B475B));
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -83,7 +83,7 @@
     flex: 0 0 auto;
     font-size: var(--shiny-expander-indicator-size, 0.75rem);
     line-height: 1;
-    color: var(--shiny-expander-indicator-color, var(--shiny-color-on-surface-variant, #6B7280));
+    color: var(--shiny-expander-indicator-color, var(--shiny-color-on-surface-variant, #3B475B));
     transition: transform var(--shiny-expander-duration, 250ms) var(--shiny-expander-easing, cubic-bezier(0.2, 0, 0, 1));
 }
 
@@ -103,7 +103,7 @@
 .shiny-expander__separator {
     height: 1px;
     flex: 0 0 auto;
-    background: var(--shiny-expander-separator-color, var(--shiny-color-outline-variant, #E5E7EB));
+    background: var(--shiny-expander-separator-color, var(--shiny-color-outline-variant, #BBC7DF));
 }
 
 .shiny-expander.is-collapsed .shiny-expander__separator {
@@ -138,8 +138,8 @@
 
 .shiny-expander__content {
     padding: var(--shiny-expander-content-padding, var(--shiny-spacing-3, 12px) var(--shiny-spacing-4, 16px));
-    background: var(--shiny-expander-content-bg, var(--shiny-color-surface, #FFFFFF));
-    color: var(--shiny-color-on-surface, #1B1B1F);
+    background: var(--shiny-expander-content-bg, var(--shiny-color-surface, #F6FAFE));
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-expander.anim-fade .shiny-expander__content,

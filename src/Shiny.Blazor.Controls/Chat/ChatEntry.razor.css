@@ -2,7 +2,7 @@
     display: flex;
     flex-direction: column;
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px) var(--shiny-spacing-3, 12px);
-    background: var(--shiny-color-surface, #fff);
+    background: var(--shiny-color-surface, #F6FAFE);
     font-family: var(--shiny-type-font-family, inherit);
 }
 
@@ -31,11 +31,11 @@
     min-width: 30px;
     height: 28px;
     border-radius: var(--shiny-shape-corner-small, 6px);
-    color: var(--shiny-color-on-surface-variant, #555);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-chat-mdtoolbar button:hover {
-    background: var(--shiny-color-surface-container-high, #eee);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
 }
 
 /* Rounded card holding the entry and its control row. No rule above it - the card is its own edge,
@@ -46,14 +46,14 @@
     flex-direction: column;
     gap: calc(2px * var(--shiny-density-scale, 1));
     padding: calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px) calc(6px * var(--shiny-density-scale, 1));
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ddd);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-extra-large, 24px);
-    background: var(--shiny-color-surface-container-lowest, #fff);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
     transition: border-color 0.15s;
 }
 
 .shiny-chat-composer:focus-within {
-    border-color: var(--shiny-color-primary, #007AFF);
+    border-color: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-chat-input {
@@ -68,7 +68,7 @@
     font-size: calc(15px * var(--shiny-type-scale, 1));
     line-height: 1.4;
     padding: calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-1, 4px) calc(2px * var(--shiny-density-scale, 1));
-    color: var(--shiny-color-on-surface, #222);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 /* Control row beneath the entry */
@@ -102,13 +102,13 @@
 }
 
 .shiny-chat-input::placeholder {
-    color: var(--shiny-color-on-surface-variant, #999);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-chat-send {
     flex: 0 0 auto;
-    background: var(--shiny-color-primary, #007AFF);
-    color: var(--shiny-color-on-primary, white);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
     border: none;
     border-radius: var(--shiny-shape-corner-large, 18px);
     min-height: 36px;
@@ -134,7 +134,7 @@
     border: none;
     font-size: var(--shiny-type-title-large-size, 22px);
     font-weight: bold;
-    color: var(--shiny-color-primary, #007AFF);
+    color: var(--shiny-color-primary, #0055D9);
     cursor: pointer;
     line-height: 1;
 }

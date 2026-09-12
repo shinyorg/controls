@@ -148,6 +148,102 @@ public class DarkModeCoverageTests(ITestOutputHelper output)
             "the surface's own text colour is - or a surface-container token.");
     }
 
+    /// <summary>
+    /// Every <c>var(--shiny-color-…, literal)</c> fallback in component CSS must be the Basic light
+    /// theme's own value for that token.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The fallback only paints when the theme stylesheet is not linked, so a wrong one is invisible
+    /// in every app that themes properly - and in the ones that do not, it is the whole design. Before
+    /// this scan there were 892 of them carrying up to 28 different values for a single token:
+    /// <c>--shiny-color-on-surface-variant</c> alone was #6b7280, #666, #9CA3AF and #374151 depending
+    /// on which control you happened to be reading.
+    /// </para>
+    /// <para>
+    /// Asserting against the generated theme rather than merely against each other is deliberate. Two
+    /// controls agreeing on a colour the theme does not use is still wrong; it just fails as a set.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void ColourFallbacksMatchTheTheme()
+    {
+        var theme = BasicLightTokens();
+        theme.ShouldNotBeEmpty("the generated BasicLightTheme.xaml is the source of truth for this scan");
+
+        var reference = new Regex(@"var\(\s*(--shiny-color-[a-z0-9-]+)\s*,\s*([^()]*?)\s*\)", RegexOptions.Compiled);
+        var offenders = new List<string>();
+
+        foreach (var file in SourceFiles(".css", ".razor", ".cs"))
+        {
+            var name = Path.GetFileName(file);
+
+            foreach (Match match in reference.Matches(File.ReadAllText(file)))
+            {
+                var token = match.Groups[1].Value;
+                var fallback = match.Groups[2].Value;
+
+                // A token the theme does not define has nothing to be checked against - that is what
+                // ThemeTokenCoverageTests is for.
+                if (!theme.TryGetValue(token, out var expected))
+                    continue;
+
+                if (!String.Equals(fallback, expected, StringComparison.OrdinalIgnoreCase))
+                    offenders.Add($"{name}: {token} falls back to {fallback}, theme says {expected}");
+            }
+        }
+
+        foreach (var o in offenders.Distinct().Order(StringComparer.Ordinal))
+            output.WriteLine("FALLBACK DRIFT: " + o);
+
+        offenders.ShouldBeEmpty(
+            "a var() fallback is what the control paints when the consumer has not linked " +
+            "shiny-theme.css. Every one of them has to be that token's own value in the Basic light " +
+            "theme, or the unthemed rendering is a collage of six different design systems.");
+    }
+
+
+    /// <summary>
+    /// Reads the generated MAUI light dictionary and maps its <c>Shiny.Color.X</c> keys onto the CSS
+    /// token names. The two hosts emit from the same table, so either one can stand for the contract;
+    /// the XAML is simply the easier of the two to parse without a CSS engine.
+    /// </summary>
+    static Dictionary<string, string> BasicLightTokens()
+    {
+        var path = Path.Combine(
+            FindSrcRoot(), "Shiny.Maui.Controls", "Themes", "Generated", "BasicLightTheme.xaml");
+
+        if (!File.Exists(path))
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+
+        var entries = Regex.Matches(
+            File.ReadAllText(path),
+            @"<Color x:Key=""Shiny\.Color\.(\w+)"">(#[0-9A-Fa-f]{6})</Color>"
+        );
+
+        return entries.ToDictionary(
+            m => "--shiny-color-" + Kebab(m.Groups[1].Value),
+            m => m.Groups[2].Value,
+            StringComparer.Ordinal
+        );
+    }
+
+    static string Kebab(string pascal)
+    {
+        var sb = new System.Text.StringBuilder(pascal.Length + 8);
+
+        for (var i = 0; i < pascal.Length; i++)
+        {
+            if (Char.IsUpper(pascal[i]) && i > 0)
+                sb.Append('-');
+
+            sb.Append(Char.ToLowerInvariant(pascal[i]));
+        }
+
+        return sb.ToString();
+    }
+
+
     static string Collapse(string value)
     {
         var single = Regex.Replace(value, @"\s+", " ").Trim();

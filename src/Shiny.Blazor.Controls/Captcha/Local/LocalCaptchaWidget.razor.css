@@ -1,11 +1,11 @@
 .shiny-captcha-local {
     /* one place to swap light for dark, so every rule below reads from the same four values */
-    --shiny-captcha-surface: var(--shiny-color-surface, #FFFFFF);
-    --shiny-captcha-on-surface: var(--shiny-color-on-surface, #111827);
-    --shiny-captcha-muted: var(--shiny-color-on-surface-variant, #6B7280);
-    --shiny-captcha-well: var(--shiny-color-surface-container-high, #F3F4F6);
-    --shiny-captcha-outline: var(--shiny-color-outline-variant, #D1D5DB);
-    --shiny-captcha-outline-strong: var(--shiny-color-outline, #9CA3AF);
+    --shiny-captcha-surface: var(--shiny-color-surface, #F6FAFE);
+    --shiny-captcha-on-surface: var(--shiny-color-on-surface, #161C23);
+    --shiny-captcha-muted: var(--shiny-color-on-surface-variant, #3B475B);
+    --shiny-captcha-well: var(--shiny-color-surface-container-high, #E2E6EA);
+    --shiny-captcha-outline: var(--shiny-color-outline-variant, #BBC7DF);
+    --shiny-captcha-outline-strong: var(--shiny-color-outline, #6C788D);
 
     display: inline-flex;
     flex-direction: column;
@@ -66,7 +66,7 @@
 }
 
 .shiny-captcha-refresh:hover:not(:disabled) {
-    color: var(--shiny-color-primary, #6C63FF);
+    color: var(--shiny-color-primary, #0055D9);
     transform: rotate(-90deg);
 }
 
@@ -96,24 +96,24 @@
 
 .shiny-captcha-input:focus {
     outline: none;
-    border-color: var(--shiny-color-primary, #6C63FF);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--shiny-color-primary, #6C63FF) 25%, transparent);
+    border-color: var(--shiny-color-primary, #0055D9);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--shiny-color-primary, #0055D9) 25%, transparent);
 }
 
 .shiny-captcha-check {
     position: absolute;
     right: var(--shiny-spacing-2, 8px);
     display: inline-flex;
-    color: var(--shiny-color-success, #16A34A);
+    color: var(--shiny-color-success, #00711C);
 }
 
 .is-solved .shiny-captcha-input {
-    border-color: var(--shiny-color-success, #16A34A);
+    border-color: var(--shiny-color-success, #00711C);
     padding-right: 32px;
 }
 
 .is-wrong .shiny-captcha-input {
-    border-color: var(--shiny-color-error, #DC2626);
+    border-color: var(--shiny-color-error, #C20014);
     animation: shiny-captcha-shake 320ms ease;
 }
 
@@ -124,7 +124,7 @@
 }
 
 .shiny-captcha-error {
-    color: var(--shiny-color-error, #DC2626);
+    color: var(--shiny-color-error, #C20014);
 }
 
 @keyframes shiny-captcha-shake {
@@ -153,8 +153,20 @@
     --shiny-captcha-outline-strong: #4B5563;
 }
 
+/* `is-auto` follows the page. It has to watch the theme class as well as the OS preference: keying
+   off the preference alone meant an app that forced dark with `.shiny-theme-dark` on a light-preference
+   machine got a white challenge in a dark page, and forcing light on a dark machine got the reverse. */
+.shiny-theme-dark .shiny-captcha-local.is-auto {
+    --shiny-captcha-surface: #111827;
+    --shiny-captcha-on-surface: #F9FAFB;
+    --shiny-captcha-muted: #9CA3AF;
+    --shiny-captcha-well: #1F2937;
+    --shiny-captcha-outline: #374151;
+    --shiny-captcha-outline-strong: #4B5563;
+}
+
 @media (prefers-color-scheme: dark) {
-    .shiny-captcha-local.is-auto {
+    :root:not(.shiny-theme-light) .shiny-captcha-local.is-auto {
         --shiny-captcha-surface: #111827;
         --shiny-captcha-on-surface: #F9FAFB;
         --shiny-captcha-muted: #9CA3AF;

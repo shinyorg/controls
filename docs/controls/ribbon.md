@@ -182,9 +182,56 @@ height, so there is no spare room for `VerticalOptions` to centre it in. A `Labe
 draws its text at the top of its own box while the icon buttons beside it centre their glyphs — which
 reads as that one item sitting too high. Set `VerticalTextAlignment` as well as `VerticalOptions`.
 
+On MAUI the columns are built in code; on Blazor they are a CSS grid with `grid-auto-flow: column`,
+which places items down a column and only then moves across.
+
+## Rows, for a run people read across
+
+Column fill is right for a group of interchangeable commands and wrong for a **run**. Bold, italic,
+underline and strikethrough are read left to right; filling a two-row column turns them into a 2×2 block
+with underline above italic. It is also what puts a font-name box and a bold button in the same column,
+where the column takes the box's width and the 16px mark is stretched across all 150px of it.
+
+Put `RibbonRow`s in a group and it lays them out as rows instead — which is what Office actually draws:
+
+```xml
+<shiny:RibbonGroup Title="Font">
+    <shiny:RibbonRow>
+        <shiny:RibbonContentItem Size="Small"><shiny:FontPicker /></shiny:RibbonContentItem>
+        <shiny:RibbonContentItem Size="Small"><shiny:FontSizePicker /></shiny:RibbonContentItem>
+    </shiny:RibbonRow>
+    <shiny:RibbonRow>
+        <shiny:RibbonToggleButton Size="Small" Tooltip="Bold" />
+        <shiny:RibbonToggleButton Size="Small" Tooltip="Italic" />
+        <shiny:RibbonToggleButton Size="Small" Tooltip="Underline" />
+        <shiny:RibbonToggleButton Size="Small" Tooltip="Strikethrough" />
+    </shiny:RibbonRow>
+</shiny:RibbonGroup>
+```
+
+```razor
+<RibbonGroup Title="Font">
+    <RibbonRow>
+        <RibbonContent Size="RibbonItemSize.Small"><FontPickerButton /></RibbonContent>
+        <RibbonContent Size="RibbonItemSize.Small"><FontSizePickerButton /></RibbonContent>
+    </RibbonRow>
+    <RibbonRow>
+        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold" Icon="@bold" />
+        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic" Icon="@italic" />
+    </RibbonRow>
+</RibbonGroup>
+```
+
+There is **no mode to set**: the presence of a row is the signal, and a group is one or the other. Rows
+and loose items are not mixed, because an item with no row of its own has no answer to which row it is
+on. A `RibbonSeparator` inside a row is a rule between the items either side of it rather than a full
+column break, and everything on a row is drawn small — a large item is icon-over-label and two rows tall
+by construction, so one on a row would break the row height every other group is lined up to.
+
+Rows are dropped in the simplified layout, which is one dense line by definition.
+
 That is the whole of a ribbon's layout language, and it is why reordering a group's items re-flows it
-with nothing else touched. On MAUI the columns are built in code; on Blazor they are a CSS grid with
-`grid-auto-flow: column`, which places items down a column and only then moves across.
+with nothing else touched.
 
 ## Item kinds
 
@@ -195,6 +242,7 @@ with nothing else touched. On MAUI the columns are built in code; on Blazor they
 | `RibbonSplitButton` | Face runs the default action, chevron opens the dropdown |
 | `RibbonMenuButton` | The whole face opens the dropdown; no default action |
 | `RibbonSeparator` | A full-height rule, and a break in the column flow |
+| `RibbonRow` | A line of items. A group holding them fills rows instead of columns |
 | `RibbonContentItem` (MAUI) / `RibbonContent` (Blazor) | Hosts arbitrary content — a picker, a combo, a swatch strip |
 
 Every item carries `Text`, `Icon`, `Tooltip`, `Description`, `Size`, and enabled/visible flags.

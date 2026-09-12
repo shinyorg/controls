@@ -38,18 +38,18 @@ public class MarkdownTheme
     /// </remarks>
     public static MarkdownTheme Themed => new()
     {
-        TextColor = "var(--shiny-color-on-surface, #000000)",
-        MutedTextColor = "var(--shiny-color-on-surface-variant, #6B7280)",
-        LinkColor = "var(--shiny-color-primary, #2563EB)",
-        CodeBackgroundColor = "var(--shiny-color-surface-container-high, #F3F4F6)",
-        CodeTextColor = "var(--shiny-color-tertiary, #D946EF)",
-        CodeBlockBackgroundColor = "var(--shiny-color-inverse-surface, #1F2937)",
-        CodeBlockTextColor = "var(--shiny-color-inverse-on-surface, #E5E7EB)",
-        BlockquoteBorderColor = "var(--shiny-color-outline, #D1D5DB)",
-        BlockquoteBackgroundColor = "var(--shiny-color-surface-container, #F9FAFB)",
-        HorizontalRuleColor = "var(--shiny-color-outline-variant, #E5E7EB)",
-        TableBorderColor = "var(--shiny-color-outline-variant, #E5E7EB)",
-        TableHeaderBackgroundColor = "var(--shiny-color-surface-container-high, #F3F4F6)"
+        TextColor = "var(--shiny-color-on-surface, #161C23)",
+        MutedTextColor = "var(--shiny-color-on-surface-variant, #3B475B)",
+        LinkColor = "var(--shiny-color-primary, #0055D9)",
+        CodeBackgroundColor = "var(--shiny-color-surface-container-high, #E2E6EA)",
+        CodeTextColor = "var(--shiny-color-tertiary, #6A4CAD)",
+        CodeBlockBackgroundColor = "var(--shiny-color-inverse-surface, #161C23)",
+        CodeBlockTextColor = "var(--shiny-color-inverse-on-surface, #F6FAFE)",
+        BlockquoteBorderColor = "var(--shiny-color-outline, #6C788D)",
+        BlockquoteBackgroundColor = "var(--shiny-color-surface-container, #E8EEF6)",
+        HorizontalRuleColor = "var(--shiny-color-outline-variant, #BBC7DF)",
+        TableBorderColor = "var(--shiny-color-outline-variant, #BBC7DF)",
+        TableHeaderBackgroundColor = "var(--shiny-color-surface-container-high, #E2E6EA)"
     };
 
     public static MarkdownTheme Light => new();

@@ -5,7 +5,7 @@
     gap: calc(20px * var(--shiny-density-scale, 1));
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
     font-size: calc(13px * var(--shiny-type-scale, 1));
-    color: var(--shiny-color-on-surface-variant, #555);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
 .shiny-dg-pager-rpp {
@@ -15,11 +15,11 @@
 }
 
 .shiny-dg-pager-rpp select {
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #ccc);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: var(--shiny-shape-corner-small, 6px);
     padding: var(--shiny-spacing-1, 4px) calc(6px * var(--shiny-density-scale, 1));
-    background: var(--shiny-color-surface, #fff);
-    color: var(--shiny-color-on-surface, #1a1a1a);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-dg-pager-nav {
@@ -35,11 +35,11 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    color: var(--shiny-color-on-surface, #1a1a1a);
+    color: var(--shiny-color-on-surface, #161C23);
 }
 
 .shiny-dg-pager-nav button:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--shiny-color-on-surface, #000) 8%, transparent);
+    background: color-mix(in srgb, var(--shiny-color-on-surface, #161C23) 8%, transparent);
 }
 
 .shiny-dg-pager-nav button:disabled {
