@@ -2,9 +2,13 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://shinylib.net/controls/shiny-theme.schema.json",
     "title": "Shiny Controls Theme",
-    "description": "Canonical definition of a Shiny Controls theme. A theme is described by a set of seed colors plus optional 'personality' blocks — shape, typography, elevation, density, border and state. The generator (tools/ShinyThemeGen) derives the full Material-3 tonal role set (light + dark) and the complete token contract from them. Every block except 'seeds' is optional; omitting one keeps the shared defaults, so a theme only states the axes it wants to differ on. This same file format drives the docs-site theme creator.",
+    "description": "Canonical definition of a Shiny Controls theme. A theme is described by a set of seed colors plus optional 'personality' blocks \u2014 shape, typography, elevation, density, border and state. The generator (tools/ShinyThemeGen) derives the full Material-3 tonal role set (light + dark) and the complete token contract from them. Every block except 'seeds' is optional; omitting one keeps the shared defaults, so a theme only states the axes it wants to differ on. This same file format drives the docs-site theme creator.",
     "type": "object",
-    "required": ["name", "slug", "seeds"],
+    "required": [
+        "name",
+        "slug",
+        "seeds"
+    ],
     "additionalProperties": false,
     "properties": {
         "name": {
@@ -23,22 +27,354 @@
             "type": "object",
             "description": "Source colors. Each is expanded into a tonal palette; M3 roles are mapped from the tones for both light and dark schemes.",
             "required": [
-                "primary", "secondary", "tertiary", "neutral", "neutralVariant", "error",
-                "success", "info", "warning", "caution", "critical"
+                "primary",
+                "secondary",
+                "tertiary",
+                "neutral",
+                "neutralVariant",
+                "error",
+                "success",
+                "info",
+                "warning",
+                "caution",
+                "critical"
             ],
             "additionalProperties": false,
             "properties": {
-                "primary": { "$ref": "#/$defs/hex" },
-                "secondary": { "$ref": "#/$defs/hex" },
-                "tertiary": { "$ref": "#/$defs/hex" },
-                "neutral": { "$ref": "#/$defs/hex" },
-                "neutralVariant": { "$ref": "#/$defs/hex" },
-                "error": { "$ref": "#/$defs/hex" },
-                "success": { "$ref": "#/$defs/hex" },
-                "info": { "$ref": "#/$defs/hex" },
-                "warning": { "$ref": "#/$defs/hex" },
-                "caution": { "$ref": "#/$defs/hex" },
-                "critical": { "$ref": "#/$defs/hex" }
+                "primary": {
+                    "$ref": "#/$defs/hex"
+                },
+                "secondary": {
+                    "$ref": "#/$defs/hex"
+                },
+                "tertiary": {
+                    "$ref": "#/$defs/hex"
+                },
+                "neutral": {
+                    "$ref": "#/$defs/hex"
+                },
+                "neutralVariant": {
+                    "$ref": "#/$defs/hex"
+                },
+                "error": {
+                    "$ref": "#/$defs/hex"
+                },
+                "success": {
+                    "$ref": "#/$defs/hex"
+                },
+                "info": {
+                    "$ref": "#/$defs/hex"
+                },
+                "warning": {
+                    "$ref": "#/$defs/hex"
+                },
+                "caution": {
+                    "$ref": "#/$defs/hex"
+                },
+                "critical": {
+                    "$ref": "#/$defs/hex"
+                }
+            }
+        },
+        "tokens": {
+            "type": "object",
+            "description": "The authoring layer - the small set a human edits. The 55 colour roles every control consumes are derived from these, so stating `primary` here moves the primary container, the surface tint and the focus ring with it. Omit the block entirely and every token is derived from `seeds`.",
+            "additionalProperties": false,
+            "properties": {
+                "light": {
+                    "type": "object",
+                    "description": "Authoring token values for one scheme. Anything stated here wins over the value derived from the seeds; anything omitted keeps the derived one.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "background": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-background"
+                        },
+                        "foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-foreground"
+                        },
+                        "card": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-card"
+                        },
+                        "popover": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-popover"
+                        },
+                        "muted": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-muted"
+                        },
+                        "muted-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-muted-foreground"
+                        },
+                        "primary": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-primary"
+                        },
+                        "primary-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-primary-foreground"
+                        },
+                        "secondary": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-secondary"
+                        },
+                        "secondary-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-secondary-foreground"
+                        },
+                        "accent": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-accent"
+                        },
+                        "accent-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-accent-foreground"
+                        },
+                        "destructive": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-destructive"
+                        },
+                        "destructive-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-destructive-foreground"
+                        },
+                        "success": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-success"
+                        },
+                        "success-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-success-foreground"
+                        },
+                        "info": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-info"
+                        },
+                        "info-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-info-foreground"
+                        },
+                        "warning": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-warning"
+                        },
+                        "warning-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-warning-foreground"
+                        },
+                        "caution": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-caution"
+                        },
+                        "caution-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-caution-foreground"
+                        },
+                        "critical": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-critical"
+                        },
+                        "critical-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-critical-foreground"
+                        },
+                        "border": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-border"
+                        },
+                        "input": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-input"
+                        },
+                        "ring": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-ring"
+                        },
+                        "shadow-color": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-shadow-color"
+                        }
+                    }
+                },
+                "dark": {
+                    "type": "object",
+                    "description": "Authoring token values for one scheme. Anything stated here wins over the value derived from the seeds; anything omitted keeps the derived one.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "background": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-background"
+                        },
+                        "foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-foreground"
+                        },
+                        "card": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-card"
+                        },
+                        "popover": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-popover"
+                        },
+                        "muted": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-muted"
+                        },
+                        "muted-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-muted-foreground"
+                        },
+                        "primary": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-primary"
+                        },
+                        "primary-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-primary-foreground"
+                        },
+                        "secondary": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-secondary"
+                        },
+                        "secondary-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-secondary-foreground"
+                        },
+                        "accent": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-accent"
+                        },
+                        "accent-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-accent-foreground"
+                        },
+                        "destructive": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-destructive"
+                        },
+                        "destructive-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-destructive-foreground"
+                        },
+                        "success": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-success"
+                        },
+                        "success-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-success-foreground"
+                        },
+                        "info": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-info"
+                        },
+                        "info-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-info-foreground"
+                        },
+                        "warning": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-warning"
+                        },
+                        "warning-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-warning-foreground"
+                        },
+                        "caution": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-caution"
+                        },
+                        "caution-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-caution-foreground"
+                        },
+                        "critical": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-critical"
+                        },
+                        "critical-foreground": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-critical-foreground"
+                        },
+                        "border": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-border"
+                        },
+                        "input": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-input"
+                        },
+                        "ring": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-ring"
+                        },
+                        "shadow-color": {
+                            "type": "string",
+                            "pattern": "^#([0-9a-fA-F]{6})$",
+                            "description": "--shiny-shadow-color"
+                        }
+                    }
+                }
             }
         },
         "shape": {
@@ -54,7 +390,9 @@
                 "corners": {
                     "type": "object",
                     "description": "Absolute per-corner overrides (px), applied instead of the scale. Keys: CornerNone, CornerExtraSmall, CornerSmall, CornerMedium, CornerLarge, CornerExtraLarge, CornerFull.",
-                    "additionalProperties": { "type": "number" }
+                    "additionalProperties": {
+                        "type": "number"
+                    }
                 }
             }
         },
@@ -91,7 +429,7 @@
                 "lineHeightScale": {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "description": "Extra multiplier on line height only — raise for airy themes, lower for dense ones. Default 1."
+                    "description": "Extra multiplier on line height only \u2014 raise for airy themes, lower for dense ones. Default 1."
                 }
             }
         },
@@ -101,21 +439,29 @@
             "additionalProperties": false,
             "properties": {
                 "style": {
-                    "enum": ["shadow", "flat", "outline", "glow"],
-                    "description": "shadow = Material drop shadows; flat = none at all; outline = a hairline ring instead of a shadow; glow = a soft primary-coloured halo. Default shadow. On MAUI, 'outline' resolves to no shadow — outline themes get their character from the border widths, which controls apply to StrokeThickness."
+                    "enum": [
+                        "shadow",
+                        "flat",
+                        "outline",
+                        "glow"
+                    ],
+                    "description": "shadow = Material drop shadows; flat = none at all; outline = a hairline ring instead of a shadow; glow = a soft primary-coloured halo. Default shadow. On MAUI, 'outline' resolves to no shadow \u2014 outline themes get their character from the border widths, which controls apply to StrokeThickness."
                 },
                 "intensity": {
                     "type": "number",
                     "minimum": 0,
-                    "description": "Multiplier on shadow opacity — how dark the shadow is. Default 1."
+                    "description": "Multiplier on shadow opacity \u2014 how dark the shadow is. Default 1."
                 },
                 "softness": {
                     "type": "number",
                     "minimum": 0,
-                    "description": "Multiplier on shadow offset, blur and spread — how large and diffuse the shadow is. Pair a high softness with a low intensity for a big, barely-there halo. Default 1."
+                    "description": "Multiplier on shadow offset, blur and spread \u2014 how large and diffuse the shadow is. Pair a high softness with a low intensity for a big, barely-there halo. Default 1."
                 },
                 "tint": {
-                    "enum": ["neutral", "primary"],
+                    "enum": [
+                        "neutral",
+                        "primary"
+                    ],
                     "description": "neutral = black shadows; primary = shadows tinted by the theme's shadow/primary role. Default neutral."
                 }
             }
@@ -130,9 +476,18 @@
                     "exclusiveMinimum": 0,
                     "description": "Multiplier on the spacing ramp and control heights. 0.85 = compact, 1.25 = spacious. Default 1. The touch-target token is deliberately never scaled."
                 },
-                "controlHeight": { "type": "number", "description": "Absolute default control height in px (overrides the scaled default of 44)." },
-                "controlHeightSmall": { "type": "number", "description": "Absolute compact control height in px (overrides the scaled default of 32)." },
-                "rowHeight": { "type": "number", "description": "Absolute list/table row height in px (overrides the scaled default of 48)." }
+                "controlHeight": {
+                    "type": "number",
+                    "description": "Absolute default control height in px (overrides the scaled default of 44)."
+                },
+                "controlHeightSmall": {
+                    "type": "number",
+                    "description": "Absolute compact control height in px (overrides the scaled default of 32)."
+                },
+                "rowHeight": {
+                    "type": "number",
+                    "description": "Absolute list/table row height in px (overrides the scaled default of 48)."
+                }
             }
         },
         "border": {
@@ -140,9 +495,21 @@
             "description": "Border/stroke width ramp in px. A theme with thin 2 reads as hand-drawn or brutalist; 0.5 reads as delicate.",
             "additionalProperties": false,
             "properties": {
-                "thin": { "type": "number", "minimum": 0, "description": "Default 1." },
-                "medium": { "type": "number", "minimum": 0, "description": "Default 2." },
-                "thick": { "type": "number", "minimum": 0, "description": "Default 4." }
+                "thin": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Default 1."
+                },
+                "medium": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Default 2."
+                },
+                "thick": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Default 4."
+                }
             }
         },
         "state": {
@@ -150,10 +517,22 @@
             "description": "State-layer opacities (0..1) for hover, focus, press and drag.",
             "additionalProperties": false,
             "properties": {
-                "hover": { "$ref": "#/$defs/opacity", "description": "Default 0.08." },
-                "focus": { "$ref": "#/$defs/opacity", "description": "Default 0.10." },
-                "pressed": { "$ref": "#/$defs/opacity", "description": "Default 0.10." },
-                "dragged": { "$ref": "#/$defs/opacity", "description": "Default 0.16." }
+                "hover": {
+                    "$ref": "#/$defs/opacity",
+                    "description": "Default 0.08."
+                },
+                "focus": {
+                    "$ref": "#/$defs/opacity",
+                    "description": "Default 0.10."
+                },
+                "pressed": {
+                    "$ref": "#/$defs/opacity",
+                    "description": "Default 0.10."
+                },
+                "dragged": {
+                    "$ref": "#/$defs/opacity",
+                    "description": "Default 0.16."
+                }
             }
         }
     },

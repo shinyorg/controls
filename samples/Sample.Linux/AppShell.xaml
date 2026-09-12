@@ -16,6 +16,9 @@
        xmlns:autocomplete="clr-namespace:Sample.Features.AutoComplete;assembly=Sample.Linux"
        xmlns:badge="clr-namespace:Sample.Features.Badge;assembly=Sample.Linux"
        xmlns:buttons="clr-namespace:Sample.Features.Buttons;assembly=Sample.Linux"
+       xmlns:btngroup="clr-namespace:Sample.Features.ButtonGroups;assembly=Sample.Linux"
+       xmlns:tags="clr-namespace:Sample.Features.Tags;assembly=Sample.Linux"
+       xmlns:chips="clr-namespace:Sample.Features.Chips;assembly=Sample.Linux"
        xmlns:carouselgallery="clr-namespace:Sample.Features.CarouselGallery;assembly=Sample.Linux"
        xmlns:expanders="clr-namespace:Sample.Features.Expanders;assembly=Sample.Linux"
        xmlns:colorpicker="clr-namespace:Sample.Features.ColorPicker;assembly=Sample.Linux"
@@ -154,6 +157,10 @@
     <FlyoutItem Title="Range Slider">
         <ShellContent ContentTemplate="{DataTemplate slider:RangeSliderPage}" Route="rangeslider" />
     </FlyoutItem>
+    <FlyoutItem Title="Tag Entry">
+        <ShellContent ContentTemplate="{DataTemplate tags:TagEntryPage}" Route="tagentry" />
+        <ShellContent ContentTemplate="{DataTemplate chips:ChipGroupPage}" Route="chipgroup" />
+    </FlyoutItem>
     <FlyoutItem Title="Security Pin">
         <ShellContent ContentTemplate="{DataTemplate securitypin:SecurityPinPage}" Route="securitypin" />
         <ShellContent ContentTemplate="{DataTemplate pwstrength:PasswordStrengthPage}" Route="passwordstrength" />
@@ -169,6 +176,9 @@
 
     <FlyoutItem Title="ShinyButton">
         <ShellContent ContentTemplate="{DataTemplate buttons:ButtonsPage}" Route="buttons" />
+    </FlyoutItem>
+    <FlyoutItem Title="Button Group">
+        <ShellContent ContentTemplate="{DataTemplate btngroup:ButtonGroupPage}" Route="buttongroup" />
     </FlyoutItem>
     <FlyoutItem Title="FAB &amp; FabMenu">
         <ShellContent ContentTemplate="{DataTemplate fab:FabPage}" Route="fab" />

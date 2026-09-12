@@ -1,13 +1,24 @@
 # Shiny Controls — Theme Token Reference & Migration Guide
 
-This is the canonical contract that controls consume. Tokens are generated from `/themes/*.json`
-by `tools/ShinyThemeGen`. **Blazor** consumes CSS custom properties; **MAUI** consumes
-`ResourceDictionary` keys (via `ShinyThemeKeys`) bound with `SetDynamicResource`.
+This is the canonical contract that **controls consume**. It is not the thing a theme author writes —
+see the authoring layer in [`README.md`](README.md), which is ~35 values these are derived from. Read
+this page when you are writing a control and need to know which role to reach for.
+
+**Blazor** consumes CSS custom properties; **MAUI** consumes `ResourceDictionary` keys (via
+`ShinyThemeKeys`) bound with `SetDynamicResource`.
+
+> **Where a value comes from.** Every role below is derived from an authoring token: most are a
+> straight alias (`--shiny-color-primary` *is* `--shiny-primary`), and the containers and the upper
+> surface ramp are a mix — the accent laid over the page, or the page tinted toward its own ink. That
+> is why overriding `--shiny-primary` moves the container with it, and why you should reach for the
+> role rather than the authoring token when writing a control: the role is the one that carries the
+> meaning.
 
 ## Golden rules
 
 1. **Always keep a fallback.** Blazor: `var(--shiny-color-x, #originalHex)` — keep the *exact*
    original hex as the fallback so the default look is unchanged when no theme stylesheet is linked.
+   *(This one is on its way out — see the note at the end.)*
 2. **Don't tokenize content colors.** Never replace colors that represent user data or previews:
    the ColorPicker spectrum/swatch values, ImageEditor pixel/brush sample colors, or any inline
    `style` that paints a user-chosen color. Chrome (borders, backgrounds, toolbars) is fine.
@@ -162,3 +173,18 @@ explicit `Color` when set, otherwise re-apply the `SetDynamicResource` (so clear
 Add `using Shiny.Maui.Controls.Themes;`. Don't tokenize `Colors.Transparent`.
 
 After editing, the keys live in `src/Shiny.Maui.Controls/Themes/Generated/ShinyThemeKeys.cs`.
+
+---
+
+## A note on rule 1
+
+Keeping the original hex as a `var()` fallback was the right call while the token system was being
+retrofitted onto controls that already had colours. It has since produced 668 hex literals in the
+component CSS, and `--shiny-color-primary` alone appears with **15 different fallback values** — so a
+mistyped token name does not fail loudly, it renders in a 2019-era blue, and the component CSS can no
+longer be read as one design system.
+
+The intent is to drop the fallbacks and let a missing token be visible, once the inline-style
+parameter defaults are moved into the stylesheets (they are the reason a theme cannot always reach a
+control today). Until then: keep following rule 1 for consistency, and do not invent a *new* fallback
+value — copy the one the theme actually ships.

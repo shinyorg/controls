@@ -1,0 +1,16 @@
+@namespace Shiny.Blazor.Controls
+
+@*
+    The whole group is one element plus a cascade. The joining itself is CSS over :first-child /
+    :last-child rather than anything counted in C#, so it works for a ShinyButton, a text segment, a
+    separator, or a nested group without the container having to know which it was handed.
+
+    The cascade is deliberately NOT IsFixed: a fixed cascade skips the subscription, so a segment would
+    re-render only when its own parameters changed and the selection would never reach it.
+*@
+
+<div class="@this.CssClasses" style="@this.InlineStyle" role="group" @attributes="this.AdditionalAttributes">
+    <CascadingValue Value="this">
+        @this.ChildContent
+    </CascadingValue>
+</div>

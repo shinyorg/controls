@@ -74,6 +74,8 @@ public static class Catalog
             new("countryaddress", "Country & Address", "⚑", "Country picker and structured address entry"),
             new("slider", "Slider", "━", "Single-value slider with ticks and labels"),
             new("rangeslider", "Range Slider", "≡", "Two-thumb range selection"),
+            new("tagentry", "Tag Entry", "🏷", "Free-text tags as removable chips in one box"),
+            new("chipgroup", "Chip Group", "◍", "Bound chips with single or multiple selection"),
             new("securitypin", "Security Pin", "✱", "PIN entry with masking and shake-on-error"),
             new("passwordstrength", "Password Strength", "▓", "Password field with a live strength meter and rule checklist"),
             new("captcha", "Captcha", "🛡", "Human check — local challenge, reCAPTCHA, hCaptcha or Turnstile"),
@@ -86,6 +88,7 @@ public static class Catalog
         new("Actions & Navigation", "#2DD4BF",
         [
             new("button", "ShinyButton", "🔘", "States, icons, loading and long-press"),
+            new("buttongroup", "Button Group", "▤", "Segmented control of joined buttons, with optional selection"),
             new("fab", "Fab", "➕", "Floating action button with positioning"),
             new("fab-menu", "Fab Menu", "✦", "Expanding menu of action buttons"),
             new("toolbar", "Toolbar", "☰", "Docked app bar with overflow and frosted glass"),

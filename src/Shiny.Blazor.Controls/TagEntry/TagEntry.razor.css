@@ -1,0 +1,133 @@
+/* Everything here is a token with a literal fallback, so the field follows a theme swap and dark mode
+   with no @media block of its own - the tokens flip and the control follows. */
+
+.shiny-tags {
+    --shiny-tags-radius: var(--shiny-shape-corner-small, 8px);
+    --shiny-tags-stroke: var(--shiny-color-outline, #6C788D);
+    --shiny-tags-chip-bg: var(--shiny-color-secondary-container, #DCE2F9);
+    --shiny-tags-chip-fg: var(--shiny-color-on-secondary-container, #151B2C);
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    box-sizing: border-box;
+    width: 100%;
+    min-height: var(--shiny-density-control-height, 44px);
+    padding: var(--shiny-spacing-2, 8px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-tags-stroke);
+    border-radius: var(--shiny-tags-radius);
+    background: var(--shiny-color-surface, #FBF8FD);
+    color: var(--shiny-color-on-surface, #1B1B21);
+    font-family: var(--shiny-type-font-family, inherit);
+    cursor: text;
+    transition: border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.shiny-tags.is-focused {
+    border-color: var(--shiny-color-primary, #0055D9);
+    box-shadow: 0 0 0 1px var(--shiny-color-primary, #0055D9);
+}
+
+.shiny-tags.is-disabled {
+    opacity: 0.38;
+    cursor: default;
+}
+
+.shiny-tags.is-readonly {
+    cursor: default;
+}
+
+/* aria-invalid is set by a Field pairing, or by hand. It lands on the inner input, so the box reads it
+   off its own descendant rather than needing a parameter of its own. */
+.shiny-tags:has(input[aria-invalid="true"]) {
+    border-color: var(--shiny-color-error, #BA1A1A);
+}
+
+
+/* -- chips ---------------------------------------------------------------------------------------- */
+
+.shiny-tags__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--shiny-spacing-1, 4px);
+    max-width: 100%;
+    padding: 2px 4px 2px var(--shiny-spacing-2, 8px);
+    border-radius: var(--shiny-shape-corner-small, 8px);
+    background: var(--shiny-tags-chip-bg);
+    color: var(--shiny-tags-chip-fg);
+    font-size: calc(14px * var(--shiny-type-scale, 1));
+    line-height: 1.4;
+}
+
+.shiny-tags__chip-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--shiny-spacing-1, 4px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shiny-tags__chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* A state layer mixed from the chip's own ink rather than a fixed black wash, so it is visible on a
+   dark chip as well as a light one. */
+.shiny-tags__chip-remove:hover,
+.shiny-tags__chip-remove:focus-visible {
+    background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.shiny-tags__chip-remove:focus-visible {
+    outline: 2px solid var(--shiny-color-primary, #0055D9);
+    outline-offset: 1px;
+}
+
+.shiny-tags.is-readonly .shiny-tags__chip,
+.shiny-tags.is-disabled .shiny-tags__chip {
+    padding-inline-end: var(--shiny-spacing-2, 8px);
+}
+
+
+/* -- the typing area -------------------------------------------------------------------------------
+   It flexes so it takes the rest of whichever line it lands on, and its min-width is what makes it drop
+   to a line of its own rather than becoming a sliver nobody can type into. */
+
+.shiny-tags__input {
+    flex: 1 1 90px;
+    min-width: 90px;
+    border: 0;
+    padding: 2px 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    outline: none;
+}
+
+.shiny-tags__input::placeholder {
+    color: var(--shiny-color-on-surface-variant, #46464F);
+}
+
+.shiny-tags__input:disabled {
+    cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-tags {
+        transition: none;
+    }
+}

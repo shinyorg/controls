@@ -53,10 +53,10 @@ public partial class ShinyButton
         if (view is not MotionIconView icon)
             return;
 
-        if (explicitColor is Color c)
-            icon.Color = c;
-        else
-            icon.SetDynamicResource(MotionIconView.ColorProperty, this.foregroundToken);
+        // Tint rather than a plain assignment: a local value outranks a dynamic resource, so an icon
+        // that once carried an explicit colour would keep it after the colour was cleared - and an
+        // appearance change rewrites the token every time. See ApplyAppearance.
+        Infrastructure.ThemeProbe.Tint(icon, MotionIconView.ColorProperty, explicitColor, this.foregroundToken);
     }
 
     void ApplyMotionStroke()

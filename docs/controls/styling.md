@@ -20,6 +20,25 @@ overrides the theme default for that instance — permanently. A `ChatView` with
 `MyBubbleColor="#DCF8C6"` keeps that green through every `ShinyThemeManager.SetTheme` call, so omit
 the property unless you mean to pin it.
 
+**Theming (Blazor)** — the tokens are two layers, and only the small one is meant to be edited:
+
+```css
+/* your own stylesheet, linked after the Shiny theme */
+:root {
+    --shiny-primary: #5B21B6;   /* the container tint, surface tint and focus ring follow */
+    --shiny-radius: 4px;        /* every corner in the ramp follows */
+    --shiny-density: 0.9;       /* control heights and the spacing scale follow */
+}
+.shiny-theme-dark { --shiny-primary: #A78BFA; }
+```
+
+The ~35 authoring tokens (`background`, `foreground`, `card`, `popover`, `muted`, the nine semantic
+families with their foregrounds, `border`, `input`, `ring`, and the `radius`/`density`/`text-scale`/
+`border-width`/font knobs) are what a theme states. The 153 `--shiny-color-*`, `--shiny-shape-*`,
+`--shiny-type-*` … names every control consumes are *derived* from them with `var()` and
+`color-mix()`, so an override ripples instead of having to be repeated per role. See
+[`themes/README.md`](../../themes/README.md).
+
 **What visibly changes when you swap theme packs.** A theme is not just a palette. Alongside the
 colour seeds it can define its own **shape** (corner geometry), **typography** (family, scale,
 weight, tracking), **elevation** (`shadow` / `flat` / `outline` / `glow`, with separate intensity

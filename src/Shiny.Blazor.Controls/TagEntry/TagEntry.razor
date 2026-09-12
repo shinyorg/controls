@@ -1,0 +1,62 @@
+@namespace Shiny.Blazor.Controls
+
+@*
+    One field: every committed tag is a chip with its own remove button, followed by the free-typing
+    input that fills the rest of the line. The input is a real <input>, so keyboard, focus ring and
+    disabled come from the browser rather than from anything here.
+
+    All of it lives in markup rather than in RenderTreeBuilder code, because CSS isolation stamps its
+    scope attribute at compile time onto elements that appear in .razor markup only - an element created
+    in C# never gets one, and its rules would never match.
+*@
+
+<div class="@this.CssClasses" style="@this.InlineStyle" @onclick="this.OnBoxClickedAsync">
+
+    @foreach (var tag in this.Current)
+    {
+        var captured = tag;
+
+        <span class="shiny-tags__chip" data-slot="tag-chip">
+            <span class="shiny-tags__chip-label">
+                @if (this.ChipContent is not null)
+                {
+                    @this.ChipContent(captured)
+                }
+                else
+                {
+                    @captured
+                }
+            </span>
+
+            @if (!this.ReadOnly && !this.Disabled)
+            {
+                <button type="button"
+                        class="shiny-tags__chip-remove"
+                        tabindex="-1"
+                        aria-label="@($"Remove {captured}")"
+                        @onclick="@(() => this.RemoveTagAsync(captured))"
+                        @onclick:stopPropagation="true">
+                    @* An SVG rather than a glyph: a multiplication sign at this size renders as a speck
+                       and sits off the text baseline, while the stroke here follows currentColor. *@
+                    <svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false">
+                        <path d="M4 4 L12 12 M12 4 L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
+                    </svg>
+                </button>
+            }
+        </span>
+    }
+
+    <input class="shiny-tags__input"
+           type="text"
+           @ref="this.inputRef"
+           value="@this.PendingText"
+           placeholder="@this.Placeholder"
+           disabled="@this.Disabled"
+           readonly="@this.ReadOnly"
+           @oninput="this.OnInputAsync"
+           @onkeydown="this.OnKeyDownAsync"
+           @onkeydown:preventDefault="this.preventDefault"
+           @onfocus="this.OnFocus"
+           @onblur="this.OnBlurAsync"
+           @attributes="this.AdditionalAttributes" />
+</div>

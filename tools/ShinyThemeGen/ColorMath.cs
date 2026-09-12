@@ -55,6 +55,71 @@ static class ColorMath
         return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz));
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Oklab — the space CSS `color-mix(in oklab, …)` mixes in.
+    //
+    // The derived half of the token contract is expressed as mixes over the authoring tokens, and the
+    // web gets those as literal `color-mix()` so that overriding one token ripples through every role
+    // that leans on it. MAUI has no such thing: a dictionary holds resolved Colors, so the same mixes
+    // have to be computed here. Doing them in oklab rather than in sRGB is what keeps the two hosts
+    // landing on the same colour — an sRGB midpoint of two saturated colours is visibly darker and
+    // muddier than the oklab one, and the divergence would show up as "the container tints are wrong
+    // on Android".
+    // ---------------------------------------------------------------------------------------------
+
+    public static (double L, double A, double B) RgbToOklab(double r, double g, double b)
+    {
+        var rl = SrgbToLinear(r);
+        var gl = SrgbToLinear(g);
+        var bl = SrgbToLinear(b);
+
+        var l = Math.Cbrt(0.4122214708 * rl + 0.5363325363 * gl + 0.0514459929 * bl);
+        var m = Math.Cbrt(0.2119034982 * rl + 0.6806995451 * gl + 0.1073969566 * bl);
+        var s = Math.Cbrt(0.0883024619 * rl + 0.2817188376 * gl + 0.6299787005 * bl);
+
+        return (
+            0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+        );
+    }
+
+
+    public static string OklabToHex(double L, double A, double B)
+    {
+        var l = Math.Pow(L + 0.3963377774 * A + 0.2158037573 * B, 3);
+        var m = Math.Pow(L - 0.1055613458 * A - 0.0638541728 * B, 3);
+        var s = Math.Pow(L - 0.0894841775 * A - 1.2914855480 * B, 3);
+
+        var rl = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+        var gl = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+        var bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+        return ToHex(LinearToSrgb(rl), LinearToSrgb(gl), LinearToSrgb(bl));
+    }
+
+
+    /// <summary>
+    /// The C# twin of <c>color-mix(in oklab, {a} {percent}%, {b})</c> — <paramref name="percent"/> of
+    /// <paramref name="a"/> against the remainder of <paramref name="b"/>.
+    /// </summary>
+    public static string Mix(string a, double percent, string b)
+    {
+        var (ar, ag, ab) = ParseHex(a);
+        var (br, bg, bb) = ParseHex(b);
+
+        var (al, aa, aB) = RgbToOklab(ar, ag, ab);
+        var (bl, ba, bB) = RgbToOklab(br, bg, bb);
+
+        var w = Math.Clamp(percent, 0d, 1d);
+        return OklabToHex(
+            al * w + bl * (1 - w),
+            aa * w + ba * (1 - w),
+            aB * w + bB * (1 - w)
+        );
+    }
+
+
     public static string LabToHex(double l, double a, double bb)
     {
         var fy = (l + 16) / 116.0;

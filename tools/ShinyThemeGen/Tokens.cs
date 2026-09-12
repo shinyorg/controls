@@ -24,6 +24,133 @@ static class Tokens
         "Critical", "OnCritical", "CriticalContainer", "OnCriticalContainer",
     ];
 
+    // =============================================================================================
+    // The authoring layer.
+    //
+    // The 55 roles above are the *contract* every control consumes, and they are not a thing anyone
+    // wants to hand-edit: 55 names per scheme, most of them derivable from a handful of decisions.
+    // So the roles become a derived layer, and what a theme author writes — and what the composer's
+    // knobs drive — is this much smaller set, stated per scheme.
+    //
+    // Each entry names the role it is *seeded* from, which is how the existing seed-driven packs
+    // migrate without anyone retyping them: the Material palette still produces a full scheme, and
+    // the authoring value is read back out of it. A theme can then state any of these explicitly and
+    // the seeds stop mattering for that token.
+    // =============================================================================================
+
+    /// <summary>One authoring colour token: its public name and the role it is seeded from.</summary>
+    public sealed record AuthoringColor(string Name, string FromRole);
+
+    public static readonly AuthoringColor[] AuthoringColors =
+    [
+        // Surfaces
+        new("background", "Background"),
+        new("foreground", "OnBackground"),
+        new("card", "SurfaceContainerLowest"),
+        new("popover", "SurfaceContainerLow"),
+        new("muted", "SurfaceContainer"),
+        new("muted-foreground", "OnSurfaceVariant"),
+
+        // Semantic families. `accent` and `destructive` are the web's names for what Material calls
+        // tertiary and error - the roles keep the Material name, the authoring token does not.
+        new("primary", "Primary"),
+        new("primary-foreground", "OnPrimary"),
+        new("secondary", "Secondary"),
+        new("secondary-foreground", "OnSecondary"),
+        new("accent", "Tertiary"),
+        new("accent-foreground", "OnTertiary"),
+        new("destructive", "Error"),
+        new("destructive-foreground", "OnError"),
+        new("success", "Success"),
+        new("success-foreground", "OnSuccess"),
+        new("info", "Info"),
+        new("info-foreground", "OnInfo"),
+        new("warning", "Warning"),
+        new("warning-foreground", "OnWarning"),
+        new("caution", "Caution"),
+        new("caution-foreground", "OnCaution"),
+        new("critical", "Critical"),
+        new("critical-foreground", "OnCritical"),
+
+        // Lines
+        new("border", "OutlineVariant"),
+        new("input", "Outline"),
+        new("ring", "Primary"),
+        new("shadow-color", "Shadow"),
+    ];
+
+    /// <summary>How one role is produced from the authoring layer.</summary>
+    public abstract record Derive;
+
+    /// <summary>The role is the authoring token, unchanged.</summary>
+    public sealed record Alias(string Token) : Derive;
+
+    /// <summary><c>color-mix(in oklab, {Token} {Percent}%, {Into})</c>.</summary>
+    public sealed record MixInto(string Token, double Percent, string Into) : Derive;
+
+    /// <summary>
+    /// Every role, expressed over the authoring layer. This is what makes one edit ripple: change
+    /// <c>--shiny-primary</c> and the container tint, the tonal surface and the ring all move with it,
+    /// which is exactly what the old flat dictionary could not do.
+    /// </summary>
+    public static readonly (string Role, Derive From)[] RoleDerivations = BuildRoleDerivations();
+
+    static (string Role, Derive From)[] BuildRoleDerivations()
+    {
+        var list = new List<(string, Derive)>();
+
+        // The nine accent families. A container is the accent laid over the page; the ink on it is the
+        // accent pulled toward the page's own foreground - which is what makes both work in either
+        // scheme without a second table: in light, foreground is near-black and the ink darkens; in
+        // dark it is near-white and the ink lifts.
+        void Family(string role, string token)
+        {
+            list.Add((role, new Alias(token)));
+            list.Add(("On" + role, new Alias(token + "-foreground")));
+            list.Add((role + "Container", new MixInto(token, 0.22, "background")));
+            list.Add(("On" + role + "Container", new MixInto(token, 0.65, "foreground")));
+        }
+
+        Family("Primary", "primary");
+        Family("Secondary", "secondary");
+        Family("Tertiary", "accent");
+        Family("Error", "destructive");
+        Family("Success", "success");
+        Family("Info", "info");
+        Family("Warning", "warning");
+        Family("Caution", "caution");
+        Family("Critical", "critical");
+
+        list.Add(("Background", new Alias("background")));
+        list.Add(("OnBackground", new Alias("foreground")));
+        list.Add(("Surface", new Alias("background")));
+        list.Add(("OnSurface", new Alias("foreground")));
+        list.Add(("SurfaceVariant", new Alias("muted")));
+        list.Add(("OnSurfaceVariant", new Alias("muted-foreground")));
+
+        // The container ramp: the two named steps a theme states, then a continuation of the same
+        // idea - the page tinted toward its own ink - so the ladder stays monotonic in both schemes.
+        list.Add(("SurfaceContainerLowest", new Alias("card")));
+        list.Add(("SurfaceContainerLow", new Alias("popover")));
+        list.Add(("SurfaceContainer", new Alias("muted")));
+        list.Add(("SurfaceContainerHigh", new MixInto("foreground", 0.08, "background")));
+        list.Add(("SurfaceContainerHighest", new MixInto("foreground", 0.12, "background")));
+
+        list.Add(("SurfaceTint", new Alias("primary")));
+        list.Add(("Outline", new Alias("input")));
+        list.Add(("OutlineVariant", new Alias("border")));
+        list.Add(("Shadow", new Alias("shadow-color")));
+        list.Add(("Scrim", new Alias("shadow-color")));
+
+        // Inverse is the scheme turned over: the page's ink becomes the surface and vice versa, which
+        // is what a snackbar or a tooltip sits on.
+        list.Add(("InverseSurface", new Alias("foreground")));
+        list.Add(("InverseOnSurface", new Alias("background")));
+        list.Add(("InversePrimary", new MixInto("primary", 0.6, "background")));
+
+        return [.. list];
+    }
+
     // ---- Density: control metrics (px) before the theme's density scale is applied. ----
     public const double ControlHeight = 44;
     public const double ControlHeightSmall = 32;

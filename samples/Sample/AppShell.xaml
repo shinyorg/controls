@@ -25,6 +25,9 @@
                   xmlns:pwstrength="clr-namespace:Sample.Features.PasswordStrength"
                   xmlns:fab="clr-namespace:Sample.Features.Fab"
                   xmlns:buttons="clr-namespace:Sample.Features.Buttons"
+                  xmlns:btngroup="clr-namespace:Sample.Features.ButtonGroups"
+                  xmlns:tags="clr-namespace:Sample.Features.Tags"
+                  xmlns:chips="clr-namespace:Sample.Features.Chips"
                   xmlns:colorpicker="clr-namespace:Sample.Features.ColorPicker"
                   xmlns:autocomplete="clr-namespace:Sample.Features.AutoComplete"
                   xmlns:countryaddress="clr-namespace:Sample.Features.CountryAddress"
@@ -718,6 +721,15 @@
         <ShellContent ContentTemplate="{DataTemplate slider:RangeSliderPage}" Route="rangeslider" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Tag Entry">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x1F3F7;" Size="20"
+                             Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate tags:TagEntryPage}" Route="tagentry" />
+        <ShellContent ContentTemplate="{DataTemplate chips:ChipGroupPage}" Route="chipgroup" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Security Pin">
         <FlyoutItem.FlyoutIcon>
             <FontImageSource Glyph="&#x2731;" Size="20"
@@ -767,6 +779,14 @@
                              Color="{AppThemeBinding Light=#0D9488, Dark=#2DD4BF}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate buttons:ButtonsPage}" Route="buttons" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Button Group">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25A4;" Size="20"
+                             Color="{AppThemeBinding Light=#0D9488, Dark=#2DD4BF}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate btngroup:ButtonGroupPage}" Route="buttongroup" />
     </FlyoutItem>
 
     <FlyoutItem Title="FAB &amp; FabMenu">

@@ -1,0 +1,117 @@
+/*
+    The whole group lives in this one file, reached through ::deep - the Ribbon's arrangement, and for
+    the same reason. Scoped CSS rewrites only the *rightmost* selector, so a rule written here for
+    `.shiny-btn` would compile to `.shiny-btn[b-hash]` and never match: the button is a different
+    component and carries a different scope attribute. `::deep` moves the scope onto the group's own
+    root, which every segment is a direct child of.
+
+    The child combinator after ::deep matters too. A nested group's buttons are descendants of this one,
+    and rounding them would undo the inner group's own merged edges.
+*/
+
+.shiny-btn-group {
+    --shiny-btn-group-radius: var(--shiny-shape-corner-medium, 10px);
+
+    display: inline-flex;
+    align-items: stretch;
+    position: relative;
+}
+
+.shiny-btn-group--vertical {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Every segment loses its own rounding; the two ends get theirs back below. Logical properties, so the
+   ends swap under an RTL reading direction with no second rule. */
+.shiny-btn-group:not(.shiny-btn-group--cluster) ::deep > * {
+    border-radius: 0;
+}
+
+.shiny-btn-group--horizontal:not(.shiny-btn-group--cluster) ::deep > *:first-child {
+    border-start-start-radius: var(--shiny-btn-group-radius);
+    border-end-start-radius: var(--shiny-btn-group-radius);
+}
+
+.shiny-btn-group--horizontal:not(.shiny-btn-group--cluster) ::deep > *:last-child {
+    border-start-end-radius: var(--shiny-btn-group-radius);
+    border-end-end-radius: var(--shiny-btn-group-radius);
+}
+
+.shiny-btn-group--vertical:not(.shiny-btn-group--cluster) ::deep > *:first-child {
+    border-start-start-radius: var(--shiny-btn-group-radius);
+    border-start-end-radius: var(--shiny-btn-group-radius);
+}
+
+.shiny-btn-group--vertical:not(.shiny-btn-group--cluster) ::deep > *:last-child {
+    border-end-start-radius: var(--shiny-btn-group-radius);
+    border-end-end-radius: var(--shiny-btn-group-radius);
+}
+
+/* Pull each segment a hairline into the one before it, so two adjacent outlines paint as one edge.
+
+   Only segments that actually paint an outline are pulled, which is the same rule the MAUI group
+   follows. A filled segment has no edge to double up, and pulling it into its neighbour would paint
+   its fill over that neighbour's outline - in a selection group, where the selected segment is filled
+   and the rest are not, that is exactly how an unselected segment between two selected ones loses its
+   borders and reads as a gap. */
+.shiny-btn-group--collapse.shiny-btn-group--horizontal ::deep > .shiny-btn--outlined:not(:first-child),
+.shiny-btn-group--collapse.shiny-btn-group--horizontal ::deep > .shiny-btn-group__text:not(:first-child) {
+    margin-inline-start: calc(-1 * var(--shiny-border-thin, 1px));
+}
+
+.shiny-btn-group--collapse.shiny-btn-group--vertical ::deep > .shiny-btn--outlined:not(:first-child),
+.shiny-btn-group--collapse.shiny-btn-group--vertical ::deep > .shiny-btn-group__text:not(:first-child) {
+    margin-block-start: calc(-1 * var(--shiny-border-thin, 1px));
+}
+
+/* A hovered or focused segment has to sit above its neighbours, or the one that overlaps it clips the
+   outline and the focus ring along the shared edge. */
+.shiny-btn-group ::deep > *:hover,
+.shiny-btn-group ::deep > *:focus-visible,
+.shiny-btn-group ::deep > *:focus-within {
+    position: relative;
+    z-index: 1;
+}
+
+/* A group of groups is a cluster of controls rather than one control: each inner group keeps its own
+   merged edges and they are spaced apart. */
+.shiny-btn-group--cluster {
+    gap: var(--shiny-spacing-2, 8px);
+}
+
+
+/* -- the two segment components -------------------------------------------------------------------
+   Neither has a stylesheet of its own: both are parts of this control, and splitting their rules across
+   three scopes would mean three places to keep the joined look consistent. */
+
+::deep .shiny-btn-group__text {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    gap: var(--shiny-spacing-1, 4px);
+    min-height: var(--shiny-density-control-height, 44px);
+    padding: calc(10px * var(--shiny-density-scale, 1)) var(--shiny-spacing-3, 12px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #6C788D);
+    background: var(--shiny-color-surface-container-low, #F4F3F7);
+    color: var(--shiny-color-on-surface-variant, #46464F);
+    font-family: var(--shiny-type-font-family, inherit);
+    font-size: calc(15px * var(--shiny-type-scale, 1));
+    font-weight: var(--shiny-type-label-large-weight, 500);
+    line-height: 1.2;
+    white-space: nowrap;
+    user-select: none;
+}
+
+::deep .shiny-btn-group__sep {
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: var(--shiny-border-thin, 1px);
+    background: var(--shiny-color-outline-variant, #C7C5D0);
+}
+
+.shiny-btn-group--vertical ::deep .shiny-btn-group__sep {
+    width: auto;
+    height: var(--shiny-border-thin, 1px);
+}

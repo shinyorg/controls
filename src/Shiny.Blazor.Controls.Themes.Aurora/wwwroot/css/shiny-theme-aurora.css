@@ -3,171 +3,70 @@
    Edit the source JSON theme and re-run: dotnet run --project tools/ShinyThemeGen
    </auto-generated> */
 
+/* The Aurora pack. Link it AFTER the core theme: it restates the palette and
+   the knobs, and leans on the core sheet for everything derived from them. */
+
 :root {
     color-scheme: light;
 
-    /* ===== Color (light) ===== */
-    --shiny-color-primary: #683FD4;
-    --shiny-color-on-primary: #FFFFFF;
-    --shiny-color-primary-container: #FEC3FF;
-    --shiny-color-on-primary-container: #000082;
-    --shiny-color-secondary: #B9006E;
-    --shiny-color-on-secondary: #FFFFFF;
-    --shiny-color-secondary-container: #FFAAF5;
-    --shiny-color-on-secondary-container: #610029;
-    --shiny-color-tertiary: #006D86;
-    --shiny-color-on-tertiary: #FFFFFF;
-    --shiny-color-tertiary-container: #5CF6FF;
-    --shiny-color-on-tertiary-container: #00273D;
-    --shiny-color-error: #C2003A;
-    --shiny-color-on-error: #FFFFFF;
-    --shiny-color-error-container: #FFA6B6;
-    --shiny-color-on-error-container: #660000;
-    --shiny-color-background: #F6F9FF;
-    --shiny-color-on-background: #151C27;
-    --shiny-color-surface: #F6F9FF;
-    --shiny-color-on-surface: #151C27;
-    --shiny-color-surface-variant: #E3E0F9;
-    --shiny-color-on-surface-variant: #474459;
-    --shiny-color-surface-container-lowest: #FFFFFF;
-    --shiny-color-surface-container-low: #EFF4FE;
-    --shiny-color-surface-container: #E8EEFA;
-    --shiny-color-surface-container-high: #E2E8F7;
-    --shiny-color-surface-container-highest: #DBE3F3;
-    --shiny-color-surface-tint: #683FD4;
-    --shiny-color-outline: #78748B;
-    --shiny-color-outline-variant: #C7C4DC;
-    --shiny-color-shadow: #000000;
-    --shiny-color-scrim: #000000;
-    --shiny-color-inverse-surface: #2A313D;
-    --shiny-color-inverse-on-surface: #ECF1FC;
-    --shiny-color-inverse-primary: #E0A7FF;
-    --shiny-color-success: #007140;
-    --shiny-color-on-success: #FFFFFF;
-    --shiny-color-success-container: #6EFBBF;
-    --shiny-color-on-success-container: #002A00;
-    --shiny-color-info: #00699E;
-    --shiny-color-on-info: #FFFFFF;
-    --shiny-color-info-container: #7BEFFF;
-    --shiny-color-on-info-container: #002552;
-    --shiny-color-warning: #805700;
-    --shiny-color-on-warning: #FFFFFF;
-    --shiny-color-warning-container: #FFD943;
-    --shiny-color-on-warning-container: #3E1200;
-    --shiny-color-caution: #9D4400;
-    --shiny-color-on-caution: #FFFFFF;
-    --shiny-color-caution-container: #FFC76F;
-    --shiny-color-on-caution-container: #4D0000;
-    --shiny-color-critical: #C2003A;
-    --shiny-color-on-critical: #FFFFFF;
-    --shiny-color-critical-container: #FFA6B6;
-    --shiny-color-on-critical-container: #660000;
+    /* =========================================================================
+       THE THEME. These are the values to edit - by hand, in your own stylesheet,
+       or from the theme composer. Everything below them is derived.
+       ========================================================================= */
+    --shiny-background: #F6F9FF;
+    --shiny-foreground: #151C27;
+    --shiny-card: #FFFFFF;
+    --shiny-popover: #EFF4FE;
+    --shiny-muted: #E8EEFA;
+    --shiny-muted-foreground: #474459;
+    --shiny-primary: #683FD4;
+    --shiny-primary-foreground: #FFFFFF;
+    --shiny-secondary: #B9006E;
+    --shiny-secondary-foreground: #FFFFFF;
+    --shiny-accent: #006D86;
+    --shiny-accent-foreground: #FFFFFF;
+    --shiny-destructive: #C2003A;
+    --shiny-destructive-foreground: #FFFFFF;
+    --shiny-success: #007140;
+    --shiny-success-foreground: #FFFFFF;
+    --shiny-info: #00699E;
+    --shiny-info-foreground: #FFFFFF;
+    --shiny-warning: #805700;
+    --shiny-warning-foreground: #FFFFFF;
+    --shiny-caution: #9D4400;
+    --shiny-caution-foreground: #FFFFFF;
+    --shiny-critical: #C2003A;
+    --shiny-critical-foreground: #FFFFFF;
+    --shiny-border: #C7C4DC;
+    --shiny-input: #78748B;
+    --shiny-ring: #683FD4;
+    --shiny-shadow-color: #000000;
 
-    /* ===== Shape ===== */
+    --shiny-font-sans: inherit;
+    --shiny-font-display: var(--shiny-font-sans);
+    --shiny-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --shiny-text-scale: 1;
+    --shiny-line-height-scale: 1;
+    --shiny-font-weight-offset: 200;
+    --shiny-letter-spacing-offset: -0.1px;
+    --shiny-radius: 16.8px;
+    --shiny-border-width: 1px;
+    --shiny-density: 1;
+}
+
+/* The contract the controls consume, derived from whichever palette is in scope.
+   Editing one of these pins it; editing the theme value above moves everything
+   that leans on it. */
+:root,
+.shiny-theme-dark,
+.shiny-theme-light {
     --shiny-shape-corner-none: 0px;
-    --shiny-shape-corner-extra-small: 5.6px;
-    --shiny-shape-corner-small: 11.2px;
-    --shiny-shape-corner-medium: 16.8px;
-    --shiny-shape-corner-large: 22.4px;
-    --shiny-shape-corner-extra-large: 39.2px;
     --shiny-shape-corner-full: 9999px;
-
-    /* ===== Border widths ===== */
-    --shiny-border-thin: 1px;
-    --shiny-border-medium: 2px;
-    --shiny-border-thick: 4px;
-
-    /* ===== State ===== */
     --shiny-state-hover-opacity: 0.08;
     --shiny-state-focus-opacity: 0.1;
     --shiny-state-pressed-opacity: 0.1;
     --shiny-state-dragged-opacity: 0.16;
-
-    /* ===== Density ===== */
-    --shiny-density-scale: 1;
-    --shiny-density-control-height: 44px;
-    --shiny-density-control-height-small: 32px;
-    --shiny-density-row-height: 48px;
     --shiny-density-touch-target: 44px;
-
-    /* ===== Spacing ===== */
-    --shiny-spacing-0: 0px;
-    --shiny-spacing-1: 4px;
-    --shiny-spacing-2: 8px;
-    --shiny-spacing-3: 12px;
-    --shiny-spacing-4: 16px;
-    --shiny-spacing-5: 24px;
-    --shiny-spacing-6: 32px;
-    --shiny-spacing-7: 48px;
-    --shiny-spacing-8: 64px;
-
-    /* ===== Type scale ===== */
-    --shiny-type-font-family: inherit;
-    --shiny-type-font-family-display: var(--shiny-type-font-family);
-    --shiny-type-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --shiny-type-scale: 1;
-    --shiny-type-display-large-size: 57px;
-    --shiny-type-display-large-line-height: 64px;
-    --shiny-type-display-large-weight: 600;
-    --shiny-type-display-large-tracking: -0.35px;
-    --shiny-type-display-medium-size: 45px;
-    --shiny-type-display-medium-line-height: 52px;
-    --shiny-type-display-medium-weight: 600;
-    --shiny-type-display-medium-tracking: -0.1px;
-    --shiny-type-display-small-size: 36px;
-    --shiny-type-display-small-line-height: 44px;
-    --shiny-type-display-small-weight: 600;
-    --shiny-type-display-small-tracking: -0.1px;
-    --shiny-type-headline-large-size: 32px;
-    --shiny-type-headline-large-line-height: 40px;
-    --shiny-type-headline-large-weight: 600;
-    --shiny-type-headline-large-tracking: -0.1px;
-    --shiny-type-headline-medium-size: 28px;
-    --shiny-type-headline-medium-line-height: 36px;
-    --shiny-type-headline-medium-weight: 600;
-    --shiny-type-headline-medium-tracking: -0.1px;
-    --shiny-type-headline-small-size: 24px;
-    --shiny-type-headline-small-line-height: 32px;
-    --shiny-type-headline-small-weight: 600;
-    --shiny-type-headline-small-tracking: -0.1px;
-    --shiny-type-title-large-size: 22px;
-    --shiny-type-title-large-line-height: 28px;
-    --shiny-type-title-large-weight: 600;
-    --shiny-type-title-large-tracking: -0.1px;
-    --shiny-type-title-medium-size: 16px;
-    --shiny-type-title-medium-line-height: 24px;
-    --shiny-type-title-medium-weight: 700;
-    --shiny-type-title-medium-tracking: 0.05px;
-    --shiny-type-title-small-size: 14px;
-    --shiny-type-title-small-line-height: 20px;
-    --shiny-type-title-small-weight: 700;
-    --shiny-type-title-small-tracking: 0px;
-    --shiny-type-body-large-size: 16px;
-    --shiny-type-body-large-line-height: 24px;
-    --shiny-type-body-large-weight: 600;
-    --shiny-type-body-large-tracking: 0.4px;
-    --shiny-type-body-medium-size: 14px;
-    --shiny-type-body-medium-line-height: 20px;
-    --shiny-type-body-medium-weight: 600;
-    --shiny-type-body-medium-tracking: 0.15px;
-    --shiny-type-body-small-size: 12px;
-    --shiny-type-body-small-line-height: 16px;
-    --shiny-type-body-small-weight: 600;
-    --shiny-type-body-small-tracking: 0.3px;
-    --shiny-type-label-large-size: 14px;
-    --shiny-type-label-large-line-height: 20px;
-    --shiny-type-label-large-weight: 700;
-    --shiny-type-label-large-tracking: 0px;
-    --shiny-type-label-medium-size: 12px;
-    --shiny-type-label-medium-line-height: 16px;
-    --shiny-type-label-medium-weight: 700;
-    --shiny-type-label-medium-tracking: 0.4px;
-    --shiny-type-label-small-size: 11px;
-    --shiny-type-label-small-line-height: 16px;
-    --shiny-type-label-small-weight: 700;
-    --shiny-type-label-small-tracking: 0.4px;
-
-    /* ===== Elevation ===== */
     --shiny-elevation-0: none;
     --shiny-elevation-1: 0 0 9px color-mix(in srgb, var(--shiny-color-primary) 10.4%, transparent);
     --shiny-elevation-2: 0 0 18px color-mix(in srgb, var(--shiny-color-primary) 20.8%, transparent);
@@ -181,61 +80,34 @@
 .shiny-theme-dark {
     color-scheme: dark;
 
-    --shiny-color-primary: #E0A7FF;
-    --shiny-color-on-primary: #25099C;
-    --shiny-color-primary-container: #4925B8;
-    --shiny-color-on-primary-container: #FEC3FF;
-    --shiny-color-secondary: #FF8DD8;
-    --shiny-color-on-secondary: #7E003E;
-    --shiny-color-secondary-container: #9B0056;
-    --shiny-color-on-secondary-container: #FFAAF5;
-    --shiny-color-tertiary: #2FD9F4;
-    --shiny-color-on-tertiary: #003D55;
-    --shiny-color-tertiary-container: #00546D;
-    --shiny-color-on-tertiary-container: #5CF6FF;
-    --shiny-color-error: #FF899B;
-    --shiny-color-on-error: #840011;
-    --shiny-color-error-container: #A30025;
-    --shiny-color-on-error-container: #FFA6B6;
-    --shiny-color-background: #0E141C;
-    --shiny-color-on-background: #DBE3F3;
-    --shiny-color-surface: #0E141C;
-    --shiny-color-on-surface: #DBE3F3;
-    --shiny-color-surface-variant: #474459;
-    --shiny-color-on-surface-variant: #C7C4DC;
-    --shiny-color-surface-container-lowest: #090E17;
-    --shiny-color-surface-container-low: #151C27;
-    --shiny-color-surface-container: #19202B;
-    --shiny-color-surface-container-high: #232A36;
-    --shiny-color-surface-container-highest: #2E3541;
-    --shiny-color-surface-tint: #E0A7FF;
-    --shiny-color-outline: #918EA5;
-    --shiny-color-outline-variant: #474459;
-    --shiny-color-shadow: #000000;
-    --shiny-color-scrim: #000000;
-    --shiny-color-inverse-surface: #DBE3F3;
-    --shiny-color-inverse-on-surface: #2A313D;
-    --shiny-color-inverse-primary: #683FD4;
-    --shiny-color-success: #4DDEA4;
-    --shiny-color-on-success: #003E14;
-    --shiny-color-success-container: #005729;
-    --shiny-color-on-success-container: #6EFBBF;
-    --shiny-color-info: #58D3FF;
-    --shiny-color-on-info: #003A6A;
-    --shiny-color-info-container: #005184;
-    --shiny-color-on-info-container: #7BEFFF;
-    --shiny-color-warning: #F9BD21;
-    --shiny-color-on-warning: #4F2900;
-    --shiny-color-warning-container: #663F00;
-    --shiny-color-on-warning-container: #FFD943;
-    --shiny-color-caution: #FFAC55;
-    --shiny-color-on-caution: #641200;
-    --shiny-color-caution-container: #7F2C00;
-    --shiny-color-on-caution-container: #FFC76F;
-    --shiny-color-critical: #FF899B;
-    --shiny-color-on-critical: #840011;
-    --shiny-color-critical-container: #A30025;
-    --shiny-color-on-critical-container: #FFA6B6;
+    --shiny-background: #0E141C;
+    --shiny-foreground: #DBE3F3;
+    --shiny-card: #090E17;
+    --shiny-popover: #151C27;
+    --shiny-muted: #19202B;
+    --shiny-muted-foreground: #C7C4DC;
+    --shiny-primary: #E0A7FF;
+    --shiny-primary-foreground: #25099C;
+    --shiny-secondary: #FF8DD8;
+    --shiny-secondary-foreground: #7E003E;
+    --shiny-accent: #2FD9F4;
+    --shiny-accent-foreground: #003D55;
+    --shiny-destructive: #FF899B;
+    --shiny-destructive-foreground: #840011;
+    --shiny-success: #4DDEA4;
+    --shiny-success-foreground: #003E14;
+    --shiny-info: #58D3FF;
+    --shiny-info-foreground: #003A6A;
+    --shiny-warning: #F9BD21;
+    --shiny-warning-foreground: #4F2900;
+    --shiny-caution: #FFAC55;
+    --shiny-caution-foreground: #641200;
+    --shiny-critical: #FF899B;
+    --shiny-critical-foreground: #840011;
+    --shiny-border: #474459;
+    --shiny-input: #918EA5;
+    --shiny-ring: #E0A7FF;
+    --shiny-shadow-color: #000000;
 }
 
 /* Explicit light mode has to restate the scheme: it may sit inside a dark scope */
@@ -243,61 +115,34 @@
 .shiny-theme-light {
     color-scheme: light;
 
-    --shiny-color-primary: #683FD4;
-    --shiny-color-on-primary: #FFFFFF;
-    --shiny-color-primary-container: #FEC3FF;
-    --shiny-color-on-primary-container: #000082;
-    --shiny-color-secondary: #B9006E;
-    --shiny-color-on-secondary: #FFFFFF;
-    --shiny-color-secondary-container: #FFAAF5;
-    --shiny-color-on-secondary-container: #610029;
-    --shiny-color-tertiary: #006D86;
-    --shiny-color-on-tertiary: #FFFFFF;
-    --shiny-color-tertiary-container: #5CF6FF;
-    --shiny-color-on-tertiary-container: #00273D;
-    --shiny-color-error: #C2003A;
-    --shiny-color-on-error: #FFFFFF;
-    --shiny-color-error-container: #FFA6B6;
-    --shiny-color-on-error-container: #660000;
-    --shiny-color-background: #F6F9FF;
-    --shiny-color-on-background: #151C27;
-    --shiny-color-surface: #F6F9FF;
-    --shiny-color-on-surface: #151C27;
-    --shiny-color-surface-variant: #E3E0F9;
-    --shiny-color-on-surface-variant: #474459;
-    --shiny-color-surface-container-lowest: #FFFFFF;
-    --shiny-color-surface-container-low: #EFF4FE;
-    --shiny-color-surface-container: #E8EEFA;
-    --shiny-color-surface-container-high: #E2E8F7;
-    --shiny-color-surface-container-highest: #DBE3F3;
-    --shiny-color-surface-tint: #683FD4;
-    --shiny-color-outline: #78748B;
-    --shiny-color-outline-variant: #C7C4DC;
-    --shiny-color-shadow: #000000;
-    --shiny-color-scrim: #000000;
-    --shiny-color-inverse-surface: #2A313D;
-    --shiny-color-inverse-on-surface: #ECF1FC;
-    --shiny-color-inverse-primary: #E0A7FF;
-    --shiny-color-success: #007140;
-    --shiny-color-on-success: #FFFFFF;
-    --shiny-color-success-container: #6EFBBF;
-    --shiny-color-on-success-container: #002A00;
-    --shiny-color-info: #00699E;
-    --shiny-color-on-info: #FFFFFF;
-    --shiny-color-info-container: #7BEFFF;
-    --shiny-color-on-info-container: #002552;
-    --shiny-color-warning: #805700;
-    --shiny-color-on-warning: #FFFFFF;
-    --shiny-color-warning-container: #FFD943;
-    --shiny-color-on-warning-container: #3E1200;
-    --shiny-color-caution: #9D4400;
-    --shiny-color-on-caution: #FFFFFF;
-    --shiny-color-caution-container: #FFC76F;
-    --shiny-color-on-caution-container: #4D0000;
-    --shiny-color-critical: #C2003A;
-    --shiny-color-on-critical: #FFFFFF;
-    --shiny-color-critical-container: #FFA6B6;
-    --shiny-color-on-critical-container: #660000;
+    --shiny-background: #F6F9FF;
+    --shiny-foreground: #151C27;
+    --shiny-card: #FFFFFF;
+    --shiny-popover: #EFF4FE;
+    --shiny-muted: #E8EEFA;
+    --shiny-muted-foreground: #474459;
+    --shiny-primary: #683FD4;
+    --shiny-primary-foreground: #FFFFFF;
+    --shiny-secondary: #B9006E;
+    --shiny-secondary-foreground: #FFFFFF;
+    --shiny-accent: #006D86;
+    --shiny-accent-foreground: #FFFFFF;
+    --shiny-destructive: #C2003A;
+    --shiny-destructive-foreground: #FFFFFF;
+    --shiny-success: #007140;
+    --shiny-success-foreground: #FFFFFF;
+    --shiny-info: #00699E;
+    --shiny-info-foreground: #FFFFFF;
+    --shiny-warning: #805700;
+    --shiny-warning-foreground: #FFFFFF;
+    --shiny-caution: #9D4400;
+    --shiny-caution-foreground: #FFFFFF;
+    --shiny-critical: #C2003A;
+    --shiny-critical-foreground: #FFFFFF;
+    --shiny-border: #C7C4DC;
+    --shiny-input: #78748B;
+    --shiny-ring: #683FD4;
+    --shiny-shadow-color: #000000;
 }
 
 /* Follow OS dark preference unless explicitly set to light */
@@ -305,60 +150,33 @@
     :root:not(.shiny-theme-light) {
         color-scheme: dark;
 
-        --shiny-color-primary: #E0A7FF;
-        --shiny-color-on-primary: #25099C;
-        --shiny-color-primary-container: #4925B8;
-        --shiny-color-on-primary-container: #FEC3FF;
-        --shiny-color-secondary: #FF8DD8;
-        --shiny-color-on-secondary: #7E003E;
-        --shiny-color-secondary-container: #9B0056;
-        --shiny-color-on-secondary-container: #FFAAF5;
-        --shiny-color-tertiary: #2FD9F4;
-        --shiny-color-on-tertiary: #003D55;
-        --shiny-color-tertiary-container: #00546D;
-        --shiny-color-on-tertiary-container: #5CF6FF;
-        --shiny-color-error: #FF899B;
-        --shiny-color-on-error: #840011;
-        --shiny-color-error-container: #A30025;
-        --shiny-color-on-error-container: #FFA6B6;
-        --shiny-color-background: #0E141C;
-        --shiny-color-on-background: #DBE3F3;
-        --shiny-color-surface: #0E141C;
-        --shiny-color-on-surface: #DBE3F3;
-        --shiny-color-surface-variant: #474459;
-        --shiny-color-on-surface-variant: #C7C4DC;
-        --shiny-color-surface-container-lowest: #090E17;
-        --shiny-color-surface-container-low: #151C27;
-        --shiny-color-surface-container: #19202B;
-        --shiny-color-surface-container-high: #232A36;
-        --shiny-color-surface-container-highest: #2E3541;
-        --shiny-color-surface-tint: #E0A7FF;
-        --shiny-color-outline: #918EA5;
-        --shiny-color-outline-variant: #474459;
-        --shiny-color-shadow: #000000;
-        --shiny-color-scrim: #000000;
-        --shiny-color-inverse-surface: #DBE3F3;
-        --shiny-color-inverse-on-surface: #2A313D;
-        --shiny-color-inverse-primary: #683FD4;
-        --shiny-color-success: #4DDEA4;
-        --shiny-color-on-success: #003E14;
-        --shiny-color-success-container: #005729;
-        --shiny-color-on-success-container: #6EFBBF;
-        --shiny-color-info: #58D3FF;
-        --shiny-color-on-info: #003A6A;
-        --shiny-color-info-container: #005184;
-        --shiny-color-on-info-container: #7BEFFF;
-        --shiny-color-warning: #F9BD21;
-        --shiny-color-on-warning: #4F2900;
-        --shiny-color-warning-container: #663F00;
-        --shiny-color-on-warning-container: #FFD943;
-        --shiny-color-caution: #FFAC55;
-        --shiny-color-on-caution: #641200;
-        --shiny-color-caution-container: #7F2C00;
-        --shiny-color-on-caution-container: #FFC76F;
-        --shiny-color-critical: #FF899B;
-        --shiny-color-on-critical: #840011;
-        --shiny-color-critical-container: #A30025;
-        --shiny-color-on-critical-container: #FFA6B6;
+        --shiny-background: #0E141C;
+        --shiny-foreground: #DBE3F3;
+        --shiny-card: #090E17;
+        --shiny-popover: #151C27;
+        --shiny-muted: #19202B;
+        --shiny-muted-foreground: #C7C4DC;
+        --shiny-primary: #E0A7FF;
+        --shiny-primary-foreground: #25099C;
+        --shiny-secondary: #FF8DD8;
+        --shiny-secondary-foreground: #7E003E;
+        --shiny-accent: #2FD9F4;
+        --shiny-accent-foreground: #003D55;
+        --shiny-destructive: #FF899B;
+        --shiny-destructive-foreground: #840011;
+        --shiny-success: #4DDEA4;
+        --shiny-success-foreground: #003E14;
+        --shiny-info: #58D3FF;
+        --shiny-info-foreground: #003A6A;
+        --shiny-warning: #F9BD21;
+        --shiny-warning-foreground: #4F2900;
+        --shiny-caution: #FFAC55;
+        --shiny-caution-foreground: #641200;
+        --shiny-critical: #FF899B;
+        --shiny-critical-foreground: #840011;
+        --shiny-border: #474459;
+        --shiny-input: #918EA5;
+        --shiny-ring: #E0A7FF;
+        --shiny-shadow-color: #000000;
     }
 }

@@ -54,6 +54,9 @@ public partial class ShinyButton : ContentView
     View? leftOwn;
     View? rightOwn;
 
+    // Set by a ButtonGroup while this button is one of its segments. See SetSegmentCorners.
+    CornerRadius? segmentCorners;
+
     // Cached overrides, reused across state transitions for the same reason.
     View? busyIndicator;
     View? successIndicator;
@@ -306,8 +309,35 @@ public partial class ShinyButton : ContentView
     void ApplyCornerRadius()
     {
         var shape = new RoundRectangle();
-        shape.SetCornerTokenOrValue(this.CornerRadius, ShinyThemeKeys.Shape.CornerMediumRadius);
+
+        if (this.segmentCorners is CornerRadius corners)
+            shape.CornerRadius = corners;
+        else
+            shape.SetCornerTokenOrValue(this.CornerRadius, ShinyThemeKeys.Shape.CornerMediumRadius);
+
         this.border.StrokeShape = shape;
+    }
+
+
+    /// <summary>
+    /// Squares off the corners a <see cref="ButtonGroup"/> has joined, or hands the button back its own
+    /// rounding when it leaves the group. Null restores the normal behaviour.
+    /// </summary>
+    /// <remarks>
+    /// It has to be applied from inside <see cref="ApplyCornerRadius"/> rather than by a container
+    /// writing <c>border.StrokeShape</c>: that method rebuilds the shape from scratch on every corner,
+    /// appearance or state change, so a shape set from outside would be silently thrown away the next
+    /// time anything about the button moved. The group resolves the radius numerically, because the
+    /// unset case arrives as a dynamic resource and two of its corners have to be zeroed — see
+    /// <see cref="ButtonGroup"/>.
+    /// </remarks>
+    internal void SetSegmentCorners(CornerRadius? corners)
+    {
+        if (Nullable.Equals(this.segmentCorners, corners))
+            return;
+
+        this.segmentCorners = corners;
+        StyleGuard.WhenReady<ShinyButton>(this, static b => b.ApplyCornerRadius());
     }
 
     void ApplyFontSize()

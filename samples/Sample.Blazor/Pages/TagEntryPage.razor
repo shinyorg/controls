@@ -1,0 +1,105 @@
+@page "/tagentry"
+
+<PageTitle>Tag Entry</PageTitle>
+
+<h1>Tag Entry</h1>
+
+<section class="demo-section">
+    <h2>Default</h2>
+    <p>Type a value and press Enter or comma to commit it; click a chip's ✕ — or press Backspace on empty text — to remove the newest.</p>
+    <div class="tag-field">
+        <TagEntry @bind-Tags="teams" Placeholder="Add a team..." />
+    </div>
+    <div class="state">
+        @(teams.Count == 0 ? "No teams yet." : $"{teams.Count} team(s): {string.Join(", ", teams)}")
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Delimiters</h2>
+    <p><code>Delimiters</code> sets what commits besides Enter, and what a pasted value splits on. An empty list is Enter only, so commas survive inside a tag.</p>
+    <div class="tag-field">
+        <TagEntry Delimiters="@([",", ";"])" Placeholder="Comma or semicolon commits..." />
+    </div>
+    <div class="tag-field">
+        <TagEntry Delimiters="@([])" Placeholder="Only Enter commits..." />
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Limits</h2>
+    <p><code>MaxTags</code> caps the count — further commits are ignored and the typed text stays put. Duplicates are dropped quietly unless <code>AllowDuplicates</code> is set.</p>
+    <div class="tag-field">
+        <TagEntry Tags="@(new[] { "one", "two" })" MaxTags="3" Placeholder="At most three..." />
+    </div>
+    <div class="tag-field">
+        <TagEntry Tags="@(new[] { "echo", "echo" })" AllowDuplicates Placeholder="Duplicates welcome..." />
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Validation</h2>
+    <p><code>TagValidator</code> vets a value before it is committed — here anything shorter than three characters is refused, and the typed text is left to be corrected.</p>
+    <div class="tag-field">
+        <TagEntry TagValidator="@(tag => tag.Length >= 3)" Placeholder="Three characters or more..." />
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Chip content</h2>
+    <p><code>ChipContent</code> replaces the chip's label — the remove button is never part of the template.</p>
+    <div class="tag-field">
+        <TagEntry Tags="@(new[] { "release", "bugfix" })" Placeholder="Add a label...">
+            <ChipContent Context="tag">
+                <MotionIcon Icon="tag" Size="12" Trigger="MotionTrigger.Manual" />
+                @tag
+            </ChipContent>
+        </TagEntry>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Read-only and disabled</h2>
+    <p>Read-only keeps the chips crisp but blocks adding and removing; disabled dims the whole field.</p>
+    <div class="tag-field">
+        <TagEntry Tags="@(new[] { "look", "no touching" })" ReadOnly Placeholder="Read-only..." />
+    </div>
+    <div class="tag-field">
+        <TagEntry Tags="@(new[] { "frozen", "field" })" Disabled Placeholder="Disabled..." />
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Programmatic focus</h2>
+    <p>Clearing the tags hands the keyboard straight back to the typing area, ready for the replacement list.</p>
+    <div class="tag-field">
+        <TagEntry @ref="topicField" @bind-Tags="topics" Placeholder="Add a topic..." />
+    </div>
+    <div class="row">
+        <ShinyButton Text="Clear and start over"
+                     Appearance="ButtonAppearance.Outlined"
+                     Disabled="@(topics.Count == 0)"
+                     Clicked="ClearAsync" />
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Invalid</h2>
+    <p><code>aria-invalid</code> lands on the inner input and turns the box destructive — normally set by whatever is validating the form.</p>
+    <div class="tag-field">
+        <TagEntry Tags="@(new[] { "too", "many", "tags" })" aria-invalid="true" Placeholder="Add a tag..." />
+    </div>
+</section>
+
+@code {
+    TagEntry? topicField;
+    IReadOnlyList<string> teams = ["design", "engineering"];
+    IReadOnlyList<string> topics = ["getting-started"];
+
+    async Task ClearAsync()
+    {
+        topics = [];
+        if (topicField is not null)
+            await topicField.FocusAsync();
+    }
+}

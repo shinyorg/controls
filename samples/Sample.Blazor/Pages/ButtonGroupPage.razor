@@ -1,0 +1,111 @@
+@page "/buttongroup"
+
+<PageTitle>Button Group</PageTitle>
+
+<h1>Button Group</h1>
+
+<p>Status: <strong>@status</strong></p>
+
+<section class="demo-section">
+    <h2>Actions</h2>
+    <p>The default: three related actions joined into one control. Each segment keeps its own handler.</p>
+    <ButtonGroup>
+        <ShinyButton Text="Archive" Appearance="ButtonAppearance.Outlined" Clicked="@(() => Note("Archive"))" />
+        <ShinyButton Text="Report" Appearance="ButtonAppearance.Outlined" Clicked="@(() => Note("Report"))" />
+        <ShinyButton Text="Snooze" Appearance="ButtonAppearance.Outlined" Clicked="@(() => Note("Snooze"))" />
+    </ButtonGroup>
+</section>
+
+<section class="demo-section">
+    <h2>Single selection</h2>
+    <p><code>SelectionMode="Single"</code> turns the same markup into a segmented picker. <code>SelectedIndex</code> is two-way.</p>
+    <ButtonGroup SelectionMode="ButtonGroupSelectionMode.Single" @bind-SelectedIndex="range">
+        <ShinyButton Text="Day" />
+        <ShinyButton Text="Week" />
+        <ShinyButton Text="Month" />
+    </ButtonGroup>
+    <div class="state">Showing: <code>@Ranges[Math.Clamp(range, 0, Ranges.Length - 1)]</code></div>
+</section>
+
+<section class="demo-section">
+    <h2>Multiple selection</h2>
+    <p>Any number of segments at once — a formatting toolbar rather than a picker.</p>
+    <ButtonGroup SelectionMode="ButtonGroupSelectionMode.Multiple" SelectionChanged="OnFormatsChanged">
+        <ShinyButton Text="B" FontWeight="700" />
+        <ShinyButton Text="I" />
+        <ShinyButton Text="U" />
+    </ButtonGroup>
+    <div class="state">@formatSummary</div>
+</section>
+
+<section class="demo-section">
+    <h2>Split button</h2>
+    <p>A primary action plus its alternatives, divided by a <code>ButtonGroupSeparator</code> — for two segments of the same filled appearance.</p>
+    <ButtonGroup>
+        <ShinyButton Text="Follow" Type="ButtonType.Secondary" Clicked="@(() => Note("Followed"))" />
+        <ButtonGroupSeparator />
+        <ShinyButton RightMotionIcon="chevron-down" Type="ButtonType.Secondary"
+                     aria-label="More follow options"
+                     Clicked="@(() => Note("More follow options"))" />
+    </ButtonGroup>
+</section>
+
+<section class="demo-section">
+    <h2>Text segment</h2>
+    <p><code>ButtonGroupText</code> is a static label, unit or prefix sitting flush with the buttons.</p>
+    <ButtonGroup>
+        <ButtonGroupText Text="USD" />
+        <ShinyButton Text="−" Appearance="ButtonAppearance.Outlined" aria-label="Decrease" Clicked="@(() => Adjust(-1))" />
+        <ShinyButton Text="+" Appearance="ButtonAppearance.Outlined" aria-label="Increase" Clicked="@(() => Adjust(1))" />
+    </ButtonGroup>
+    <div class="state">Amount: <code>@amount</code></div>
+</section>
+
+<section class="demo-section">
+    <h2>Vertical</h2>
+    <p><code>Orientation="Vertical"</code> stacks the segments — a zoom rail.</p>
+    <ButtonGroup Orientation="ToolbarOrientation.Vertical">
+        <ShinyButton LeftMotionIcon="zoom-in" Appearance="ButtonAppearance.Outlined" aria-label="Zoom in" Clicked="@(() => Note("Zoom in"))" />
+        <ShinyButton LeftMotionIcon="zoom-out" Appearance="ButtonAppearance.Outlined" aria-label="Zoom out" Clicked="@(() => Note("Zoom out"))" />
+        <ShinyButton LeftMotionIcon="expand" Appearance="ButtonAppearance.Outlined" aria-label="Reset zoom" Clicked="@(() => Note("Reset zoom"))" />
+    </ButtonGroup>
+</section>
+
+<section class="demo-section">
+    <h2>Nested groups</h2>
+    <p>A group of groups is a cluster: each inner group keeps its own merged edges and the two are spaced apart.</p>
+    <ButtonGroup>
+        <ButtonGroup>
+            <ShinyButton Text="Undo" Appearance="ButtonAppearance.Outlined" Clicked="@(() => Note("Undo"))" />
+            <ShinyButton Text="Redo" Appearance="ButtonAppearance.Outlined" Clicked="@(() => Note("Redo"))" />
+        </ButtonGroup>
+        <ButtonGroup>
+            <ShinyButton Text="Cut" Appearance="ButtonAppearance.Outlined" Clicked="@(() => Note("Cut"))" />
+            <ShinyButton Text="Copy" Appearance="ButtonAppearance.Outlined" Clicked="@(() => Note("Copy"))" />
+            <ShinyButton Text="Paste" Appearance="ButtonAppearance.Outlined" Clicked="@(() => Note("Paste"))" />
+        </ButtonGroup>
+    </ButtonGroup>
+</section>
+
+@code {
+    static readonly string[] Ranges = ["Day", "Week", "Month"];
+    static readonly string[] Formats = ["Bold", "Italic", "Underline"];
+
+    string status = "Nothing has happened yet";
+    string formatSummary = "No formatting";
+    int range = 1;
+    int amount;
+
+    void Note(string what) => status = $"{what} at {DateTime.Now:T}";
+
+    void Adjust(int delta)
+    {
+        amount += delta;
+        status = $"Amount {(delta > 0 ? "increased" : "decreased")}";
+    }
+
+    void OnFormatsChanged(IReadOnlyList<int> indexes)
+        => formatSummary = indexes.Count == 0
+            ? "No formatting"
+            : string.Join(", ", indexes.Select(x => Formats[x]));
+}

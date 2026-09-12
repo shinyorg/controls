@@ -9,6 +9,8 @@ sealed record ThemeData(
     string Description,
     IReadOnlyList<(string Role, string Hex)> Light,
     IReadOnlyList<(string Role, string Hex)> Dark,
+    IReadOnlyDictionary<string, string> LightAuthoring,
+    IReadOnlyDictionary<string, string> DarkAuthoring,
     IReadOnlyList<(string Name, double Value)> Shape,
     IReadOnlyList<TypeToken> Type,
     TypeSpec TypeSpec,
@@ -27,100 +29,238 @@ static class Emitter
     const string DefaultMonoStack = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
     static string D(double v) => v.ToString("0.####", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Whether a resolved measurement is just its baseline times the theme's scale - in which case it
+    /// can be written as a calc over the knob, and the knob then actually does something. A theme that
+    /// pinned an absolute value has no such relationship and keeps its literal.
+    /// </summary>
+    static bool Scales(double resolved, double baseline, double scale)
+        => !double.IsNaN(baseline) && Math.Abs(resolved - baseline * scale) < 0.001;
     static string Px(double v) => v == 0 ? "0px" : D(v) + "px";
 
     // ============================================================ Blazor CSS
 
-    public static string Css(ThemeData t)
+    /// <summary>
+    /// The stylesheet for one theme. The core sheet carries the whole contract; a <b>pack</b> carries
+    /// only what it actually changes - its palette, its knobs, and the handful of values that cannot
+    /// be written as an expression over them. Everything else is already declared by the core sheet a
+    /// pack is linked after, and restating it verbatim (which is what produced five 364-line files
+    /// that differed in their colours alone) only invites them to drift.
+    /// </summary>
+    public static string Css(ThemeData t, bool core)
     {
         var sb = new StringBuilder();
         sb.Append(AutoGenCss).Append("\n\n");
 
-        // Light scheme + all mode-independent tokens live in :root.
+        if (!core)
+        {
+            sb.Append($"/* The {t.Name} pack. Link it AFTER the core theme: it restates the palette and\n");
+            sb.Append("   the knobs, and leans on the core sheet for everything derived from them. */\n\n");
+        }
+
+        // A token that is written as an expression over the authoring layer is identical in every
+        // theme, so a pack has nothing to say about it.
+        void Line(string name, string value, bool expressed = false)
+        {
+            if (core || !expressed)
+                sb.Append($"    --shiny-{name}: {value};\n");
+        }
+
+        void Section(string title)
+        {
+            if (core)
+                sb.Append($"\n    /* ===== {title} ===== */\n");
+        }
+
+        // -----------------------------------------------------------------------------------------
+        // :root carries the light authoring values, then the derived contract, then everything that
+        // does not change with the scheme. The derived block is declared ONCE for the whole file -
+        // it is written in terms of the authoring tokens, so a dark scope only has to restate those.
+        // That is the difference between a 55-declaration dark block and a 28-declaration one, and it
+        // is also what lets the composer re-skin the page by writing a couple of dozen inline vars.
+        // -----------------------------------------------------------------------------------------
         sb.Append(":root {\n");
         // Native widgets (select, checkbox, date input, scrollbars, the popover backdrop) are painted
         // by the UA, not by our tokens - without this they stay in the light UA palette and a themed
         // dark control ends up hosting a stark white dropdown.
         sb.Append("    color-scheme: light;\n\n");
-        sb.Append("    /* ===== Color (light) ===== */\n");
-        foreach (var (role, hex) in t.Light)
-            sb.Append($"    --shiny-color-{Tokens.Kebab(role)}: {hex};\n");
 
-        sb.Append("\n    /* ===== Shape ===== */\n");
-        foreach (var (name, val) in t.Shape)
-            sb.Append($"    --shiny-shape-{Tokens.Kebab(name)}: {Px(val)};\n");
-
-        sb.Append("\n    /* ===== Border widths ===== */\n");
-        foreach (var (name, val) in t.Border)
-            sb.Append($"    --shiny-border-{Tokens.Kebab(name)}: {Px(val)};\n");
-
-        sb.Append("\n    /* ===== State ===== */\n");
-        foreach (var (name, val) in t.State)
-            sb.Append($"    --shiny-state-{Tokens.Kebab(name)}: {D(val)};\n");
-
-        sb.Append("\n    /* ===== Density ===== */\n");
-        foreach (var (name, val) in t.Density)
-            // The scale is a bare multiplier for calc(); every other density token is a measurement.
-            sb.Append($"    --shiny-density-{Tokens.Kebab(name)}: {(name == "Scale" ? D(val) : Px(val))};\n");
-
-        sb.Append("\n    /* ===== Spacing ===== */\n");
-        foreach (var (name, val) in t.Spacing)
-            sb.Append($"    --shiny-spacing-{name.Replace("Space", "")}: {Px(val)};\n");
-
-        sb.Append("\n    /* ===== Type scale ===== */\n");
-        // Empty family means "whatever the host app uses", which is what the controls did before
-        // typography was themeable — so the default has to stay `inherit`, not a stack of our own.
-        var body = string.IsNullOrWhiteSpace(t.TypeSpec.Family) ? "inherit" : t.TypeSpec.Family;
-        var display = string.IsNullOrWhiteSpace(t.TypeSpec.DisplayFamily) ? "var(--shiny-type-font-family)" : t.TypeSpec.DisplayFamily;
-        var mono = string.IsNullOrWhiteSpace(t.TypeSpec.MonoFamily) ? DefaultMonoStack : t.TypeSpec.MonoFamily;
-        sb.Append($"    --shiny-type-font-family: {body};\n");
-        sb.Append($"    --shiny-type-font-family-display: {display};\n");
-        sb.Append($"    --shiny-type-font-family-mono: {mono};\n");
-        // Exposed on its own so off-scale sizes in control CSS can still respond to the theme:
-        // font-size: calc(13px * var(--shiny-type-scale, 1)).
-        sb.Append($"    --shiny-type-scale: {D(t.TypeSpec.Scale)};\n");
-        foreach (var tk in t.Type)
-        {
-            var k = Tokens.Kebab(tk.Role);
-            sb.Append($"    --shiny-type-{k}-size: {Px(tk.Size)};\n");
-            sb.Append($"    --shiny-type-{k}-line-height: {Px(tk.LineHeight)};\n");
-            sb.Append($"    --shiny-type-{k}-weight: {tk.Weight};\n");
-            sb.Append($"    --shiny-type-{k}-tracking: {Px(tk.Tracking)};\n");
-        }
-
-        sb.Append("\n    /* ===== Elevation ===== */\n");
-        foreach (var (name, shadow) in t.CssElevation)
-            sb.Append($"    --shiny-elevation-{name.Replace("Level", "")}: {shadow};\n");
+        sb.Append("    /* =========================================================================\n");
+        sb.Append("       THE THEME. These are the values to edit - by hand, in your own stylesheet,\n");
+        sb.Append("       or from the theme composer. Everything below them is derived.\n");
+        sb.Append("       ========================================================================= */\n");
+        Authoring(sb, t, t.LightAuthoring, indent: "    ");
 
         sb.Append("}\n\n");
 
-        // Dark color overrides — explicit class wins; OS preference applies when unset.
+        // -----------------------------------------------------------------------------------------
+        // The derived contract, and why it is scoped to the theme classes as well as to :root.
+        //
+        // A custom property is substituted where it is DECLARED, and the result then inherits as a
+        // resolved value. Declaring `--shiny-color-primary: var(--shiny-primary)` on :root alone means
+        // it resolves once, against the light palette, and inherits into every descendant already
+        // resolved - so a `.shiny-theme-dark` on a container re-declares the palette underneath a
+        // contract that has stopped listening. The page keeps its light colours and the only tell is
+        // that dark mode does nothing, which is exactly what happened the first time this was built.
+        //
+        // Naming the scoping classes here makes every scope that can carry a palette re-derive from
+        // its own. It costs one selector list, not a second copy of the block.
+        // -----------------------------------------------------------------------------------------
+        sb.Append("/* The contract the controls consume, derived from whichever palette is in scope.\n");
+        sb.Append("   Editing one of these pins it; editing the theme value above moves everything\n");
+        sb.Append("   that leans on it. */\n");
+        sb.Append(":root,\n.shiny-theme-dark,\n.shiny-theme-light {\n");
+
+        Section("Color roles");
+        if (core)
+        {
+            foreach (var (role, from) in Tokens.RoleDerivations.OrderBy(x => Array.IndexOf(Tokens.ColorRoles, x.Role)))
+                sb.Append($"    --shiny-color-{Tokens.Kebab(role)}: {AuthoringLayer.Css(from)};\n");
+        }
+
+        Section("Shape");
+        var medium = t.Shape.FirstOrDefault(x => x.Name == "CornerMedium").Value;
+        foreach (var (name, val) in t.Shape)
+        {
+            // The ramp is expressed against the radius knob where it can be - one token then moves
+            // every corner in the set. A theme that squares everything off (medium = 0) has no ratio
+            // to express, and the full-round sentinel is not a radius at all, so both stay literal.
+            var expressible = medium > 0 && name != "CornerFull" && val > 0;
+            var value = expressible
+                ? $"calc(var(--shiny-radius) * {D(val / medium)})"
+                : name == "CornerMedium" ? "var(--shiny-radius)" : Px(val);
+
+            Line($"shape-{Tokens.Kebab(name)}", value, expressed: expressible || name == "CornerMedium");
+        }
+
+        Section("Border widths");
+        var thin = t.Border.FirstOrDefault(x => x.Name == "Thin").Value;
+        foreach (var (name, val) in t.Border)
+        {
+            var value = name == "Thin"
+                ? "var(--shiny-border-width)"
+                : thin > 0 ? $"calc(var(--shiny-border-width) * {D(val / thin)})" : Px(val);
+
+            Line($"border-{Tokens.Kebab(name)}", value, expressed: name == "Thin" || thin > 0);
+        }
+
+        Section("State");
+        foreach (var (name, val) in t.State)
+            Line($"state-{Tokens.Kebab(name)}", D(val));
+
+        Section("Density");
+        var density = t.Density.FirstOrDefault(x => x.Name == "Scale").Value;
+        foreach (var (name, val) in t.Density)
+        {
+            // The scale is the knob itself. Every other density token is a measurement, written
+            // against the knob where the theme let the scale decide it and pinned where the theme
+            // stated an absolute - and the touch target is never scaled at all, because shrinking the
+            // hit area below the platform minimum is an accessibility bug rather than a density.
+            var baseline = name switch
+            {
+                "ControlHeight" => Tokens.ControlHeight,
+                "ControlHeightSmall" => Tokens.ControlHeightSmall,
+                "RowHeight" => Tokens.RowHeight,
+                _ => double.NaN
+            };
+
+            var value = name == "Scale"
+                ? "var(--shiny-density)"
+                : Scales(val, baseline, density) ? $"calc({Px(baseline)} * var(--shiny-density))" : Px(val);
+
+            Line($"density-{Tokens.Kebab(name)}", value, expressed: name == "Scale" || Scales(val, baseline, density));
+        }
+
+        Section("Spacing");
+        foreach (var ((name, val), i) in t.Spacing.Select((x, i) => (x, i)))
+        {
+            var baseline = Tokens.Spacing[i].Value;
+            var scales = val == 0 || Scales(val, baseline, density);
+            var value = val == 0 ? "0px" : scales ? $"calc({Px(baseline)} * var(--shiny-density))" : Px(val);
+            Line($"spacing-{name.Replace("Space", "")}", value, expressed: scales);
+        }
+
+        Section("Type scale");
+        Line("type-font-family", "var(--shiny-font-sans)", expressed: true);
+        Line("type-font-family-display", "var(--shiny-font-display)", expressed: true);
+        Line("type-font-family-mono", "var(--shiny-font-mono)", expressed: true);
+        // Exposed on its own so off-scale sizes in control CSS can still respond to the theme:
+        // font-size: calc(13px * var(--shiny-type-scale, 1)).
+        Line("type-scale", "var(--shiny-text-scale)", expressed: true);
+
+        // The ramp is written against the two type knobs rather than as fifteen sets of resolved
+        // numbers, so a theme that only wants bigger text states one value and the whole scale moves -
+        // and so the composer's font-size and weight sliders have something to drive.
+        foreach (var (role, size, lineHeight, weight, tracking) in Tokens.Type)
+        {
+            var k = Tokens.Kebab(role);
+            Line($"type-{k}-size", $"calc({Px(size)} * var(--shiny-text-scale))", expressed: true);
+            Line($"type-{k}-line-height", $"calc({Px(lineHeight)} * var(--shiny-text-scale) * var(--shiny-line-height-scale))", expressed: true);
+            Line($"type-{k}-weight", $"calc({weight} + var(--shiny-font-weight-offset))", expressed: true);
+            Line($"type-{k}-tracking", $"calc({Px(tracking)} + var(--shiny-letter-spacing-offset))", expressed: true);
+        }
+
+        Section("Elevation");
+        foreach (var (name, shadow) in t.CssElevation)
+            Line($"elevation-{name.Replace("Level", "")}", shadow);
+
+        sb.Append("}\n\n");
+
+        // Dark overrides - explicit class wins; OS preference applies when unset. Only the authoring
+        // colours are restated: every role above reads through them.
         sb.Append("/* Explicit dark mode (toggle .shiny-theme-dark on <html> or a container) */\n");
         sb.Append(":root.shiny-theme-dark,\n.shiny-theme-dark {\n");
         // color-scheme inherits, so setting it on the scope that carries the dark tokens also flips
         // every native widget underneath it - even when that scope is a div rather than <html>.
         sb.Append("    color-scheme: dark;\n\n");
-        foreach (var (role, hex) in t.Dark)
-            sb.Append($"    --shiny-color-{Tokens.Kebab(role)}: {hex};\n");
+        Authoring(sb, t, t.DarkAuthoring, indent: "    ", coloursOnly: true);
         sb.Append("}\n\n");
 
         sb.Append("/* Explicit light mode has to restate the scheme: it may sit inside a dark scope */\n");
         sb.Append(":root.shiny-theme-light,\n.shiny-theme-light {\n");
         sb.Append("    color-scheme: light;\n\n");
-        foreach (var (role, hex) in t.Light)
-            sb.Append($"    --shiny-color-{Tokens.Kebab(role)}: {hex};\n");
+        Authoring(sb, t, t.LightAuthoring, indent: "    ", coloursOnly: true);
         sb.Append("}\n\n");
 
         sb.Append("/* Follow OS dark preference unless explicitly set to light */\n");
         sb.Append("@media (prefers-color-scheme: dark) {\n");
         sb.Append("    :root:not(.shiny-theme-light) {\n");
         sb.Append("        color-scheme: dark;\n\n");
-        foreach (var (role, hex) in t.Dark)
-            sb.Append($"        --shiny-color-{Tokens.Kebab(role)}: {hex};\n");
+        Authoring(sb, t, t.DarkAuthoring, indent: "        ", coloursOnly: true);
         sb.Append("    }\n}\n");
 
         return sb.ToString();
     }
+
+
+    /// <summary>The authoring block: the colours of one scheme, plus the scheme-independent knobs.</summary>
+    static void Authoring(StringBuilder sb, ThemeData t, IReadOnlyDictionary<string, string> colours, string indent, bool coloursOnly = false)
+    {
+        foreach (var token in Tokens.AuthoringColors)
+            sb.Append($"{indent}--shiny-{token.Name}: {colours[token.Name]};\n");
+
+        if (coloursOnly)
+            return;
+
+        // Empty family means "whatever the host app uses", which is what the controls did before
+        // typography was themeable - so the default has to stay `inherit`, not a stack of our own.
+        var body = String.IsNullOrWhiteSpace(t.TypeSpec.Family) ? "inherit" : t.TypeSpec.Family;
+        var display = String.IsNullOrWhiteSpace(t.TypeSpec.DisplayFamily) ? "var(--shiny-font-sans)" : t.TypeSpec.DisplayFamily;
+        var mono = String.IsNullOrWhiteSpace(t.TypeSpec.MonoFamily) ? DefaultMonoStack : t.TypeSpec.MonoFamily;
+
+        sb.Append($"\n{indent}--shiny-font-sans: {body};\n");
+        sb.Append($"{indent}--shiny-font-display: {display};\n");
+        sb.Append($"{indent}--shiny-font-mono: {mono};\n");
+        sb.Append($"{indent}--shiny-text-scale: {D(t.TypeSpec.Scale)};\n");
+        sb.Append($"{indent}--shiny-line-height-scale: {D(t.TypeSpec.LineHeightScale)};\n");
+        sb.Append($"{indent}--shiny-font-weight-offset: {D(t.TypeSpec.WeightOffset)};\n");
+        sb.Append($"{indent}--shiny-letter-spacing-offset: {Px(t.TypeSpec.TrackingOffset)};\n");
+        sb.Append($"{indent}--shiny-radius: {Px(t.Shape.FirstOrDefault(x => x.Name == "CornerMedium").Value)};\n");
+        sb.Append($"{indent}--shiny-border-width: {Px(t.Border.FirstOrDefault(x => x.Name == "Thin").Value)};\n");
+        sb.Append($"{indent}--shiny-density: {D(t.Density.FirstOrDefault(x => x.Name == "Scale").Value)};\n");
+    }
+
 
     // ============================================================ MAUI ResourceDictionaries
 

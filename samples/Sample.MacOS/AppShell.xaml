@@ -17,6 +17,9 @@
        xmlns:badge="clr-namespace:Sample.Features.Badge;assembly=Sample.MacOS"
        xmlns:barcodes="clr-namespace:Sample.Features.Barcodes;assembly=Sample.MacOS"
        xmlns:buttons="clr-namespace:Sample.Features.Buttons;assembly=Sample.MacOS"
+       xmlns:btngroup="clr-namespace:Sample.Features.ButtonGroups;assembly=Sample.MacOS"
+       xmlns:tags="clr-namespace:Sample.Features.Tags;assembly=Sample.MacOS"
+       xmlns:chips="clr-namespace:Sample.Features.Chips;assembly=Sample.MacOS"
        xmlns:carouselgallery="clr-namespace:Sample.Features.CarouselGallery;assembly=Sample.MacOS"
        xmlns:expanders="clr-namespace:Sample.Features.Expanders;assembly=Sample.MacOS"
        xmlns:colorpicker="clr-namespace:Sample.Features.ColorPicker;assembly=Sample.MacOS"
@@ -186,6 +189,10 @@
     <FlyoutItem Title="Range Slider">
         <ShellContent ContentTemplate="{DataTemplate slider:RangeSliderPage}" Route="rangeslider" />
     </FlyoutItem>
+    <FlyoutItem Title="Tag Entry">
+        <ShellContent ContentTemplate="{DataTemplate tags:TagEntryPage}" Route="tagentry" />
+        <ShellContent ContentTemplate="{DataTemplate chips:ChipGroupPage}" Route="chipgroup" />
+    </FlyoutItem>
     <FlyoutItem Title="Security Pin">
         <ShellContent ContentTemplate="{DataTemplate securitypin:SecurityPinPage}" Route="securitypin" />
         <ShellContent ContentTemplate="{DataTemplate pwstrength:PasswordStrengthPage}" Route="passwordstrength" />
@@ -201,6 +208,9 @@
 
     <FlyoutItem Title="ShinyButton">
         <ShellContent ContentTemplate="{DataTemplate buttons:ButtonsPage}" Route="buttons" />
+    </FlyoutItem>
+    <FlyoutItem Title="Button Group">
+        <ShellContent ContentTemplate="{DataTemplate btngroup:ButtonGroupPage}" Route="buttongroup" />
     </FlyoutItem>
     <FlyoutItem Title="FAB &amp; FabMenu">
         <ShellContent ContentTemplate="{DataTemplate fab:FabPage}" Route="fab" />

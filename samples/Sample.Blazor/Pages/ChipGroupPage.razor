@@ -1,0 +1,127 @@
+@page "/chipgroup"
+
+<PageTitle>Chip Group</PageTitle>
+
+<h1>Chip Group</h1>
+
+<div class="state">@status</div>
+
+<section class="demo-section">
+    <h2>Single (the default)</h2>
+    <p>One chip at a time, and <code>SelectedItem</code> is the item itself rather than an index — bind the object the page already has.</p>
+    <ChipGroup ItemsSource="@ranges" @bind-SelectedItem="range" />
+    <div class="state">@(range is null ? "No range picked." : $"Range: {range}")</div>
+</section>
+
+<section class="demo-section">
+    <h2>Multiple</h2>
+    <p><code>SelectionMode="ChipSelectionMode.Multiple"</code> turns every chip into a toggle, and <code>@("@bind-SelectedItems")</code> carries the lot.</p>
+    <ChipGroup ItemsSource="@filters"
+               SelectionMode="ChipSelectionMode.Multiple"
+               @bind-SelectedItems="selectedFilters" />
+    <div class="state">
+        @(selectedFilters.Count == 0 ? "No filters." : string.Join(", ", selectedFilters))
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Capped</h2>
+    <p>At <code>MaxSelectionCount</code> a click on an unselected chip does nothing — the oldest pick is not silently dropped.</p>
+    <ChipGroup ItemsSource="@toppings"
+               SelectionMode="ChipSelectionMode.Multiple"
+               MaxSelectionCount="3" />
+</section>
+
+<section class="demo-section">
+    <h2>Deselectable</h2>
+    <p><code>AllowDeselect</code> lets a second click clear a single-selection group. Off by default.</p>
+    <ChipGroup ItemsSource="@ranges" AllowDeselect />
+</section>
+
+<section class="demo-section">
+    <h2>Actions</h2>
+    <p><code>ChipSelectionMode.None</code> carries no state: every chip reports its click and nothing is ever painted as picked.</p>
+    <ChipGroup ItemsSource="@actions"
+               SelectionMode="ChipSelectionMode.None"
+               ChipTapped="@((string item) => status = $"Action: {item}")" />
+</section>
+
+<section class="demo-section">
+    <h2>Objects</h2>
+    <p><code>DisplaySelector</code> says what a chip shows for an item that is more than its own name.</p>
+    <ChipGroup ItemsSource="@teams"
+               DisplaySelector="@(t => t.Name)"
+               @bind-SelectedItem="team" />
+    <div class="state">@(team is null ? "No team picked." : $"Team: {team.Name} ({team.Members})")</div>
+</section>
+
+<section class="demo-section">
+    <h2>Templated</h2>
+    <p><code>ChipContent</code> replaces the label. The check and the ✕ are never part of it.</p>
+    <ChipGroup ItemsSource="@teams" SelectionMode="ChipSelectionMode.Multiple">
+        <ChipContent Context="t">
+            @t.Name
+            <Pill Text="@t.Members.ToString()" Type="PillType.Info" FontSize="10" />
+        </ChipContent>
+    </ChipGroup>
+</section>
+
+<section class="demo-section">
+    <h2>Removable</h2>
+    <p><code>AllowRemove</code> puts a ✕ on every chip. The item comes out of the bound list, unless <code>ChipRemoving</code> refuses it first.</p>
+    <ChipGroup ItemsSource="@recipients"
+               SelectionMode="ChipSelectionMode.Multiple"
+               AllowRemove
+               ChipRemoving="@(r => recipients.Count > 1)"
+               ChipRemoved="@((string r) => status = $"Removed {r}")" />
+    <ShinyButton Text="Reset recipients" Clicked="ResetRecipients" />
+</section>
+
+<section class="demo-section">
+    <h2>No wrapping</h2>
+    <p><code>Wrap="false"</code> keeps every chip on one line and lets the row scroll sideways.</p>
+    <ChipGroup ItemsSource="@languages"
+               SelectionMode="ChipSelectionMode.Multiple"
+               Wrap="false" />
+</section>
+
+<section class="demo-section">
+    <h2>Colours</h2>
+    <p>Leave the colours unset and the theme carries through; set one for a brand colour.</p>
+    <ChipGroup ItemsSource="@filters"
+               SelectionMode="ChipSelectionMode.Multiple"
+               SelectedChipBackgroundColor="#7C3AED"
+               SelectedChipTextColor="#FFFFFF"
+               ChipBorderColor="#7C3AED"
+               CornerRadius="16" />
+</section>
+
+<section class="demo-section">
+    <h2>Read-only and disabled</h2>
+    <p>Read-only keeps the chips crisp and the selection visible but blocks changing it; disabled dims the lot.</p>
+    <ChipGroup ItemsSource="@frozen" SelectionMode="ChipSelectionMode.Multiple" AllowRemove ReadOnly />
+    <ChipGroup ItemsSource="@frozen" Disabled />
+</section>
+
+@code {
+    record Team(string Name, int Members);
+
+    string status = "Nothing has been picked yet";
+    string? range;
+    Team? team;
+
+    readonly List<string> ranges = ["Day", "Week", "Month", "Quarter", "Year"];
+    readonly List<string> filters = ["Open", "In progress", "Blocked", "In review", "Done"];
+    readonly List<string> toppings = ["Cheese", "Mushroom", "Olive", "Pepper", "Onion"];
+    readonly List<string> actions = ["Share", "Duplicate", "Archive"];
+    readonly List<string> frozen = ["Approved", "Signed"];
+    readonly List<string> languages =
+        ["C#", "F#", "TypeScript", "Swift", "Kotlin", "Rust", "Go", "Python", "Dart", "Java"];
+
+    readonly List<Team> teams = [new("Design", 6), new("Engineering", 24), new("Sales", 11)];
+
+    List<string> recipients = ["design", "engineering", "sales"];
+    IReadOnlyList<string> selectedFilters = [];
+
+    void ResetRecipients() => recipients = ["design", "engineering", "sales"];
+}

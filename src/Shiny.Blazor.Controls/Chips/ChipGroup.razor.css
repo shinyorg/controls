@@ -1,0 +1,139 @@
+/* Everything here is a token with a literal fallback, so the group follows a theme swap and dark mode
+   with no @media block of its own - the tokens flip and the control follows. */
+
+.shiny-chips {
+    --shiny-chip-radius: var(--shiny-shape-corner-small, 8px);
+    --shiny-chip-stroke: var(--shiny-color-outline, #6C788D);
+    --shiny-chip-bg: transparent;
+    --shiny-chip-fg: var(--shiny-color-on-surface-variant, #3B475B);
+    --shiny-chip-selected-bg: var(--shiny-color-secondary-container, #D9E3F3);
+    --shiny-chip-selected-fg: var(--shiny-color-on-secondary-container, #131C28);
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    box-sizing: border-box;
+    font-family: var(--shiny-type-font-family, inherit);
+}
+
+/* One line however narrow the group gets, and the overflow is scrolled to rather than dropped
+   underneath. The browser does this for us; MAUI has to be put inside a ScrollView by hand. */
+.shiny-chips.is-nowrap {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.shiny-chips.is-disabled {
+    opacity: 0.38;
+    pointer-events: none;
+}
+
+
+/* -- the chip --------------------------------------------------------------------------------------
+   The <span> carries the visuals and the two <button>s sit inside it, because a button inside a button
+   is invalid HTML: the browser un-nests it and the remove control ends up outside the chip. */
+
+.shiny-chips__chip {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    max-width: 100%;
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-chip-stroke);
+    border-radius: var(--shiny-chip-radius);
+    background: var(--shiny-chip-bg);
+    color: var(--shiny-chip-fg);
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+/* A selected chip is a filled surface. Keeping the outline would draw a hairline of the unselected
+   colour around the fill, which reads as a chip that is both states at once. */
+.shiny-chips__chip.is-selected {
+    border-color: transparent;
+    background: var(--shiny-chip-selected-bg);
+    color: var(--shiny-chip-selected-fg);
+}
+
+.shiny-chips__body {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--shiny-spacing-1, 4px);
+    min-width: 0;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: calc(14px * var(--shiny-type-scale, 1));
+    line-height: 1.4;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.shiny-chips__body:disabled {
+    cursor: default;
+}
+
+/* A state layer mixed from the chip's own ink rather than a fixed black wash, so it is visible on a
+   dark chip as well as a light one. */
+.shiny-chips__body:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.shiny-chips__body:focus-visible {
+    outline: 2px solid var(--shiny-color-primary, #0055D9);
+    outline-offset: 2px;
+}
+
+.shiny-chips__check {
+    flex: 0 0 auto;
+}
+
+.shiny-chips__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* -- remove ---------------------------------------------------------------------------------------- */
+
+.shiny-chips__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin-inline-end: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* The body's own trailing padding would push the ✕ away from the word it belongs to. */
+.shiny-chips__chip:has(.shiny-chips__remove) .shiny-chips__body {
+    padding-inline-end: 4px;
+}
+
+.shiny-chips__remove:hover,
+.shiny-chips__remove:focus-visible {
+    background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.shiny-chips__remove:focus-visible {
+    outline: 2px solid var(--shiny-color-primary, #0055D9);
+    outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-chips__chip {
+        transition: none;
+    }
+}

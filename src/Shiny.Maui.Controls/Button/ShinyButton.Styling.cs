@@ -76,13 +76,19 @@ public partial class ShinyButton
     {
         var (bgToken, fgToken, strokeToken, wantsShadow) = this.ResolveTokens();
 
-        // Background
-        if (this.ButtonBackgroundColor is Color bg)
-            this.border.BackgroundColor = bg;
-        else if (bgToken is null)
-            this.border.BackgroundColor = Colors.Transparent;
-        else
-            this.border.SetDynamicResource(VisualElement.BackgroundColorProperty, bgToken);
+        // Background. Every one of these goes through ThemeProbe.Tint rather than a plain assignment,
+        // because a *local* value outranks a dynamic resource and nothing here is written once: an
+        // appearance can change at runtime, and a ButtonGroup in a selection mode changes it on every
+        // tap. Going Outlined -> Filled writes the token while the transparent local value from the
+        // outlined pass is still sitting there, and the fill silently never appears - a segmented
+        // picker whose selected segment is an invisible gap with white text on white.
+        var explicitBackground = this.ButtonBackgroundColor ?? (bgToken is null ? Colors.Transparent : null);
+        ThemeProbe.Tint(
+            this.border,
+            VisualElement.BackgroundColorProperty,
+            explicitBackground,
+            bgToken ?? ShinyThemeKeys.Color.Surface
+        );
 
         // Stroke. BorderThickness defaults to -1, meaning "the appearance decides".
         var thickness = this.BorderThickness >= 0
@@ -95,10 +101,12 @@ public partial class ShinyButton
         {
             // The stroke colour goes onto the probe, not the brush - see BuildStroke for why a
             // DynamicResource cannot reach Border.Stroke or a bare SolidColorBrush.
-            if (this.BorderColor is Color stroke)
-                this.strokeProbe.Color = stroke;
-            else
-                this.strokeProbe.SetDynamicResource(BoxView.ColorProperty, strokeToken ?? ShinyThemeKeys.Color.Outline);
+            ThemeProbe.Tint(
+                this.strokeProbe,
+                BoxView.ColorProperty,
+                this.BorderColor,
+                strokeToken ?? ShinyThemeKeys.Color.Outline
+            );
 
             this.border.Stroke = this.strokeBrush;
         }
@@ -126,10 +134,7 @@ public partial class ShinyButton
     /// </summary>
     void ApplyForeground()
     {
-        if (this.TextColor is Color text)
-            this.textLabel.TextColor = text;
-        else
-            this.textLabel.SetDynamicResource(Label.TextColorProperty, this.foregroundToken);
+        ThemeProbe.Tint(this.textLabel, Label.TextColorProperty, this.TextColor, this.foregroundToken);
 
         var iconColor = this.IconColor ?? this.TextColor;
 
@@ -147,17 +152,11 @@ public partial class ShinyButton
             case Image image when image.Source is FontImageSource glyph:
                 // A MAUI Image cannot be tinted, so only a FontImageSource glyph follows the
                 // foreground. A PNG stays whatever colour it was drawn - same as IconTextTool.
-                if (explicitColor is Color c)
-                    glyph.Color = c;
-                else
-                    glyph.SetDynamicResource(FontImageSource.ColorProperty, this.foregroundToken);
+                ThemeProbe.Tint(glyph, FontImageSource.ColorProperty, explicitColor, this.foregroundToken);
                 return;
 
             case ActivityIndicator spinner:
-                if (explicitColor is Color sc)
-                    spinner.Color = sc;
-                else
-                    spinner.SetDynamicResource(ActivityIndicator.ColorProperty, this.foregroundToken);
+                ThemeProbe.Tint(spinner, ActivityIndicator.ColorProperty, explicitColor, this.foregroundToken);
                 return;
 
             default:

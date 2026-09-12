@@ -1,0 +1,6 @@
+/* The field stretches to its container, so the demos cap it at a readable width and space the
+   stacked examples apart. */
+.tag-field {
+    max-width: 26rem;
+    margin-bottom: 12px;
+}

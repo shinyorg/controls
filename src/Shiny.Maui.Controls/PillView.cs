@@ -284,7 +284,12 @@ public class PillView : ContentView
         return Color.FromHsla(h, s, l);
     }
 
-    static Color GetContrastTextColor(Color bgColor)
+    /// <summary>
+    /// Readable ink for an arbitrary fill, by WCAG relative luminance. Internal because
+    /// <see cref="TagChipView"/> needs the same answer for a caller-picked chip colour: two copies of a
+    /// contrast rule is how one of them drifts into being subtly wrong.
+    /// </summary>
+    internal static Color GetContrastTextColor(Color bgColor)
     {
         // Relative luminance per WCAG
         var luminance = 0.2126 * Linearize(bgColor.Red)

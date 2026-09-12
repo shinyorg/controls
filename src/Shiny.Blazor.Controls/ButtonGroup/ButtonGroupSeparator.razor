@@ -1,0 +1,19 @@
+@namespace Shiny.Blazor.Controls
+
+@*
+    A hairline between two segments - the divider in a split button. Reach for it between segments of the
+    same filled appearance, where there is no outline to separate them and the two halves would otherwise
+    read as one very wide button. Outlined segments already have an edge and need none.
+
+    Styled from ButtonGroup.razor.css through ::deep, so it has no stylesheet of its own.
+*@
+
+<div class="shiny-btn-group__sep" role="separator" aria-orientation="@this.AriaOrientation"></div>
+
+@code {
+    /// <summary>The group this separator sits in. Public because a private cascaded parameter is silently skipped.</summary>
+    [CascadingParameter] public ButtonGroup? Group { get; set; }
+
+    string AriaOrientation
+        => this.Group?.Orientation is ToolbarOrientation.Vertical ? "horizontal" : "vertical";
+}

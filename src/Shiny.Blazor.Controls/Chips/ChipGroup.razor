@@ -1,0 +1,72 @@
+@namespace Shiny.Blazor.Controls
+@typeparam TItem
+
+@*
+    One chip per item. The chip itself is a <span> carrying the visuals, with the selectable body and
+    the remove affordance as sibling <button>s inside it — a button inside a button is invalid HTML and
+    browsers un-nest it, which would put the remove control outside the chip it belongs to.
+
+    All of it lives in markup rather than in RenderTreeBuilder code, because CSS isolation stamps its
+    scope attribute at compile time onto elements that appear in .razor markup only - an element created
+    in C# never gets one, and its rules would never match.
+
+    The splat comes FIRST, and deliberately. Blazor applies duplicate attributes last-wins, so a caller
+    who happened to pass a style="..." would otherwise replace this element's own style attribute
+    outright - taking every CSS custom property below with it, and leaving a group that silently stopped
+    following the theme. Extra attributes still land; class and style are the component's, and CssClass
+    is the way to add to one.
+*@
+
+<div @attributes="this.AdditionalAttributes" class="@this.CssClasses" style="@this.InlineStyle">
+
+    @foreach (var item in this.Items)
+    {
+        var captured = item;
+        var selected = this.IsSelected(captured);
+
+        <span class="@ChipClasses(selected)" data-slot="chip">
+
+            <button type="button"
+                    class="shiny-chips__body"
+                    disabled="@(this.Disabled || this.ReadOnly)"
+                    aria-pressed="@AriaPressed(selected)"
+                    @onclick="@(() => this.TapAsync(captured))">
+
+                @if (selected && this.ShowSelectionCheck && this.SelectionMode != ChipSelectionMode.None)
+                {
+                    @* An SVG rather than a glyph: a tick character at this size renders as a speck and
+                       sits off the text baseline, while the stroke here follows currentColor. *@
+                    <svg class="shiny-chips__check" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+                        <path d="M3 8.5 L6.5 12 L13 4.5" stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                    </svg>
+                }
+
+                <span class="shiny-chips__label">
+                    @if (this.ChipContent is not null)
+                    {
+                        @this.ChipContent(captured)
+                    }
+                    else
+                    {
+                        @this.DisplayFor(captured)
+                    }
+                </span>
+            </button>
+
+            @if (this.AllowRemove && !this.ReadOnly && !this.Disabled)
+            {
+                <button type="button"
+                        class="shiny-chips__remove"
+                        tabindex="-1"
+                        aria-label="@($"Remove {this.DisplayFor(captured)}")"
+                        @onclick="@(() => this.RemoveAsync(captured))"
+                        @onclick:stopPropagation="true">
+                    <svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false">
+                        <path d="M4 4 L12 12 M12 4 L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
+                    </svg>
+                </button>
+            }
+        </span>
+    }
+</div>

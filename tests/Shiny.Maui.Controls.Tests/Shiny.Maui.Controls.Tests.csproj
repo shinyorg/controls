@@ -24,5 +24,13 @@
         <!-- For the composite Office views: they are the ones assembled in a constructor, which is
              where a field read before it is built goes unnoticed until the control is put on a page. -->
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Office\Shiny.Maui.Controls.Office.csproj"/>
+
+        <!-- The theme packs, so ThemeContrastTests asserts about every theme that ships rather than
+             only the built-in one. They are content-only (a generated dictionary each), so this costs
+             the test run nothing. -->
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Themes.Aurora\Shiny.Maui.Controls.Themes.Aurora.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Themes.Material\Shiny.Maui.Controls.Themes.Material.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Themes.Ocean\Shiny.Maui.Controls.Themes.Ocean.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Themes.Terminal\Shiny.Maui.Controls.Themes.Terminal.csproj"/>
     </ItemGroup>
 </Project>

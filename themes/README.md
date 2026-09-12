@@ -32,17 +32,73 @@ colour. That matters because the neutral colour ramp barely differs between pack
 near-white has no room to carry a hue), which is why a palette-only theme leaves most controls
 looking identical.
 
-## How it works
+## Two layers: what you edit, and what controls consume
 
-- **Single source of truth:** each theme is a small JSON file in `/themes/` describing ~11 seed
-  colors plus the optional personality blocks above. `tools/ShinyThemeGen` expands those into the
-  full Material-3 tonal role set (light + dark) and emits the platform assets:
-  - **MAUI** → C# `ResourceDictionary` classes (`{Name}LightTheme` / `{Name}DarkTheme` / `{Name}Theme`)
-  - **Blazor** → a CSS file of `--shiny-*` custom properties (`:root` light + `.shiny-theme-dark` / `prefers-color-scheme`)
-- Controls consume tokens, so a theme restyles the whole control set:
-  - **MAUI** controls bind colors with `SetDynamicResource(…, ShinyThemeKeys.Color.X)`.
-  - **Blazor** controls reference `var(--shiny-color-x, <fallback>)` — the original value is kept as the
-    fallback, so controls look correct even with no theme stylesheet linked.
+This is the important part, and it is what changed most recently.
+
+**The authoring layer** is the ~35 values a human actually writes. It is deliberately close to what
+every other modern design system asks for, so it needs no study:
+
+| | |
+|---|---|
+| Surfaces | `background` `foreground` `card` `popover` `muted` `muted-foreground` |
+| Semantic | `primary` `secondary` `accent` `destructive` `success` `info` `warning` `caution` `critical` — each with a `-foreground` |
+| Lines | `border` `input` `ring` `shadow-color` |
+| Knobs | `radius` `density` `text-scale` `line-height-scale` `font-weight-offset` `letter-spacing-offset` `border-width` `font-sans` `font-display` `font-mono` |
+
+**The derived layer** is the 55 Material-3 colour roles plus the shape, type, spacing, density and
+elevation ramps — the contract every control consumes, and which nobody should have to hand-maintain.
+It is *expressed over* the authoring layer rather than duplicated:
+
+```css
+--shiny-color-primary:           var(--shiny-primary);
+--shiny-color-primary-container: color-mix(in oklab, var(--shiny-primary) 22%, var(--shiny-background));
+--shiny-shape-corner-large:      calc(var(--shiny-radius) * 1.3333);
+--shiny-type-body-large-size:    calc(16px * var(--shiny-text-scale));
+```
+
+Three things fall out of that, and they are the reason for the split:
+
+1. **One edit ripples.** Override `--shiny-primary` in your own stylesheet and the container tint, the
+   surface tint and the focus ring all move with it. The old flat dictionary could not do that — every
+   role was an independent literal, so changing a brand colour meant changing four.
+2. **A dark scope restates 28 values, not 55.** The derived block is written once, in terms of tokens
+   that are themselves per-scheme.
+3. **A theme pack is a delta.** Packs used to be a complete 364-line re-declaration each; they now
+   state their palette, their knobs, and only the handful of values that cannot be expressed over them
+   (an outline-style elevation, a squared-off `corner-full`).
+
+### Where the seeds fit now
+
+`seeds` is still there and still the fastest way to get a coherent palette out of one brand colour:
+the Material tonal machinery builds a full scheme, and the authoring layer is lifted out of it. What
+changed is that it is no longer the only way in. A theme can state authoring values outright:
+
+```json
+{
+    "name": "Team", "slug": "team",
+    "seeds": { "primary": "#2563EB", "...": "..." },
+    "tokens": {
+        "light": { "background": "#FFFFFF", "primary": "#5B21B6", "radius": "…" },
+        "dark":  { "background": "#0B0B0F", "primary": "#A78BFA" }
+    }
+}
+```
+
+Anything in `tokens` wins; anything omitted keeps the value the seeds produced. A theme that states
+every token never consults its seeds at all.
+
+### What the generator emits
+
+`tools/ShinyThemeGen` expands a theme into the platform assets:
+
+- **MAUI** → C# `ResourceDictionary` classes (`{Name}LightTheme` / `{Name}DarkTheme` / `{Name}Theme`).
+  MAUI has no `color-mix` at paint time, so the derivations are computed here, in oklab — the same
+  space the CSS mixes in, so the two hosts land on the same colour.
+- **Blazor** → a CSS file: the authoring layer, then the derived contract expressed over it.
+
+Controls consume the derived layer on both hosts: MAUI binds with
+`SetDynamicResource(…, ShinyThemeKeys.Color.X)`, Blazor reads `var(--shiny-color-x)`.
 
 Regenerate after editing any `/themes/*.json`:
 
@@ -92,6 +148,26 @@ To use a pack, install it and link its stylesheet **after** the core one (it ove
 
 Dark mode follows the OS by default. Force it by adding `shiny-theme-dark` (or `shiny-theme-light`)
 to `<html>` or any container; the tokens cascade to that subtree.
+
+## Overriding a theme without forking one
+
+On **Blazor**, this is now the ordinary thing a web developer would try, and it works — the authoring
+tokens are plain custom properties, and a later stylesheet wins:
+
+```css
+/* app.css, linked after the Shiny theme */
+:root {
+    --shiny-primary: #5B21B6;
+    --shiny-radius: 4px;
+    --shiny-density: 0.9;
+}
+.shiny-theme-dark {
+    --shiny-primary: #A78BFA;
+}
+```
+
+Everything derived from those moves with them. You do not need the generator, this repo, or a NuGet
+package to restyle the control set.
 
 ## Authoring a new theme
 

@@ -1,0 +1,34 @@
+@namespace Shiny.Blazor.Controls
+
+@*
+    A static segment - a label, a unit, a prefix - sitting flush with the buttons beside it. It is not a
+    disabled button: a disabled button reads as an action that is currently unavailable, while this was
+    never actionable. It takes no clicks and the group never counts it as selectable.
+
+    Styled from ButtonGroup.razor.css through ::deep, so it has no stylesheet of its own.
+*@
+
+<span class="shiny-btn-group__text @this.CssClass" @attributes="this.AdditionalAttributes">
+    @if (this.ChildContent is not null)
+    {
+        @this.ChildContent
+    }
+    else
+    {
+        @this.Text
+    }
+</span>
+
+@code {
+    /// <summary>The segment's text. Ignored when <see cref="ChildContent"/> is supplied.</summary>
+    [Parameter] public string? Text { get; set; }
+
+    /// <summary>The segment's content — an icon beside a label, say.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Extra classes on the segment.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IDictionary<string, object>? AdditionalAttributes { get; set; }
+}

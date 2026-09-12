@@ -41,6 +41,7 @@
         style="@InlineStyle"
         disabled="@IsDisabled"
         aria-busy="@(CurrentState == ButtonState.Busy ? "true" : null)"
+        aria-pressed="@AriaPressed"
         aria-label="@AriaLabel"
         @onclick="HandleClick"
         @attributes="AdditionalAttributes">

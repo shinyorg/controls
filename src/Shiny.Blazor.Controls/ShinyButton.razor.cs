@@ -36,6 +36,10 @@ public partial class ShinyButton : IDisposable
 
     CancellationTokenSource? revertCts;
 
+    // Group membership. A button that is not inside a ButtonGroup never touches any of this.
+    ButtonGroup? registeredGroup;
+    bool appearanceSupplied;
+
 
     // ---------------------------------------------------------------------------------------------
     // Content
@@ -63,6 +67,41 @@ public partial class ShinyButton : IDisposable
 
     /// <summary>How much of the button is painted.</summary>
     [Parameter] public ButtonAppearance Appearance { get; set; } = ButtonAppearance.Filled;
+
+    /// <summary>
+    /// The <see cref="ButtonGroup"/> this button is a segment of, if any. Public because a private
+    /// cascaded parameter compiles, runs, and is silently skipped.
+    /// </summary>
+    [CascadingParameter] public ButtonGroup? Group { get; set; }
+
+    /// <summary>
+    /// What the button actually paints as. Identical to <see cref="Appearance"/> everywhere except
+    /// inside a group that is in a selection mode, where the group owns the selected/unselected look.
+    /// </summary>
+    ButtonAppearance EffectiveAppearance
+        => this.registeredGroup?.AppearanceFor(this, this.appearanceSupplied) ?? this.Appearance;
+
+    /// <summary>
+    /// <c>aria-pressed</c> for a segment of a selection group, and nothing at all otherwise — an
+    /// ordinary action button that reports a pressed state is announced as a toggle it is not.
+    /// </summary>
+    string? AriaPressed
+        => this.registeredGroup is { SelectionMode: not ButtonGroupSelectionMode.None } group
+            ? group.IsSelected(this) ? "true" : "false"
+            : null;
+
+    /// <summary>
+    /// Re-renders the segment after its group's selection moved — but only once there is something to
+    /// re-render. A group pushes state onto its segments while they are still registering, during its
+    /// own first render pass, and asking for a repaint before the render handle exists throws.
+    /// </summary>
+    internal void NotifyGroupChanged()
+    {
+        if (this.hasRendered)
+            this.InvokeAsync(this.StateHasChanged);
+    }
+
+    bool hasRendered;
 
     /// <summary>Which semantic colour family the button draws from.</summary>
     [Parameter] public ButtonType Type { get; set; } = ButtonType.Primary;
@@ -244,6 +283,29 @@ public partial class ShinyButton : IDisposable
     // Parameter / internal state reconciliation
     // ---------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Records whether the caller actually supplied <see cref="Appearance"/>, which a plain parameter
+    /// cannot say: its default is a real value, so a segment that never mentioned an appearance is
+    /// indistinguishable from one that asked for <c>Filled</c>. A <see cref="ButtonGroup"/> in a
+    /// selection mode needs the difference — an appearance the author set wins as the unselected look,
+    /// and the default must not.
+    /// </summary>
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        if (parameters.TryGetValue<ButtonAppearance>(nameof(this.Appearance), out _))
+            this.appearanceSupplied = true;
+
+        return base.SetParametersAsync(parameters);
+    }
+
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+            this.hasRendered = true;
+    }
+
+
     protected override void OnInitialized()
     {
         this.currentState = this.IsBusy ? ButtonState.Busy : this.State;
@@ -258,6 +320,15 @@ public partial class ShinyButton : IDisposable
 
     protected override void OnParametersSet()
     {
+        // Group membership, if any. Registration order is render order, which is what gives a segment
+        // its index; the group is told nothing that would make it re-render, or the pair would spin.
+        if (!ReferenceEquals(this.registeredGroup, this.Group))
+        {
+            this.registeredGroup?.Unregister(this);
+            this.registeredGroup = this.Group;
+            this.registeredGroup?.Register(this);
+        }
+
         // These two shadows record what the PARENT last supplied, and nothing else may write them.
         // That is the whole mechanism: "did the parent change it" is only a meaningful question while
         // they track the parent. Writing the internal state into them (as SetStateAsync used to)
@@ -368,6 +439,11 @@ public partial class ShinyButton : IDisposable
             return;
 
         this.PlaySlotMotionIcons();
+
+        // The group moves its selection before the handler runs, so a handler that reads SelectedIndex
+        // sees the click it is reacting to rather than the one before it.
+        if (this.registeredGroup is not null)
+            await this.registeredGroup.NotifyClickedAsync(this);
 
         if (!this.Clicked.HasDelegate)
             return;
@@ -591,7 +667,7 @@ public partial class ShinyButton : IDisposable
         get
         {
             var sb = new StringBuilder("shiny-btn");
-            sb.Append(" shiny-btn--").Append(Lower(this.Appearance.ToString()));
+            sb.Append(" shiny-btn--").Append(Lower(this.EffectiveAppearance.ToString()));
             sb.Append(" shiny-btn--").Append(Lower(this.Type.ToString()));
 
             if (this.ContentLayout is not ButtonContentLayout.Sides)
@@ -677,6 +753,9 @@ public partial class ShinyButton : IDisposable
 
     public void Dispose()
     {
+        this.registeredGroup?.Unregister(this);
+        this.registeredGroup = null;
+
         this.revertCts?.Cancel();
         this.revertCts?.Dispose();
         this.revertCts = null;

@@ -25,12 +25,25 @@ if (jsonFiles.Count == 0)
 Console.WriteLine($"Repo root: {root}");
 Console.WriteLine($"Found {jsonFiles.Count} theme(s).\n");
 
+// The derivation table is the contract; a gap in it would emit a stylesheet that silently drops a
+// variable every control reads, so it is checked before a single file is written.
+AuthoringLayer.Validate();
+
 foreach (var file in jsonFiles)
 {
     var theme = LoadTheme(file);
+
+    // Seeds still build a full Material scheme - that is how a theme gets a coherent palette out of
+    // one brand colour. What changed is that the scheme is no longer the output: the authoring layer
+    // is lifted out of it, the theme's own `tokens` block overrides whatever it wants to state
+    // directly, and the roles are then derived back. A theme that states every token never has its
+    // seeds consulted for anything but the tokens it left out.
     var palettes = Palettes.FromSeeds(theme.Seeds);
-    var light = SchemeBuilder.Build(palettes, dark: false);
-    var dark = SchemeBuilder.Build(palettes, dark: true);
+    var lightAuthoring = AuthoringLayer.FromScheme(SchemeBuilder.Build(palettes, dark: false), theme.LightTokens);
+    var darkAuthoring = AuthoringLayer.FromScheme(SchemeBuilder.Build(palettes, dark: true), theme.DarkTokens);
+
+    var light = AuthoringLayer.ToRoles(lightAuthoring);
+    var dark = AuthoringLayer.ToRoles(darkAuthoring);
 
     var data = new ThemeData(
         theme.Name,
@@ -38,6 +51,8 @@ foreach (var file in jsonFiles)
         theme.Description,
         light,
         dark,
+        lightAuthoring,
+        darkAuthoring,
         Resolve.Shape(theme.Shape),
         Resolve.Type(theme.Type),
         theme.Type,
@@ -59,7 +74,7 @@ foreach (var file in jsonFiles)
     WriteFile(Path.Combine(mauiDir, $"{theme.Name}LightTheme.cs"), Emitter.MauiDictionary(data, dark: false));
     WriteFile(Path.Combine(mauiDir, $"{theme.Name}DarkTheme.cs"), Emitter.MauiDictionary(data, dark: true));
     WriteFile(Path.Combine(mauiDir, $"{theme.Name}Theme.cs"), Emitter.MauiTheme(data));
-    WriteFile(blazorCss, Emitter.Css(data));
+    WriteFile(blazorCss, Emitter.Css(data, core: isCore));
 
     Console.WriteLine($"  {theme.Name,-10} -> MAUI {(isCore ? "[core]" : "[pack]")}  +  Blazor css");
 }
@@ -109,12 +124,31 @@ static ThemeSource LoadTheme(string path)
         rootEl.GetProperty("slug").GetString()!,
         rootEl.TryGetProperty("description", out var d) ? d.GetString()! : "",
         seeds,
+        ReadTokens(rootEl, "light"),
+        ReadTokens(rootEl, "dark"),
         ReadShape(rootEl),
         ReadType(rootEl),
         ReadElevation(rootEl),
         ReadDensity(rootEl),
         ReadBorder(rootEl),
         ReadState(rootEl));
+}
+
+/// <summary>
+/// The optional `tokens.light` / `tokens.dark` block: authoring values stated outright rather than
+/// derived from the seeds. This is the hand-authoring path - a theme can be written as nothing but
+/// these, and the seeds then only fill the gaps.
+/// </summary>
+static Dictionary<string, string>? ReadTokens(JsonElement root, string scheme)
+{
+    if (!root.TryGetProperty("tokens", out var tokens) || !tokens.TryGetProperty(scheme, out var block))
+        return null;
+
+    var map = new Dictionary<string, string>(StringComparer.Ordinal);
+    foreach (var prop in block.EnumerateObject())
+        map[prop.Name] = prop.Value.GetString()!;
+
+    return map;
 }
 
 // Every block below is optional and falls back to the shared default, so a theme only states the
@@ -215,6 +249,8 @@ sealed record ThemeSource(
     string Slug,
     string Description,
     IReadOnlyDictionary<string, string> Seeds,
+    IReadOnlyDictionary<string, string>? LightTokens,
+    IReadOnlyDictionary<string, string>? DarkTokens,
     ShapeSpec Shape,
     TypeSpec Type,
     ElevationSpec Elevation,
