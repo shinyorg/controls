@@ -132,19 +132,7 @@
         if (IsOpen != isOpen)
         {
             isOpen = IsOpen;
-            if (module is not null)
-            {
-                if (isOpen)
-                {
-                    isMinimized = false;
-                    await module.InvokeVoidAsync("open", sheetEl, GetSortedRatios(), IsBottom);
-                }
-                else
-                {
-                    await module.InvokeVoidAsync("close", sheetEl, CanMinimize);
-                    isMinimized = CanMinimize;
-                }
-            }
+            await MoveSheetAsync(isOpen);
         }
 
         if (IsLocked != wasLocked)
@@ -160,6 +148,18 @@
             if (module is not null)
                 await module.InvokeVoidAsync("setDirection", sheetEl, IsBottom);
         }
+    }
+
+    async Task MoveSheetAsync(bool open)
+    {
+        isMinimized = !open && CanMinimize;
+        if (module is null)
+            return;
+
+        if (open)
+            await module.InvokeVoidAsync("open", sheetEl, GetSortedRatios(), IsBottom);
+        else
+            await module.InvokeVoidAsync("close", sheetEl, CanMinimize);
     }
 
     double[] GetSortedRatios() => ResolveDetents().Select(d => d.Ratio).OrderBy(r => r).ToArray();
@@ -190,8 +190,12 @@
         if (isOpen == value) return;
         isOpen = value;
         IsOpen = value;
-        if (!value) isMinimized = CanMinimize;
-        else isMinimized = false;
+
+        // A change from inside the sheet - a backdrop tap, a swipe past the lowest detent, a tap on the
+        // minimized header - has already recorded the new state, so when the parent hands the same value
+        // back OnParametersSetAsync sees nothing to do. The sheet has to be moved here, or it stays on
+        // screen after its parent has let go of what it was showing.
+        await MoveSheetAsync(value);
         await IsOpenChanged.InvokeAsync(value);
         if (value) await Opened.InvokeAsync();
         else await Closed.InvokeAsync();
