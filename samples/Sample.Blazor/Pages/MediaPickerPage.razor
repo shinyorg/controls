@@ -32,8 +32,27 @@
 
 <p style="margin-top:12px;font-weight:600;">Photos added: @photos.Count</p>
 
+<p style="color:#888;max-width:640px;">
+    Each photo stays in the browser — .NET gets an id, a preview URL and the size, and the bytes only
+    move when something asks for them. Read one below, or point <code>UploadUrl</code> at an endpoint
+    and the browser posts it as multipart itself.
+</p>
+
+@if (photos.Count > 0)
+{
+    <button @onclick="ReadFirst">Read the first photo's bytes</button>
+    <span style="margin-left:8px;">@readReport</span>
+}
+
 @code {
     IReadOnlyList<Shiny.Blazor.Controls.MediaPickerItem> photos = [];
+    string readReport = "";
+
+    async Task ReadFirst()
+    {
+        var bytes = await photos[0].ReadAllBytesAsync();
+        readReport = $"{bytes.Length:N0} bytes, {photos[0].ContentType}, {photos[0].Width}×{photos[0].Height}";
+    }
 
     bool allowGallery = true;
     bool allowCamera = true;

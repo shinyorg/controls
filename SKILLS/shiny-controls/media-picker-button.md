@@ -74,9 +74,45 @@ ObservableCollection<MediaPickerItem> photos = new();   // Shiny.Maui.Controls.M
 - `PhotosChanged` (MAUI event + `PhotosChangedCommand`) / `PhotosChanged` (Blazor `EventCallback`) — the collection changed.
 - `PermissionDenied` — camera/gallery access was denied (message string).
 
+## Uploading (Blazor only)
+
+A picked photo's bytes stay in the browser. Only a descriptor crosses into .NET; the bytes move as binary — a JS stream, or a multipart POST the browser makes itself. **Never base64**: on Blazor Server that was one SignalR message per photo, over the default 32KB cap, and it closed the circuit.
+
+```razor
+<MediaPickerButton @ref="picker" @bind-Photos="photos" MaxPhotos="5" UploadProgress="OnProgress" />
+
+@code {
+    MediaPickerButton? picker;
+
+    async Task Save()
+    {
+        var id = await SaveTheThing();      // save FIRST — the photos need something to belong to
+        var results = await picker!.UploadAllAsync(new MediaPickerUpload($"/photos/{id}")
+        {
+            Headers = new Dictionary<string, string> { ["X-Upload-Ticket"] = ticket }
+        });
+    }
+
+    void OnProgress(MediaPickerUploadProgress p) { percent = p.Percent ?? 0; StateHasChanged(); }
+}
+```
+
+| Member | Purpose |
+|---|---|
+| `UploadUrl` (`MediaPickerUpload`) | Address, `FieldName` (default `file`), `FileName`, `Method`, `Headers`, `WithCredentials` |
+| `AutoUpload` | Send each photo as it is picked (needs `UploadUrl`) |
+| `UploadAllAsync(upload?, keep?)` / `UploadAsync(item, …)` | Send now, with an address only known after saving. `keep: true` sends the same photos again elsewhere |
+| `Uploaded` / `UploadProgress` | Per-photo result (`Success`, `StatusCode`, `Body`) and progress (`Percent`) |
+| `ClearAsync()` | Drop everything picked and free the browser's copies |
+| `LoadBytes` / `MaxReadSize` | Whether to fill `Data` on pick (default true, false when uploading), and the read cap (32MB) |
+
+Never hand an authorization token to the browser just to upload: post to your own origin with a short-lived ticket in `Headers`, and let the server attach the real credential.
+
 ## MediaPickerItem
 
 The result DTO in each package. Bytes are already compressed/converted to `OutputFormat`.
+
+On **Blazor** the bytes live in the browser: `Id`, `DataUri` (an object URL for `<img src>`), `Width`, `Height`, `ContentType`, `Size`, `FileName`, plus `Data` (filled on pick unless uploading), `HasData`, `OpenReadStreamAsync(max, ct)` and `ReadAllBytesAsync(max, ct)`.
 
 - MAUI: `record MediaPickerItem(byte[] Data, int Width, int Height, string ContentType)` with `Stream OpenRead()` and an `ImageSource Thumbnail`.
 - Blazor: `class MediaPickerItem { byte[] Data; string DataUri; int Width; int Height; string ContentType; }` — bind `DataUri` directly to `<img src>`.

@@ -11,6 +11,7 @@ public partial class MediaPickerButton : IAsyncDisposable
     ElementReference galleryInputEl;
     ElementReference cameraInputEl;
     ImageEditor? editor;
+    byte[] editBytes = [];
 
     readonly List<MediaPickerItem> items = new();
 
@@ -42,11 +43,45 @@ public partial class MediaPickerButton : IAsyncDisposable
     [Parameter] public string GalleryActionText { get; set; } = "Choose from Gallery";
     [Parameter] public string CameraActionText { get; set; } = "Take Photo";
 
+    /// <summary>
+    /// Where each photo is posted as multipart form data, by the browser itself. Set it and the bytes
+    /// never enter .NET at all — which is what a Blazor Server app wants, since a photo carried over
+    /// the circuit is a large message on a connection that is meant for small ones.
+    /// </summary>
+    /// <remarks>
+    /// With <see cref="AutoUpload"/> off (the default), nothing is sent until
+    /// <see cref="UploadAllAsync"/> is called — so a screen can save its record first and upload
+    /// against the id that record was given.
+    /// </remarks>
+    [Parameter] public MediaPickerUpload? UploadUrl { get; set; }
+
+    /// <summary>Uploads each photo the moment it is picked. Requires <see cref="UploadUrl"/>.</summary>
+    [Parameter] public bool AutoUpload { get; set; }
+
+    /// <summary>
+    /// Reads each photo's bytes into <see cref="MediaPickerItem.Data"/> when it is picked, streamed
+    /// rather than base64-encoded. Defaults to true unless the button is uploading the photos itself,
+    /// in which case nothing needs them in .NET. Either way <see cref="MediaPickerItem.ReadAllBytesAsync"/>
+    /// fetches them on demand.
+    /// </summary>
+    [Parameter] public bool? LoadBytes { get; set; }
+
+    /// <summary>Refuses a photo larger than this when reading its bytes. 32MB by default.</summary>
+    [Parameter] public long MaxReadSize { get; set; } = 32 * 1024 * 1024;
+
     [Parameter] public IReadOnlyList<MediaPickerItem> Photos { get; set; } = [];
     [Parameter] public EventCallback<IReadOnlyList<MediaPickerItem>> PhotosChanged { get; set; }
     [Parameter] public EventCallback<MediaPickerItem> PhotoAdded { get; set; }
     [Parameter] public EventCallback<MediaPickerItem> PhotoRemoved { get; set; }
     [Parameter] public EventCallback<string> PermissionDenied { get; set; }
+
+    /// <summary>One photo finished uploading, for better or worse.</summary>
+    [Parameter] public EventCallback<MediaPickerUploadResult> Uploaded { get; set; }
+
+    /// <summary>How far an upload has got, as the browser sends it.</summary>
+    [Parameter] public EventCallback<MediaPickerUploadProgress> UploadProgress { get; set; }
+
+    bool ShouldLoadBytes => this.LoadBytes ?? this.UploadUrl == null;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -113,23 +148,136 @@ public partial class MediaPickerButton : IAsyncDisposable
 
         var item = ToItem(result);
         items.Add(item);
+
+        // Fetched in chunks, and only if anything here wants them.
+        if (this.ShouldLoadBytes)
+            await item.ReadAllBytesAsync(this.MaxReadSize);
+
         await NotifyChangedAsync();
         await PhotoAdded.InvokeAsync(item);
         StateHasChanged();
+
+        if (this.AutoUpload && this.UploadUrl != null)
+            await this.UploadAsync(item);
     }
 
-    static MediaPickerItem ToItem(MediaPickerJsResult result)
+    MediaPickerItem ToItem(MediaPickerJsResult result) => new()
     {
-        var data = Convert.FromBase64String(result.DataBase64);
-        return new MediaPickerItem
-        {
-            Data = data,
-            DataUri = $"data:{result.ContentType};base64,{result.DataBase64}",
-            Width = result.Width,
-            Height = result.Height,
-            ContentType = result.ContentType
-        };
+        Id = result.Id,
+        DataUri = result.PreviewUrl,
+        Width = result.Width,
+        Height = result.Height,
+        ContentType = result.ContentType,
+        Size = result.Size,
+        FileName = result.FileName,
+        Opener = (max, ct) => this.OpenAsync(result.Id, max, ct)
+    };
+
+    async Task<Stream> OpenAsync(string id, long maxAllowedSize, CancellationToken cancellationToken)
+    {
+        if (this.module == null)
+            throw new InvalidOperationException("The media picker is not running.");
+
+        var reference = await this.module
+            .InvokeAsync<IJSStreamReference>("read", cancellationToken, this.rootEl, id)
+            .ConfigureAwait(false);
+
+        return await reference
+            .OpenReadStreamAsync(maxAllowedSize, cancellationToken)
+            .ConfigureAwait(false);
     }
+
+
+    /// <summary>
+    /// Posts every photo that is still waiting, one at a time, and reports each as it lands.
+    /// </summary>
+    /// <param name="upload">Overrides <see cref="UploadUrl"/> — for an address only known once
+    /// whatever the photos belong to has been saved.</param>
+    /// <param name="keep">Holds on to the photos afterwards, for sending the same ones somewhere else.</param>
+    public async Task<IReadOnlyList<MediaPickerUploadResult>> UploadAllAsync(
+        MediaPickerUpload? upload = null,
+        bool keep = false,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var results = new List<MediaPickerUploadResult>();
+
+        foreach (var item in this.items.ToList())
+            results.Add(await this.UploadAsync(item, upload, keep, cancellationToken).ConfigureAwait(false));
+
+        return results;
+    }
+
+
+    /// <summary>Posts one photo.</summary>
+    public async Task<MediaPickerUploadResult> UploadAsync(
+        MediaPickerItem item,
+        MediaPickerUpload? upload = null,
+        bool keep = false,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var target = upload ?? this.UploadUrl
+            ?? throw new InvalidOperationException($"Set {nameof(UploadUrl)}, or pass one to {nameof(UploadAsync)}.");
+
+        if (this.module == null)
+            throw new InvalidOperationException("The media picker is not running.");
+
+        var answer = await this.module.InvokeAsync<MediaPickerJsUploadResult>(
+            "upload",
+            cancellationToken,
+            this.rootEl,
+            item.Id,
+            new MediaPickerJsUpload
+            {
+                Url = target.Url,
+                Method = target.Method,
+                FieldName = target.FieldName,
+                FileName = target.FileName ?? item.FileName,
+                Headers = target.Headers,
+                WithCredentials = target.WithCredentials
+            },
+            this.selfRef
+        ).ConfigureAwait(false);
+
+        var result = new MediaPickerUploadResult(item, answer.Ok, answer.Status, answer.Body ?? "");
+
+        // Kept on a failure, so the screen can offer to try again rather than asking for the photo twice.
+        if (answer.Ok && !keep)
+            await this.RemoveAsync(item, notify: false).ConfigureAwait(false);
+
+        await this.Uploaded.InvokeAsync(result).ConfigureAwait(false);
+
+        if (answer.Ok && !keep)
+            await this.NotifyChangedAsync().ConfigureAwait(false);
+
+        this.StateHasChanged();
+
+        return result;
+    }
+
+
+    [JSInvokable]
+    public Task OnUploadProgress(string id, long sent, long total)
+    {
+        var item = this.items.FirstOrDefault(x => x.Id == id);
+
+        return item == null
+            ? Task.CompletedTask
+            : this.UploadProgress.InvokeAsync(new MediaPickerUploadProgress(item, sent, total));
+    }
+
+
+    /// <summary>Drops every photo, and lets the browser forget their bytes.</summary>
+    public async Task ClearAsync()
+    {
+        foreach (var item in this.items.ToList())
+            await this.RemoveAsync(item, notify: false).ConfigureAwait(false);
+
+        await this.NotifyChangedAsync().ConfigureAwait(false);
+        this.StateHasChanged();
+    }
+
 
     void OpenViewer(int index)
     {
@@ -152,16 +300,43 @@ public partial class MediaPickerButton : IAsyncDisposable
     {
         if (index < 0 || index >= items.Count)
             return;
-        var removed = items[index];
-        items.RemoveAt(index);
-        await NotifyChangedAsync();
-        await PhotoRemoved.InvokeAsync(removed);
+
+        await this.RemoveAsync(items[index]);
         StateHasChanged();
     }
 
-    void StartEdit()
+
+    async Task RemoveAsync(MediaPickerItem item, bool notify = true)
+    {
+        if (!this.items.Remove(item))
+            return;
+
+        if (this.module != null)
+        {
+            try
+            {
+                await this.module.InvokeVoidAsync("release", this.rootEl, item.Id).ConfigureAwait(false);
+            }
+            catch (JSDisconnectedException) { /* the page is gone; so are its object URLs */ }
+        }
+
+        if (!notify)
+            return;
+
+        await this.NotifyChangedAsync().ConfigureAwait(false);
+        await this.PhotoRemoved.InvokeAsync(item).ConfigureAwait(false);
+    }
+
+
+    async Task StartEdit()
     {
         viewerOpen = false;
+
+        // The editor works on bytes, so they come over now even when nothing else needed them.
+        editBytes = currentIndex >= 0 && currentIndex < items.Count
+            ? await items[currentIndex].ReadAllBytesAsync(this.MaxReadSize)
+            : [];
+
         editing = true;
     }
 
@@ -177,24 +352,36 @@ public partial class MediaPickerButton : IAsyncDisposable
         var format = OutputFormat == "png" ? "png" : "jpeg";
         var bytes = await editor.ExportAsync(format, quality);
         editing = false;
+        editBytes = [];
 
-        if (bytes.Length == 0)
+        if (bytes.Length == 0 || module == null)
             return;
 
-        var base64 = Convert.ToBase64String(bytes);
         var contentType = format == "png" ? "image/png" : "image/jpeg";
-        var size = module != null
-            ? await module.InvokeAsync<MediaPickerJsSize>("measure", rootEl, base64, contentType)
-            : new MediaPickerJsSize();
+        var existing = items[currentIndex];
 
-        items[currentIndex] = new MediaPickerItem
-        {
-            Data = bytes,
-            DataUri = $"data:{contentType};base64,{base64}",
-            Width = size.Width,
-            Height = size.Height,
-            ContentType = contentType
-        };
+        // Back to the browser as a stream, and it becomes the blob that gets uploaded or read later.
+        using var stream = new MemoryStream(bytes);
+        var replaced = await module.InvokeAsync<MediaPickerJsResult?>(
+            "replace",
+            rootEl,
+            existing.Id,
+            new DotNetStreamReference(stream),
+            contentType
+        );
+
+        if (replaced == null)
+            return;
+
+        var item = ToItem(replaced);
+        item.FileName = existing.FileName;
+
+        if (this.ShouldLoadBytes)
+            item.Data = bytes;
+
+        items[currentIndex] = item;
+        viewerSource = item.DataUri;
+
         await NotifyChangedAsync();
         StateHasChanged();
     }
@@ -222,10 +409,13 @@ public partial class MediaPickerButton : IAsyncDisposable
     // Named DTOs for trim/AOT-safe JS interop (anonymous types lose ctor param names on publish).
     public sealed class MediaPickerJsResult
     {
-        public string DataBase64 { get; set; } = "";
+        public string Id { get; set; } = "";
+        public string PreviewUrl { get; set; } = "";
         public int Width { get; set; }
         public int Height { get; set; }
         public string ContentType { get; set; } = "";
+        public long Size { get; set; }
+        public string FileName { get; set; } = "";
     }
 
     sealed class MediaPickerJsOptions
@@ -235,9 +425,20 @@ public partial class MediaPickerButton : IAsyncDisposable
         public int MaxDimension { get; set; }
     }
 
-    sealed class MediaPickerJsSize
+    sealed class MediaPickerJsUpload
     {
-        public int Width { get; set; }
-        public int Height { get; set; }
+        public string Url { get; set; } = "";
+        public string Method { get; set; } = "POST";
+        public string FieldName { get; set; } = "file";
+        public string? FileName { get; set; }
+        public IReadOnlyDictionary<string, string>? Headers { get; set; }
+        public bool WithCredentials { get; set; }
+    }
+
+    public sealed class MediaPickerJsUploadResult
+    {
+        public bool Ok { get; set; }
+        public int Status { get; set; }
+        public string? Body { get; set; }
     }
 }
