@@ -38,6 +38,7 @@
                   xmlns:dialogs="clr-namespace:Sample.Features.Dialogs"
                   xmlns:datagrid="clr-namespace:Sample.Features.DataGrid"
                   xmlns:gantt="clr-namespace:Sample.Features.Gantt"
+                  xmlns:kanban="clr-namespace:Sample.Features.Kanban"
                   xmlns:diagram="clr-namespace:Sample.Features.Diagram"
                   xmlns:floorplan="clr-namespace:Sample.Features.FloorPlan"
                   xmlns:office="clr-namespace:Sample.Features.Office"
@@ -382,6 +383,14 @@
                              Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate gantt:GanttPage}" Route="gantt" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Kanban">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25EB;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate kanban:KanbanPage}" Route="kanban" />
     </FlyoutItem>
 
     <FlyoutItem Title="Diagram">

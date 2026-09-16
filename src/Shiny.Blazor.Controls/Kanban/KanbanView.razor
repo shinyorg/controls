@@ -1,0 +1,254 @@
+@namespace Shiny.Blazor.Controls.Kanban
+@using System.Globalization
+
+@*
+    The lane and the card are inline Razor templates rather than RenderFragments built in the
+    code-behind. That is not a style choice: CSS isolation rewrites selectors against elements the
+    Razor compiler emitted, and a subtree built with RenderTreeBuilder carries no scope attribute -
+    so every rule in KanbanView.razor.css would silently miss it.
+*@
+@{
+    var board = this.Board;
+
+    RenderFragment<KanbanCard> card = c =>
+    @<div class="shiny-kanban-card @(ReferenceEquals(c, SelectedCard) ? "is-selected" : null) @(c.IsLocked ? "is-locked" : null)"
+          data-kanban-card="@c.Id"
+          data-kanban-locked="@(this.CanDrag(c) ? "false" : "true")"
+          tabindex="0"
+          @onclick="() => this.SelectCard(c)"
+          @onkeydown="e => this.OnCardKeyDown(e, c)">
+        @if (CardTemplate is not null)
+        {
+            @CardTemplate(c)
+        }
+        else
+        {
+            <div class="shiny-kanban-card-inner">
+                @if (!string.IsNullOrWhiteSpace(c.Color))
+                {
+                    <span class="shiny-kanban-card-accent" style="background:@c.Color"></span>
+                }
+                <div class="shiny-kanban-card-body">
+                    @if (ShowLabels && c.Labels.Count > 0)
+                    {
+                        <div class="shiny-kanban-labels">
+                            @foreach (var label in c.Labels)
+                            {
+                                if (string.IsNullOrEmpty(label.Text))
+                                {
+                                    <span class="shiny-kanban-label is-dot" style="@LabelStyle(label)"></span>
+                                }
+                                else
+                                {
+                                    <span class="shiny-kanban-label" style="@LabelStyle(label)">@label.Text</span>
+                                }
+                            }
+                        </div>
+                    }
+
+                    <div class="shiny-kanban-card-title">@c.Title</div>
+
+                    @if (DescriptionLineLimit > 0 && !string.IsNullOrWhiteSpace(c.Description))
+                    {
+                        <div class="shiny-kanban-card-desc" style="-webkit-line-clamp:@DescriptionLineLimit">@c.Description</div>
+                    }
+
+                    @if (this.HasFooter(c))
+                    {
+                        <div class="shiny-kanban-card-foot">
+                            @if (ShowAssignee && this.HasAssignee(c))
+                            {
+                                <span class="shiny-kanban-assignee">
+                                    @if (!string.IsNullOrWhiteSpace(c.AssigneeImage))
+                                    {
+                                        <img class="shiny-kanban-avatar" src="@c.AssigneeImage" alt="@c.AssigneeName" />
+                                    }
+                                    else
+                                    {
+                                        <span class="shiny-kanban-avatar is-initials">@Initials(c.AssigneeName)</span>
+                                    }
+                                    <span class="shiny-kanban-assignee-name">@c.AssigneeName</span>
+                                </span>
+                            }
+                            @if (ShowDueDate && c.DueDate is { } dueDate)
+                            {
+                                <span class="shiny-kanban-due @this.DueClass(dueDate)">
+                                    @dueDate.ToString(DueDateFormat, this.EffectiveCulture)
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(c.Badge))
+                {
+                    <span class="shiny-kanban-badge">@c.Badge</span>
+                }
+                else if (c.IsLocked)
+                {
+                    <span class="shiny-kanban-badge" title="Locked">&#128274;</span>
+                }
+            </div>
+        }
+    </div>;
+
+    RenderFragment<KanbanSwimlane?> lane = swimlane =>
+    @<div class="shiny-kanban-lane">
+        @foreach (var column in board.Columns)
+        {
+            var laneModel = board.Lane(column.Id, swimlane?.Id);
+            <div class="shiny-kanban-cell @(column.IsCollapsed ? "is-collapsed" : null)"
+                 style="@this.CellStyle(column)"
+                 data-kanban-cell
+                 data-kanban-column="@column.Id"
+                 data-kanban-swimlane="@(swimlane?.Id ?? string.Empty)">
+
+                @if (!column.IsCollapsed)
+                {
+                    @if (laneModel is { Count: > 0 })
+                    {
+                        foreach (var item in laneModel.Cards)
+                        {
+                            @card(item)
+                        }
+                    }
+                    else if (EmptyColumnTemplate is not null)
+                    {
+                        @EmptyColumnTemplate(column)
+                    }
+                    else if (!string.IsNullOrEmpty(EmptyColumnText))
+                    {
+                        <div class="shiny-kanban-cell-empty">@EmptyColumnText</div>
+                    }
+
+                    @if (AddCardMode != KanbanAddCardMode.None && !IsReadOnly && column.AllowAdd)
+                    {
+                        var key = LaneKey(column, swimlane);
+                        if (AddCardMode == KanbanAddCardMode.Inline && this.composingLane == key)
+                        {
+                            <input class="shiny-kanban-add-input"
+                                   placeholder="Card title"
+                                   value="@this.composingTitle"
+                                   @oninput="e => { this.composingTitle = e.Value?.ToString() ?? string.Empty; }"
+                                   @onkeydown="e => this.OnComposerKeyDown(e, column, swimlane)"
+                                   @onblur="this.CancelComposer"
+                                   autofocus />
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="shiny-kanban-add"
+                                    @onclick="() => this.OnAddPressed(column, swimlane)">
+                                +&nbsp;&nbsp;Add card
+                            </button>
+                        }
+                    }
+                }
+            </div>
+        }
+    </div>;
+}
+
+<div @ref="rootElement"
+     class="shiny-kanban @Class"
+     data-kanban-scroll
+     @attributes="AdditionalAttributes">
+
+    @if (board.Columns.Count == 0)
+    {
+        <div class="shiny-kanban-empty-board">@EmptyBoardText</div>
+    }
+    else
+    {
+        <div class="shiny-kanban-content" style="@this.ContentStyle()">
+
+            <div class="shiny-kanban-head">
+                @foreach (var column in board.Columns)
+                {
+                    <div class="shiny-kanban-head-cell" style="@this.CellStyle(column)">
+                        @if (ColumnHeaderTemplate is not null)
+                        {
+                            @ColumnHeaderTemplate(column)
+                        }
+                        else
+                        {
+                            <div class="shiny-kanban-head-inner @(this.IsOver(column) ? "is-over-limit" : null)">
+                                @if (!string.IsNullOrWhiteSpace(column.Color))
+                                {
+                                    <span class="shiny-kanban-head-rule" style="background:@column.Color"></span>
+                                }
+                                <div class="shiny-kanban-head-row">
+                                    @if (!column.IsCollapsed)
+                                    {
+                                        <span class="shiny-kanban-head-title">@column.Title</span>
+                                    }
+                                    @if (this.CountLabel(column) is { Length: > 0 } count)
+                                    {
+                                        <span class="shiny-kanban-head-count">@count</span>
+                                    }
+                                    @if (AllowColumnCollapse && !IsReadOnly)
+                                    {
+                                        <button type="button"
+                                                class="shiny-kanban-chevron"
+                                                title="@(column.IsCollapsed ? "Expand" : "Collapse")"
+                                                aria-expanded="@((!column.IsCollapsed).ToString().ToLowerInvariant())"
+                                                @onclick="() => this.ToggleColumn(column)">
+                                            @(column.IsCollapsed ? "›" : "‹")
+                                        </button>
+                                    }
+                                </div>
+                                @if (!column.IsCollapsed && !string.IsNullOrWhiteSpace(column.Description))
+                                {
+                                    <div class="shiny-kanban-head-sub">@column.Description</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (this.Grouped)
+            {
+                foreach (var swimlane in board.Swimlanes)
+                {
+                    <div class="shiny-kanban-swimlane">
+                        @if (SwimlaneHeaderTemplate is not null)
+                        {
+                            @SwimlaneHeaderTemplate(swimlane)
+                        }
+                        else
+                        {
+                            <div class="shiny-kanban-swimlane-inner">
+                                @if (AllowSwimlaneCollapse && !IsReadOnly)
+                                {
+                                    <button type="button"
+                                            class="shiny-kanban-chevron"
+                                            aria-expanded="@((!swimlane.IsCollapsed).ToString().ToLowerInvariant())"
+                                            @onclick="() => this.ToggleSwimlane(swimlane)">
+                                        @(swimlane.IsCollapsed ? "›" : "⌄")
+                                    </button>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(swimlane.Color))
+                                {
+                                    <span class="shiny-kanban-swimlane-marker" style="background:@swimlane.Color"></span>
+                                }
+                                <span class="shiny-kanban-swimlane-title">@swimlane.Title</span>
+                            </div>
+                        }
+                    </div>
+
+                    if (!swimlane.IsCollapsed)
+                    {
+                        @lane(swimlane)
+                    }
+                }
+            }
+            else
+            {
+                @lane(null)
+            }
+        </div>
+    }
+
+    <div class="shiny-kanban-drop" data-kanban-drop hidden></div>
+</div>

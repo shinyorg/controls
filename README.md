@@ -281,6 +281,7 @@ colour, and why appearance properties default to `-1` rather than a real value.
 | **[ParallaxCollectionView](docs/controls/parallax-collection-view.md)** | A list with a hero header that translates, collapses and fades as it scrolls |
 | **[CarouselGallery](docs/controls/carousel-gallery.md)** | Netflix-style carousel with snap-to-center, scale transforms and peek insets |
 | **[Gantt](docs/controls/gantt.md)** | Project timeline — hierarchy and rollups, dependencies with lag, working calendars, drag-to-schedule and a critical path |
+| **[Kanban](docs/controls/kanban.md)** | Drag cards between columns — enforced WIP limits, swimlanes, collapsible columns, cancellable moves and an inline add-card composer |
 | **[Diagram](docs/controls/diagram.md)** | Hierarchies, decision trees, flowcharts and mindmaps — five auto-layouts, shape-aware connectors, drag, draw and undo |
 | **[Carousel](docs/controls/carousel.md)** | Embla-style drag carousel for Blazor — looping, autoplay, thumbnails, scroll-linked effects |
 

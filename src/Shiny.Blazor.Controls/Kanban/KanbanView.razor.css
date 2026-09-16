@@ -1,0 +1,391 @@
+/*
+    Every colour here is a theme token. A hard-coded hex would look right in the default theme and
+    wrong in all four of the packs, and the failure is silent - the board simply stops following the
+    app.
+*/
+
+.shiny-kanban {
+    position: relative;
+    overflow: auto;
+    background: var(--shiny-color-background, #F6FAFE);
+    height: 100%;
+    min-height: 200px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.shiny-kanban.is-dragging {
+    cursor: grabbing;
+    /* Without this a touch drag scrolls the board instead of moving the card. */
+    touch-action: none;
+}
+
+.shiny-kanban-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--shiny-spacing-1, 4px);
+    padding: var(--shiny-spacing-2, 8px);
+    box-sizing: content-box;
+}
+
+.shiny-kanban-empty-board {
+    padding: var(--shiny-spacing-5, 24px);
+    text-align: center;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-body-small-size, 12px);
+}
+
+/* ---------------------------------------------------------------- header */
+
+/*
+    Sticky rather than a translated clone. The header is inside the same scroller as the lanes, so it
+    follows a horizontal scroll for free and pins on a vertical one, with nothing measuring anything.
+*/
+.shiny-kanban-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: flex;
+    gap: var(--shiny-kanban-col-gap, 12px);
+    background: var(--shiny-color-background, #F6FAFE);
+    padding-bottom: var(--shiny-spacing-1, 4px);
+}
+
+.shiny-kanban-head-cell {
+    flex: 0 0 auto;
+}
+
+.shiny-kanban-head-inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
+    border-radius: var(--shiny-shape-corner-small, 8px) var(--shiny-shape-corner-small, 8px) 0 0;
+    background: var(--shiny-color-surface-container, #E8EEF6);
+    overflow: hidden;
+}
+
+.shiny-kanban-head-inner.is-over-limit {
+    background: var(--shiny-color-error-container, #F2CDCB);
+}
+
+.shiny-kanban-head-inner.is-over-limit .shiny-kanban-head-title,
+.shiny-kanban-head-inner.is-over-limit .shiny-kanban-head-count {
+    color: var(--shiny-color-on-error-container, #832323);
+}
+
+.shiny-kanban-head-rule {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+}
+
+.shiny-kanban-head-row {
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+}
+
+.shiny-kanban-head-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: var(--shiny-type-title-small-size, 14px);
+    font-weight: 700;
+    color: var(--shiny-color-on-surface, #161C23);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shiny-kanban-head-count {
+    flex: 0 0 auto;
+    margin-left: auto;
+    font-size: var(--shiny-type-label-medium-size, 12px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+.shiny-kanban-head-sub {
+    font-size: var(--shiny-type-label-small-size, 11px);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shiny-kanban-chevron {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.shiny-kanban-chevron:hover {
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+}
+
+/* ---------------------------------------------------------------- swimlanes */
+
+.shiny-kanban-swimlane {
+    margin-top: var(--shiny-spacing-3, 12px);
+}
+
+.shiny-kanban-swimlane-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-1, 4px);
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
+}
+
+.shiny-kanban-swimlane-marker {
+    width: 3px;
+    height: 16px;
+    border-radius: 2px;
+}
+
+.shiny-kanban-swimlane-title {
+    font-size: var(--shiny-type-body-small-size, 12px);
+    font-weight: 700;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+/* ---------------------------------------------------------------- lanes and cells */
+
+.shiny-kanban-lane {
+    display: flex;
+    gap: var(--shiny-kanban-col-gap, 12px);
+    align-items: stretch;
+}
+
+.shiny-kanban-cell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--shiny-kanban-card-gap, 8px);
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    padding: var(--shiny-spacing-2, 8px);
+    min-height: var(--shiny-kanban-cell-min-h, 120px);
+    border-radius: 0 0 var(--shiny-shape-corner-small, 8px) var(--shiny-shape-corner-small, 8px);
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
+}
+
+.shiny-kanban-cell.is-collapsed {
+    padding: var(--shiny-spacing-1, 4px);
+}
+
+.shiny-kanban-cell-empty {
+    padding: var(--shiny-spacing-4, 16px) 0;
+    text-align: center;
+    font-size: var(--shiny-type-body-small-size, 12px);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- cards */
+
+.shiny-kanban-card {
+    border-radius: var(--shiny-shape-corner-medium, 12px);
+    cursor: grab;
+    /* A pointer drag has to own the gesture, or the scroller takes it on touch. */
+    touch-action: manipulation;
+    outline-offset: 2px;
+}
+
+.shiny-kanban-card.is-locked {
+    cursor: default;
+}
+
+.shiny-kanban-card.is-selected .shiny-kanban-card-inner {
+    border-color: var(--shiny-color-primary, #0055D9);
+    box-shadow: 0 0 0 1px var(--shiny-color-primary, #0055D9);
+}
+
+.shiny-kanban-card.is-dragging {
+    position: relative;
+    z-index: 5;
+    cursor: grabbing;
+    opacity: 0.9;
+    box-shadow: var(--shiny-elevation-4, 0 8px 24px rgba(0, 0, 0, 0.22));
+    pointer-events: none;
+}
+
+.shiny-kanban-card-inner {
+    position: relative;
+    display: flex;
+    overflow: hidden;
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-medium, 12px);
+    background: var(--shiny-color-surface, #F6FAFE);
+}
+
+.shiny-kanban-card-accent {
+    flex: 0 0 4px;
+}
+
+.shiny-kanban-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--shiny-spacing-1, 4px);
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
+}
+
+.shiny-kanban-card-title {
+    font-size: var(--shiny-type-body-medium-size, 14px);
+    font-weight: 700;
+    color: var(--shiny-color-on-surface, #161C23);
+    overflow-wrap: anywhere;
+}
+
+.shiny-kanban-card-desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: var(--shiny-type-body-small-size, 12px);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    overflow-wrap: anywhere;
+}
+
+.shiny-kanban-badge {
+    position: absolute;
+    top: var(--shiny-spacing-2, 8px);
+    right: var(--shiny-spacing-2, 8px);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+/* ---------------------------------------------------------------- labels */
+
+.shiny-kanban-labels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.shiny-kanban-label {
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.4;
+    background: var(--shiny-color-secondary-container, #D0D6DC);
+    color: var(--shiny-color-on-secondary-container, #3E4652);
+}
+
+.shiny-kanban-label.is-dot {
+    width: 22px;
+    height: 6px;
+    padding: 0;
+    border-radius: 3px;
+}
+
+/* ---------------------------------------------------------------- footer */
+
+.shiny-kanban-card-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    margin-top: 2px;
+}
+
+.shiny-kanban-assignee {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.shiny-kanban-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.shiny-kanban-avatar.is-initials {
+    background: var(--shiny-color-secondary-container, #D0D6DC);
+    color: var(--shiny-color-on-secondary-container, #3E4652);
+}
+
+.shiny-kanban-assignee-name {
+    font-size: 11px;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shiny-kanban-due {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    white-space: nowrap;
+}
+
+.shiny-kanban-due.is-overdue {
+    color: var(--shiny-color-error, #C20014);
+}
+
+.shiny-kanban-due.is-soon {
+    color: var(--shiny-color-warning, #9C4500);
+}
+
+/* ---------------------------------------------------------------- add card */
+
+.shiny-kanban-add {
+    width: 100%;
+    padding: var(--shiny-spacing-2, 8px);
+    border: 0;
+    border-radius: var(--shiny-shape-corner-small, 8px);
+    background: transparent;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-body-small-size, 12px);
+    text-align: left;
+    cursor: pointer;
+}
+
+.shiny-kanban-add:hover {
+    background: var(--shiny-color-surface-container, #E8EEF6);
+}
+
+.shiny-kanban-add-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--shiny-spacing-2, 8px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-primary, #0055D9);
+    border-radius: var(--shiny-shape-corner-small, 8px);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
+    font-size: var(--shiny-type-body-small-size, 12px);
+}
+
+/* ---------------------------------------------------------------- drop indicator */
+
+.shiny-kanban-drop {
+    position: absolute;
+    height: 3px;
+    border-radius: 2px;
+    z-index: 4;
+    pointer-events: none;
+    background: var(--shiny-color-primary, #0055D9);
+}

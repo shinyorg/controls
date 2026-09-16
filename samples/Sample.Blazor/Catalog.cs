@@ -42,6 +42,7 @@ public static class Catalog
             new("tableview", "Table View", "☷", "Settings-style sectioned lists with drag & sort"),
             new("datagrid", "Data Grid", "▦", "Sortable, templated columns over tabular data"),
             new("gantt", "Gantt", "▭", "Project timeline with dependencies, rollups and a critical path"),
+            new("kanban", "Kanban", "◰", "Drag cards between columns with WIP limits and swimlanes"),
             new("diagram", "Diagram", "◇", "Hierarchies, decision trees and flowcharts on an editable surface"),
             new("floorplan", "Floor Plan", "⊞", "Rooms, walls and furniture on a pan/zoom drawing surface"),
             new("seatingchart", "Seating Chart", "⌗", "The same plan in view mode — tap a desk to see who sits there"),
