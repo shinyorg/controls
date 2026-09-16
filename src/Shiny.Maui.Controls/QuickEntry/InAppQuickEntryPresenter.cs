@@ -76,10 +76,31 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
     /// <summary>Never raised: the overlay is laid out by the page, so nothing here has to size itself.</summary>
     public Action<double>? ContentHeightChanged { get; set; }
 
+    /// <summary>
+    /// Warms the current page up for the first open, then lets go of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The expensive part of a first open is on the page, not in the presenter: installing the shared
+    /// page overlay re-parents the page's content (rebuilding every native view under it), and the
+    /// content gets its handlers the first time it enters a realised tree. Both of those survive a
+    /// detach - the overlay layer and its <see cref="OverlayHost"/> belong to the page, and a view keeps
+    /// its handler when it is removed - so the popup is attached here and immediately taken back off.
+    /// </para>
+    /// <para>
+    /// It used to stay attached. This presenter is an app-lifetime singleton, so a preload on a page
+    /// the popup was then never shown on held that page, and everything under it, until the first
+    /// show and hide - which, for an app that preloads at start-up, could be never.
+    /// </para>
+    /// </remarks>
     public Task PrepareAsync(QuickEntryOptions options, View content)
     {
         this.content = content;
         this.Attach(options);
+
+        if (!this.opened)
+            this.Detach();
+
         return Task.CompletedTask;
     }
 

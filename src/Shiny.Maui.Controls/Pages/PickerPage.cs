@@ -18,10 +18,10 @@ public class PickerPage : ContentPage
         this.ownerCell = ownerCell;
         Title = ownerCell.PageTitle;
 
-        // No explicit accent anywhere in the chain => fall back to the theme's Primary.
+        // No explicit accent anywhere in the chain => follow the theme's Primary, live, as resolved
+        // on the owner cell (see PickerCell.ThemeAccentColorProperty).
         var accentColor = ownerCell.AccentColor
-            ?? ownerCell.ParentTableView?.CellAccentColor
-            ?? ThemeColor(ShinyThemeKeys.Color.Primary, Colors.Blue);
+            ?? ownerCell.ParentTableView?.CellAccentColor;
 
         collectionView = new CollectionView
         {
@@ -67,9 +67,12 @@ public class PickerPage : ContentPage
                 {
                     Text = "\u2713",
                     FontSize = 20,
-                    VerticalOptions = LayoutOptions.Center,
-                    TextColor = accentColor
+                    VerticalOptions = LayoutOptions.Center
                 };
+                if (accentColor is not null)
+                    checkLabel.TextColor = accentColor;
+                else
+                    checkLabel.SetBinding(Label.TextColorProperty, static (PickerCell c) => c.ThemeAccentColor, source: ownerCell);
                 checkLabel.SetBinding(Label.IsVisibleProperty, nameof(PickerItemViewModel.IsSelected));
                 Grid.SetColumn(checkLabel, 1);
                 Grid.SetRowSpan(checkLabel, 2);
@@ -168,10 +171,6 @@ public class PickerPage : ContentPage
             ownerCell.OnSelectionComplete(null, selected);
         }
     }
-
-    /// <summary>Resolves a theme token to a concrete colour for one-shot (non-bindable) use.</summary>
-    static Color ThemeColor(string key, Color fallback)
-        => Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Color c ? c : fallback;
 }
 
 class PickerItemViewModel : BindableObject

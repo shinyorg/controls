@@ -31,6 +31,12 @@ public class LoadingRing : GraphicsView
         this.HorizontalOptions = LayoutOptions.Center;
         this.VerticalOptions = LayoutOptions.Center;
 
+        // The theme colours resolve through this view, not the application's resources, so a palette
+        // scoped over the ring is honoured and a swap re-fires the callback (which redraws).
+        this.SetDynamicResource(ThemeRingColorProperty, ShinyThemeKeys.Color.Primary);
+        this.SetDynamicResource(ThemeTrackColorProperty, ShinyThemeKeys.Color.SurfaceContainerHighest);
+        this.SetDynamicResource(ThemeTextColorProperty, ShinyThemeKeys.Color.OnSurface);
+
         this.Loaded += (_, _) => this.SyncTicker();
         this.Unloaded += (_, _) => this.Unsubscribe();
     }
@@ -121,6 +127,36 @@ public class LoadingRing : GraphicsView
         get => (double)this.GetValue(StrokeWidthProperty);
         set => this.SetValue(StrokeWidthProperty, value);
     }
+
+
+    // Theme tokens, resolved on this element. The defaults are what draws before a theme merges.
+    static readonly Color RingFallback = Colors.RoyalBlue;
+    static readonly Color TrackFallback = Colors.LightGray;
+    static readonly Color TextFallback = Colors.Black;
+
+    internal static readonly BindableProperty ThemeRingColorProperty = BindableProperty.Create(
+        "ThemeRingColor", typeof(Color), typeof(LoadingRing), RingFallback,
+        propertyChanged: (b, _, _) => ((LoadingRing)b).Invalidate()
+    );
+
+    internal static readonly BindableProperty ThemeTrackColorProperty = BindableProperty.Create(
+        "ThemeTrackColor", typeof(Color), typeof(LoadingRing), TrackFallback,
+        propertyChanged: (b, _, _) => ((LoadingRing)b).Invalidate()
+    );
+
+    internal static readonly BindableProperty ThemeTextColorProperty = BindableProperty.Create(
+        "ThemeTextColor", typeof(Color), typeof(LoadingRing), TextFallback,
+        propertyChanged: (b, _, _) => ((LoadingRing)b).Invalidate()
+    );
+
+    /// <summary>The arc colour actually drawn: the explicit <see cref="RingColor"/>, else the theme's.</summary>
+    internal Color EffectiveRingColor => this.RingColor ?? (Color)this.GetValue(ThemeRingColorProperty);
+
+    /// <summary>The track colour actually drawn.</summary>
+    internal Color EffectiveTrackColor => this.TrackColor ?? (Color)this.GetValue(ThemeTrackColorProperty);
+
+    /// <summary>The percentage label colour actually drawn.</summary>
+    internal Color EffectiveTextColor => this.TextColor ?? (Color)this.GetValue(ThemeTextColorProperty);
 
 
     void OnVisualChanged()
@@ -220,10 +256,10 @@ public class LoadingRing : GraphicsView
             canvas.StrokeSize = stroke;
             canvas.StrokeLineCap = LineCap.Round;
 
-            canvas.StrokeColor = owner.TrackColor ?? ResolveColor(ShinyThemeKeys.Color.SurfaceContainerHighest, Colors.LightGray);
+            canvas.StrokeColor = owner.EffectiveTrackColor;
             canvas.DrawEllipse(bounds);
 
-            canvas.StrokeColor = owner.RingColor ?? ResolveColor(ShinyThemeKeys.Color.Primary, Colors.RoyalBlue);
+            canvas.StrokeColor = owner.EffectiveRingColor;
 
             var percent = owner.Percent;
             if (percent is null)
@@ -242,7 +278,7 @@ public class LoadingRing : GraphicsView
             if (!owner.ShowPercentText)
                 return;
 
-            canvas.FontColor = owner.TextColor ?? ResolveColor(ShinyThemeKeys.Color.OnSurface, Colors.Black);
+            canvas.FontColor = owner.EffectiveTextColor;
             canvas.FontSize = Math.Max(9, size * 0.26f);
             canvas.DrawString(
                 $"{value * 100:0}%",
@@ -252,18 +288,5 @@ public class LoadingRing : GraphicsView
             );
         }
 
-
-        /// <summary>
-        /// Pulls a theme colour out of the merged resources.
-        /// </summary>
-        /// <remarks>
-        /// A drawable cannot <c>SetDynamicResource</c> - it is not a BindableObject and has no
-        /// resource scope - so the token is looked up per draw instead. That also means the ring
-        /// follows a runtime theme switch for free, since the next invalidate re-reads it.
-        /// </remarks>
-        static Color ResolveColor(string key, Color fallback)
-            => Application.Current?.Resources?.TryGetValue(key, out var value) == true && value is Color color
-                ? color
-                : fallback;
     }
 }

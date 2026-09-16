@@ -17,7 +17,7 @@ public partial class ImageEditor : ContentView
     ColorPickerButton? drawColorButton;
     ColorPickerButton? shapeFillButton;
     Border? shapeFillToggle;
-    GraphicsView? shapeFillIcon;
+    ThemedIconView? shapeFillIcon;
     FontPickerButton? fontPickerButton;
     FontSizePickerButton? fontSizePickerButton;
     Label? zoomReadout;
@@ -876,14 +876,14 @@ public partial class ImageEditor : ContentView
         {
             Text = CropApplyText,
             FontAttributes = FontAttributes.Bold,
-            TextColor = ThemeColor(ShinyThemeKeys.Color.OnPrimary, Colors.White),
-            BackgroundColor = AccentColor,
             CornerRadius = 14,
             HeightRequest = 42,
             MinimumWidthRequest = 64,
             Padding = new Thickness(16, 0),
             VerticalOptions = LayoutOptions.Center
         }.Neutralize().WithFontSize(ShinyThemeKeys.Type.BodyMediumSize);
+        applyBtn.SetDynamicResource(Button.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
+        applyBtn.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.Primary);
         applyBtn.Clicked += (_, _) => ApplyCrop();
         grid.Add(applyBtn, 2);
 
@@ -912,10 +912,6 @@ public partial class ImageEditor : ContentView
 
     Border CreateChromeButton(ImageEditorIcon icon, string? label, bool selected, bool enabled, Action action, double? width = null)
     {
-        var tint = selected
-            ? ThemeColor(ShinyThemeKeys.Color.OnPrimary, Colors.White)
-            : ChromeForeground;
-
         var showLabel = ShowToolLabels && !string.IsNullOrEmpty(label);
 
         var content = new VerticalStackLayout
@@ -925,38 +921,34 @@ public partial class ImageEditor : ContentView
             VerticalOptions = LayoutOptions.Center
         };
 
-        content.Children.Add(new GraphicsView
-        {
-            Drawable = new ImageEditorIconDrawable { Icon = icon, Color = tint },
-            HeightRequest = 22,
-            WidthRequest = 22,
-            InputTransparent = true,
-            HorizontalOptions = LayoutOptions.Center
-        });
+        var drawable = new ImageEditorIconDrawable { Icon = icon };
+        content.Children.Add(new ThemedIconView(drawable, c => drawable.Color = c, 22));
+        TintOnAccent((ThemedIconView)content.Children[0], ThemedIconView.IconColorProperty, selected);
 
         if (showLabel)
         {
-            content.Children.Add(new Label
+            var text = new Label
             {
                 Text = label,
                 FontSize = 9.5,
-                TextColor = tint,
                 LineBreakMode = LineBreakMode.NoWrap,
                 HorizontalTextAlignment = TextAlignment.Center
-            });
+            };
+            TintOnAccent(text, Label.TextColorProperty, selected);
+            content.Children.Add(text);
         }
 
         var button = new Border
         {
             Content = content,
             StrokeThickness = 0,
-            BackgroundColor = selected ? AccentColor : Colors.Transparent,
             StrokeShape = new RoundRectangle().WithCornerRadius(ShinyThemeKeys.Shape.CornerLargeRadius),
             Padding = new Thickness(6, 4),
             MinimumWidthRequest = width ?? (showLabel ? 54 : 44),
             HeightRequest = showLabel ? 48 : 40,
             VerticalOptions = LayoutOptions.Center
         };
+        TintAccent(button, selected);
 
         SetButtonEnabled(button, enabled);
 
@@ -973,14 +965,13 @@ public partial class ImageEditor : ContentView
         button.Opacity = enabled ? 1 : 0.3;
     }
 
-    View CreateStrokeWidthButton(double width)
+    internal View CreateStrokeWidthButton(double width)
     {
         var selected = Math.Abs(DrawStrokeWidth - width) < 0.01;
         var diameter = 6 + width * 1.6;
 
         var dot = new Border
         {
-            BackgroundColor = selected ? ThemeColor(ShinyThemeKeys.Color.OnPrimary, Colors.White) : ChromeForeground,
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = (float)(diameter / 2) },
             WidthRequest = diameter,
@@ -989,17 +980,18 @@ public partial class ImageEditor : ContentView
             VerticalOptions = LayoutOptions.Center,
             InputTransparent = true
         };
+        TintOnAccent(dot, VisualElement.BackgroundColorProperty, selected);
 
         var button = new Border
         {
             Content = dot,
             StrokeThickness = 0,
-            BackgroundColor = selected ? AccentColor : Colors.Transparent,
             StrokeShape = new RoundRectangle().WithCornerRadius(ShinyThemeKeys.Shape.CornerLargeRadius),
             WidthRequest = 36,
             HeightRequest = 36,
             VerticalOptions = LayoutOptions.Center
         };
+        TintAccent(button, selected);
 
         var tap = new TapGestureRecognizer();
         tap.Tapped += (_, _) => DrawStrokeWidth = width;
@@ -1045,17 +1037,12 @@ public partial class ImageEditor : ContentView
     /// Fill on/off. Its own builder rather than <see cref="CreateChromeButton"/> because the icon
     /// and the selected tint are re-applied in place every time the fill colour changes.
     /// </summary>
-    Border CreateShapeFillToggle()
+    internal Border CreateShapeFillToggle()
     {
-        shapeFillIcon = new GraphicsView
-        {
-            Drawable = new ImageEditorIconDrawable(),
-            HeightRequest = 22,
-            WidthRequest = 22,
-            InputTransparent = true,
-            HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions = LayoutOptions.Center
-        };
+        // Its ink is a bindable property, so the "on" colour can follow the on-primary token; the
+        // drawable is only fed from it while the fill is on.
+        var fillDrawable = new ImageEditorIconDrawable();
+        shapeFillIcon = new ThemedIconView(fillDrawable, c => fillDrawable.Color = c, 22);
 
         shapeFillToggle = new Border
         {
@@ -1083,12 +1070,12 @@ public partial class ImageEditor : ContentView
 
         var filled = ShapeFillColor != null;
 
-        shapeFillToggle.BackgroundColor = filled ? AccentColor : Colors.Transparent;
+        TintAccent(shapeFillToggle, filled);
         icon.Icon = filled ? ImageEditorIcon.Fill : ImageEditorIcon.NoFill;
-        icon.Color = filled
-            ? ThemeColor(ShinyThemeKeys.Color.OnPrimary, Colors.White)
-            : ChromeForeground;
 
+        // Re-pointing the property pushes the colour into the drawable and invalidates.
+        TintOnAccent(shapeFillIcon, ThemedIconView.IconColorProperty, filled);
+        icon.Color = shapeFillIcon.IconColor;
         shapeFillIcon.Invalidate();
         SemanticProperties.SetDescription(shapeFillToggle, filled ? "Fill on" : "Fill off");
     }
@@ -1131,7 +1118,21 @@ public partial class ImageEditor : ContentView
 
     Color ChromeForeground => Color.FromRgba(255, 255, 255, 0.88f);
 
-    Color AccentColor => ThemeColor(ShinyThemeKeys.Color.Primary, Color.FromRgba(10, 132, 255, 255));
+    /// <summary>
+    /// A selected control's fill: the primary token while selected, transparent otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Resolved through the element tree rather than copied out of the application's resources, so a
+    /// light/dark flip reaches a toolbar that is already built and a palette scoped over the editor is
+    /// honoured. <see cref="ThemeProbe.Tint"/> clears the transparent local value on the way back to
+    /// the token - without that a control that was once unselected would never pick the accent up again.
+    /// </remarks>
+    static void TintAccent(VisualElement target, bool selected)
+        => ThemeProbe.Tint(target, VisualElement.BackgroundColorProperty, selected ? null : Colors.Transparent, ShinyThemeKeys.Color.Primary);
+
+    /// <summary>Ink that sits on the accent: on-primary while selected, the fixed chrome foreground otherwise.</summary>
+    void TintOnAccent(Element target, BindableProperty property, bool selected)
+        => ThemeProbe.Tint(target, property, selected ? null : ChromeForeground, ShinyThemeKeys.Color.OnPrimary);
 
     void AddToolbarToGrid()
     {
@@ -1180,14 +1181,6 @@ public partial class ImageEditor : ContentView
             BuildDefaultToolbar();
     }
 
-
-    /// <summary>
-    /// Resolves a theme token to a concrete colour. The editor's chrome is deliberately a fixed dark
-    /// scrim (it sits over arbitrary photos and must stay legible), so only the semantic action
-    /// buttons follow the theme, and they resolve once rather than binding.
-    /// </summary>
-    static Color ThemeColor(string key, Color fallback)
-        => Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Color c ? c : fallback;
 
     #endregion
 }

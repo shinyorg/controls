@@ -67,6 +67,12 @@ public partial class SkeletonView : Grid, IDisposable
         this.Children.Add(this.realContentHost);
         this.Children.Add(this.skeletonHost);
 
+        // The sheen is a gradient built from a concrete colour, so it cannot bind to a token directly.
+        // The base fill is resolved through this element instead - up the tree, so a palette scoped
+        // over the skeleton wins, and re-fired on every swap so a light/dark flip mid-load re-tints
+        // the sweep rather than leaving the old palette's highlight crossing the new bars.
+        this.SetDynamicResource(ThemeBaseColorProperty, ShinyThemeKeys.Color.SurfaceContainerHigh);
+
         // MAUI never disposes views: a busy skeleton removed from the tree would otherwise keep its
         // shimmer loop (and the Task.Delay timers it awaits) running forever, rooting the page.
         this.Loaded += (_, _) =>
@@ -325,7 +331,7 @@ public partial class SkeletonView : Grid, IDisposable
         };
     }
 
-    Color ResolveShimmerColor()
+    internal Color ResolveShimmerColor()
     {
         if (this.ShimmerColor is Color shimmerColor)
             return shimmerColor;
@@ -345,10 +351,35 @@ public partial class SkeletonView : Grid, IDisposable
         if (this.BaseColor is Color baseColor)
             return baseColor;
 
-        return Application.Current?.Resources.TryGetValue(ShinyThemeKeys.Color.SurfaceContainerHigh, out var v) == true && v is Color c
-            ? c
-            : Color.FromArgb("#E2E9F2");
+        return this.ThemeBaseColor;
     }
+
+    /// <summary>What the base fill falls back to before a theme has merged, or in a pack lacking the key.</summary>
+    static readonly Color MissingBaseTokenFallback = Color.FromArgb("#E2E9F2");
+
+    /// <summary>
+    /// The theme's surface-container-high token, resolved through this element. Only read when
+    /// <see cref="BaseColor"/> is unset - an explicit colour always wins.
+    /// </summary>
+    internal static readonly BindableProperty ThemeBaseColorProperty = BindableProperty.Create(
+        "ThemeBaseColor",
+        typeof(Color),
+        typeof(SkeletonView),
+        MissingBaseTokenFallback,
+        propertyChanged: static (b, _, _) =>
+        {
+            var view = (SkeletonView)b;
+            if (view.BaseColor == null && view.ShimmerColor == null)
+                view.ConfigureShimmerBands();
+        });
+
+    internal Color ThemeBaseColor => (Color)this.GetValue(ThemeBaseColorProperty);
+
+    /// <summary>The colour at the centre of the sheen gradient currently on the bands - a test seam.</summary>
+    internal Color? CurrentSheenHighlight
+        => this.shimmerBands.FirstOrDefault()?.Background is LinearGradientBrush { GradientStops.Count: 3 } brush
+            ? brush.GradientStops[1].Color
+            : null;
 
     void SetBandsVisible(bool visible)
     {

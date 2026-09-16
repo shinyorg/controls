@@ -1,3 +1,4 @@
+using Shiny.Maui.Controls.Themes;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
@@ -22,7 +23,23 @@ public class PickerCell : CellBase
     /// Marking ready here replays any property an implicit Style applied before
     /// construction - see StyleGuard.
     /// </summary>
-    public PickerCell() => StyleGuard.MarkReady(this, typeof(PickerCell));
+    public PickerCell()
+    {
+        // The picker page is pushed onto the navigation stack, so it is not under the table and cannot
+        // see a palette scoped over it. The accent is resolved here instead - on the cell, which is -
+        // and the page binds to it, so a light/dark flip while the page is open reaches its checkmarks.
+        this.SetDynamicResource(ThemeAccentColorProperty, ShinyThemeKeys.Color.Primary);
+        StyleGuard.MarkReady(this, typeof(PickerCell));
+    }
+
+    // Declared above the property: static initialisers run in textual order.
+    static readonly Color MissingAccentFallback = Colors.Blue;
+
+    /// <summary>The theme's primary token resolved through this cell. Used when no explicit accent is set.</summary>
+    internal static readonly BindableProperty ThemeAccentColorProperty = BindableProperty.Create(
+        "ThemeAccentColor", typeof(Color), typeof(PickerCell), MissingAccentFallback);
+
+    internal Color ThemeAccentColor => (Color)this.GetValue(ThemeAccentColorProperty);
 
     Label valueLabel = default!;
     Label arrowLabel = default!;

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui;
 using Microsoft.Maui.Animations;
 using Microsoft.Maui.Controls;
+using Shiny.Maui.Controls.FloatingPanel;
 using Shiny.Maui.Controls.QuickEntry;
 using Shouldly;
 using Xunit;
@@ -281,6 +282,65 @@ public class QuickEntryPresenterLifetimeTests
             presenter.Hide();
         });
         Overlays(page).ShouldBeEmpty();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference PreloadOnANewPage(InAppQuickEntryPresenter presenter, Screen screen, View content, QuickEntryOptions options)
+    {
+        var page = NewPage();
+        screen.Page = page;
+        presenter.PrepareAsync(options, content).GetAwaiter().GetResult();
+        screen.Page = null;
+        return new WeakReference(page);
+    }
+
+    [Fact]
+    public void PreloadingDoesNotHoldThePage()
+    {
+        var screen = new Screen();
+        var presenter = new InAppQuickEntryPresenter(() => screen.Page);
+        var options = new QuickEntryOptions();
+        var content = new Label();
+
+        var page = PreloadOnANewPage(presenter, screen, content, options);
+        Collect();
+
+        page.IsAlive.ShouldBeFalse("unfixed, a preload left the popup attached - and the page pinned - until the first show and hide");
+        content.Parent.ShouldBeNull();
+        GC.KeepAlive(presenter);
+    }
+
+    [Fact]
+    public void PreloadWarmsThePageButLeavesNoPopupOnIt()
+    {
+        var page = NewPage();
+        var presenter = new InAppQuickEntryPresenter(() => page);
+
+        presenter.PrepareAsync(new QuickEntryOptions(), new Label()).GetAwaiter().GetResult();
+
+        // The page-owned part of the warm-up stays: the overlay layer and its host.
+        ((IVisualTreeElement)page).GetVisualTreeDescendants().OfType<OverlayHost>().ShouldHaveSingleItem();
+        Overlays(page).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void ShowAfterPreloadStillOpensThePopup()
+    {
+        var page = NewPage();
+        var presenter = new InAppQuickEntryPresenter(() => page);
+        var options = new QuickEntryOptions();
+        var content = new Label();
+
+        presenter.PrepareAsync(options, content).GetAwaiter().GetResult();
+        presenter.Show(options, 400, 60);
+
+        Overlays(page).ShouldHaveSingleItem().IsShown.ShouldBeTrue();
+        PageOverlayAncestor(content).ShouldBeSameAs(page);
+        ((IVisualTreeElement)page).GetVisualTreeDescendants().OfType<OverlayHost>().ShouldHaveSingleItem("the host installed by the preload is reused, not duplicated");
+
+        presenter.Hide();
+        Overlays(page).ShouldBeEmpty();
+        content.Parent.ShouldBeNull();
     }
 
     static ContentPage? PageOverlayAncestor(Element element)

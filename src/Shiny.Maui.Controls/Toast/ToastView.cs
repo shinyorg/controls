@@ -5,12 +5,36 @@ namespace Shiny.Maui.Controls.Toast;
 sealed class ToastView : ContentView
 {
     // M3's neutral snackbar is the inverse surface pair, so the default toast follows the theme
-    // instead of a fixed dark grey. Resolved per-toast (these are one-shot, short-lived views).
-    static Color DefaultBackground => ThemeColor(ShinyThemeKeys.Color.InverseSurface, Color.FromArgb("#323232"));
-    static Color DefaultTextColor => ThemeColor(ShinyThemeKeys.Color.InverseOnSurface, Colors.White);
+    // instead of a fixed dark grey. These hex values are only what shows before a theme resolves.
+    static readonly (string Bg, string Text, string Border) DefaultTokens =
+        (ShinyThemeKeys.Color.InverseSurface, ShinyThemeKeys.Color.InverseOnSurface, ShinyThemeKeys.Color.Outline);
+    static readonly Color DefaultBackground = Color.FromArgb("#323232");
+    static readonly Color DefaultTextColor = Colors.White;
 
-    static Color ThemeColor(string key, Color fallback)
-        => Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Color c ? c : fallback;
+    // The theme colours, resolved through this view rather than copied out of the application's
+    // resources. A toast can stay up (a spinner toast for a long operation) across a light/dark flip,
+    // and it lives inside the page, so a palette scoped over the page must win over the app's.
+    //
+    // Deliberately not SetDynamicResource straight onto the child properties: those are seeded with
+    // a hex fallback first, and a seeded local value outranks a dynamic resource - the token would
+    // resolve and silently lose, forever. A Brush-typed Stroke cannot take a Color token at all.
+    // So the token lands on these, which have no local value, and the callbacks push it down.
+    static readonly BindableProperty ThemeBackgroundColorProperty = BindableProperty.Create(
+        "ThemeBackgroundColor", typeof(Color), typeof(ToastView), null,
+        propertyChanged: static (b, _, n) => ((ToastView)b).OnThemeBackground(n as Color));
+
+    static readonly BindableProperty ThemeTextColorProperty = BindableProperty.Create(
+        "ThemeTextColor", typeof(Color), typeof(ToastView), null,
+        propertyChanged: static (b, _, n) => ((ToastView)b).OnThemeText(n as Color));
+
+    static readonly BindableProperty ThemeBorderColorProperty = BindableProperty.Create(
+        "ThemeBorderColor", typeof(Color), typeof(ToastView), null,
+        propertyChanged: static (b, _, n) => ((ToastView)b).OnThemeBorder(n as Color));
+
+    Color fallbackBackground = DefaultBackground;
+    Color fallbackText = DefaultTextColor;
+    Color? fallbackBorder;
+
     static readonly Color ProgressBarColor = Color.FromArgb("#FFFFFF");
 
     readonly ToastConfig config;
@@ -28,17 +52,23 @@ sealed class ToastView : ContentView
         this.config = config;
         InputTransparent = false;
 
-        // Resolve theme token keys for this toast type (if typed). Explicit colors on the
-        // config (set by the consumer or a ToastTypeStyle) always win; otherwise we bind the
-        // matching token via dynamic resources so a runtime theme/appearance switch restyles.
-        (string Bg, string Text, string Border)? tokens = null;
+        // Resolve theme token keys for this toast type, or the neutral inverse-surface pair for an
+        // untyped toast. Explicit colors on the config (set by the consumer or a ToastTypeStyle)
+        // always win; otherwise the token is followed live - see ThemeBackgroundColorProperty.
+        var tokens = DefaultTokens;
         if (config.Type is ToastType type && ToastStyles.TypeTokens.TryGetValue(type, out var t))
+        {
             tokens = t;
+            var (bgHex, textHex, borderHex) = ToastStyles.DefaultColors[type];
+            fallbackBackground = Color.FromArgb(bgHex);
+            fallbackText = Color.FromArgb(textHex);
+            fallbackBorder = Color.FromArgb(borderHex);
+        }
 
-        // Text color is used by both the label and the spinner. When no explicit color and no
-        // token is available, fall back to the hardcoded default.
-        var textColor = config.TextColor ?? DefaultTextColor;
-        var bgColor = config.BackgroundColor ?? DefaultBackground;
+        // Text color is used by both the label and the spinner. Seeded with the fallback; the token
+        // replaces it once this view is in a tree that resolves it.
+        var textColor = config.TextColor ?? fallbackText;
+        var bgColor = config.BackgroundColor ?? fallbackBackground;
 
         // Icon
         if (config.Icon is not null)
@@ -182,7 +212,7 @@ sealed class ToastView : ContentView
             BackgroundColor = bgColor,
             Padding = new Thickness(16, 10),
             StrokeThickness = config.BorderThickness,
-            Stroke = config.BorderColor ?? Colors.Transparent,
+            Stroke = config.BorderColor ?? (config.BorderThickness > 0 && fallbackBorder is { } fb ? fb : Colors.Transparent),
             HorizontalOptions = isPill ? LayoutOptions.Center : LayoutOptions.Fill,
             MaximumWidthRequest = isPill ? 400 : double.PositiveInfinity,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle
@@ -195,40 +225,16 @@ sealed class ToastView : ContentView
         if (isPill)
             border.SetDynamicResource(VisualElement.ShadowProperty, ShinyThemeKeys.Elevation.Level2);
 
-        // Apply theme tokens via dynamic resources for any color the consumer did not set
-        // explicitly. This keeps runtime theme/appearance switches live.
-        if (tokens is { } tk)
-        {
-            // Seed per-type hex fallbacks first so non-Application (no theme dictionary) contexts
-            // keep the original look; the dynamic resource overrides when the key resolves.
-            var (bgHex, textHex, borderHex) = ToastStyles.DefaultColors[config.Type!.Value];
+        // Follow the theme for any color the consumer did not set explicitly. The untyped border
+        // stays transparent unless the consumer asks for one, as it always has.
+        if (config.BackgroundColor is null)
+            this.SetDynamicResource(ThemeBackgroundColorProperty, tokens.Bg);
 
-            if (config.BackgroundColor is null)
-            {
-                border.BackgroundColor = Color.FromArgb(bgHex);
-                border.SetDynamicResource(VisualElement.BackgroundColorProperty, tk.Bg);
-            }
+        if (config.TextColor is null)
+            this.SetDynamicResource(ThemeTextColorProperty, tokens.Text);
 
-            if (config.TextColor is null)
-            {
-                var fallbackText = Color.FromArgb(textHex);
-                label.TextColor = fallbackText;
-                label.SetDynamicResource(Label.TextColorProperty, tk.Text);
-                if (spinner is not null)
-                {
-                    spinner.Color = fallbackText;
-                    spinner.SetDynamicResource(ActivityIndicator.ColorProperty, tk.Text);
-                }
-            }
-
-            if (config.BorderColor is null && config.BorderThickness > 0)
-            {
-                // Stroke is a Brush; drive its Color from the token so theme swaps propagate.
-                var strokeBrush = new SolidColorBrush(Color.FromArgb(borderHex));
-                strokeBrush.SetDynamicResource(SolidColorBrush.ColorProperty, tk.Border);
-                border.Stroke = strokeBrush;
-            }
-        }
+        if (config.BorderColor is null && config.BorderThickness > 0 && fallbackBorder is not null)
+            this.SetDynamicResource(ThemeBorderColorProperty, tokens.Border);
 
         // Tap gesture
         if (config.DismissOnTap || config.TapCommand is not null)
@@ -243,6 +249,31 @@ sealed class ToastView : ContentView
         // Accessibility
         AutomationProperties.SetName(this, config.Text);
     }
+
+    void OnThemeBackground(Color? color)
+    {
+        if (border is not null)
+            border.BackgroundColor = color ?? fallbackBackground;
+    }
+
+    void OnThemeText(Color? color)
+    {
+        var resolved = color ?? fallbackText;
+        if (label is not null)
+            label.TextColor = resolved;
+        if (spinner is not null)
+            spinner.Color = resolved;
+    }
+
+    void OnThemeBorder(Color? color)
+    {
+        if (border is not null && fallbackBorder is not null)
+            border.Stroke = color ?? fallbackBorder;
+    }
+
+    internal Border Chrome => border;
+    internal Label TextLabel => label;
+    internal ActivityIndicator? Spinner => spinner;
 
     public void SetOnDismissed(Action callback) => onDismissed = callback;
 
