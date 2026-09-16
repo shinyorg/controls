@@ -86,7 +86,10 @@ public class PromptTextToSpeechTool : PromptTool, IAsyncDisposable
         if (this.Prompt is not null)
             this.Prompt.ResponseChanged -= this.OnResponseChanged;
 
-        _ = this.StopAsync();
+        // Nothing else ever calls DisposeAsync on a tool - it is a plain object in a list - so the JS module and
+        // the .NET reference registered with the circuit's JS runtime are released here. Both are recreated
+        // lazily if the tool is docked again.
+        _ = this.DisposeAsync().AsTask();
     }
 
     protected override Task OnClickAsync()
@@ -199,20 +202,29 @@ public class PromptTextToSpeechTool : PromptTool, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (this.module is not null)
+        var module = this.module;
+        var selfRef = this.selfRef;
+        this.module = null;
+        this.selfRef = null;
+
+        if (module is not null)
         {
             try
             {
-                await this.module.InvokeVoidAsync("stop");
-                await this.module.DisposeAsync();
+                await module.InvokeVoidAsync("stop");
+                await module.DisposeAsync();
             }
             catch (JSDisconnectedException) { }
             catch { }
-
-            this.module = null;
         }
 
-        this.selfRef?.Dispose();
-        this.selfRef = null;
+        selfRef?.Dispose();
+
+        if (this.isSpeaking)
+        {
+            this.isSpeaking = false;
+            this.Icon = IdleGlyph;
+            this.ToolColor = null;
+        }
     }
 }

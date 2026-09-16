@@ -589,8 +589,10 @@
             {
                 loadingModule = true;
                 selfRef ??= DotNetObjectReference.Create(this);
-                module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Shiny.Blazor.Controls/toolbar.js");
+                var loaded = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Shiny.Blazor.Controls/toolbar.js");
                 loadingModule = false;
+                if (disposed) { await loaded.ReleaseLateAsync(); return; }
+                module = loaded;
             }
 
             if (module == null || disposed)

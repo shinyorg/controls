@@ -41,7 +41,7 @@ public partial class DataGrid : ContentView
     Label? pagerRangeLabel;
     Button? pagerFirst, pagerPrev, pagerNext, pagerLast;
 
-    INotifyCollectionChanged? observedItems;
+    IDisposable? itemsSubscription;
     bool syncingSelection;
     int currentPage;
     string quickSearch = string.Empty;
@@ -163,23 +163,17 @@ public partial class DataGrid : ContentView
     // ---------- Items ----------
     void OnItemsSourceChanged()
     {
-        if (this.observedItems is not null)
-        {
-            this.observedItems.CollectionChanged -= this.OnItemsCollectionChanged;
-            this.observedItems = null;
-        }
+        // Weak: ItemsSource is usually a view model's collection, which outlives the page (memory-leak fix).
+        this.itemsSubscription?.Dispose();
+        this.itemsSubscription = WeakEventSubscription.CollectionChanged(this.ItemsSource, this.OnItemsCollectionChanged);
 
-        if (this.ItemsSource is INotifyCollectionChanged ncc)
-        {
-            ncc.CollectionChanged += this.OnItemsCollectionChanged;
-            this.observedItems = ncc;
-        }
-
+        this.autoWidthsDirty = true;
         this.RebuildRows();
     }
 
     void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        this.autoWidthsDirty = true;
         if (MainThread.IsMainThread)
             this.RebuildRows();
         else
@@ -223,6 +217,14 @@ public partial class DataGrid : ContentView
 
         if (!this.Grouped)
             this.StampBlock(0);
+
+        // Before the template and structure below read the widths. A change means the header and
+        // filter row were built against the old ones - rebuild them so every row agrees.
+        if (this.RefreshAutoWidths())
+        {
+            this.UpdateScrollContentWidth();
+            this.RebuildHeader();
+        }
 
         // Re-create the item template so density/striping changes take effect, and swap the whole
         // CollectionView out when the row *shape* changed - see EnsureRowStructure.
@@ -560,6 +562,10 @@ public partial class DataGrid : ContentView
             FilterDefinitions = this.filterDefs.ToList()
         };
         var data = await this.ServerData(state);
+
+        // The first page is the first chance an Auto column has to sample server rows.
+        if (this.serverItems is null)
+            this.autoWidthsDirty = true;
         this.serverItems = data.Items;
         this.serverTotal = data.TotalItems;
         this.RebuildRows();
@@ -608,6 +614,11 @@ public partial class DataGrid : ContentView
     void RebuildAll()
     {
         this.RefreshFrozenCounts();
+
+        // Anything that rebuilds everything (columns, density, header affordances) can change what an
+        // Auto column has to fit.
+        this.autoWidthsDirty = true;
+        this.RefreshAutoWidths();
         this.UpdateScrollContentWidth();
         this.RebuildHeader();
         this.RebuildRows();

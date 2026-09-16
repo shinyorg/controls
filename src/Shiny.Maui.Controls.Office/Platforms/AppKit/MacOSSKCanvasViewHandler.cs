@@ -67,6 +67,9 @@ public class MacOSSKCanvasViewHandler : MacOSViewHandler<ISKCanvasView, SkiaCanv
         platformView.PaintSurface -= this.OnPaintSurface;
         platformView.Touch -= this.OnTouch;
         platformView.CanvasSizeChanged -= this.OnCanvasSizeChanged;
+
+        // Release the backing store now rather than whenever the NSView happens to be finalized.
+        platformView.ReleaseSurface();
         base.DisconnectHandler(platformView);
     }
 

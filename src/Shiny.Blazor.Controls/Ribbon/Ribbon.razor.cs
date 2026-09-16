@@ -29,6 +29,7 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
 
     ElementReference rootElement;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<Ribbon>? selfReference;
 
     string? activeKey;
@@ -542,9 +543,11 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
         if (first)
         {
             this.selfReference = DotNetObjectReference.Create(this);
-            this.module = await this.JS
+            var loaded = await this.JS
                 .InvokeAsync<IJSObjectReference>("import", "./_content/Shiny.Blazor.Controls/ribbon.js")
                 .ConfigureAwait(false);
+            if (this.disposed) { await loaded.ReleaseLateAsync().ConfigureAwait(false); return; }
+            this.module = loaded;
 
             await this.module
                 .InvokeVoidAsync("init", this.rootElement, this.selfReference)
@@ -604,6 +607,7 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         if (this.module is not null)
         {
             try

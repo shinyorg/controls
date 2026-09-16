@@ -33,12 +33,14 @@ public partial class DiagramView : ContentView, IDisposable
     readonly DiagramDrawable drawable;
 
     readonly Dictionary<DiagramNode, View> templateViews = [];
-    readonly List<INotifyPropertyChanged> observedItems = [];
+    readonly List<(INotifyPropertyChanged Item, PropertyChangedEventHandler Forwarder)> observedItems = [];
     readonly Stack<DiagramEditPlan> undo = new();
     readonly Stack<DiagramEditPlan> redo = new();
 
     INotifyCollectionChanged? observedNodes;
     INotifyCollectionChanged? observedConnections;
+    NotifyCollectionChangedEventHandler? nodesForwarder;
+    NotifyCollectionChangedEventHandler? connectionsForwarder;
 
     bool disposed;
     bool rebuilding;
@@ -256,18 +258,25 @@ public partial class DiagramView : ContentView, IDisposable
         this.Rebuild();
     }
 
+    // Nodes, Connections and the items in them belong to the app - usually a view model that outlives the
+    // page - so every subscription below goes through a forwarder that holds this view weakly. A direct
+    // handler made the view model root the view, its canvas, template views and the page around it, and
+    // the only unsubscribe was Dispose, which MAUI never calls. A forwarder whose view has been collected
+    // removes itself the next time its source raises.
     void Observe()
     {
         if (this.Nodes is INotifyCollectionChanged nodes)
         {
             this.observedNodes = nodes;
-            nodes.CollectionChanged += this.OnSourceCollectionChanged;
+            this.nodesForwarder = WeakCollectionHandler(this, nodes);
+            nodes.CollectionChanged += this.nodesForwarder;
         }
 
         if (this.Connections is INotifyCollectionChanged connections)
         {
             this.observedConnections = connections;
-            connections.CollectionChanged += this.OnSourceCollectionChanged;
+            this.connectionsForwarder = WeakCollectionHandler(this, connections);
+            connections.CollectionChanged += this.connectionsForwarder;
         }
 
         foreach (var item in Cast<DiagramNode>(this.Nodes) ?? [])
@@ -279,28 +288,57 @@ public partial class DiagramView : ContentView, IDisposable
 
     void Watch(INotifyPropertyChanged item)
     {
-        item.PropertyChanged += this.OnItemChanged;
-        this.observedItems.Add(item);
+        var forwarder = WeakPropertyHandler(this, item);
+        item.PropertyChanged += forwarder;
+        this.observedItems.Add((item, forwarder));
     }
 
     void Unobserve()
     {
-        if (this.observedNodes is not null)
-        {
-            this.observedNodes.CollectionChanged -= this.OnSourceCollectionChanged;
-            this.observedNodes = null;
-        }
+        if (this.observedNodes is not null && this.nodesForwarder is not null)
+            this.observedNodes.CollectionChanged -= this.nodesForwarder;
 
-        if (this.observedConnections is not null)
-        {
-            this.observedConnections.CollectionChanged -= this.OnSourceCollectionChanged;
-            this.observedConnections = null;
-        }
+        this.observedNodes = null;
+        this.nodesForwarder = null;
 
-        foreach (var item in this.observedItems)
-            item.PropertyChanged -= this.OnItemChanged;
+        if (this.observedConnections is not null && this.connectionsForwarder is not null)
+            this.observedConnections.CollectionChanged -= this.connectionsForwarder;
+
+        this.observedConnections = null;
+        this.connectionsForwarder = null;
+
+        foreach (var (item, forwarder) in this.observedItems)
+            item.PropertyChanged -= forwarder;
 
         this.observedItems.Clear();
+    }
+
+    static NotifyCollectionChangedEventHandler WeakCollectionHandler(DiagramView view, INotifyCollectionChanged source)
+    {
+        var reference = new WeakReference<DiagramView>(view);
+        NotifyCollectionChangedEventHandler? forwarder = null;
+        forwarder = (sender, e) =>
+        {
+            if (reference.TryGetTarget(out var target))
+                target.OnSourceCollectionChanged(sender, e);
+            else
+                source.CollectionChanged -= forwarder;
+        };
+        return forwarder;
+    }
+
+    static PropertyChangedEventHandler WeakPropertyHandler(DiagramView view, INotifyPropertyChanged source)
+    {
+        var reference = new WeakReference<DiagramView>(view);
+        PropertyChangedEventHandler? forwarder = null;
+        forwarder = (sender, e) =>
+        {
+            if (reference.TryGetTarget(out var target))
+                target.OnItemChanged(sender, e);
+            else
+                source.PropertyChanged -= forwarder;
+        };
+        return forwarder;
     }
 
     void OnSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

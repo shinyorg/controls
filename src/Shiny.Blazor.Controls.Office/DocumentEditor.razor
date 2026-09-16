@@ -900,13 +900,27 @@
         try
         {
             if (this.inputModule is not null && this.inputHandle is not null)
+            {
                 await this.inputModule.InvokeVoidAsync("detach", this.inputHandle);
+
+                // The JS detach cannot free the handle: Blazor hands the module the unwrapped object,
+                // which carries no reference id. Only .NET disposing it drops the JS-side entry that
+                // otherwise keeps the listener closure - and with it the detached element - alive.
+                await this.inputHandle.DisposeAsync();
+            }
 
             if (this.inputModule is not null)
                 await this.inputModule.DisposeAsync();
 
             if (this.dropModule is not null && this.dropHandle is not null)
+            {
                 await this.dropModule.InvokeVoidAsync("detach", this.dropHandle);
+
+                // The JS detach cannot free the handle: Blazor hands the module the unwrapped object,
+                // which carries no reference id. Only .NET disposing it drops the JS-side entry that
+                // otherwise keeps the listener closure - and with it the detached element - alive.
+                await this.dropHandle.DisposeAsync();
+            }
 
             if (this.dropModule is not null)
                 await this.dropModule.DisposeAsync();

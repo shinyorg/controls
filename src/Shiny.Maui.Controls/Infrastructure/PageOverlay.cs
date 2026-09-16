@@ -103,6 +103,9 @@ static class PageOverlay
     /// </summary>
     internal sealed class ImageViewerLayer : Grid, IOverlayLayer;
 
+    /// <summary>Where <c>ToastManager</c> shows toasts. Resolved per toast so it follows navigation.</summary>
+    internal sealed class ToastLayer : AbsoluteLayout, IOverlayLayer;
+
     /// <summary>
     /// Z-order for the layers, so the intent is stated once rather than guessed at each call site.
     /// A tooltip sits above page content, a walkthrough dims everything including tooltips, and a

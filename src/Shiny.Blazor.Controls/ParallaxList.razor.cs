@@ -8,6 +8,7 @@ public partial class ParallaxList<TItem> : IAsyncDisposable
     ElementReference scrollRef;
     ElementReference heroRef;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<ParallaxList<TItem>>? dotnetRef;
     bool initialized;
     (double Factor, double Header, double MinHeader, bool Collapse, bool Fade) pushedOptions;
@@ -52,8 +53,10 @@ public partial class ParallaxList<TItem> : IAsyncDisposable
         if (firstRender)
         {
             pushedOptions = options;
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/Shiny.Blazor.Controls/parallax-list.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
             dotnetRef = DotNetObjectReference.Create(this);
             await module.InvokeVoidAsync("init", scrollRef, heroRef, dotnetRef, BuildJsOptions());
             initialized = true;
@@ -97,6 +100,7 @@ public partial class ParallaxList<TItem> : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         try
         {
             if (module is not null)

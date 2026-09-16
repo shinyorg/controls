@@ -31,7 +31,15 @@ partial class DragTouchHook
         if (this.hooked is null)
             return;
 
-        this.touchDown = new UILongPressGestureRecognizer(this.OnTouch)
+        // The recognizer is retained by the native view and its callback token is a GC root while
+        // retained, so a callback capturing `this` forms a native<->managed cycle the GC can never
+        // break (hook -> view -> handler -> native view -> recognizer -> hook). Capture a weak reference.
+        var weakSelf = new WeakReference<DragTouchHook>(this);
+        this.touchDown = new UILongPressGestureRecognizer(r =>
+        {
+            if (weakSelf.TryGetTarget(out var hook))
+                hook.OnTouch(r);
+        })
         {
             MinimumPressDuration = 0,
             CancelsTouchesInView = false,

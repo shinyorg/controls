@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Specialized;
 using Shiny.Maui.Controls.Collections;
 using Shiny.Maui.Controls.Themes;
+using Shiny.Maui.Controls.Infrastructure;
 
 namespace Shiny.Maui.Controls;
 
@@ -34,7 +35,7 @@ public partial class TimelineView : ContentView
     readonly VerticalStackLayout stack;
     readonly List<NodeVisual> visuals = new();
 
-    INotifyCollectionChanged? observed;
+    IDisposable? observed;
     ScrollView? scroller;
 
     /// <summary>The parts of one row whose colour changes with the active position.</summary>
@@ -83,17 +84,9 @@ public partial class TimelineView : ContentView
 
     void OnItemsSourceChanged(IEnumerable? oldValue, IEnumerable? newValue)
     {
-        if (this.observed is not null)
-        {
-            this.observed.CollectionChanged -= this.OnCollectionChanged;
-            this.observed = null;
-        }
-
-        if (newValue is INotifyCollectionChanged incc)
-        {
-            this.observed = incc;
-            incc.CollectionChanged += this.OnCollectionChanged;
-        }
+        // Weak: ItemsSource is usually a view model's collection, which outlives the page.
+        this.observed?.Dispose();
+        this.observed = WeakEventSubscription.CollectionChanged(newValue, this.OnCollectionChanged);
 
         this.Rebuild();
     }
@@ -386,7 +379,7 @@ public partial class TimelineView : ContentView
 
         if (this.Handler is null && this.observed is not null)
         {
-            this.observed.CollectionChanged -= this.OnCollectionChanged;
+            this.observed.Dispose();
             this.observed = null;
         }
     }

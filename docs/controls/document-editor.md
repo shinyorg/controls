@@ -184,6 +184,11 @@ the page's `color-scheme` on Blazor — and it keeps up live when that flips. Pa
 or `DocumentTheme.Dark` only to pin one regardless of the app around it. See
 [Styling & theming](styling.md#dark-mode).
 
+A **pinned** theme on Blazor carries the chrome with it: the view's root takes the matching
+`shiny-theme-dark` / `shiny-theme-light` scoping class (read off the pinned theme's colours), so the
+ribbon, its pickers and the rest of the bar re-derive their `--shiny-color-*` tokens to match the
+canvas. Unpinning removes it.
+
 ## The toolbar is a Ribbon
 
 The formatting bar is a [Ribbon](ribbon.md) on both hosts, replacing the single scrolling strip of

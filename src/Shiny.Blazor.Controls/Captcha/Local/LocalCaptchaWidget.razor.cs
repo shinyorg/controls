@@ -16,6 +16,7 @@ public partial class LocalCaptchaWidget
     [Parameter, EditorRequired] public CaptchaRenderContext Context { get; set; } = null!;
 
     IJSObjectReference? module;
+    bool disposed;
     ElementReference canvasEl;
     CancellationTokenSource? expiryCts;
 
@@ -63,10 +64,12 @@ public partial class LocalCaptchaWidget
     {
         if (firstRender)
         {
-            this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/captcha.js"
             );
+            if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+            this.module = loaded;
             this.needsRedraw = true;
         }
 
@@ -250,6 +253,7 @@ public partial class LocalCaptchaWidget
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.Context.OnWidgetReady(null);
         this.expiryCts?.Cancel();
         this.expiryCts?.Dispose();

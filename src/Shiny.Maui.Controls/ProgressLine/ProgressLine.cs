@@ -95,7 +95,15 @@ public partial class ProgressLine : ContentView, IDisposable
         this.Unsubscribe();
 
         if (this.Parent is null)
+        {
+            // The home page is only remembered so a *docking* line can find its way back after the
+            // page's content is swapped. A line that does not dock - the one IProgressLineService owns,
+            // chiefly - has nothing to return to, and holding the page (and its PropertyChanged
+            // subscription) here kept the last page a run was shown on alive inside the singleton.
+            if (!this.Dock)
+                this.UntrackHomePage();
             return;
+        }
 
         if (PageOverlay.FindPage(this) is { } page)
             this.TrackHomePage(page);

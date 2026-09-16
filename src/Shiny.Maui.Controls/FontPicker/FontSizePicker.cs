@@ -76,12 +76,13 @@ public class FontSizePicker : ContentView
 
     public event EventHandler<double>? FontSizeChanged;
 
+    IDisposable? listSubscription;
+
     void OnAvailableFontSizesChanged(IList<double>? oldList, IList<double>? newList)
     {
-        if (oldList is INotifyCollectionChanged oldNcc)
-            oldNcc.CollectionChanged -= OnCollectionChanged;
-        if (newList is INotifyCollectionChanged newNcc)
-            newNcc.CollectionChanged += OnCollectionChanged;
+        // Weak: a bound collection can outlive the page.
+        listSubscription?.Dispose();
+        listSubscription = WeakEventSubscription.CollectionChanged(newList, OnCollectionChanged);
         Rebuild();
     }
 

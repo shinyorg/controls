@@ -6,6 +6,7 @@ namespace Shiny.Blazor.Controls;
 public partial class MediaPickerButton : IAsyncDisposable
 {
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<MediaPickerButton>? selfRef;
     ElementReference rootEl;
     ElementReference galleryInputEl;
@@ -91,9 +92,11 @@ public partial class MediaPickerButton : IAsyncDisposable
     {
         if (firstRender)
         {
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/media-picker.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
             selfRef = DotNetObjectReference.Create(this);
 
             await module.InvokeVoidAsync("init", rootEl, galleryInputEl, cameraInputEl, selfRef, BuildOptions());
@@ -413,6 +416,7 @@ public partial class MediaPickerButton : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module != null)
         {
             try

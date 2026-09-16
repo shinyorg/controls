@@ -285,4 +285,31 @@ public class DiagramViewTests
         nodes.Add(new DiagramNode("stale", "Stale"));
         view.Model.VisibleNodes.Count.ShouldBe(1);
     }
+
+
+    [Fact]
+    public void ASourceThatOutlivesTheViewDoesNotKeepItAlive()
+    {
+        // The collections and their items belong to a view model that routinely outlives the page, and
+        // MAUI never calls Dispose - so a view left alive by its own subscriptions leaks the whole page.
+        var (reference, nodes, connections) = BuildAndAbandon();
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        reference.TryGetTarget(out _).ShouldBeFalse();
+
+        // And the orphaned forwarders take themselves off the source rather than throwing.
+        Should.NotThrow(() => nodes.Add(new DiagramNode("after", "After")));
+        Should.NotThrow(() => nodes[0].Text = "Renamed");
+        GC.KeepAlive(connections);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static (WeakReference<DiagramView>, ObservableCollection<DiagramNode>, ObservableCollection<DiagramConnection>) BuildAndAbandon()
+    {
+        var view = Build(out var nodes, out var connections);
+        return (new WeakReference<DiagramView>(view), nodes, connections);
+    }
 }

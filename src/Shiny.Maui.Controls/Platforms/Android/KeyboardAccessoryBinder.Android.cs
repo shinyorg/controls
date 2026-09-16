@@ -86,6 +86,9 @@ partial class KeyboardAccessoryBinder
             currentAccessoryNative = null;
 
         ViewCompat.SetOnApplyWindowInsetsListener(accessoryNative, null);
+        // The animation callback holds this binder (and through it the input and its page); clear it
+        // with the listener rather than leaving it on a detached native view that outlives both.
+        ViewCompat.SetWindowInsetsAnimationCallback(accessoryNative, null);
         (accessoryNative.Parent as ViewGroup)?.RemoveView(accessoryNative);
         accessoryNative = null;
     }
@@ -96,6 +99,9 @@ partial class KeyboardAccessoryBinder
             return;
 
         ViewCompat.SetOnApplyWindowInsetsListener(currentAccessoryNative, null);
+        // The animation callback holds this binder (and through it the input and its page); clear it
+        // with the listener rather than leaving it on a detached native view that outlives both.
+        ViewCompat.SetWindowInsetsAnimationCallback(currentAccessoryNative, null);
         (currentAccessoryNative.Parent as ViewGroup)?.RemoveView(currentAccessoryNative);
         currentAccessoryNative = null;
     }

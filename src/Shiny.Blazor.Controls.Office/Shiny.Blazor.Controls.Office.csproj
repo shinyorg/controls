@@ -20,6 +20,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Shiny.Controls.Office.Shared\Shiny.Controls.Office.Shared.csproj"/>
         <ProjectReference Include="..\Shiny.Controls.Office.Skia\Shiny.Controls.Office.Skia.csproj"/>
 

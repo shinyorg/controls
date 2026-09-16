@@ -3,6 +3,11 @@
 
 const states = new WeakMap();
 
+// A start() still waiting on getUserMedia (the permission prompt can sit there indefinitely) has no state
+// yet, so a stop() in that window would find nothing and the stream would open afterwards with nobody left
+// to close it. stop() flags the pending start here instead, and start() releases the stream on arrival.
+const pendingStarts = new WeakMap();
+
 export async function listCameras() {
     if (!navigator.mediaDevices?.enumerateDevices)
         return [];
@@ -19,12 +24,37 @@ export async function start(video, overlay, dotnetRef, facingMode, analyzerKind,
 
     // an exact deviceId pins a specific camera; otherwise fall back to the front/back facing hint
     const video_constraints = deviceId ? { deviceId: { exact: deviceId } } : { facingMode };
-    const stream = await navigator.mediaDevices.getUserMedia({
-        video: video_constraints,
-        audio: false
-    });
-    video.srcObject = stream;
-    await video.play();
+    const pending = { cancelled: false };
+    pendingStarts.set(video, pending);
+
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: video_constraints,
+            audio: false
+        });
+        if (pending.cancelled) {
+            stream.getTracks().forEach(t => t.stop());
+            return;
+        }
+        video.srcObject = stream;
+        await video.play();
+    }
+    catch (err) {
+        // play() rejecting (element removed, autoplay policy) must not leave the camera light on
+        stream?.getTracks().forEach(t => t.stop());
+        if (video.srcObject === stream) video.srcObject = null;
+        throw err;
+    }
+    finally {
+        if (pendingStarts.get(video) === pending) pendingStarts.delete(video);
+    }
+
+    if (pending.cancelled) {
+        stream.getTracks().forEach(t => t.stop());
+        video.srcObject = null;
+        return;
+    }
 
     const state = {
         video, overlay, dotnet: dotnetRef, stream,
@@ -131,10 +161,22 @@ const DOC_PADDING = 0.04;  // fraction of the document size added as crop margin
 
 
 export function stop(video) {
+    const pending = pendingStarts.get(video);
+    if (pending) {
+        pending.cancelled = true;
+        pendingStarts.delete(video);
+    }
+
     const state = states.get(video);
     if (!state) return;
     state.running = false;
     if (state.rafId) cancelAnimationFrame(state.rafId);
+    // an in-flight recording holds its own microphone stream; drop it rather than leave the mic open
+    // (handlers are left in place so an outstanding stopRecording() still resolves with what was captured)
+    if (state.recorder) {
+        try { if (state.recorder.state !== 'inactive') state.recorder.stop(); } catch { /* already stopped */ }
+    }
+    state.recExtraAudio?.getTracks().forEach(t => t.stop());
     state.stream?.getTracks().forEach(t => t.stop());
     video.srcObject = null;
     const ctx = state.overlay.getContext('2d');
@@ -198,6 +240,13 @@ function applySvgFilters(prefix, ids, markups) {
         filter.innerHTML = markups[i];
         host.appendChild(filter);
     }
+}
+
+// Final teardown for a disposed CameraView: release the camera (including a start still waiting on
+// permission) and remove this instance's SVG filter definitions from the shared host in <body>.
+export function dispose(video, prefix) {
+    stop(video);
+    if (prefix && svgDefsHost) applySvgFilters(prefix, null, null);
 }
 
 export function setFilter(video, css, prefix, ids, markups) {

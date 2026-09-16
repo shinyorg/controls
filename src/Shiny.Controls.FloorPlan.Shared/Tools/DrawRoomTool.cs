@@ -85,13 +85,15 @@ public class DrawRoomTool : IFloorPlanTool
             Color = context.Theme.ElementFill.WithAlpha(120).ToSKColor(),
             Style = SKPaintStyle.Fill
         };
+        // Disposing the paint does not dispose its path effect, so it is owned here - this runs every frame.
+        using var strokeDash = SKPathEffect.CreateDash(dash, 0);
         using var stroke = new SKPaint
         {
             Color = context.Theme.Preview.ToSKColor(),
             StrokeWidth = 2f / context.Camera.Zoom,
             Style = SKPaintStyle.Stroke,
             IsAntialias = true,
-            PathEffect = SKPathEffect.CreateDash(dash, 0)
+            PathEffect = strokeDash
         };
 
         canvas.DrawRect(rect, fill);

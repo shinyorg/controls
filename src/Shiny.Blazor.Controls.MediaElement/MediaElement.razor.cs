@@ -31,6 +31,7 @@ public partial class MediaElement : IAsyncDisposable
     bool isTransportBarShown = true;
     double scrubPosition;
     CancellationTokenSource? autoHideCts;
+    bool disposed;
 
     // Last values pushed to JS, so OnParametersSetAsync only crosses the interop boundary on real changes.
     string? appliedSource;
@@ -192,9 +193,18 @@ public partial class MediaElement : IAsyncDisposable
         if (!firstRender)
             return;
 
-        this.module = await this.JS
+        var imported = await this.JS
             .InvokeAsync<IJSObjectReference>("import", "./_content/Shiny.Blazor.Controls.MediaElement/mediaelement.js")
             .ConfigureAwait(true);
+
+        // Disposed while the module was loading: init would register document listeners nothing removes.
+        if (this.disposed)
+        {
+            await imported.DisposeAsync().ConfigureAwait(true);
+            return;
+        }
+
+        this.module = imported;
 
         this.selfRef = DotNetObjectReference.Create(this);
 
@@ -660,6 +670,7 @@ public partial class MediaElement : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.autoHideCts?.Cancel();
         this.autoHideCts?.Dispose();
         this.autoHideCts = null;

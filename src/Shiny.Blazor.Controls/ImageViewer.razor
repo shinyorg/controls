@@ -48,6 +48,7 @@
     Microsoft.AspNetCore.Components.ElementReference backdropEl;
     Microsoft.AspNetCore.Components.ElementReference imgEl;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<ImageViewer>? selfRef;
     bool rendered;
     bool wasOpen;
@@ -78,9 +79,11 @@
     {
         if (firstRender)
         {
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/image-viewer.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
             selfRef = DotNetObjectReference.Create(this);
             await module.InvokeVoidAsync("init", rootEl, backdropEl, imgEl, selfRef, MaxZoom);
             if (IsOpen)
@@ -120,6 +123,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module is not null)
         {
             try { await module.InvokeVoidAsync("dispose", rootEl); } catch { }

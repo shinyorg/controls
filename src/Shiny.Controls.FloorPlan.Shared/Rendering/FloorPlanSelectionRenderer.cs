@@ -17,13 +17,16 @@ public static class FloorPlanSelectionRenderer
         var rect = new SKRect(bounds.X, bounds.Y, bounds.Right, bounds.Bottom);
         var dash = 4f / camera.Zoom;
 
+        // Disposing the paint does not dispose its path effect, so it is owned here - this runs every frame.
+        using var outlinePaintDash = SKPathEffect.CreateDash([dash, dash], 0);
+
         using var outlinePaint = new SKPaint
         {
             Color = theme.Selection.ToSKColor(),
             StrokeWidth = 1.5f / camera.Zoom,
             Style = SKPaintStyle.Stroke,
             IsAntialias = true,
-            PathEffect = SKPathEffect.CreateDash([dash, dash], 0)
+            PathEffect = outlinePaintDash
         };
         canvas.DrawRect(rect, outlinePaint);
 

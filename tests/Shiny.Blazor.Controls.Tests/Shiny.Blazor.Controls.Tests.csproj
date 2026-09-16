@@ -22,6 +22,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls\Shiny.Blazor.Controls.csproj"/>
+        <!-- OfficeScheme.ScopeClass: which theme scope a pinned Office view puts over its chrome. -->
+        <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Office\Shiny.Blazor.Controls.Office.csproj"/>
     </ItemGroup>
 
 </Project>

@@ -116,14 +116,7 @@ public class CommandCell : LabelCell
         {
             var page = GetParentPage();
             if (page != null)
-            {
-                void handler(object? s, EventArgs args)
-                {
-                    ClearSelectionHighlight();
-                    page.Appearing -= handler;
-                }
-                page.Appearing += handler;
-            }
+                ClearSelectionOnAppearing(page);
         }
 
         if (Command?.CanExecute(CommandParameter) == true)

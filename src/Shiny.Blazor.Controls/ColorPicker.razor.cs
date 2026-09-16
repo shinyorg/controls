@@ -6,6 +6,7 @@ namespace Shiny.Blazor.Controls;
 public partial class ColorPicker : IAsyncDisposable
 {
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<ColorPicker>? selfRef;
     ElementReference rootEl;
     ElementReference spectrumEl;
@@ -36,9 +37,11 @@ public partial class ColorPicker : IAsyncDisposable
     {
         if (firstRender)
         {
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/color-picker.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
 
             selfRef = DotNetObjectReference.Create(this);
             await module.InvokeVoidAsync("init", spectrumEl, hueEl, opacityEl, selfRef, SelectedColor, ShowOpacity);
@@ -102,6 +105,7 @@ public partial class ColorPicker : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module is not null)
         {
             try { await module.InvokeVoidAsync("dispose", spectrumEl); } catch { }

@@ -52,6 +52,58 @@ static class OfficeScheme
     }
 
     /// <summary>
+    /// The theme scoping class a view's root carries while its <c>Theme</c> is pinned, or null while it
+    /// follows the page.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A pinned theme used to repaint only what is drawn from it. The canvas went dark, while the ribbon,
+    /// its pickers, the formula bar and the sheet tabs - all plain CSS over the <c>--shiny-color-*</c>
+    /// tokens - stayed on the page's light palette. The theme stylesheets already honour
+    /// <c>.shiny-theme-dark</c> / <c>.shiny-theme-light</c> on any container, re-deriving every token
+    /// under it, so putting the matching class on the view's root re-themes all of that chrome without
+    /// any of it knowing. This is the Blazor twin of the MAUI toolbar merging the matching token
+    /// dictionary over its subtree.
+    /// </para>
+    /// <para>
+    /// Whether the pin is light or dark is read off the theme's ground rather than compared by reference,
+    /// so a custom theme derived from <c>Dark</c> scopes the same way. <c>shiny-office-scoped</c> lets the
+    /// view give the root the scope's own ink and ground - text that only <c>inherit</c>s its colour would
+    /// otherwise keep the page's dark ink on the scoped dark surface.
+    /// </para>
+    /// <para>
+    /// The canvas's <see cref="ThemeSchemeWatcher"/> sits inside the root, so it sees the class come and
+    /// go; that is harmless while pinned (the pin wins) and is exactly what re-reads the page's palette
+    /// once the pin is removed.
+    /// </para>
+    /// </remarks>
+    public static string? ScopeClass(SpreadsheetTheme? pinned)
+        => pinned is null ? null : ScopeFor(pinned.Background);
+
+    public static string? ScopeClass(DocumentTheme? pinned)
+        => pinned is null ? null : ScopeFor(pinned.PageBackground);
+
+    public static string? ScopeClass(NotebookTheme? pinned)
+        => pinned is null ? null : ScopeFor(pinned.Paper);
+
+    /// <remarks>
+    /// Read off the slide border rather than the surround: a slide theme darkens only its surround, and
+    /// even the light theme's surround is a dark grey, so the surround cannot tell the two apart.
+    /// </remarks>
+    public static string? ScopeClass(SlideTheme? pinned)
+        => pinned is null ? null : ScopeFor(pinned.Border);
+
+    internal const string ScopedMarker = "shiny-office-scoped";
+
+    static string ScopeFor(ArgbColor ground)
+        => IsLightGround(ground)
+            ? "shiny-theme-light " + ScopedMarker
+            : "shiny-theme-dark " + ScopedMarker;
+
+    static bool IsLightGround(ArgbColor ground)
+        => (0.299 * ground.R + 0.587 * ground.G + 0.114 * ground.B) / 255d >= 0.5;
+
+    /// <summary>
     /// The palette, or null when any one token could not be read.
     /// </summary>
     /// <remarks>

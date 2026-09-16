@@ -736,4 +736,28 @@ public abstract class CellBase : ContentView
         return null;
     }
 
+    Page? selectionClearPage;
+
+    /// <summary>
+    /// Clears the kept selection the next time <paramref name="page"/> appears. One pending handler
+    /// per cell: every tap used to add another closure to the page's Appearing list, so a cell tapped
+    /// repeatedly without navigating grew it without bound.
+    /// </summary>
+    protected void ClearSelectionOnAppearing(Page page)
+    {
+        if (this.selectionClearPage is not null)
+            this.selectionClearPage.Appearing -= this.OnSelectionClearPageAppearing;
+
+        this.selectionClearPage = page;
+        page.Appearing += this.OnSelectionClearPageAppearing;
+    }
+
+    void OnSelectionClearPageAppearing(object? sender, EventArgs e)
+    {
+        if (this.selectionClearPage is not null)
+            this.selectionClearPage.Appearing -= this.OnSelectionClearPageAppearing;
+
+        this.selectionClearPage = null;
+        ClearSelectionHighlight();
+    }
 }

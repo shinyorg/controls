@@ -247,6 +247,12 @@ sealed class FileDropService : IFileDropService, IFileDropHost, IDisposable
 
         public void Start()
         {
+            // The service is a singleton and keys attachments by Window, so a window closed without
+            // anyone disposing its attachment stayed in the map for the life of the app - the Window,
+            // its page tree and the native drop target with it. Every auto-attached window leaked that
+            // way (a second window, a floating dock panel). Closing the window is what ends it now.
+            this.window.Destroying += this.OnDestroying;
+
             if (this.window.Handler?.PlatformView != null)
             {
                 this.AttachNative();
@@ -255,6 +261,8 @@ sealed class FileDropService : IFileDropService, IFileDropHost, IDisposable
 
             this.window.HandlerChanged += this.OnHandlerChanged;
         }
+
+        void OnDestroying(object? sender, EventArgs e) => this.Dispose();
 
         void OnHandlerChanged(object? sender, EventArgs e)
         {
@@ -291,6 +299,7 @@ sealed class FileDropService : IFileDropService, IFileDropHost, IDisposable
                 return;
 
             this.disposed = true;
+            this.window.Destroying -= this.OnDestroying;
             this.window.HandlerChanged -= this.OnHandlerChanged;
             this.native?.Dispose();
             this.native = null;

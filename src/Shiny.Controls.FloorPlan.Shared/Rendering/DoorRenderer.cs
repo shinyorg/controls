@@ -26,13 +26,16 @@ public class DoorRenderer : IFloorPlanElementRenderer
         };
         canvas.DrawLine(0, 0, w, 0, gapPaint);
 
+        // Disposing the paint does not dispose its path effect, so it is owned here - this runs every frame.
+        using var arcPaintDash = SKPathEffect.CreateDash([4f, 4f], 0);
+
         using var arcPaint = new SKPaint
         {
             Color = context.StrokeFor(door).WithAlpha(100).ToSKColor(),
             StrokeWidth = 1,
             Style = SKPaintStyle.Stroke,
             IsAntialias = true,
-            PathEffect = SKPathEffect.CreateDash([4f, 4f], 0)
+            PathEffect = arcPaintDash
         };
         canvas.DrawArc(new SKRect(0, -w, w * 2, w), -90, door.SwingAngle, false, arcPaint);
 

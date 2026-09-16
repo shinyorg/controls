@@ -411,6 +411,12 @@ Rules that matter:
   under `HorizontalScroll` it resolves against the scroller's own width, so percentages summing past 100
   are what make the grid scroll. Prefer percentages when the same layout has to read the same on both
   hosts.
+- **MAUI `Width="Auto"`** is one shared width, not per-row `GridLength.Auto`: the grid measures the header,
+  footer summary cells and the first `AutoWidthSampleSize` items (default 100, source order; `0` = header
+  and footer only), takes the max, and applies it to header, rows, group summaries and footer alike. Longer
+  values past the sample ellipsize. Re-measured on column/source/`Dense` changes, not on sort/page/expand.
+  Lower `AutoWidthSampleSize` for very large sources; use `*`/`WidthPercent`/absolute widths when the
+  content width is unpredictable.
 - **Reorder**: both hosts have **drag-and-drop on headers via `DragDropColumnReordering`, off by
   default** — drag a header onto another and a marker shows the edge it will land on; dropping to the
   right of a column puts it *after* that column. MAUI additionally offers ‹ › reorder arrows under the

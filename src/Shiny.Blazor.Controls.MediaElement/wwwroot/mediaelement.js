@@ -6,6 +6,24 @@
 
 const registry = new WeakMap();
 
+// navigator.mediaSession is page-global: its action handlers close over whichever player set them last.
+// Tracked so that player's dispose can clear them - otherwise the session keeps the removed <video> (and
+// its buffered media) plus the dead .NET reference alive for the life of the page.
+let mediaSessionOwner = null;
+const mediaSessionActions = ['play', 'pause', 'stop', 'seekto'];
+
+function clearMediaSession() {
+    mediaSessionOwner = null;
+    if (!('mediaSession' in navigator))
+        return;
+
+    for (const action of mediaSessionActions) {
+        try { navigator.mediaSession.setActionHandler(action, null); }
+        catch { /* the browser doesn't support this action */ }
+    }
+    try { navigator.mediaSession.metadata = null; } catch { /* ignore */ }
+}
+
 function stateOf(video) {
     if (video.error) return 'Failed';
     if (!video.currentSrc && !video.src) return 'None';
@@ -123,6 +141,9 @@ export function dispose(video) {
     document.removeEventListener('fullscreenchange', entry.onFullscreen);
     registry.delete(video);
 
+    if (mediaSessionOwner === video)
+        clearMediaSession();
+
     try { video.pause(); } catch { /* already torn down */ }
     video.removeAttribute('src');
     video.load();
@@ -221,9 +242,12 @@ export function setMediaSession(video, title, artist, album, artwork, dotnet) {
         return;
 
     if (!title && !artist && !album) {
-        navigator.mediaSession.metadata = null;
+        if (mediaSessionOwner === video || mediaSessionOwner === null)
+            clearMediaSession();
         return;
     }
+
+    mediaSessionOwner = video;
 
     navigator.mediaSession.metadata = new MediaMetadata({
         title: title || '',

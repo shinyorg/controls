@@ -276,10 +276,12 @@ public partial class FloatingToolbar
     {
         if (firstRender)
         {
-            this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/floating-toolbar.js"
             );
+            if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+            this.module = loaded;
             this.selfRef = DotNetObjectReference.Create(this);
         }
 
@@ -425,6 +427,7 @@ public partial class FloatingToolbar
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.showCts?.Cancel();
         this.hideCts?.Cancel();
         this.dismissCts?.Cancel();

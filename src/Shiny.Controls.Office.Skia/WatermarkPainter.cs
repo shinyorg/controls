@@ -14,7 +14,28 @@ namespace Shiny.Controls.Office.Skia;
 public static class WatermarkPainter
 {
     /// <summary>Decoded pictures, keyed by content. A mark repeats on every page of a document.</summary>
+    /// <remarks>
+    /// Bounded: this is process-wide, so every distinct picture ever painted - by every document, and on
+    /// Blazor Server by every user - would otherwise stay decoded for the life of the process. Evicted
+    /// images are dropped rather than disposed, because another surface may be drawing one right now
+    /// outside the lock; the SKImage finalizer releases the native pixels once nothing holds it.
+    /// </remarks>
+    internal const int CacheCapacity = 8;
+
     static readonly Dictionary<int, SKImage?> Cache = new();
+
+    /// <summary>Insertion order of <see cref="Cache"/>, oldest first, for eviction.</summary>
+    static readonly Queue<int> CacheOrder = new();
+
+    /// <summary>How many decoded pictures are currently held. For tests.</summary>
+    internal static int CachedCount
+    {
+        get
+        {
+            lock (Gate)
+                return Cache.Count;
+        }
+    }
 
     static readonly Lock Gate = new();
 
@@ -126,7 +147,11 @@ public static class WatermarkPainter
                 image = null;
             }
 
+            while (Cache.Count >= CacheCapacity && CacheOrder.TryDequeue(out var oldest))
+                Cache.Remove(oldest);
+
             Cache[key] = image;
+            CacheOrder.Enqueue(key);
             return image;
         }
     }

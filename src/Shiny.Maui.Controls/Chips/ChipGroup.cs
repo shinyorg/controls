@@ -47,8 +47,8 @@ public partial class ChipGroup : ContentView
     readonly Label displayProbe = new();
     BindingBase? appliedDisplayBinding;
 
-    INotifyCollectionChanged? itemsNotifier;
-    INotifyCollectionChanged? selectedNotifier;
+    IDisposable? itemsSubscription;
+    IDisposable? selectedSubscription;
     bool syncing;
     bool rebuilding;
 
@@ -125,12 +125,9 @@ public partial class ChipGroup : ContentView
 
     internal void OnItemsSourceChanged(IEnumerable? oldValue, IEnumerable? newValue)
     {
-        if (this.itemsNotifier is not null)
-            this.itemsNotifier.CollectionChanged -= this.OnItemsCollectionChanged;
-
-        this.itemsNotifier = newValue as INotifyCollectionChanged;
-        if (this.itemsNotifier is not null)
-            this.itemsNotifier.CollectionChanged += this.OnItemsCollectionChanged;
+        // Weak: ItemsSource is usually a view model's collection, which outlives the page.
+        this.itemsSubscription?.Dispose();
+        this.itemsSubscription = WeakEventSubscription.CollectionChanged(newValue, this.OnItemsCollectionChanged);
 
         this.RebuildChips();
     }
@@ -455,12 +452,8 @@ public partial class ChipGroup : ContentView
 
     internal void OnSelectedItemsChanged(IList? oldValue, IList? newValue)
     {
-        if (this.selectedNotifier is not null)
-            this.selectedNotifier.CollectionChanged -= this.OnSelectedItemsCollectionChanged;
-
-        this.selectedNotifier = newValue as INotifyCollectionChanged;
-        if (this.selectedNotifier is not null)
-            this.selectedNotifier.CollectionChanged += this.OnSelectedItemsCollectionChanged;
+        this.selectedSubscription?.Dispose();
+        this.selectedSubscription = WeakEventSubscription.CollectionChanged(newValue, this.OnSelectedItemsCollectionChanged);
 
         if (this.syncing)
             return;

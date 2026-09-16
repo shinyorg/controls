@@ -137,7 +137,11 @@ public sealed class SkiaCanvasNSView : NSView
         return true;
     }
 
-    void ReleaseSurface()
+    /// <summary>
+    /// Frees the surface and its unmanaged pixel buffer. The next paint allocates them again, so this
+    /// is safe to call on a view that may come back on screen.
+    /// </summary>
+    internal void ReleaseSurface()
     {
         this.surface?.Dispose();
         this.surface = null;
@@ -204,8 +208,19 @@ public sealed class SkiaCanvasNSView : NSView
 
     protected override void Dispose(bool disposing)
     {
+        // The pixel buffer is AllocHGlobal memory - window-sized, tens of megabytes on a Retina display -
+        // that no finalizer knows about. It used to be freed only on an explicit Dispose(true), which
+        // nothing calls for a view MAUI discards, so every collected canvas leaked its whole buffer.
+        // On the finalizer path the SKSurface has its own finalizer; only the raw buffer is ours to free.
         if (disposing)
+        {
             this.ReleaseSurface();
+        }
+        else if (this.pixels != IntPtr.Zero)
+        {
+            Marshal.FreeHGlobal(this.pixels);
+            this.pixels = IntPtr.Zero;
+        }
 
         base.Dispose(disposing);
     }

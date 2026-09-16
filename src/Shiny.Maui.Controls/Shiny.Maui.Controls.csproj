@@ -43,6 +43,9 @@
 		     touch-down timing and scroller lock a node drag needs. -->
 		<InternalsVisibleTo Include="Shiny.Maui.Controls.Diagram" />
 		<InternalsVisibleTo Include="Shiny.Maui.Controls.Desktop.Tests" />
+		<!-- ThemedIconView, so the Office ribbons' drawn icons follow the theme token the same way the
+		     ImageEditor ribbon's do instead of each package keeping its own copy. -->
+		<InternalsVisibleTo Include="Shiny.Maui.Controls.Office" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -14,6 +14,8 @@ public sealed class FileDropService : IFileDropService
 
     IJSObjectReference? module;
     DotNetObjectReference<FileDropService>? self;
+    Task? starting;
+    int generation;
 
     public FileDropService(
         IJSRuntime js,
@@ -41,21 +43,49 @@ public sealed class FileDropService : IFileDropService
     public event EventHandler<FileDragEventArgs>? DragLeave;
     public event EventHandler<FileDropEventArgs>? Dropped;
 
-    public async Task StartAsync()
+    public Task StartAsync()
     {
         if (this.module != null)
-            return;
+            return Task.CompletedTask;
 
-        this.self = DotNetObjectReference.Create(this);
-        this.module = await this.js
-            .InvokeAsync<IJSObjectReference>("import", "./_content/Shiny.Blazor.Controls/file-drop.js")
-            .ConfigureAwait(false);
+        // One start at a time: two overlapping calls each used to create a DotNetObjectReference, and
+        // the one overwritten was tracked by the JS runtime and never disposed.
+        return this.starting ??= this.StartCoreAsync();
+    }
 
-        await this.module.InvokeVoidAsync("attach", this.id, this.self).ConfigureAwait(false);
+
+    async Task StartCoreAsync()
+    {
+        var generation = this.generation;
+        try
+        {
+            var loaded = await this.js
+                .InvokeAsync<IJSObjectReference>("import", "./_content/Shiny.Blazor.Controls/file-drop.js")
+                .ConfigureAwait(false);
+
+            // Stopped while the import was in flight (the host was disposed). StopAsync found nothing
+            // to detach, so attaching now would leave four window listeners - and the service they
+            // call back into - alive for the rest of the page.
+            if (generation != this.generation)
+            {
+                await loaded.ReleaseLateAsync().ConfigureAwait(false);
+                return;
+            }
+
+            var self = DotNetObjectReference.Create(this);
+            this.self = self;
+            this.module = loaded;
+            await loaded.InvokeVoidAsync("attach", this.id, self).ConfigureAwait(false);
+        }
+        finally
+        {
+            this.starting = null;
+        }
     }
 
     public async Task StopAsync()
     {
+        this.generation++;
         var current = this.module;
         this.module = null;
 

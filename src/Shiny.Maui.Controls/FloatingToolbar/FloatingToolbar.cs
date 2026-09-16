@@ -304,13 +304,13 @@ public partial class FloatingToolbar : ContentView
     // Items
     // ---------------------------------------------------------------------------------------------
 
+    IDisposable? itemsSubscription;
+
     void OnItemsChanged(IList<ShinyToolbarItem>? oldItems, IList<ShinyToolbarItem>? newItems)
     {
-        if (oldItems is INotifyCollectionChanged oldObservable)
-            oldObservable.CollectionChanged -= this.OnItemsCollectionChanged;
-
-        if (newItems is INotifyCollectionChanged newObservable)
-            newObservable.CollectionChanged += this.OnItemsCollectionChanged;
+        // Weak: a bound Items collection can outlive the page.
+        this.itemsSubscription?.Dispose();
+        this.itemsSubscription = WeakEventSubscription.CollectionChanged(newItems, this.OnItemsCollectionChanged);
 
         this.RebuildStrip();
     }

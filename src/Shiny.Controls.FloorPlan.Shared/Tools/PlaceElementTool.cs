@@ -119,12 +119,17 @@ public class PlaceElementTool : IFloorPlanTool
 
         // Drawn into a translucent layer rather than by fading each paint: the renderers own their
         // own colours, and a ghost has to read as one faint object rather than as a stack of them.
-        canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha(110) });
+        // Disposed rather than left to the finalizer: this runs on every pointer move while placing.
+        using (var layer = new SKPaint { Color = SKColors.White.WithAlpha(110) })
+            canvas.SaveLayer(layer);
         context.DrawElement(canvas, this.ghost);
         canvas.Restore();
 
         var bounds = this.ghost.GetBounds();
         var dash = 4f / context.Camera.Zoom;
+
+        // Disposing the paint does not dispose its path effect, so it is owned here - this runs every frame.
+        using var outlineDash = SKPathEffect.CreateDash([dash, dash], 0);
 
         using var outline = new SKPaint
         {
@@ -132,7 +137,7 @@ public class PlaceElementTool : IFloorPlanTool
             StrokeWidth = 1f / context.Camera.Zoom,
             Style = SKPaintStyle.Stroke,
             IsAntialias = true,
-            PathEffect = SKPathEffect.CreateDash([dash, dash], 0)
+            PathEffect = outlineDash
         };
         canvas.DrawRect(new SKRect(bounds.X, bounds.Y, bounds.Right, bounds.Bottom), outline);
     }

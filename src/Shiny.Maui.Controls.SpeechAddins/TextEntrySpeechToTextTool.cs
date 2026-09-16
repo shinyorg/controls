@@ -73,7 +73,13 @@ public class TextEntrySpeechToTextTool : TextEntryTool, ITextEntryAwareTool
     // ------- ITextEntryAwareTool -------
 
     void ITextEntryAwareTool.Attach(TextEntry entry) => textEntry = entry;
-    void ITextEntryAwareTool.Detach() => textEntry = null;
+    void ITextEntryAwareTool.Detach()
+    {
+        // A recognition session left running when the entry goes away kept the microphone open (and
+        // this tool and its entry reachable) until the recognizer next heard silence.
+        StopListening();
+        textEntry = null;
+    }
 
     // ------- Core Logic -------
 
@@ -111,7 +117,7 @@ public class TextEntrySpeechToTextTool : TextEntryTool, ITextEntryAwareTool
 
             var result = await stt.ListenUntilSilence(options, cts.Token);
 
-            if (!string.IsNullOrEmpty(result))
+            if (!string.IsNullOrEmpty(result) && textEntry is not null)
             {
                 var existing = textEntry.Text?.Trim();
                 textEntry.Text = string.IsNullOrEmpty(existing)

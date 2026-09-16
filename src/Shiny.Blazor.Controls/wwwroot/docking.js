@@ -60,6 +60,9 @@ export function dispose(hostEl) {
     const state = states.get(hostEl);
     if (!state) return;
     cancelDrag(state);
+    // A floating-window resize that settled just before teardown would otherwise still call back
+    // into the disposed DockHost.
+    clearTimeout(state.resizeTimer);
     hostEl.removeEventListener('pointerdown', state.onPointerDown);
     window.removeEventListener('pointermove', state.onPointerMove);
     window.removeEventListener('pointerup', state.onPointerUp);

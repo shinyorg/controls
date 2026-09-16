@@ -1,3 +1,4 @@
+using Shiny.Maui.Controls.Infrastructure;
 using Shiny.Maui.Controls.Ribbons;
 using Shiny.Maui.Controls.Themes;
 
@@ -325,23 +326,18 @@ public partial class ImageEditor
     /// <remarks>
     /// These are drawn, not loaded, so they cannot go through <see cref="RibbonItem.Icon"/>, which
     /// takes an <see cref="ImageSource"/>. The template is instantiated per button - it has to be, a
-    /// shared view cannot be in two places - and the tint is left to the ribbon, which sets the
-    /// foreground on the content it hosts.
+    /// shared view cannot be in two places.
+    /// <para>
+    /// The ribbon draws on a themed surface rather than the old dark scrim, so the icons take the
+    /// theme's on-surface-variant ink. They used to copy it out of <c>Application.Current.Resources</c>
+    /// once, at inflation, so a light/dark flip - or a palette scoped over the editor - left them drawn in
+    /// the old ink (dark on a dark ribbon). <see cref="ThemedIconView"/> follows the token instead.
+    /// </para>
     /// </remarks>
     static DataTemplate IconTemplateFor(ImageEditorIcon icon)
-        => new(() => new GraphicsView
+        => new(() =>
         {
-            Drawable = new ImageEditorIconDrawable { Icon = icon, Color = RibbonIconTint },
-            HeightRequest = 20,
-            WidthRequest = 20,
-            InputTransparent = true,
-            HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions = LayoutOptions.Center
+            var drawable = new ImageEditorIconDrawable { Icon = icon };
+            return new ThemedIconView(drawable, c => drawable.Color = c, 20);
         });
-
-    /// <summary>
-    /// The ribbon draws on a themed surface rather than the old dark scrim, so the icons take the
-    /// theme's on-surface ink instead of the near-white the floating bar used.
-    /// </summary>
-    static Color RibbonIconTint => ThemeColor(ShinyThemeKeys.Color.OnSurfaceVariant, Colors.Gray);
 }

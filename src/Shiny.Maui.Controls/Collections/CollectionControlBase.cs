@@ -7,7 +7,7 @@ namespace Shiny.Maui.Controls.Collections;
 
 public abstract class CollectionControlBase : View
 {
-    INotifyCollectionChanged? observedCollection;
+    IDisposable? collectionSubscription;
 
     protected CollectionControlBase()
         // This level owns no children of its own - OnItemsSourceChanged only touches a field and
@@ -209,17 +209,9 @@ public abstract class CollectionControlBase : View
 
     void OnItemsSourceChanged(IEnumerable? oldValue, IEnumerable? newValue)
     {
-        if (observedCollection is not null)
-        {
-            observedCollection.CollectionChanged -= OnCollectionChanged;
-            observedCollection = null;
-        }
-
-        if (newValue is INotifyCollectionChanged ncc)
-        {
-            ncc.CollectionChanged += OnCollectionChanged;
-            observedCollection = ncc;
-        }
+        // Weak: ItemsSource is usually a view model's collection, which outlives the page.
+        collectionSubscription?.Dispose();
+        collectionSubscription = WeakEventSubscription.CollectionChanged(newValue, OnCollectionChanged);
 
         OnItemsSourceUpdated(CollectionChangedArgs.Reset);
     }

@@ -14,12 +14,18 @@ public partial class ChatView
         // scroll position.
         this.imageViewer.InstallOverlayRoot();
 
+        // Keyboard observers are process-wide (NSNotificationCenter) and would root the chat - and its
+        // page - if left behind when the view leaves the tree without its handler being disconnected.
+        if (this.Handler is not null)
+            this.HookKeyboard();
+
         if (this.session is null && this.Provider is not null && !string.IsNullOrEmpty(this.SessionId))
             this.ReloadSession();
     }
 
     void OnUnloaded()
     {
+        this.UnhookKeyboard();
         this.loadCts?.Cancel();
         _ = this.TeardownSessionAsync();
     }

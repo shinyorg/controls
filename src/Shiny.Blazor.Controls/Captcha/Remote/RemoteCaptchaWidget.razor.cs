@@ -16,6 +16,7 @@ public partial class RemoteCaptchaWidget
     [Parameter, EditorRequired] public CaptchaRenderContext Context { get; set; } = null!;
 
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<RemoteCaptchaWidget>? selfRef;
     ElementReference hostEl;
     bool rendered;
@@ -33,10 +34,12 @@ public partial class RemoteCaptchaWidget
 
         try
         {
-            this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/captcha.js"
             );
+            if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+            this.module = loaded;
 
             // a named DTO, not an anonymous type: trimmed/AOT publish strips anonymous-type
             // constructor parameter names, which the JS interop serializer requires
@@ -115,6 +118,7 @@ public partial class RemoteCaptchaWidget
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.Context.OnWidgetReady(null);
 
         if (this.module != null)

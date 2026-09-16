@@ -95,12 +95,13 @@ public class FontPicker : ContentView
 
     public event EventHandler<string>? FontChanged;
 
+    IDisposable? listSubscription;
+
     void OnAvailableFontsChanged(IList<string>? oldList, IList<string>? newList)
     {
-        if (oldList is INotifyCollectionChanged oldNcc)
-            oldNcc.CollectionChanged -= OnCollectionChanged;
-        if (newList is INotifyCollectionChanged newNcc)
-            newNcc.CollectionChanged += OnCollectionChanged;
+        // Weak: a bound collection can outlive the page.
+        listSubscription?.Dispose();
+        listSubscription = WeakEventSubscription.CollectionChanged(newList, OnCollectionChanged);
 
         Rebuild();
     }

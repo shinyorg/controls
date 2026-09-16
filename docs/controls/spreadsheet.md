@@ -190,6 +190,13 @@ app drew black text on a near-black bar), and the toolbar merges the active them
 token palette — whichever matches the pinned theme's background — into its own resources, so the ribbon
 and the pickers hosted in it match the grid. Unpinning removes it.
 
+On Blazor a pinned theme does the same through CSS: the view's root takes the `shiny-theme-dark` (or
+`shiny-theme-light`) scoping class — chosen by the pinned theme's background, so a custom theme built
+from `SpreadsheetTheme.Dark` scopes dark too — which re-derives every `--shiny-color-*` token beneath
+it. The toolbar/ribbon, its pickers and menus, the formula bar and the sheet tabs all match the grid,
+and the class comes off again when `Theme` goes back to `null`. It used to repaint only the canvas,
+leaving a light ribbon and formula bar around a dark grid.
+
 Following the app also survives the process running for a while: the MAUI views used to lose their
 light/dark subscription at the first garbage collection (`Application.RequestedThemeChanged` holds its
 handlers weakly), after which a flip repainted the ribbon but left the formula bar, sheet tabs and grid

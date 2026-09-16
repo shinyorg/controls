@@ -599,6 +599,23 @@ public class SpreadsheetView : ContentView, IDisposable
         this.Invalidate();
     }
 
+    /// <summary>
+    /// Stops the marching-ants clock when the view leaves the screen and resumes it on return.
+    /// </summary>
+    /// <remarks>
+    /// A running dispatcher timer is rooted by the platform's run loop, so a copy left pending when the
+    /// page was popped kept ticking - and kept this view and its page alive - for the life of the app.
+    /// </remarks>
+    protected override void OnHandlerChanged()
+    {
+        base.OnHandlerChanged();
+
+        if (this.Handler is null)
+            this.StopMarching();
+        else if (this.controller?.ClipboardRange is not null)
+            this.StartMarching();
+    }
+
     void DetachController()
     {
         if (this.controller is null)

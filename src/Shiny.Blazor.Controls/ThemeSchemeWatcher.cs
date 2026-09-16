@@ -36,6 +36,7 @@ public sealed partial class ThemeSchemeWatcher : IAsyncDisposable
     DotNetObjectReference<ThemeSchemeWatcher>? self;
     ElementReference element;
     bool started;
+    bool disposed;
 
     public ThemeSchemeWatcher(IJSRuntime js, Func<Task> onChanged)
     {
@@ -79,7 +80,17 @@ public sealed partial class ThemeSchemeWatcher : IAsyncDisposable
 
         try
         {
-            this.module = await this.js.InvokeAsync<IJSObjectReference>("import", ModulePath);
+            var loaded = await this.js.InvokeAsync<IJSObjectReference>("import", ModulePath);
+
+            // Disposed while the import was in flight: a watch started now would hang a MutationObserver
+            // on <html> and a media-query listener that call back into this watcher forever.
+            if (this.disposed)
+            {
+                await loaded.ReleaseLateAsync();
+                return;
+            }
+
+            this.module = loaded;
             this.self = DotNetObjectReference.Create(this);
 
             this.element = element;
@@ -163,6 +174,7 @@ public sealed partial class ThemeSchemeWatcher : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         try
         {
             if (this.module is not null)

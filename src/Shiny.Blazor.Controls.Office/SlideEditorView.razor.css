@@ -159,3 +159,15 @@
     margin: 0 3px;
     background: var(--shiny-color-outline-variant, #BBC7DF);
 }
+
+/*
+    A pinned Theme puts .shiny-theme-dark / .shiny-theme-light on this root (OfficeScheme.ScopeClass),
+    which re-derives every --shiny-color-* token beneath it, so the ribbon, its pickers and the rest of
+    the chrome match the canvas instead of the page. The root also takes the scope's own ink and
+    ground: chrome whose text only inherits its colour would otherwise keep the page's ink - dark text
+    on the scoped dark surface.
+*/
+.shiny-slide-editor-view.shiny-office-scoped {
+    color: var(--shiny-color-on-surface, #161C23);
+    background: var(--shiny-color-surface, #F6FAFE);
+}

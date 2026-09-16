@@ -117,6 +117,12 @@ sealed class DesktopScreenGlowPresenter : IScreenGlowPresenter, IDisposable
         catch (OperationCanceledException)
         {
             this.logger?.LogError("Timed out waiting for the screen glow window handler.");
+
+            // Close the window that never produced a handler. Without this it stayed in
+            // Application.Windows, and since platformWindow is still null the next show opened
+            // another one - a fresh screen-sized window leaked per attempt. The quick entry
+            // presenter already tears down the same way.
+            this.Teardown();
         }
         finally
         {

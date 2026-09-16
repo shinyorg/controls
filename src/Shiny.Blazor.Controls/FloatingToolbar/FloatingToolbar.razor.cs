@@ -50,6 +50,7 @@ public partial class FloatingToolbar : IAsyncDisposable
     ElementReference barEl;
     ElementReference anchorEl;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<FloatingToolbar>? selfRef;
 
     CancellationTokenSource? showCts;

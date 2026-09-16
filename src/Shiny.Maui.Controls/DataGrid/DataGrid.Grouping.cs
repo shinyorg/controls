@@ -32,7 +32,7 @@ public partial class DataGrid
     /// <summary>Set by Expand/CollapseAllGroups, which move the default rather than listing paths.</summary>
     bool? groupExpandedOverride;
 
-    INotifyCollectionChanged? observedGroupBy;
+    IDisposable? groupBySubscription;
 
     public static readonly BindableProperty GroupByProperty = BindableProperty.Create(
         nameof(GroupBy), typeof(IList<string>), typeof(DataGrid), null,
@@ -148,12 +148,9 @@ public partial class DataGrid
 
     void OnGroupByChanged(INotifyCollectionChanged? oldValue, INotifyCollectionChanged? newValue)
     {
-        if (this.observedGroupBy is not null)
-            this.observedGroupBy.CollectionChanged -= this.OnGroupByCollectionChanged;
-
-        this.observedGroupBy = newValue;
-        if (this.observedGroupBy is not null)
-            this.observedGroupBy.CollectionChanged += this.OnGroupByCollectionChanged;
+        // Weak: a bound collection can outlive the page (memory-leak fix).
+        this.groupBySubscription?.Dispose();
+        this.groupBySubscription = WeakEventSubscription.CollectionChanged(newValue, this.OnGroupByCollectionChanged);
 
         this.ResetGroupState();
         this.RebuildAll();

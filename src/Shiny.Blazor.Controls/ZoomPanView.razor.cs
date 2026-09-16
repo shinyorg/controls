@@ -35,6 +35,7 @@ public partial class ZoomPanView : IAsyncDisposable
     ElementReference hostEl;
     ElementReference surfaceEl;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<ZoomPanView>? selfRef;
 
     /// <summary>
@@ -202,10 +203,12 @@ public partial class ZoomPanView : IAsyncDisposable
 
         if (firstRender)
         {
-            this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/zoom-pan.js"
             );
+            if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+            this.module = loaded;
             this.selfRef = DotNetObjectReference.Create(this);
             this.lastOptions = this.Options();
             await this.module.InvokeVoidAsync("init", this.hostEl, this.surfaceEl, this.selfRef, this.lastOptions);
@@ -262,6 +265,7 @@ public partial class ZoomPanView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         if (this.module is not null)
         {
             try

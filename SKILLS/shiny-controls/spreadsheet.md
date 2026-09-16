@@ -326,6 +326,10 @@ host's light/dark scheme live. Pass `SpreadsheetTheme.Light` / `.Dark` only to p
 - On MAUI a **pinned** theme carries the whole chrome with it: the formula bar inks its boxes from the
   theme, and the toolbar scopes the app theme pack's matching light/dark token palette over the ribbon,
   so a pinned `SpreadsheetTheme.Dark` in a light app gets a dark ribbon too.
+- On Blazor a **pinned** theme puts `shiny-theme-dark` / `shiny-theme-light` on the view's root, so the
+  toolbar/ribbon, pickers, formula bar and sheet tabs re-derive their `--shiny-color-*` tokens to match
+  the grid (same for `DocumentEditorView`, `SlideEditorView`, `NotebookEditorView`). Do not wrap the
+  view in your own scoping container just to theme the chrome.
 - Text with no colour of its own on a **filled** cell is made to contrast with the fill (a light header
   fill keeps dark text in dark mode); an explicit font colour is left as authored.
 

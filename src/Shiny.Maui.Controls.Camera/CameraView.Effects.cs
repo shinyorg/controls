@@ -88,16 +88,37 @@ public partial class CameraView
     /// </remarks>
     void TrackEffects(object? oldValue, object? newValue)
     {
-        if (oldValue is INotifyCollectionChanged oldObservable)
-            oldObservable.CollectionChanged -= this.OnEffectsCollectionChanged;
+        // Detach from whatever is currently tracked (which is oldValue in practice) - this also keeps a
+        // second call for the same instance from double-subscribing.
+        if (this.effectsTracked is not null && this.effectsForwarder is not null)
+            this.effectsTracked.CollectionChanged -= this.effectsForwarder;
+
+        this.effectsTracked = null;
+        this.effectsForwarder = null;
 
         if (newValue is INotifyCollectionChanged newObservable)
         {
-            // defensive: never end up double-subscribed if this is called twice for the same instance
-            newObservable.CollectionChanged -= this.OnEffectsCollectionChanged;
-            newObservable.CollectionChanged += this.OnEffectsCollectionChanged;
+            // Weakly. Effects is often bound to a view model's collection that outlives the page, and a direct
+            // handler made that collection root this view - and through it the page and the whole camera
+            // handler graph - for as long as the view model lived. MAUI never calls anything we could
+            // unsubscribe from, so the forwarder holds the view weakly and drops itself once it is gone.
+            var reference = new WeakReference<CameraView>(this);
+            NotifyCollectionChangedEventHandler? forwarder = null;
+            forwarder = (sender, e) =>
+            {
+                if (reference.TryGetTarget(out var view))
+                    view.OnEffectsCollectionChanged(sender, e);
+                else
+                    newObservable.CollectionChanged -= forwarder;
+            };
+            this.effectsForwarder = forwarder;
+            this.effectsTracked = newObservable;
+            newObservable.CollectionChanged += forwarder;
         }
     }
+
+    NotifyCollectionChangedEventHandler? effectsForwarder;
+    INotifyCollectionChanged? effectsTracked;
 
     // Materialize the default collection and subscribe to it now, rather than waiting for a property change
     // that never comes. Called from the constructor.

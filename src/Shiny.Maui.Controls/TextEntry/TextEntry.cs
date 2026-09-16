@@ -42,8 +42,8 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
     readonly Grid rootGrid;
     readonly Shadow focusGlow;
 
-    NotifyCollectionChangedEventHandler? leftToolsChangedHandler;
-    NotifyCollectionChangedEventHandler? rightToolsChangedHandler;
+    IDisposable? leftToolsSubscription;
+    IDisposable? rightToolsSubscription;
 
     bool suppressTextChanged;
     bool isPlaceholderUp;
@@ -619,29 +619,20 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
     void OnToolsChanged(IList<TextEntryTool>? oldTools, IList<TextEntryTool>? newTools, HorizontalStackLayout layout)
     {
         var isLeft = layout == leftToolsLayout;
-        ref var handler = ref isLeft ? ref leftToolsChangedHandler : ref rightToolsChangedHandler;
-
-        if (oldTools is INotifyCollectionChanged oldNcc && handler is not null)
-            oldNcc.CollectionChanged -= handler;
+        ref var subscription = ref isLeft ? ref leftToolsSubscription : ref rightToolsSubscription;
+        subscription?.Dispose();
 
         DetachTools(oldTools);
         RebuildTools(newTools, layout);
         AttachTools(newTools);
 
-        if (newTools is INotifyCollectionChanged ncc)
+        // Weak: a bound Tools collection can outlive the page.
+        subscription = WeakEventSubscription.CollectionChanged(newTools, (_, _) =>
         {
-            handler = (_, _) =>
-            {
-                DetachTools(newTools);
-                RebuildTools(newTools, layout);
-                AttachTools(newTools);
-            };
-            ncc.CollectionChanged += handler;
-        }
-        else
-        {
-            handler = null;
-        }
+            DetachTools(newTools);
+            RebuildTools(newTools, layout);
+            AttachTools(newTools);
+        });
     }
 
     void RebuildTools(IList<TextEntryTool>? tools, HorizontalStackLayout layout)

@@ -31,6 +31,7 @@ public partial class Walkthrough
     readonly List<WalkthroughStep> steps = new();
 
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<Walkthrough>? selfRef;
     ElementReference calloutRef;
     ElementReference nextRef;
@@ -372,16 +373,20 @@ public partial class Walkthrough
         if (!firstRender)
             return;
 
-        this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+        var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
             "import",
             "./_content/Shiny.Blazor.Controls/walkthrough.js"
         );
+        if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+        this.module = loaded;
         this.selfRef = DotNetObjectReference.Create(this);
 
         if (this.AutoStart && !this.started)
         {
             this.started = true;
             await Task.Delay(Math.Max(1, this.AutoStartDelay));
+            if (this.disposed)
+                return;
 
             if (!await this.HasRunAsync())
                 await this.StartAsync();

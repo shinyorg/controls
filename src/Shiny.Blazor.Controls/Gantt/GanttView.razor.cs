@@ -37,6 +37,7 @@ public partial class GanttView : ComponentBase, IAsyncDisposable
     ElementReference paneInner;
 
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<GanttView>? selfRef;
     bool attached;
     bool rendered;
@@ -287,9 +288,11 @@ public partial class GanttView : ComponentBase, IAsyncDisposable
         this.attached = true;
         this.selfRef = DotNetObjectReference.Create(this);
 
-        this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+        var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
             "import", "./_content/Shiny.Blazor.Controls/gantt.js"
         );
+        if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+        this.module = loaded;
 
         await this.module.InvokeVoidAsync("attach", this.scrollElement, this.headerInner, this.paneInner, this.selfRef);
     }
@@ -620,6 +623,7 @@ public partial class GanttView : ComponentBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.UnhookItems();
 
         if (this.observedTasks is not null)

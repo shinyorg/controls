@@ -198,6 +198,11 @@ was never printed and has no canonical appearance, so a dark app with a white pa
 that missed the memo. Leave `Theme` unset to follow the app, or pin it to `NotebookTheme.Light` /
 `NotebookTheme.Dark`.
 
+A **pinned** theme on Blazor carries the chrome with it: the view's root takes the matching
+`shiny-theme-dark` / `shiny-theme-light` scoping class (read off the pinned theme's colours), so the
+ribbon, its pickers and the rest of the bar re-derive their `--shiny-color-*` tokens to match the
+canvas. Unpinning removes it.
+
 Existing ink is never recoloured. A stroke written in black stays black when the app flips to dark —
 repainting a user's ink is not theming.
 

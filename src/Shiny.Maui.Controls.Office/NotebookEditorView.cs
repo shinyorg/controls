@@ -662,10 +662,23 @@ public class NotebookEditorView : ContentView, IDisposable
 
     // ---- navigation ----
 
+    /// <summary>The weak forwarder subscribed to the current notebook, kept so a swap can remove it.</summary>
+    EventHandler? structureForwarder;
+
     void Attach(NotebookDocument? document)
     {
+        // Weakly: the notebook belongs to the app and usually outlives this view (a view model holds
+        // it across page visits). A direct handler made the document root the view and its whole page,
+        // and the only unsubscribe was in Dispose, which MAUI never calls.
         if (document is not null)
-            document.StructureChanged += this.OnStructureChanged;
+        {
+            this.structureForwarder = Shiny.Controls.Office.WeakEvent.Forward(
+                this,
+                document,
+                static v => v.RefreshNavigation(),
+                static (d, h) => d.StructureChanged -= h);
+            document.StructureChanged += this.structureForwarder;
+        }
 
         if (this.editor.Controller is { } controller)
             controller.Changed += this.OnControllerChanged;
@@ -676,14 +689,13 @@ public class NotebookEditorView : ContentView, IDisposable
 
     void Detach(NotebookDocument? document)
     {
-        if (document is not null)
-            document.StructureChanged -= this.OnStructureChanged;
+        if (document is not null && this.structureForwarder is not null)
+            document.StructureChanged -= this.structureForwarder;
+        this.structureForwarder = null;
 
         if (this.editor.Controller is { } controller)
             controller.Changed -= this.OnControllerChanged;
     }
-
-    void OnStructureChanged(object? sender, EventArgs e) => this.RefreshNavigation();
 
     void OnControllerChanged(object? sender, EventArgs e) => this.RefreshBar();
 

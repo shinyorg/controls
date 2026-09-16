@@ -18,7 +18,7 @@ public partial class TableView : ContentView
     VerticalStackLayout rootLayout = default!;
     TvTableRoot root = default!;
     bool isRendering;
-    INotifyCollectionChanged? viewItemsSourceNotifier;
+    IDisposable? viewItemsSourceSubscription;
     readonly List<TvTableSection> generatedSections = new();
     DragSortController? dragSort;
     internal bool SuppressRender { get; set; }
@@ -365,17 +365,9 @@ public partial class TableView : ContentView
     {
         var tv = (TableView)bindable;
 
-        if (tv.viewItemsSourceNotifier != null)
-        {
-            tv.viewItemsSourceNotifier.CollectionChanged -= tv.OnViewItemsSourceCollectionChanged;
-            tv.viewItemsSourceNotifier = null;
-        }
-
-        if (newValue is INotifyCollectionChanged notifier)
-        {
-            tv.viewItemsSourceNotifier = notifier;
-            notifier.CollectionChanged += tv.OnViewItemsSourceCollectionChanged;
-        }
+        // Weak: the source is usually a view model's collection, which outlives the page.
+        tv.viewItemsSourceSubscription?.Dispose();
+        tv.viewItemsSourceSubscription = WeakEventSubscription.CollectionChanged(newValue, tv.OnViewItemsSourceCollectionChanged);
 
         tv.RegenerateTemplatedSections();
     }

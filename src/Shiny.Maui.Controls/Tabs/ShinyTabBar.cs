@@ -1428,27 +1428,80 @@ public partial class ShinyTabBar : Grid
     }
 
 
-    TabActionCollection? observedPageActions;
+    readonly List<TabActionCollection> observedPageActions = new();
+    IReadOnlyList<BindableObject> menuFallbackContexts = [];
 
     /// <summary>
-    /// Follows the current page's <see cref="ShinyTabs.ActionsProperty"/> collection, so rows added to
-    /// or removed from it reach the button and an open menu.
+    /// Follows the <see cref="ShinyTabs.ActionsProperty"/> collection of every element the menu is
+    /// resolved from - the current page and each fallback context - so rows added to or removed from
+    /// any of them reach the button and an open menu.
     /// </summary>
+    /// <remarks>
+    /// All of them, not only the one currently winning: rows added to a page whose collection was
+    /// empty change which element wins, and that is exactly the change a single observer would miss.
+    /// </remarks>
     void ObservePageActions()
     {
-        var context = this.PageContext ?? this.SelectedItem?.PageContext;
-        var actions = context is null ? null : ShinyTabs.GetActions(context);
+        var actions = this.MenuContexts().Select(ShinyTabs.GetActions).Distinct().ToList();
 
-        if (ReferenceEquals(actions, this.observedPageActions))
+        if (actions.SequenceEqual(this.observedPageActions))
             return;
 
-        if (this.observedPageActions is not null)
-            this.observedPageActions.CollectionChanged -= this.OnCenterActionsChanged;
+        foreach (var previous in this.observedPageActions)
+            previous.CollectionChanged -= this.OnCenterActionsChanged;
 
-        this.observedPageActions = actions;
+        this.observedPageActions.Clear();
+        this.observedPageActions.AddRange(actions);
 
-        if (actions is not null)
-            actions.CollectionChanged += this.OnCenterActionsChanged;
+        foreach (var next in actions)
+            next.CollectionChanged += this.OnCenterActionsChanged;
+    }
+
+
+    /// <summary>
+    /// The elements the centre menu is resolved from, in precedence order: the current page (or the
+    /// selected tab's realized content), then the host-supplied fallbacks - in a Shell, the current
+    /// <c>ShellContent</c>, its <c>Tab</c> and its <c>ShellItem</c>.
+    /// </summary>
+    IEnumerable<BindableObject> MenuContexts()
+    {
+        if ((this.PageContext ?? this.SelectedItem?.PageContext) is { } page)
+            yield return page;
+
+        foreach (var fallback in this.menuFallbackContexts)
+            yield return fallback;
+    }
+
+
+    /// <summary>
+    /// Elements that declare <see cref="ShinyTabs"/> menu values for the current tab when the page
+    /// itself does not - read after <see cref="PageContext"/>, each level only when the ones before
+    /// it declared nothing. <see cref="ShinyTabBarBehavior"/> supplies the Shell's current
+    /// <c>ShellContent</c>, <c>Tab</c> and <c>ShellItem</c>.
+    /// </summary>
+    internal void SetMenuFallbackContexts(IReadOnlyList<BindableObject> contexts)
+    {
+        if (contexts.SequenceEqual(this.menuFallbackContexts))
+            return;
+
+        foreach (var previous in this.menuFallbackContexts)
+            previous.PropertyChanged -= this.OnMenuFallbackPropertyChanged;
+
+        this.menuFallbackContexts = contexts.ToArray();
+
+        foreach (var next in this.menuFallbackContexts)
+            next.PropertyChanged += this.OnMenuFallbackPropertyChanged;
+
+        StyleGuard.WhenReady<ShinyTabBar>(this, bar => bar.OnMenuSourceChanged());
+    }
+
+
+    void OnMenuFallbackPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // A whole new collection (or content) assigned to the ShellContent. The rows inside an
+        // existing collection are followed by ObservePageActions instead.
+        if (e.PropertyName is "Actions" or "MenuContent" or "MenuContentTemplate")
+            this.OnMenuSourceChanged();
     }
 
 
@@ -1633,16 +1686,21 @@ public partial class ShinyTabBar : Grid
     TabMenuKind menuKind = TabMenuKind.Center;
 
 
-    /// <summary>The rows the centre menu will show — the page's if it declared any, the button's otherwise.</summary>
+    /// <summary>
+    /// The rows the centre menu will show — the first menu context's that declared any (the page, then
+    /// in a Shell its <c>ShellContent</c>, <c>Tab</c> and <c>ShellItem</c>), the button's otherwise.
+    /// </summary>
     internal IList<TabAction> ResolveMenuActions()
     {
-        var context = this.PageContext ?? this.SelectedItem?.PageContext;
-
         // Deliberately a Count check rather than IsSet: markup fills the collection the getter hands
         // back rather than assigning a new one, so the property never reads as "explicitly set" even
-        // on a page that plainly declared rows.
-        if (context is not null && ShinyTabs.GetActions(context) is { Count: > 0 } pageActions)
-            return Adopt(pageActions, context.BindingContext);
+        // on a page that plainly declared rows. The first element with rows wins outright - a page's
+        // rows replace its ShellContent's rather than merging, the same way its badge does.
+        foreach (var context in this.MenuContexts())
+        {
+            if (ShinyTabs.GetActions(context) is { Count: > 0 } pageActions)
+                return Adopt(pageActions, context.BindingContext);
+        }
 
         return this.CenterButton?.Actions is { Count: > 0 } buttonActions
             ? Adopt(buttonActions, this.BindingContext)
@@ -1653,9 +1711,7 @@ public partial class ShinyTabBar : Grid
     /// <summary>The custom content the centre menu will show, if any. Beats <see cref="ResolveMenuActions"/>.</summary>
     internal View? ResolveMenuContent()
     {
-        var context = this.PageContext ?? this.SelectedItem?.PageContext;
-
-        if (context is not null)
+        foreach (var context in this.MenuContexts())
         {
             // Built fresh on every open, deliberately: a menu is transient, and a template that
             // rebuilds is the one that shows current data rather than whatever it captured first.
@@ -1724,12 +1780,13 @@ public partial class ShinyTabBar : Grid
         if (this.MenuTemplate is not null)
             return true;
 
-        var context = this.PageContext ?? this.SelectedItem?.PageContext;
-        if (context is not null && (
-                ShinyTabs.GetMenuContentTemplate(context) is not null ||
+        foreach (var context in this.MenuContexts())
+        {
+            if (ShinyTabs.GetMenuContentTemplate(context) is not null ||
                 ShinyTabs.GetMenuContent(context) is not null ||
-                ShinyTabs.GetActions(context) is { Count: > 0 }))
-            return true;
+                ShinyTabs.GetActions(context) is { Count: > 0 })
+                return true;
+        }
 
         return this.CenterButton is { } center && (
             center.MenuContentTemplate is not null ||
@@ -1962,7 +2019,7 @@ public partial class ShinyTabBar : Grid
         // the bar keeps the backdrop, the anchoring above the button and the open/close animation.
         if (this.MenuTemplate is { } menuTemplate)
         {
-            var context = this.PageContext ?? this.SelectedItem?.PageContext;
+            var context = this.MenuContexts().FirstOrDefault();
             return Adopt(menuTemplate.CreateContent() as View, context?.BindingContext ?? this.BindingContext)
                    ?? new VerticalStackLayout();
         }

@@ -52,6 +52,15 @@ public partial class BadgeView : Grid, IDisposable
 
         this.ApplyBadgeVisual(animate: false);
 
+        // MAUI never disposes views: a pulsing badge removed from the tree would otherwise loop its
+        // scale animation forever, rooted by the animation ticker, keeping the page alive.
+        this.Loaded += (_, _) =>
+        {
+            if (this.IsPulsing && this.currentlyVisible && !this.isPulseRunning)
+                this.StartPulse();
+        };
+        this.Unloaded += (_, _) => this.StopPulse();
+
         // Last line: replays any styled property that was applied before the
         // children existed. See StyleGuard.
         StyleGuard.MarkReady(this, typeof(BadgeView));
@@ -234,14 +243,15 @@ public partial class BadgeView : Grid, IDisposable
             return;
 
         this.isPulseRunning = true;
+        var run = ++this.pulseRun;
         try
         {
-            while (this.isPulseRunning && this.IsPulsing && this.currentlyVisible)
+            while (this.isPulseRunning && run == this.pulseRun && this.IsPulsing && this.currentlyVisible)
             {
                 try
                 {
                     await this.badgeBorder.ScaleToAsync(1.18, 500, Easing.SinInOut);
-                    if (!this.isPulseRunning || !this.IsPulsing || !this.currentlyVisible)
+                    if (!this.isPulseRunning || run != this.pulseRun || !this.IsPulsing || !this.currentlyVisible)
                         break;
                     await this.badgeBorder.ScaleToAsync(1.0, 500, Easing.SinInOut);
                 }
@@ -254,15 +264,22 @@ public partial class BadgeView : Grid, IDisposable
         }
         finally
         {
-            this.isPulseRunning = false;
-            if (this.currentlyVisible)
-                this.badgeBorder.Scale = 1;
+            // A newer run may have started while this one was unwinding; it owns the flag now.
+            if (run == this.pulseRun)
+            {
+                this.isPulseRunning = false;
+                if (this.currentlyVisible)
+                    this.badgeBorder.Scale = 1;
+            }
         }
     }
+
+    int pulseRun;
 
     void StopPulse()
     {
         this.isPulseRunning = false;
+        this.pulseRun++;
         Microsoft.Maui.Controls.ViewExtensions.CancelAnimations(this.badgeBorder);
         if (this.currentlyVisible)
             this.badgeBorder.Scale = 1;

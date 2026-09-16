@@ -13,6 +13,7 @@ public partial class RangeSlider : IAsyncDisposable
 
     ElementReference trackRef;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<RangeSlider>? selfRef;
 
     // Parameters
@@ -184,8 +185,10 @@ public partial class RangeSlider : IAsyncDisposable
     {
         if (firstRender)
         {
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/Shiny.Blazor.Controls/rangeslider.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
             selfRef = DotNetObjectReference.Create(this);
             await module.InvokeVoidAsync("init", trackRef, selfRef);
         }
@@ -280,6 +283,7 @@ public partial class RangeSlider : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module is not null)
         {
             try { await module.InvokeVoidAsync("dispose", trackRef); } catch { }

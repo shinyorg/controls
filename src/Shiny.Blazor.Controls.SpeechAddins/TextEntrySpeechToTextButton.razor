@@ -1,5 +1,6 @@
 @namespace Shiny.Blazor.Controls.SpeechAddins
 @inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <button class="shiny-te-stt-btn @(isListening ? "shiny-te-stt-btn--listening" : "")"
         type="button"
@@ -37,10 +38,18 @@
     {
         if (firstRender)
         {
-            dotnetRef = DotNetObjectReference.Create(this);
-            moduleRef = await JS.InvokeAsync<IJSObjectReference>(
+            var imported = await JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls.SpeechAddins/shinySpeechToText.js");
+
+            if (disposed)
+            {
+                await imported.DisposeAsync();
+                return;
+            }
+
+            dotnetRef = DotNetObjectReference.Create(this);
+            moduleRef = imported;
         }
     }
 
@@ -89,12 +98,26 @@
         StateHasChanged();
     }
 
+    bool disposed;
+
+    // Declared IAsyncDisposable above: without @implements the renderer never called this, so a button removed
+    // mid-dictation left the microphone listening and its module + .NET reference alive for the whole session.
     public async ValueTask DisposeAsync()
     {
+        if (disposed)
+            return;
+
+        disposed = true;
         if (moduleRef is not null)
         {
-            try { await moduleRef.InvokeVoidAsync("stopListening"); } catch { }
-            await moduleRef.DisposeAsync();
+            try
+            {
+                await moduleRef.InvokeVoidAsync("disposeListening", dotnetRef);
+                await moduleRef.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+            catch (JSException) { }
+            catch (ObjectDisposedException) { }
         }
         dotnetRef?.Dispose();
     }

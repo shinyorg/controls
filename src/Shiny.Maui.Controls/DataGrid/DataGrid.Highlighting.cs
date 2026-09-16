@@ -53,7 +53,7 @@ public partial class DataGrid
         set => this.SetValue(HighlightsProperty, value);
     }
 
-    INotifyCollectionChanged? observedHighlights;
+    IDisposable? highlightsSubscription;
 
     /// <summary>
     /// Re-evaluates every highlight against the current rows. Needed only when a rule was mutated in
@@ -64,12 +64,9 @@ public partial class DataGrid
 
     void OnHighlightsChanged(object? oldValue, object? newValue)
     {
-        if (this.observedHighlights is not null)
-            this.observedHighlights.CollectionChanged -= this.OnHighlightRulesChanged;
-
-        this.observedHighlights = newValue as INotifyCollectionChanged;
-        if (this.observedHighlights is not null)
-            this.observedHighlights.CollectionChanged += this.OnHighlightRulesChanged;
+        // Weak: a bound collection can outlive the page (memory-leak fix).
+        this.highlightsSubscription?.Dispose();
+        this.highlightsSubscription = WeakEventSubscription.CollectionChanged(newValue, this.OnHighlightRulesChanged);
 
         this.RebuildRows();
     }
@@ -79,9 +76,8 @@ public partial class DataGrid
     /// <summary>Starts watching the collection the default value creator handed us - no propertyChanged fires for that.</summary>
     void ObserveDefaultHighlights()
     {
-        this.observedHighlights = this.Highlights as INotifyCollectionChanged;
-        if (this.observedHighlights is not null)
-            this.observedHighlights.CollectionChanged += this.OnHighlightRulesChanged;
+        this.highlightsSubscription?.Dispose();
+        this.highlightsSubscription = WeakEventSubscription.CollectionChanged(this.Highlights, this.OnHighlightRulesChanged);
     }
 
     /// <summary>

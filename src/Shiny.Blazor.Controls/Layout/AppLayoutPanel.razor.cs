@@ -14,6 +14,7 @@ public partial class AppLayoutPanel : IAsyncDisposable
 {
     ElementReference panelRef;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<AppLayoutPanel>? selfRef;
 
     PanelState currentState;
@@ -119,10 +120,12 @@ public partial class AppLayoutPanel : IAsyncDisposable
         if (!firstRender)
             return;
 
-        this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+        var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
             "import",
             "./_content/Shiny.Blazor.Controls/app-layout.js"
         );
+        if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+        this.module = loaded;
         this.selfRef = DotNetObjectReference.Create(this);
         await this.module.InvokeVoidAsync("initPanel", this.panelRef, this.selfRef);
 
@@ -309,6 +312,7 @@ public partial class AppLayoutPanel : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.Layout?.Unregister(this);
 
         if (this.module is not null)

@@ -49,8 +49,9 @@ public class NotebookController
         this.Document = document;
         this.Measurer = measurer;
 
-        document.ContentChanged += this.OnDocumentChanged;
-        document.StructureChanged += this.OnStructureChanged;
+        // Weakly: the document is the app's and outlives the view this controller paints. See WeakEvent.
+        document.ContentChanged += WeakEvent.Forward(this, document, static c => c.OnDocumentChanged(null, EventArgs.Empty), static (d, h) => d.ContentChanged -= h);
+        document.StructureChanged += WeakEvent.Forward(this, document, static c => c.OnStructureChanged(null, EventArgs.Empty), static (d, h) => d.StructureChanged -= h);
     }
 
     public NotebookDocument Document { get; }

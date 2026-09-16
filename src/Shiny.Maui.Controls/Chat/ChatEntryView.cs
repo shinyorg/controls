@@ -401,13 +401,15 @@ public partial class ChatEntryView : ContentView
         }
     }
 
+    IDisposable? leftToolbarSubscription;
+    IDisposable? rightToolbarSubscription;
+
     internal void HookToolbar(object? oldValue, object? newValue, bool left)
     {
-        if (oldValue is INotifyCollectionChanged before)
-            before.CollectionChanged -= left ? this.OnLeftToolbarChanged : this.OnRightToolbarChanged;
-
-        if (newValue is INotifyCollectionChanged after)
-            after.CollectionChanged += left ? this.OnLeftToolbarChanged : this.OnRightToolbarChanged;
+        // Weak: a bound toolbar collection can outlive the page.
+        ref var subscription = ref left ? ref this.leftToolbarSubscription : ref this.rightToolbarSubscription;
+        subscription?.Dispose();
+        subscription = WeakEventSubscription.CollectionChanged(newValue, left ? this.OnLeftToolbarChanged : this.OnRightToolbarChanged);
 
         this.RebuildToolbar(left);
     }

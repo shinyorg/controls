@@ -248,10 +248,19 @@ For something that is not a list of rows, hand the bar a view instead — it win
 </shiny:ShinyTabs.MenuContent>
 ```
 
+**In a Shell**, the page and the Shell elements behind it form a chain: the current page, then its
+`ShellContent`, then the `Tab`, then the `ShellItem`. The first that declares
+`MenuContentTemplate`/`MenuContent` supplies the content and the first with any `Actions` rows supplies
+the rows — a page's rows *replace* its `ShellContent`'s, they never merge. Put rows on the
+`ShellContent` when they belong to the tab (or the page is built lazily); their `{Binding}`s resolve
+against the `ShellContent`'s context, which is the Shell's unless set, so bind to the Shell's view model
+(or set `BindingContext` on the `ShellContent`). Changes to that collection and tab switches update the
+button's dimming live.
+
 `ShinyTabs.MenuContentTemplate` is the same thing built fresh on every open, which is what shows
 current data rather than whatever it captured first. Precedence, highest first: the page's
-`MenuContentTemplate`, the page's `MenuContent`, the button's `MenuContentTemplate`, the button's
-`MenuContent`, the page's `Actions`, the button's `Actions`.
+`MenuContentTemplate`, the page's `MenuContent` (then the same two on the `ShellContent`/`Tab`/`ShellItem` in a Shell), the button's `MenuContentTemplate`, the button's
+`MenuContent`, the page's `Actions` (then the `ShellContent`'s, `Tab`'s, `ShellItem`'s in a Shell), the button's `Actions`.
 
 ## ShinyTabs attached properties
 

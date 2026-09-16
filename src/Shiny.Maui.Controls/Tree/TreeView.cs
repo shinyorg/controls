@@ -18,7 +18,7 @@ public partial class TreeView : ContentView
     readonly Dictionary<TreeNode, TreeNodeView> nodeViews = new();
     readonly List<TreeNode> flatNodes = new();
 
-    INotifyCollectionChanged? observedSource;
+    IDisposable? sourceSubscription;
     bool isRebuilding;
     Exception? rootLoadError;
     bool rootLoaderInvoked;
@@ -55,11 +55,8 @@ public partial class TreeView : ContentView
     // ------------- Source management -------------
     void OnItemsSourceChanged()
     {
-        if (observedSource != null)
-        {
-            observedSource.CollectionChanged -= OnSourceCollectionChanged;
-            observedSource = null;
-        }
+        sourceSubscription?.Dispose();
+        sourceSubscription = null;
 
         if (RootLoader != null)
         {
@@ -67,11 +64,8 @@ public partial class TreeView : ContentView
             return;
         }
 
-        if (ItemsSource is INotifyCollectionChanged notify)
-        {
-            observedSource = notify;
-            notify.CollectionChanged += OnSourceCollectionChanged;
-        }
+        // Weak: ItemsSource is usually a view model's collection, which outlives the page.
+        sourceSubscription = WeakEventSubscription.CollectionChanged(ItemsSource, OnSourceCollectionChanged);
 
         BuildRootNodes();
         Rebuild();

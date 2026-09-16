@@ -67,6 +67,15 @@ public partial class SkeletonView : Grid, IDisposable
         this.Children.Add(this.realContentHost);
         this.Children.Add(this.skeletonHost);
 
+        // MAUI never disposes views: a busy skeleton removed from the tree would otherwise keep its
+        // shimmer loop (and the Task.Delay timers it awaits) running forever, rooting the page.
+        this.Loaded += (_, _) =>
+        {
+            if (this.IsBusy)
+                this.StartShimmer();
+        };
+        this.Unloaded += (_, _) => this.StopShimmer();
+
         // Last line: replays any styled property that was applied before the
         // children existed. See StyleGuard.
         StyleGuard.MarkReady(this, typeof(SkeletonView));
@@ -364,10 +373,11 @@ public partial class SkeletonView : Grid, IDisposable
             return;
 
         this.isAnimating = true;
+        var run = ++this.shimmerRun;
         this.SetBandsVisible(true);
         this.ConfigureShimmerBands();
 
-        while (this.isAnimating && this.IsBusy)
+        while (this.isAnimating && run == this.shimmerRun && this.IsBusy)
         {
             if (this.containerWidth <= 0)
             {
@@ -388,12 +398,17 @@ public partial class SkeletonView : Grid, IDisposable
             await Task.WhenAny(sweep.Task, Task.Delay((int)this.AnimationDuration + 250));
         }
 
-        this.SetBandOffset(0);
+        if (run == this.shimmerRun)
+            this.SetBandOffset(0);
     }
+
+    // Distinguishes a stale loop (still awaiting its last sweep) from the one a restart just began.
+    int shimmerRun;
 
     void StopShimmer()
     {
         this.isAnimating = false;
+        this.shimmerRun++;
         this.AbortAnimation(ShimmerAnimationName);
         this.SetBandsVisible(false);
         this.SetBandOffset(0);

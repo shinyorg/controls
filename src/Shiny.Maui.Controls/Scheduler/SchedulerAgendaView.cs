@@ -443,6 +443,16 @@ public class SchedulerAgendaView : ContentView
 
         StyleGuard.MarkReady(this, typeof(SchedulerAgendaView));
 
+        // A handler is not disconnected when the view merely leaves the tree (a tab switch, a swapped
+        // layout), so the repeating minute timer is tied to Loaded/Unloaded as well - left running it
+        // is rooted by the platform timer and keeps the view and its page alive.
+        Loaded += (_, _) =>
+        {
+            if (Handler != null)
+                StartTimer();
+        };
+        Unloaded += (_, _) => StopTimer();
+
 
     }
 

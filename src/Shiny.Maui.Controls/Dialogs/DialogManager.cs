@@ -1,11 +1,12 @@
-using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Microsoft.Maui.Layouts;
 
 namespace Shiny.Maui.Controls.Dialogs;
 
 sealed class DialogManager
 {
-    static readonly ConcurrentDictionary<Window, DialogManager> Instances = new();
+    // Weak on the window: a closed desktop window must not be kept alive by the manager table.
+    static readonly ConditionalWeakTable<Window, DialogManager> Instances = new();
 
     readonly Queue<(DialogConfig Config, DialogOptions Options, TaskCompletionSource<DialogOutcome> Tcs)> queue = new();
     bool isProcessingQueue;
@@ -15,7 +16,7 @@ sealed class DialogManager
         var window = Application.Current?.Windows.FirstOrDefault()
             ?? throw new InvalidOperationException("No active window found. Dialogs require an active MAUI window.");
 
-        var manager = Instances.GetOrAdd(window, static _ => new DialogManager());
+        var manager = Instances.GetValue(window, static _ => new DialogManager());
         return manager.EnqueueAsync(config, options);
     }
 

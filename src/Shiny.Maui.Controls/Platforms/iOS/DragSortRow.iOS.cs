@@ -48,7 +48,15 @@ partial class DragSortRow
         if (this.hookedHandle == null)
             return;
 
-        this.touchDown = new UILongPressGestureRecognizer(OnHandleTouch)
+        // The recognizer is retained by the native view and its callback token is a GC root while
+        // retained, so a callback capturing `this` forms a native<->managed cycle the GC can never
+        // break: the row, its handle's native view and the page leak. Capture a weak reference.
+        var weakSelf = new WeakReference<DragSortRow>(this);
+        this.touchDown = new UILongPressGestureRecognizer(r =>
+        {
+            if (weakSelf.TryGetTarget(out var row))
+                row.OnHandleTouch(r);
+        })
         {
             MinimumPressDuration = 0,
             CancelsTouchesInView = false,

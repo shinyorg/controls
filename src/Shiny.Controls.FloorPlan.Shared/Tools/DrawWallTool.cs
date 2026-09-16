@@ -86,13 +86,16 @@ public class DrawWallTool : IFloorPlanTool
 
         var dash = new[] { 6f / context.Camera.Zoom, 4f / context.Camera.Zoom };
 
+        // Disposing the paint does not dispose its path effect, so it is owned here - this runs every frame.
+        using var paintDash = SKPathEffect.CreateDash(dash, 0);
+
         using var paint = new SKPaint
         {
             Color = context.Theme.Preview.WithAlpha(150).ToSKColor(),
             StrokeWidth = this.Thickness,
             Style = SKPaintStyle.Stroke,
             IsAntialias = true,
-            PathEffect = SKPathEffect.CreateDash(dash, 0)
+            PathEffect = paintDash
         };
         canvas.DrawLine(this.start.X, this.start.Y, this.current.X, this.current.Y, paint);
     }

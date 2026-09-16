@@ -289,11 +289,20 @@ public sealed partial class DiagramView : ComponentBase, IAsyncDisposable
 
         this.selfRef = DotNetObjectReference.Create(this);
 
-        this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+        var imported = await this.JS.InvokeAsync<IJSObjectReference>(
             "import",
             "./_content/Shiny.Blazor.Controls.Diagram/diagram.js"
         );
 
+        // Disposed while the module was loading: attaching now would leave window scroll/resize listeners
+        // and a ResizeObserver holding the removed surface, with no detach ever coming.
+        if (this.disposed)
+        {
+            await imported.DisposeAsync();
+            return;
+        }
+
+        this.module = imported;
         await this.module.InvokeVoidAsync("attach", this.surface, this.selfRef);
     }
 

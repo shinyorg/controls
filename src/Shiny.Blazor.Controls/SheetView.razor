@@ -64,6 +64,7 @@
     Microsoft.AspNetCore.Components.ElementReference handleEl;
     Microsoft.AspNetCore.Components.ElementReference headerEl;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<SheetView>? selfRef;
     bool rendered;
     bool isOpen;
@@ -168,9 +169,11 @@
     {
         if (firstRender)
         {
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/sheet.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
             selfRef = DotNetObjectReference.Create(this);
             await module.InvokeVoidAsync("init", rootEl, sheetEl, handleEl, selfRef, GetSortedRatios(), AnimationDurationMs, IsLocked, IsBottom, CanMinimize ? headerEl : default);
             if (isOpen)
@@ -239,6 +242,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module is not null)
         {
             try { await module.InvokeVoidAsync("dispose", sheetEl); } catch { }

@@ -118,6 +118,11 @@ titles dropped — below 600px wide. An expanded ribbon is about a quarter of a 
 control's whole job is to show the picture underneath it. On MAUI that is measured against the editor,
 so it holds for an editor in a side panel too.
 
+**The ribbon's icons follow the theme live.** They are drawn vector icons inked with the theme's
+on-surface-variant token, and on MAUI they now track that token through a dynamic resource, so a
+light/dark flip — or a palette scoped over the editor — re-inks them. They used to copy the colour once
+when the ribbon was built, which left dark icons on the dark ribbon after switching to dark mode.
+
 **Crop is still a hand-rolled bar.** It is modal and two commands wide; a ribbon would be the wrong
 shape for it entirely.
 

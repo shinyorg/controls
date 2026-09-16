@@ -45,6 +45,7 @@ public partial class ModalView : IAsyncDisposable
     Microsoft.AspNetCore.Components.ElementReference rootEl;
     Microsoft.AspNetCore.Components.ElementReference panelEl;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<ModalView>? selfRef;
 
     bool hasRendered;
@@ -427,6 +428,7 @@ public partial class ModalView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         try
         {
             await this.DetachAsync();
@@ -522,8 +524,16 @@ public partial class ModalView : IAsyncDisposable
 
         try
         {
-            this.module ??= await this.JS.InvokeAsync<IJSObjectReference>(
-                "import", "./_content/Shiny.Blazor.Controls/modal.js");
+            if (this.module is null)
+            {
+                var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
+                    "import", "./_content/Shiny.Blazor.Controls/modal.js");
+                if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+                this.module = loaded;
+            }
+
+            if (this.disposed)
+                return;
 
             this.selfRef ??= DotNetObjectReference.Create(this);
 

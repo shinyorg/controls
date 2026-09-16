@@ -91,8 +91,9 @@ public sealed class SpreadsheetController
         // Every edit, undo and redo goes through the stack, so this is the one signal that catches all
         // of them - a cell typed into, a range pasted, a row inserted. Hooking Changed instead would
         // drop the cached matches on every scroll, which is the same as not caching them at all.
-        this.Workbook.Undo.Changed += (_, _) => this.Find.Invalidate();
-        this.Workbook.SheetsChanged += (_, _) => this.Find.Invalidate();
+        // Weakly: the workbook is the app's and outlives the view this controller paints. See WeakEvent.
+        workbook.Undo.Changed += WeakEvent.Forward(this, workbook.Undo, static c => c.Find.Invalidate(), static (u, h) => u.Changed -= h);
+        workbook.SheetsChanged += WeakEvent.Forward(this, workbook, static c => c.Find.Invalidate(), static (w, h) => w.SheetsChanged -= h);
 
         // The match list leads with the active sheet - and, unless the search spans the workbook, is
         // only that sheet - so switching tabs makes it the wrong list rather than a stale one.

@@ -108,7 +108,11 @@ public sealed partial class NotebookEditorController : NotebookController
 
     public NotebookEditorController(NotebookDocument document, ITextMeasurer measurer)
         : base(document, measurer)
-        => this.Document.ContentChanged += (_, _) => this.Edited?.Invoke(this, EventArgs.Empty);
+        => document.ContentChanged += WeakEvent.Forward(
+            this,
+            document,
+            static c => c.Edited?.Invoke(c, EventArgs.Empty),
+            static (d, h) => d.ContentChanged -= h);
 
     /// <summary>Raised after an edit actually changed the notebook.</summary>
     public event EventHandler? Edited;

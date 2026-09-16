@@ -24,7 +24,7 @@ public class KeyboardAccessoryView : ContentView
     readonly Grid itemsGrid;
     readonly BoxView topLine;
 
-    NotifyCollectionChangedEventHandler? itemsChangedHandler;
+    IDisposable? itemsSubscription;
 
     public KeyboardAccessoryView()
     {
@@ -198,20 +198,12 @@ public class KeyboardAccessoryView : ContentView
 
     void OnItemsChanged(IList<View>? oldItems, IList<View>? newItems)
     {
-        if (oldItems is INotifyCollectionChanged oldNcc && itemsChangedHandler is not null)
-            oldNcc.CollectionChanged -= itemsChangedHandler;
+        itemsSubscription?.Dispose();
 
         RebuildItems();
 
-        if (newItems is INotifyCollectionChanged ncc)
-        {
-            itemsChangedHandler = (_, _) => RebuildItems();
-            ncc.CollectionChanged += itemsChangedHandler;
-        }
-        else
-        {
-            itemsChangedHandler = null;
-        }
+        // Weak: a bound Items collection can outlive the page.
+        itemsSubscription = WeakEventSubscription.CollectionChanged(newItems, (_, _) => RebuildItems());
     }
 
     // A spacer takes a Star column and everything else takes Auto - that is the whole layout.

@@ -19,6 +19,7 @@ namespace Shiny.Blazor.Controls.Chat;
 public partial class ChatEntry : IAsyncDisposable
 {
     IJSObjectReference? module;
+    bool disposed;
     ElementReference inputEl;
     int appliedMaxRows = -1;
 
@@ -71,8 +72,12 @@ public partial class ChatEntry : IAsyncDisposable
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
-            module = await JS.InvokeAsync<IJSObjectReference>(
+        {
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/Shiny.Blazor.Controls/chat.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
+        }
 
         if (module is null)
             return;
@@ -154,6 +159,7 @@ public partial class ChatEntry : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module is not null)
         {
             try { await module.DisposeAsync(); } catch { /* circuit already gone */ }

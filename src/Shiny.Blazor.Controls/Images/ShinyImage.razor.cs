@@ -46,6 +46,7 @@ public partial class ShinyImage : IAsyncDisposable
     }
 
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<ShinyImage>? selfRef;
     CancellationTokenSource? cts;
     IImageDownloader? downloader;
@@ -204,9 +205,11 @@ public partial class ShinyImage : IAsyncDisposable
         if (!firstRender)
             return;
 
-        this.module = await this.JS
+        var loaded = await this.JS
             .InvokeAsync<IJSObjectReference>("import", "./_content/Shiny.Blazor.Controls/shiny-image.js")
             .ConfigureAwait(true);
+        if (this.disposed) { await loaded.ReleaseLateAsync().ConfigureAwait(true); return; }
+        this.module = loaded;
 
         this.selfRef = DotNetObjectReference.Create(this);
         this.firstRenderDone = true;
@@ -447,6 +450,7 @@ public partial class ShinyImage : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         await this.CancelPendingAsync().ConfigureAwait(true);
         await this.ReleaseBlobAsync().ConfigureAwait(true);
 

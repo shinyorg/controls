@@ -33,7 +33,7 @@ public class Accordion : VerticalStackLayout
     readonly Dictionary<Expander, object?> generatedData = new();
     readonly List<Expander> generated = new();
 
-    INotifyCollectionChanged? itemsNotifier;
+    IDisposable? itemsSubscription;
     bool syncing;
 
     public Accordion()
@@ -356,12 +356,9 @@ public class Accordion : VerticalStackLayout
 
     void OnItemsSourceChanged(IEnumerable? oldValue, IEnumerable? newValue)
     {
-        if (this.itemsNotifier != null)
-            this.itemsNotifier.CollectionChanged -= this.OnItemsCollectionChanged;
-
-        this.itemsNotifier = newValue as INotifyCollectionChanged;
-        if (this.itemsNotifier != null)
-            this.itemsNotifier.CollectionChanged += this.OnItemsCollectionChanged;
+        // Weak: ItemsSource is usually a view model's collection, which outlives the page.
+        this.itemsSubscription?.Dispose();
+        this.itemsSubscription = WeakEventSubscription.CollectionChanged(newValue, this.OnItemsCollectionChanged);
 
         this.RegenerateItems();
     }

@@ -896,8 +896,13 @@ public partial class DataGrid<TItem> : IAsyncDisposable
                 return;
             }
 
-            this.stickyModule ??= await this.JS.InvokeAsync<IJSObjectReference>(
-                "import", "./_content/Shiny.Blazor.Controls/datagrid.js");
+            if (this.stickyModule is null)
+            {
+                var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
+                    "import", "./_content/Shiny.Blazor.Controls/datagrid.js");
+                if (this.stickyDisposed) { await loaded.ReleaseLateAsync(); return; }
+                this.stickyModule = loaded;
+            }
 
             if (!this.NeedsStickyLayout)
                 return;

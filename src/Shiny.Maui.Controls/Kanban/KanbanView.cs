@@ -50,12 +50,13 @@ public partial class KanbanView : ContentView, IDisposable
     readonly Dictionary<KanbanCard, View> cardHosts = [];
     readonly List<KanbanColumnHeaderView> columnHeaders = [];
     readonly List<RoundRectangle> cellShapes = [];
-    readonly List<INotifyPropertyChanged> observedItems = [];
+    // Weak: cards, columns and swimlanes belong to the view model, which outlives the page.
+    readonly List<IDisposable> observedItems = [];
     readonly CornerRadiusProbe columnRadius;
 
-    INotifyCollectionChanged? observedCards;
-    INotifyCollectionChanged? observedColumns;
-    INotifyCollectionChanged? observedSwimlanes;
+    IDisposable? observedCards;
+    IDisposable? observedColumns;
+    IDisposable? observedSwimlanes;
 
     bool disposed;
 
@@ -639,21 +640,14 @@ public partial class KanbanView : ContentView, IDisposable
     }
 
 
-    static INotifyCollectionChanged? Hook(IEnumerable? source, NotifyCollectionChangedEventHandler handler)
+    // Weak: the collections belong to the view model, which outlives the page.
+    static IDisposable? Hook(IEnumerable? source, NotifyCollectionChangedEventHandler handler)
+        => WeakEventSubscription.CollectionChanged(source, handler);
+
+
+    static void Unhook(ref IDisposable? observed, NotifyCollectionChangedEventHandler handler)
     {
-        if (source is not INotifyCollectionChanged observable)
-            return null;
-
-        observable.CollectionChanged += handler;
-        return observable;
-    }
-
-
-    static void Unhook(ref INotifyCollectionChanged? observed, NotifyCollectionChangedEventHandler handler)
-    {
-        if (observed is not null)
-            observed.CollectionChanged -= handler;
-
+        observed?.Dispose();
         observed = null;
     }
 
@@ -671,21 +665,24 @@ public partial class KanbanView : ContentView, IDisposable
     /// </summary>
     void HookItems()
     {
-        foreach (var item in this.observedItems)
-            item.PropertyChanged -= this.OnItemPropertyChanged;
+        foreach (var subscription in this.observedItems)
+            subscription.Dispose();
 
         this.observedItems.Clear();
 
+        this.itemPropertyChangedHandler ??= this.OnItemPropertyChanged;
         foreach (var item in Enumerate(this.Cards).Concat(Enumerate(this.Columns)).Concat(Enumerate(this.Swimlanes)))
         {
-            item.PropertyChanged += this.OnItemPropertyChanged;
-            this.observedItems.Add(item);
+            if (WeakEventSubscription.PropertyChanged(item, this.itemPropertyChangedHandler) is { } subscription)
+                this.observedItems.Add(subscription);
         }
 
         static IEnumerable<INotifyPropertyChanged> Enumerate(IEnumerable? source)
             => source?.OfType<INotifyPropertyChanged>() ?? [];
     }
 
+
+    PropertyChangedEventHandler? itemPropertyChangedHandler;
 
     void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -808,8 +805,8 @@ public partial class KanbanView : ContentView, IDisposable
         Unhook(ref this.observedColumns, this.OnCollectionChanged);
         Unhook(ref this.observedSwimlanes, this.OnCollectionChanged);
 
-        foreach (var item in this.observedItems)
-            item.PropertyChanged -= this.OnItemPropertyChanged;
+        foreach (var subscription in this.observedItems)
+            subscription.Dispose();
 
         this.observedItems.Clear();
         this.bodyScroll.Scrolled -= this.OnBodyScrolled;

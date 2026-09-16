@@ -553,6 +553,7 @@ public partial class Walkthrough
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.CancelDwell();
         this.runCancel?.Cancel();
         this.runCancel?.Dispose();

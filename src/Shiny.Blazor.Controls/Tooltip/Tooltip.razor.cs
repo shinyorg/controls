@@ -34,6 +34,7 @@ public partial class Tooltip
     readonly string bubbleId = $"shiny-tt-{Guid.NewGuid():N}";
 
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<Tooltip>? selfRef;
     ElementReference anchorRef;
     ElementReference bubbleRef;
@@ -195,10 +196,12 @@ public partial class Tooltip
 
         try
         {
-            this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/tooltip.js"
             );
+            if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+            this.module = loaded;
 
             // A tooltip whose IsOpen bound true before the module loaded has nothing to place against yet.
             if (this.open)
@@ -515,6 +518,7 @@ public partial class Tooltip
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.showDelay?.Cancel();
         this.showDelay?.Dispose();
         this.dismissDelay?.Cancel();

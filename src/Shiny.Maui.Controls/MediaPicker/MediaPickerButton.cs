@@ -281,20 +281,13 @@ public class MediaPickerButton : ContentView
 
     #region Photos collection wiring
 
-    INotifyCollectionChanged? observedPhotos;
+    IDisposable? photosSubscription;
 
     void OnPhotosChanged(IList<MediaPickerItem>? oldValue, IList<MediaPickerItem>? newValue)
     {
-        if (this.observedPhotos != null)
-        {
-            this.observedPhotos.CollectionChanged -= OnPhotosCollectionChanged;
-            this.observedPhotos = null;
-        }
-        if (newValue is INotifyCollectionChanged ncc)
-        {
-            ncc.CollectionChanged += OnPhotosCollectionChanged;
-            this.observedPhotos = ncc;
-        }
+        // Weak: a bound collection can outlive the page.
+        this.photosSubscription?.Dispose();
+        this.photosSubscription = WeakEventSubscription.CollectionChanged(newValue, OnPhotosCollectionChanged);
         this.carousel.ItemsSource = newValue as System.Collections.IEnumerable;
         UpdateView();
     }

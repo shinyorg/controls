@@ -60,14 +60,17 @@ public sealed class SlideEditorController : SlideController
         // model through Reproject, including the ones a host drives directly (a drag executes a
         // command per pointer sample), so this is the one place that sees all of them - and it never
         // fires for a command that turned out to be a no-op.
-        deck.ContentChanged += (_, _) =>
-        {
-            // The matches were collected from text that has just changed underneath them.
-            this.Find.Invalidate();
-            this.RefreshCaretFormat();
-            this.RaiseChanged();
-            this.Edited?.Invoke(this, EventArgs.Empty);
-        };
+        // Weakly: the deck is the app's and outlives the view this controller paints. See WeakEvent.
+        deck.ContentChanged += WeakEvent.Forward(this, deck, static c => c.OnDeckContentChanged(), static (d, h) => d.ContentChanged -= h);
+    }
+
+    void OnDeckContentChanged()
+    {
+        // The matches were collected from text that has just changed underneath them.
+        this.Find.Invalidate();
+        this.RefreshCaretFormat();
+        this.RaiseChanged();
+        this.Edited?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

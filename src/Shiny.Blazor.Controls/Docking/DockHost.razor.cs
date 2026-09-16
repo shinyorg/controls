@@ -15,6 +15,7 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
     DockableContentRegistry? registry;
     ElementReference hostRef;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<DockHost>? dotnetRef;
     CancellationTokenSource? saveCts;
     readonly Dictionary<string, RenderFragment> fragments = new();
@@ -65,8 +66,10 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
             if (firstRender)
             {
                 lastLocked = IsLocked;
-                module = await JS.InvokeAsync<IJSObjectReference>(
+                var loaded = await JS.InvokeAsync<IJSObjectReference>(
                     "import", "./_content/Shiny.Blazor.Controls/docking.js");
+                if (disposed) { await loaded.ReleaseLateAsync(); return; }
+                module = loaded;
                 dotnetRef = DotNetObjectReference.Create(this);
                 // primitives only over interop — anonymous types break trimmed/AOT publish
                 await module.InvokeVoidAsync("init", hostRef, dotnetRef, IsLocked);
@@ -876,6 +879,7 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         saveCts?.Cancel();
         try
         {

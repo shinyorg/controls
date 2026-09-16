@@ -14,6 +14,7 @@ public partial class OnScreenKeyboardHost : IAsyncDisposable
     [Parameter] public string? CssClass { get; set; }
 
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<OnScreenKeyboardHost>? selfRef;
     CancellationTokenSource? repeatCts;
 
@@ -254,10 +255,12 @@ public partial class OnScreenKeyboardHost : IAsyncDisposable
         {
             if (firstRender)
             {
-                this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+                var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
                     "import",
                     "./_content/Shiny.Blazor.Controls/onscreen-keyboard.js"
                 );
+                if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+                this.module = loaded;
                 this.selfRef = DotNetObjectReference.Create(this);
                 await this.module.InvokeVoidAsync("observe", this.selfRef);
             }
@@ -289,6 +292,7 @@ public partial class OnScreenKeyboardHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         this.Keyboard.VisibilityChanged -= this.OnVisibilityChanged;
         this.CancelRepeat();
 

@@ -272,14 +272,7 @@ public class PickerCell : CellBase
         if (page?.Navigation == null || ItemsSource == null) return;
 
         if (KeepSelectedUntilBack)
-        {
-            void handler(object? s, EventArgs args)
-            {
-                ClearSelectionHighlight();
-                page.Appearing -= handler;
-            }
-            page.Appearing += handler;
-        }
+            ClearSelectionOnAppearing(page);
 
         var pickerPage = new PickerPage(this);
         await page.Navigation.PushAsync(pickerPage);

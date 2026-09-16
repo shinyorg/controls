@@ -37,8 +37,10 @@ public partial class KanbanView
         this.attached = true;
         this.selfRef = DotNetObjectReference.Create(this);
 
-        this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+        var loaded = await this.JS.InvokeAsync<IJSObjectReference>(
             "import", "./_content/Shiny.Blazor.Controls/kanban.js");
+        if (this.disposed) { await loaded.ReleaseLateAsync(); return; }
+        this.module = loaded;
 
         await this.module.InvokeVoidAsync("attach", this.rootElement, this.selfRef);
     }

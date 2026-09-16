@@ -19,6 +19,7 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
 
     ElementReference trackRef;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<Slider>? selfRef;
     SliderOrientation initializedOrientation;
     bool hasRendered;
@@ -388,8 +389,10 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
     {
         if (firstRender)
         {
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/Shiny.Blazor.Controls/slider.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
             selfRef = DotNetObjectReference.Create(this);
             initializedOrientation = Orientation;
             await module.InvokeVoidAsync("init", trackRef, selfRef, IsVertical);
@@ -503,6 +506,7 @@ public partial class Slider : IAsyncDisposable, ISliderMarkHost
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module is not null)
         {
             try { await module.InvokeVoidAsync("dispose", trackRef); } catch { }

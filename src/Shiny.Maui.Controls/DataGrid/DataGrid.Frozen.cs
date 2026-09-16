@@ -80,6 +80,11 @@ public partial class DataGrid
         if (w.IsAbsolute)
             return new GridLength(ClampToColumnBounds(col, w.Value));
 
+        // One measured width shared by every row - see DataGrid.AutoWidth.cs. Until the grid can
+        // measure (no handler yet) it falls through to the provisional behaviour below.
+        if (w.IsAuto && this.ResolvedAutoWidth(col) is { } auto)
+            return new GridLength(auto);
+
         if (!this.HorizontalScroll)
             return w;
 

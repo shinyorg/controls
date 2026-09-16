@@ -13,7 +13,7 @@ namespace Shiny.Maui.Controls.Sections;
 public class TableSection : BindableObject
 {
     readonly ObservableCollection<CellBase> cells = new();
-    INotifyCollectionChanged? itemsSourceNotifier;
+    IDisposable? itemsSourceSubscription;
     readonly List<CellBase> generatedCells = new();
 
     public TableSection()
@@ -309,17 +309,9 @@ public class TableSection : BindableObject
     {
         var section = (TableSection)bindable;
 
-        if (section.itemsSourceNotifier != null)
-        {
-            section.itemsSourceNotifier.CollectionChanged -= section.OnItemsSourceCollectionChanged;
-            section.itemsSourceNotifier = null;
-        }
-
-        if (newValue is INotifyCollectionChanged notifier)
-        {
-            section.itemsSourceNotifier = notifier;
-            notifier.CollectionChanged += section.OnItemsSourceCollectionChanged;
-        }
+        // Weak: ItemsSource is usually a view model's collection, which outlives the page.
+        section.itemsSourceSubscription?.Dispose();
+        section.itemsSourceSubscription = WeakEventSubscription.CollectionChanged(newValue, section.OnItemsSourceCollectionChanged);
 
         section.RegenerateTemplatedCells();
     }

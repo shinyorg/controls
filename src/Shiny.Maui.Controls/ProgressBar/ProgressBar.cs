@@ -104,9 +104,39 @@ public partial class ProgressBar : ContentView, IDisposable
 
         Content = trackGrid;
 
+        // MAUI never calls Dispose on a view, so the repeating pulse timer and the indeterminate loop
+        // have to follow the tree: left running they are rooted by the platform timer/ticker and keep
+        // the bar - and the page it was on - alive forever, sweeping away behind a page nobody sees.
+        Loaded += OnBarLoaded;
+        Unloaded += OnBarUnloaded;
+
         // Last line: replays any styled property that was applied before the
         // children existed. See StyleGuard.
         StyleGuard.MarkReady(this, typeof(ProgressBar));
+    }
+
+    void OnBarLoaded(object? sender, EventArgs e)
+    {
+        if (PulseEnabled && pulseTimer is null)
+            ConfigurePulseTimer();
+
+        if (IsIndeterminate && !isAnimatingIndeterminate)
+            StartIndeterminateAnimation();
+    }
+
+    void OnBarUnloaded(object? sender, EventArgs e)
+    {
+        // Pause only - the properties are left as they are so OnBarLoaded can pick them back up.
+        StopPulseTimer();
+        this.AbortAnimation("PulseSweep");
+        isAnimatingPulse = false;
+
+        if (isAnimatingIndeterminate)
+        {
+            isAnimatingIndeterminate = false;
+            indeterminateRun++;
+            Microsoft.Maui.Controls.ViewExtensions.CancelAnimations(trackFill);
+        }
     }
 
     protected override void OnSizeAllocated(double width, double height)
@@ -504,9 +534,14 @@ public partial class ProgressBar : ContentView, IDisposable
         }
     }
 
+    // Bumped on every start/stop so a loop still awaiting its last sweep cannot carry on alongside a
+    // newer one after a quick unload/reload.
+    int indeterminateRun;
+
     async void RunIndeterminateLoop()
     {
-        while (isAnimatingIndeterminate && trackWidth > 0)
+        var run = ++indeterminateRun;
+        while (isAnimatingIndeterminate && run == indeterminateRun && trackWidth > 0)
         {
             var barWidth = trackWidth * 0.3;
             trackFill.WidthRequest = barWidth;
@@ -514,7 +549,7 @@ public partial class ProgressBar : ContentView, IDisposable
 
             await trackFill.TranslateToAsync(trackWidth, 0, 1200, Easing.CubicInOut);
 
-            if (!isAnimatingIndeterminate) break;
+            if (!isAnimatingIndeterminate || run != indeterminateRun) break;
 
             trackFill.TranslationX = -barWidth;
         }

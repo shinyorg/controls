@@ -101,13 +101,14 @@ public class FabMenu : ContentView
             // The collection subscription has to happen whenever the property changes -
             // it touches no children, so it is not gated. Only the rebuild is.
             var menu = (FabMenu)b;
-            if (o is INotifyCollectionChanged oldNotify)
-                oldNotify.CollectionChanged -= menu.OnItemsCollectionChanged;
-            if (n is INotifyCollectionChanged newNotify)
-                newNotify.CollectionChanged += menu.OnItemsCollectionChanged;
+            // Weak: a bound Items collection can outlive the page.
+            menu.itemsSubscription?.Dispose();
+            menu.itemsSubscription = WeakEventSubscription.CollectionChanged(n, menu.OnItemsCollectionChanged);
 
             StyleGuard.WhenReady<FabMenu>(b, m => m.RebuildItemsLayout());
         });
+    IDisposable? itemsSubscription;
+
     public IList<FabMenuItem> Items
     {
         get => (IList<FabMenuItem>)GetValue(ItemsProperty);

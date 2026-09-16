@@ -197,9 +197,14 @@ public partial class MotionIcon : IAsyncDisposable
 
         attached = true;
 
-        module ??= await JS.InvokeAsync<IJSObjectReference>(
-            "import",
-            "./_content/Shiny.Blazor.Controls/motion-icon.js");
+        if (module is null)
+        {
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/Shiny.Blazor.Controls/motion-icon.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
+        }
 
         selfRef ??= DotNetObjectReference.Create(this);
 

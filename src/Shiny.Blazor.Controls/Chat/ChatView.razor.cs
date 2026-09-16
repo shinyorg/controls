@@ -18,6 +18,7 @@ public partial class ChatView : IAsyncDisposable
     static readonly TimeSpan TypingOutIdle = TimeSpan.FromSeconds(3);
 
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<ChatView>? selfRef;
     ElementReference messagesEl;
 
@@ -134,7 +135,18 @@ public partial class ChatView : IAsyncDisposable
         StateHasChanged();
         try
         {
-            session = await provider.GetSessionAsync(sessionId);
+            var opened = await provider.GetSessionAsync(sessionId);
+
+            // Disposed (or re-bound) while the provider was connecting: TeardownSessionAsync has
+            // already run and found no session, so subscribing now would hang this component off the
+            // session's events and start a typing timer that ticks against it forever.
+            if (disposed || !ReferenceEquals(provider, boundProvider) || sessionId != boundSessionId)
+            {
+                try { await opened.DisposeAsync(); } catch { }
+                return;
+            }
+
+            session = opened;
             Subscribe(session);
             connectionState = ChatConnectionState.Connected;
 
@@ -316,8 +328,10 @@ public partial class ChatView : IAsyncDisposable
     {
         if (firstRender)
         {
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/Shiny.Blazor.Controls/chat.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
             selfRef = DotNetObjectReference.Create(this);
             await module.InvokeVoidAsync("init", messagesEl, selfRef);
             initialized = true;
@@ -652,6 +666,7 @@ public partial class ChatView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         await TeardownSessionAsync();
 
         if (module is not null)

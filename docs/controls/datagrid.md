@@ -89,6 +89,17 @@ percentage, since the Grid divides the available width in the ratio of the facto
 `HorizontalScroll` it resolves against the scroller's own width, so percentages summing past 100 are what
 make the grid scroll. Percentages are the way to write one layout that reads the same on both hosts.
 
+**`Auto` columns (MAUI)** — the header, every row, the group summary rows and the footer are separate
+Grids, so an `Auto` column is resolved **once** for the whole grid: the grid measures the header cell,
+the footer summary cells and the cells of the first **`AutoWidthSampleSize`** items of the source (default
+100, in source order; `0` measures header and footer only), takes the widest, and gives every row that one
+absolute width. Sorting, filtering, paging and expanding never move it; it is re-measured when the
+columns, the source or its contents, `Dense`, or `AutoWidthSampleSize` change. A value wider than anything
+in the sample ellipsizes like any other overlong cell; the tree column also adds its caret and the deepest
+visible indent, and the column's own `MinWidth`/`MaxWidth` still apply. The measure needs the platform, so
+until the grid has a handler the column is provisional and it re-resolves as the grid attaches. Keep the
+sample small on large sources — every sampled cell is a real platform measure.
+
 **Column formatting** — the ordinary reasons to write a cell template, offered as column properties
 instead. `DisplayAs` picks a preset — `Currency`, `Percent`, `Number`, `Date`, `Time`, `DateTime`,
 `FileSize`, `Boolean` (a glyph, or your own `TrueText`/`FalseText`), `Enum` (its `[Description]`, else

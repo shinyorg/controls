@@ -8,6 +8,7 @@ namespace Shiny.Blazor.Controls;
 public partial class SignaturePad : IAsyncDisposable
 {
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<SignaturePad>? selfRef;
     ElementReference canvasHost;
     ElementReference canvasEl;
@@ -65,9 +66,11 @@ public partial class SignaturePad : IAsyncDisposable
     {
         if (firstRender)
         {
-            module = await JS.InvokeAsync<IJSObjectReference>(
+            var loaded = await JS.InvokeAsync<IJSObjectReference>(
                 "import",
                 "./_content/Shiny.Blazor.Controls/signature-pad.js");
+            if (disposed) { await loaded.ReleaseLateAsync(); return; }
+            module = loaded;
             selfRef = DotNetObjectReference.Create(this);
         }
 
@@ -152,6 +155,7 @@ public partial class SignaturePad : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module != null)
         {
             try

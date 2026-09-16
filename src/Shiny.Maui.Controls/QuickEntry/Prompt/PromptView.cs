@@ -4,6 +4,7 @@ using System.Collections.Specialized;
 using System.Windows.Input;
 using Microsoft.Maui.Controls.Shapes;
 using Shiny.Maui.Controls.Themes;
+using Shiny.Maui.Controls.Infrastructure;
 
 namespace Shiny.Maui.Controls.QuickEntry;
 
@@ -264,9 +265,9 @@ public class PromptView : ContentView, IQuickEntryKeyHandler, IQuickEntryPresent
 
     readonly List<View> suggestionRows = new();
     readonly List<object> suggestionItems = new();
-    INotifyCollectionChanged? observedSuggestions;
-    NotifyCollectionChangedEventHandler? leadingToolsChangedHandler;
-    NotifyCollectionChangedEventHandler? trailingToolsChangedHandler;
+    IDisposable? suggestionsSubscription;
+    IDisposable? leadingToolsSubscription;
+    IDisposable? trailingToolsSubscription;
     readonly List<PromptTool> attachedLeadingTools = new();
     readonly List<PromptTool> attachedTrailingTools = new();
     int highlightIndex = -1;
@@ -1184,17 +1185,9 @@ public class PromptView : ContentView, IQuickEntryKeyHandler, IQuickEntryPresent
 
     void OnSuggestionsChanged(IEnumerable? oldValue, IEnumerable? newValue)
     {
-        if (this.observedSuggestions != null)
-        {
-            this.observedSuggestions.CollectionChanged -= this.OnSuggestionCollectionChanged;
-            this.observedSuggestions = null;
-        }
-
-        if (newValue is INotifyCollectionChanged incc)
-        {
-            this.observedSuggestions = incc;
-            incc.CollectionChanged += this.OnSuggestionCollectionChanged;
-        }
+        // Weak: a bound collection can outlive the view.
+        this.suggestionsSubscription?.Dispose();
+        this.suggestionsSubscription = WeakEventSubscription.CollectionChanged(newValue, this.OnSuggestionCollectionChanged);
 
         this.Apply(v => v.RebuildSuggestions());
     }
@@ -1292,22 +1285,13 @@ public class PromptView : ContentView, IQuickEntryKeyHandler, IQuickEntryPresent
     void OnToolsChanged(IList<PromptTool>? oldTools, IList<PromptTool>? newTools, HorizontalStackLayout layout)
     {
         var isLeading = ReferenceEquals(layout, this.leadingToolsLayout);
-        ref var handler = ref isLeading ? ref this.leadingToolsChangedHandler : ref this.trailingToolsChangedHandler;
+        ref var subscription = ref isLeading ? ref this.leadingToolsSubscription : ref this.trailingToolsSubscription;
 
-        if (oldTools is INotifyCollectionChanged oldNcc && handler is not null)
-            oldNcc.CollectionChanged -= handler;
-
+        subscription?.Dispose();
         this.SyncTools(newTools, layout);
 
-        if (newTools is INotifyCollectionChanged ncc)
-        {
-            handler = (_, _) => this.SyncTools(newTools, layout);
-            ncc.CollectionChanged += handler;
-        }
-        else
-        {
-            handler = null;
-        }
+        // Weak: a bound collection can outlive the view.
+        subscription = WeakEventSubscription.CollectionChanged(newTools, (_, _) => this.SyncTools(newTools, layout));
     }
 
     /// <summary>

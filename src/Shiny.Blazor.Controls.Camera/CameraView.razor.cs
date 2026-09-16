@@ -15,6 +15,7 @@ public partial class CameraView : IAsyncDisposable
     ElementReference videoEl;
     ElementReference overlayEl;
     bool started;
+    bool disposed;
     TaskCompletionSource<CameraBarcode>? pendingScan;
     TaskCompletionSource<CameraDocumentImage>? pendingDocument;
 
@@ -86,8 +87,17 @@ public partial class CameraView : IAsyncDisposable
         if (!firstRender)
             return;
 
-        this.module = await this.JS.InvokeAsync<IJSObjectReference>(
+        var imported = await this.JS.InvokeAsync<IJSObjectReference>(
             "import", "./_content/Shiny.Blazor.Controls.Camera/camera.js");
+
+        // Disposed while the module was loading: starting now would open a camera nothing will ever close.
+        if (this.disposed)
+        {
+            await imported.DisposeAsync();
+            return;
+        }
+
+        this.module = imported;
         this.selfRef = DotNetObjectReference.Create(this);
 
         // Filter first: it only needs the element, whereas StartAsync blocks on getUserMedia — which sits on the
@@ -364,17 +374,26 @@ public partial class CameraView : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (this.disposed)
+            return;
+
+        this.disposed = true;
         this.pendingScan?.TrySetCanceled();
         this.pendingDocument?.TrySetCanceled();
         try
         {
             if (this.module != null)
             {
-                await this.StopAsync();
+                // Not StopAsync: that is a no-op until start() has returned, and a start still parked on the
+                // permission prompt would otherwise open the camera after this component is gone. dispose also
+                // stops a running recording's microphone and removes this instance's SVG filter definitions.
+                this.started = false;
+                await this.module.InvokeVoidAsync("dispose", this.videoEl, this.filterIdPrefix);
                 await this.module.DisposeAsync();
             }
         }
         catch (JSDisconnectedException) { /* circuit gone */ }
+        catch (ObjectDisposedException) { /* runtime gone */ }
         this.selfRef?.Dispose();
     }
 }

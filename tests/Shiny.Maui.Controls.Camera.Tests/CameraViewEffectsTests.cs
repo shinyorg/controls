@@ -92,4 +92,30 @@ public class CameraViewEffectsTests
 
         camera.EffectChain.IsEmpty.ShouldBeTrue();
     }
+
+    [Fact]
+    public void A_bound_collection_that_outlives_the_view_does_not_keep_it_alive()
+    {
+        // Effects is commonly bound to a view model's collection, which outlives the page. A direct
+        // CollectionChanged handler made that collection root the view (and its handler and page) for as
+        // long as the view model lived; MAUI never calls anything that could unsubscribe it.
+        var effects = new System.Collections.ObjectModel.ObservableCollection<ICameraEffect>();
+        var reference = AttachAndAbandon(effects);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        reference.TryGetTarget(out _).ShouldBeFalse();
+        Should.NotThrow(() => effects.Add(CameraEffects.Comic));
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static WeakReference<CameraView> AttachAndAbandon(System.Collections.ObjectModel.ObservableCollection<ICameraEffect> effects)
+    {
+        var camera = new CameraView { Effects = effects };
+        effects.Add(CameraEffects.Mono);
+        camera.EffectChain.Effects.ShouldContain(CameraEffects.Mono);
+        return new WeakReference<CameraView>(camera);
+    }
 }

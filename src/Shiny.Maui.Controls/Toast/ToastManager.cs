@@ -1,64 +1,49 @@
-using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
+using Shiny.Maui.Controls.Infrastructure;
 
 namespace Shiny.Maui.Controls.Toast;
 
 sealed class ToastManager
 {
     const int MaxStackCount = 5;
-    static readonly ConcurrentDictionary<Window, ToastManager> Instances = new();
+    // Weak on the window: a closed desktop window must not be kept alive by the manager table.
+    static readonly ConditionalWeakTable<Window, ToastManager> Instances = new();
 
-    readonly Window window;
-    readonly AbsoluteLayout overlay;
     readonly Queue<(ToastConfig Config, TaskCompletionSource<IDisposable> Tcs)> queue = new();
     readonly List<ToastView> activeToasts = new();
     bool isProcessingQueue;
-
-    ToastManager(Window window, AbsoluteLayout overlay)
-    {
-        this.window = window;
-        this.overlay = overlay;
-    }
 
     public static Task<IDisposable> ShowAsync(ToastConfig config)
     {
         var window = Application.Current?.Windows.FirstOrDefault()
             ?? throw new InvalidOperationException("No active window found. Toast requires an active MAUI window.");
 
-        var manager = Instances.GetOrAdd(window, w => CreateManager(w));
+        var manager = Instances.GetValue(window, static _ => new ToastManager());
         return manager.ShowToastAsync(config);
     }
 
-    static ToastManager CreateManager(Window window)
+    /// <summary>
+    /// The toast layer on the page that is showing <em>now</em>. Resolved per toast rather than cached
+    /// on the manager: the manager lives as long as the window, and an overlay captured once held the
+    /// first page a toast was ever shown on - popped or not - alive for the life of the app (and kept
+    /// every later toast drawing onto it).
+    /// </summary>
+    static AbsoluteLayout GetOrCreateOverlay()
     {
-        var overlay = new AbsoluteLayout
-        {
-            InputTransparent = true,
-            CascadeInputTransparent = false,
-            ZIndex = 9999
-        };
+        var window = Application.Current?.Windows.FirstOrDefault()
+            ?? throw new InvalidOperationException("No active window found. Toast requires an active MAUI window.");
 
         var page = window.Page
             ?? throw new InvalidOperationException("Window has no Page. Toast requires an active page.");
 
-        // Find the actual content page to inject into
         var targetPage = GetLeafPage(page);
+        return PageOverlay.GetOrCreateLayer<PageOverlay.ToastLayer>(PageOverlay.GetOrCreateRoot(targetPage), 9_999);
+    }
 
-        if (targetPage.Content is View existingContent)
-        {
-            var grid = new Grid();
-            targetPage.Content = null;
-            grid.Children.Add(existingContent);
-            grid.Children.Add(overlay);
-            targetPage.Content = grid;
-        }
-        else
-        {
-            var grid = new Grid();
-            grid.Children.Add(overlay);
-            targetPage.Content = grid;
-        }
-
-        return new ToastManager(window, overlay);
+    static void RemoveFromOverlay(ToastView toastView)
+    {
+        if (toastView.Parent is Layout layout)
+            layout.Children.Remove(toastView);
     }
 
     static ContentPage GetLeafPage(Page page) => page switch
@@ -129,7 +114,7 @@ sealed class ToastManager
         // Wait for this toast to be dismissed before showing next in queue
         await dismissed.Task;
         activeToasts.Remove(toastView);
-        overlay.Children.Remove(toastView);
+        RemoveFromOverlay(toastView);
     }
 
     async Task ShowStackedToastAsync(ToastConfig config, TaskCompletionSource<IDisposable> tcs)
@@ -159,7 +144,7 @@ sealed class ToastManager
         // Wait for dismiss, then reflow
         await dismissed.Task;
         activeToasts.Remove(toastView);
-        overlay.Children.Remove(toastView);
+        RemoveFromOverlay(toastView);
         ReflowStackedToasts(config.Position);
     }
 
@@ -228,7 +213,7 @@ sealed class ToastManager
                 : new Thickness(currentMargin.Left, currentMargin.Top + stackOffset, currentMargin.Right, currentMargin.Bottom);
         }
 
-        overlay.Children.Add(toastView);
+        GetOrCreateOverlay().Children.Add(toastView);
     }
 
     void ReflowStackedToasts(ToastPosition position)

@@ -48,7 +48,11 @@ public partial class GanttView : ContentView, IDisposable
 
     INotifyCollectionChanged? observedTasks;
     INotifyCollectionChanged? observedDependencies;
-    readonly List<INotifyPropertyChanged> observedItems = [];
+    IDisposable? tasksSubscription;
+    IDisposable? dependenciesSubscription;
+
+    // Weak: tasks and dependencies belong to the view model, which outlives the page.
+    readonly List<IDisposable> observedItems = [];
 
     IDispatcherTimer? nowTimer;
     bool syncingScroll;
@@ -163,6 +167,15 @@ public partial class GanttView : ContentView, IDisposable
         ((INotifyCollectionChanged)this.SelectedTasks).CollectionChanged += (_, _) => this.Repaint();
 
         StyleGuard.MarkReady(this, typeof(GanttView));
+
+        // A handler is not disconnected when the view merely leaves the tree, so the repeating "now"
+        // timer also follows Loaded/Unloaded - otherwise the platform timer roots the view forever.
+        this.Loaded += (_, _) =>
+        {
+            if (this.Handler is not null)
+                this.StartNowTimer();
+        };
+        this.Unloaded += (_, _) => this.StopNowTimer();
         this.RebuildModel();
     }
 
@@ -210,23 +223,36 @@ public partial class GanttView : ContentView, IDisposable
     {
         if (oldValue is INotifyCollectionChanged oldCollection)
         {
-            oldCollection.CollectionChanged -= this.OnSourceCollectionChanged;
-
             if (ReferenceEquals(oldCollection, this.observedTasks))
+            {
+                this.tasksSubscription?.Dispose();
+                this.tasksSubscription = null;
                 this.observedTasks = null;
+            }
 
             if (ReferenceEquals(oldCollection, this.observedDependencies))
+            {
+                this.dependenciesSubscription?.Dispose();
+                this.dependenciesSubscription = null;
                 this.observedDependencies = null;
+            }
         }
 
         if (newValue is INotifyCollectionChanged newCollection)
         {
-            newCollection.CollectionChanged += this.OnSourceCollectionChanged;
-
+            // Weak: the collections belong to the view model, which outlives the page.
             if (ReferenceEquals(newValue, this.Tasks))
+            {
+                this.tasksSubscription?.Dispose();
+                this.tasksSubscription = WeakEventSubscription.CollectionChanged(newCollection, this.OnSourceCollectionChanged);
                 this.observedTasks = newCollection;
+            }
             else
+            {
+                this.dependenciesSubscription?.Dispose();
+                this.dependenciesSubscription = WeakEventSubscription.CollectionChanged(newCollection, this.OnSourceCollectionChanged);
                 this.observedDependencies = newCollection;
+            }
         }
         this.RebuildModel();
     }
@@ -258,19 +284,23 @@ public partial class GanttView : ContentView, IDisposable
         // PropertyChanged and nothing else, and without this the bar simply would not move.
         foreach (var task in this.PlanModel.AllTasks)
         {
-            task.PropertyChanged += this.OnItemPropertyChanged;
-            this.observedItems.Add(task);
+            if (WeakEventSubscription.PropertyChanged(task, this.itemPropertyChangedHandler) is { } subscription)
+                this.observedItems.Add(subscription);
         }
         foreach (var dependency in this.PlanModel.Dependencies)
         {
-            dependency.PropertyChanged += this.OnItemPropertyChanged;
-            this.observedItems.Add(dependency);
+            if (WeakEventSubscription.PropertyChanged(dependency, this.itemPropertyChangedHandler) is { } subscription)
+                this.observedItems.Add(subscription);
         }
 
         this.PlanBuilt?.Invoke(this, EventArgs.Empty);
         this.RelayoutTimeline();
     }
 
+
+    // One delegate shared by every item's weak subscription, so the view keeps a single handler alive.
+    PropertyChangedEventHandler? itemPropertyChangedHandlerCache;
+    PropertyChangedEventHandler itemPropertyChangedHandler => this.itemPropertyChangedHandlerCache ??= this.OnItemPropertyChanged;
 
     void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -302,8 +332,8 @@ public partial class GanttView : ContentView, IDisposable
 
     void UnhookItems()
     {
-        foreach (var item in this.observedItems)
-            item.PropertyChanged -= this.OnItemPropertyChanged;
+        foreach (var subscription in this.observedItems)
+            subscription.Dispose();
 
         this.observedItems.Clear();
     }
@@ -662,11 +692,8 @@ public partial class GanttView : ContentView, IDisposable
         this.UnhookItems();
         this.palette.Dispose();
 
-        if (this.observedTasks is not null)
-            this.observedTasks.CollectionChanged -= this.OnSourceCollectionChanged;
-
-        if (this.observedDependencies is not null)
-            this.observedDependencies.CollectionChanged -= this.OnSourceCollectionChanged;
+        this.tasksSubscription?.Dispose();
+        this.dependenciesSubscription?.Dispose();
 
         GC.SuppressFinalize(this);
     }

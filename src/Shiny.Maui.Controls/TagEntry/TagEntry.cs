@@ -44,7 +44,7 @@ public partial class TagEntry : ContentView
     readonly BorderlessEntry entry;
     readonly List<TagChipView> chips = new();
 
-    INotifyCollectionChanged? tagsNotifier;
+    IDisposable? tagsSubscription;
     bool suppressTextChanged;
     bool rebuilding;
     bool isFocused;
@@ -436,12 +436,9 @@ public partial class TagEntry : ContentView
 
     internal void OnTagsSourceChanged(IList<string>? oldValue, IList<string>? newValue)
     {
-        if (this.tagsNotifier is not null)
-            this.tagsNotifier.CollectionChanged -= this.OnTagsCollectionChanged;
-
-        this.tagsNotifier = newValue as INotifyCollectionChanged;
-        if (this.tagsNotifier is not null)
-            this.tagsNotifier.CollectionChanged += this.OnTagsCollectionChanged;
+        // Weak: a bound collection can outlive the page.
+        this.tagsSubscription?.Dispose();
+        this.tagsSubscription = WeakEventSubscription.CollectionChanged(newValue, this.OnTagsCollectionChanged);
 
         this.RebuildChips();
     }

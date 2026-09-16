@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using Microsoft.Maui.Controls;
 using Shouldly;
 using Xunit;
@@ -141,6 +142,148 @@ public class ShinyTabBarBehaviorTests
 
         bar.PageContext = new ContentPage();
         bar.IsCenterButtonActive.ShouldBeFalse();
+    }
+
+
+    static ShellContent ContentOf(Shell shell, int section) => shell.Items[0].Items[section].Items[0];
+
+
+    static Border CenterCircle(ShinyTabBar bar)
+        => Descendants(bar.CenterHost).OfType<Border>().First(b => b.AutomationId == "tab-center");
+
+
+    static IEnumerable<Element> Descendants(Element root)
+    {
+        var children = root switch
+        {
+            Layout layout => layout.Children.OfType<Element>(),
+            ContentView content when content.Content is not null => [content.Content],
+            Border border when border.Content is not null => [border.Content],
+            _ => Enumerable.Empty<Element>()
+        };
+
+        foreach (var child in children)
+        {
+            yield return child;
+            foreach (var nested in Descendants(child))
+                yield return nested;
+        }
+    }
+
+
+    [Fact]
+    public void ActionsDeclaredOnTheShellContentReachTheCentreButton()
+    {
+        var shell = BuildShell(out var behavior);
+        var bar = behavior.Bar;
+        bar.AnimationDuration = 0;
+        bar.CenterButton = new TabCenterButton { Mode = TabCenterMode.Menu };
+
+        // Before the fix only the page's own Actions were read, so rows on the ShellContent - the
+        // documented place for a tab whose page is built lazily - left the button dimmed and inert.
+        ShinyTabs.GetActions(ContentOf(shell, 0)).Add(new TabAction { Text = "Compose" });
+
+        bar.IsCenterButtonActive.ShouldBeTrue();
+        bar.ResolveMenuActions().Single().Text.ShouldBe("Compose");
+    }
+
+
+    [Fact]
+    public void ThePagesOwnActionsBeatTheShellContents()
+    {
+        var shell = BuildShell(out var behavior);
+        var bar = behavior.Bar;
+        bar.CenterButton = new TabCenterButton { Mode = TabCenterMode.Menu };
+        ShinyTabs.GetActions(ContentOf(shell, 0)).Add(new TabAction { Text = "from shell" });
+
+        var page = new ContentPage();
+        ShinyTabs.GetActions(page).Add(new TabAction { Text = "from page" });
+        bar.PageContext = page;
+
+        // Replaces, never merges - the same rule a page's badge follows over its tab's.
+        bar.ResolveMenuActions().Select(a => a.Text).ShouldBe(["from page"]);
+
+        ShinyTabs.GetActions(page).Clear();
+        bar.ResolveMenuActions().Select(a => a.Text).ShouldBe(["from shell"]);
+    }
+
+
+    [Fact]
+    public void ShellContentActionsBindAgainstTheShellContentsContext()
+    {
+        var shell = BuildShell(out var behavior);
+        var bar = behavior.Bar;
+        bar.CenterButton = new TabCenterButton { Mode = TabCenterMode.Menu };
+
+        var model = new ShellModel();
+        shell.BindingContext = model;
+
+        var action = new TabAction { Text = "Save" };
+        action.SetBinding(TabAction.CommandProperty, new Binding(nameof(ShellModel.SaveCommand)));
+        ShinyTabs.GetActions(ContentOf(shell, 0)).Add(action);
+
+        // The action lives in an attached-property collection, off every element chain - without
+        // the bar seeding the ShellContent's (Shell-inherited) context the binding resolves to null.
+        bar.ResolveMenuActions().Single().Command.ShouldNotBeNull();
+        bar.ResolveMenuActions().Single().Invoke();
+        model.Saved.ShouldBe(1);
+    }
+
+
+    [Fact]
+    public void TheButtonFollowsTheShellContentsCollectionAndTheCurrentTab()
+    {
+        var shell = BuildShell(out var behavior);
+        var bar = behavior.Bar;
+        bar.AnimationDuration = 0;
+        bar.CenterButton = new TabCenterButton { Mode = TabCenterMode.Menu };
+
+        CenterCircle(bar).Opacity.ShouldBe(0.5);
+
+        var actions = ShinyTabs.GetActions(ContentOf(shell, 1));
+        actions.Add(new TabAction { Text = "Second tab only" });
+
+        // Not the current tab yet - its rows must not light the button on the first one.
+        bar.IsCenterButtonActive.ShouldBeFalse();
+        CenterCircle(bar).Opacity.ShouldBe(0.5);
+
+        bar.SelectedIndex = 1;
+        bar.IsCenterButtonActive.ShouldBeTrue();
+        CenterCircle(bar).Opacity.ShouldBe(1);
+
+        actions.Clear();
+        CenterCircle(bar).Opacity.ShouldBe(0.5);
+
+        actions.Add(new TabAction { Text = "Back again" });
+        CenterCircle(bar).Opacity.ShouldBe(1);
+
+        bar.SelectedIndex = 0;
+        CenterCircle(bar).Opacity.ShouldBe(0.5);
+    }
+
+
+    [Fact]
+    public void DetachingForgetsTheShellContents()
+    {
+        var shell = BuildShell(out var behavior);
+        var bar = behavior.Bar;
+        bar.CenterButton = new TabCenterButton { Mode = TabCenterMode.Menu };
+        ShinyTabs.GetActions(ContentOf(shell, 0)).Add(new TabAction { Text = "Compose" });
+        bar.IsCenterButtonActive.ShouldBeTrue();
+
+        shell.Behaviors.Remove(behavior);
+
+        bar.IsCenterButtonActive.ShouldBeFalse();
+    }
+
+
+    sealed class ShellModel
+    {
+        public ShellModel() => this.SaveCommand = new Command(() => this.Saved++);
+
+        public ICommand SaveCommand { get; }
+
+        public int Saved { get; private set; }
     }
 
 

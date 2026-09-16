@@ -244,6 +244,7 @@
 
     ElementReference rootElement;
     IJSObjectReference? dragModule;
+    bool disposed;
     DotNetObjectReference<SchedulerAgendaView>? selfRef;
     string? lastDragOptions;
 
@@ -488,8 +489,10 @@
             if (dragModule is null)
             {
                 selfRef ??= DotNetObjectReference.Create(this);
-                dragModule = await JS.InvokeAsync<IJSObjectReference>(
+                var loaded = await JS.InvokeAsync<IJSObjectReference>(
                     "import", "./_content/Shiny.Blazor.Controls/scheduler-agenda.js");
+                if (disposed) { await loaded.ReleaseLateAsync(); return; }
+                dragModule = loaded;
                 await dragModule.InvokeVoidAsync("init", rootElement, selfRef, options);
             }
             else if (key != lastDragOptions)
@@ -652,6 +655,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         Dispose();
         await DisposeModuleAsync();
         selfRef?.Dispose();

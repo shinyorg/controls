@@ -21,13 +21,15 @@ public class CubicleRenderer : IFloorPlanElementRenderer
         canvas.DrawRect(rect, fillPaint);
 
         // Dashed, because a cubicle wall is a partition rather than structure.
+        // Disposing the paint does not dispose its path effect, so it is owned here - this runs every frame.
+        using var strokePaintDash = SKPathEffect.CreateDash([6f, 4f], 0);
         using var strokePaint = new SKPaint
         {
             Color = context.StrokeFor(cubicle).ToSKColor(),
             StrokeWidth = cubicle.Style.StrokeWidth,
             Style = SKPaintStyle.Stroke,
             IsAntialias = true,
-            PathEffect = SKPathEffect.CreateDash([6f, 4f], 0)
+            PathEffect = strokePaintDash
         };
         canvas.DrawRect(rect, strokePaint);
 

@@ -19,15 +19,19 @@ export async function render(host, source, theme) {
         return;
     }
 
+    const id = 'shiny-mermaid-' + (++counter);
     try {
         const mermaid = await loadMermaid();
         if (theme) {
             mermaid.initialize({ startOnLoad: false, theme: theme, securityLevel: 'loose' });
         }
-        const id = 'shiny-mermaid-' + (++counter);
         const { svg } = await mermaid.render(id, source);
         host.innerHTML = svg;
     } catch (err) {
+        // A failed render can leave mermaid's scratch container (and its error graphic) appended to
+        // <body>; with a fresh id per render, every bad edit in a live editor would add another one.
+        document.getElementById('d' + id)?.remove();
+        document.getElementById(id)?.remove();
         host.innerHTML = '<pre style="color:#b91c1c;">' + (err && err.message ? err.message : 'Mermaid render failed') + '</pre>';
     }
 }

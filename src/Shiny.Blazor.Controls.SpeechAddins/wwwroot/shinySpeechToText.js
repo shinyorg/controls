@@ -1,4 +1,7 @@
+// One recognizer per page - the browser only runs one at a time anyway. `owner` is the .NET reference that
+// started it, so a disposing button only tears down its own session, never another button's.
 let recognition = null;
+let owner = null;
 
 export function startListening(dotnetRef, culture, continuous) {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -6,16 +9,27 @@ export function startListening(dotnetRef, culture, continuous) {
         return;
     }
 
+    // A second start would otherwise orphan the running recognizer, still listening and still holding
+    // the previous caller's reference.
+    abortCurrent();
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-    recognition.continuous = continuous || false;
-    recognition.interimResults = false;
+    const rec = new SpeechRecognition();
+    rec.continuous = continuous || false;
+    rec.interimResults = false;
 
     if (culture) {
-        recognition.lang = culture;
+        rec.lang = culture;
     }
 
-    recognition.onresult = (event) => {
+    const release = () => {
+        if (recognition === rec) {
+            recognition = null;
+            owner = null;
+        }
+    };
+
+    rec.onresult = (event) => {
         let transcript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
             if (event.results[i].isFinal) {
@@ -23,26 +37,50 @@ export function startListening(dotnetRef, culture, continuous) {
             }
         }
         if (transcript) {
-            dotnetRef.invokeMethodAsync('OnSpeechResult', transcript.trim());
+            dotnetRef.invokeMethodAsync('OnSpeechResult', transcript.trim()).catch(() => { });
         }
     };
 
-    recognition.onend = () => {
-        recognition = null;
-        dotnetRef.invokeMethodAsync('OnSpeechEnd');
+    rec.onend = () => {
+        release();
+        dotnetRef.invokeMethodAsync('OnSpeechEnd').catch(() => { });
     };
 
-    recognition.onerror = (event) => {
-        recognition = null;
-        dotnetRef.invokeMethodAsync('OnSpeechError', event.error);
+    rec.onerror = (event) => {
+        release();
+        dotnetRef.invokeMethodAsync('OnSpeechError', event.error).catch(() => { });
     };
 
-    recognition.start();
+    recognition = rec;
+    owner = dotnetRef;
+    rec.start();
 }
 
 export function stopListening() {
     if (recognition) {
         recognition.stop();
         recognition = null;
+        owner = null;
     }
+}
+
+// Called when a button is disposed: abort (not stop - no final result is wanted) and detach the handlers,
+// so nothing calls back into the reference being disposed.
+export function disposeListening(dotnetRef) {
+    if (recognition && owner && dotnetRef && owner._id !== undefined && owner._id !== dotnetRef._id)
+        return;
+    abortCurrent();
+}
+
+function abortCurrent() {
+    const rec = recognition;
+    recognition = null;
+    owner = null;
+    if (!rec)
+        return;
+
+    rec.onresult = null;
+    rec.onend = null;
+    rec.onerror = null;
+    try { rec.abort(); } catch { /* already ended */ }
 }

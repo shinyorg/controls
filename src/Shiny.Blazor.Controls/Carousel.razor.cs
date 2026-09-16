@@ -9,6 +9,7 @@ public partial class Carousel<TItem> : IAsyncDisposable
     ElementReference viewportRef;
     ElementReference containerRef;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<Carousel<TItem>>? selfRef;
     readonly HashSet<int> loaded = new();
     string? lastOptionSig;
@@ -182,8 +183,13 @@ public partial class Carousel<TItem> : IAsyncDisposable
 
         if (firstRender || module is null)
         {
-            module ??= await JS.InvokeAsync<IJSObjectReference>(
-                "import", "./_content/Shiny.Blazor.Controls/carousel.js");
+            if (module is null)
+            {
+                var loaded = await JS.InvokeAsync<IJSObjectReference>(
+                    "import", "./_content/Shiny.Blazor.Controls/carousel.js");
+                if (disposed) { await loaded.ReleaseLateAsync(); return; }
+                module = loaded;
+            }
             selfRef ??= DotNetObjectReference.Create(this);
         }
 
@@ -326,6 +332,7 @@ public partial class Carousel<TItem> : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module is not null)
         {
             try

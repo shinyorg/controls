@@ -107,18 +107,21 @@ public sealed class DocumentEditorController : DocumentController
             this.RaiseChanged();
         };
 
-        document.ContentChanged += (_, _) =>
-        {
-            this.InvalidateLayout();
-
-            // The matches were collected from text that has just changed underneath them. Dropped
-            // rather than recollected: an edit is somebody typing, and re-running a search on every
-            // keystroke would walk the whole document per character.
-            this.Find.Invalidate();
-            this.RaiseChanged();
-        };
+        // Weakly: the document is the app's and outlives the view this controller paints. See WeakEvent.
+        document.ContentChanged += WeakEvent.Forward(this, document, static c => c.OnDocumentContentChanged(), static (d, h) => d.ContentChanged -= h);
 
         this.RefreshCaretFormat();
+    }
+
+    void OnDocumentContentChanged()
+    {
+        this.InvalidateLayout();
+
+        // The matches were collected from text that has just changed underneath them. Dropped
+        // rather than recollected: an edit is somebody typing, and re-running a search on every
+        // keystroke would walk the whole document per character.
+        this.Find.Invalidate();
+        this.RaiseChanged();
     }
 
     public DocumentSelection Selection { get; } = new();

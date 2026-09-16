@@ -16,7 +16,14 @@ namespace Shiny.Maui.Controls;
 /// managed here — anything set on them by hand is replaced. Per-tab chrome goes on the Shell
 /// elements instead, with <see cref="ShinyTabs"/>: an icon and a badge on the <c>ShellContent</c>
 /// (readable before its page exists, which is what a lazy tab needs), and the centre menu's actions
-/// on the page.</para>
+/// on the page or on its <c>ShellContent</c>.</para>
+/// <para>The centre menu is resolved from the current page first, then the current
+/// <c>ShellContent</c>, its <c>Tab</c> and its <c>ShellItem</c>: the first of those that declares a
+/// <see cref="ShinyTabs.MenuContentTemplateProperty"/>/<see cref="ShinyTabs.MenuContentProperty"/>
+/// wins for content, and the first with any <see cref="ShinyTabs.ActionsProperty"/> rows wins for
+/// rows. A page's rows replace its shell element's rather than merging with them, the same way a
+/// page's badge beats the tab's. Rows declared on a shell element bind against that element's
+/// binding context - the Shell's, unless one was set on it.</para>
 /// </remarks>
 /// <example>
 /// <code language="xaml">
@@ -156,6 +163,7 @@ public class ShinyTabBarBehavior : Behavior<Shell>
         bindable.ClearValue(Shell.TabBarIsVisibleProperty);
 
         this.UnhookBar(this.Bar);
+        this.Bar.SetMenuFallbackContexts([]);
         this.UnhookSources();
         this.Detach();
 
@@ -173,6 +181,7 @@ public class ShinyTabBarBehavior : Behavior<Shell>
         if (oldBar is not null)
         {
             this.UnhookBar(oldBar);
+            oldBar.SetMenuFallbackContexts([]);
 
             // The old one explicitly. propertyChanged runs after the value is set, so this.Bar is
             // already the replacement and detaching that would leave the outgoing bar on the page.
@@ -288,6 +297,11 @@ public class ShinyTabBarBehavior : Behavior<Shell>
         var index = this.sources.IndexOf(source);
         if (index >= 0 && index < this.Bar.Items.Count)
             ApplySource(this.Bar.Items[index], source);
+
+        // A Tab switching between its ShellContents (or an item between its sections) changes whose
+        // menu the centre button presents, even though the tabs themselves did not change.
+        if (e.PropertyName == nameof(ShellItem.CurrentItem))
+            this.SyncMenuContexts();
     }
 
 
@@ -315,6 +329,10 @@ public class ShinyTabBarBehavior : Behavior<Shell>
             return;
 
         this.SyncTabs();
+
+        // Ahead of the page checks: the shell elements are known before the page exists, and a menu
+        // declared on them has to count from the first frame.
+        this.SyncMenuContexts();
 
         var page = shell.CurrentPage is { } current ? PageOverlay.LeafPage(current) : null;
         if (page is null)
@@ -355,6 +373,36 @@ public class ShinyTabBarBehavior : Behavior<Shell>
 
         if (moved && changed)
             this.AnimateIn(page);
+    }
+
+
+    /// <summary>
+    /// Hands the bar the Shell elements behind the current page - its <c>ShellContent</c>, <c>Tab</c>
+    /// and <c>ShellItem</c>, in that order - as the fallbacks for a menu the page does not declare.
+    /// </summary>
+    /// <remarks>
+    /// Without this only the page's own <see cref="ShinyTabs.ActionsProperty"/> were ever read, so
+    /// rows declared on a <c>ShellContent</c> - which the docs have always said works - were silently
+    /// ignored and the centre button dimmed as if the tab had nothing to present.
+    /// </remarks>
+    void SyncMenuContexts()
+    {
+        if (this.shell is not { } shell)
+            return;
+
+        var item = shell.CurrentItem;
+        var section = item?.CurrentItem;
+        var content = section?.CurrentItem;
+
+        var contexts = new List<BindableObject>(3);
+        if (content is not null)
+            contexts.Add(content);
+        if (section is not null)
+            contexts.Add(section);
+        if (item is not null)
+            contexts.Add(item);
+
+        this.Bar.SetMenuFallbackContexts(contexts);
     }
 
 
@@ -436,6 +484,10 @@ public class ShinyTabBarBehavior : Behavior<Shell>
                 shell.CurrentItem = shellItem;
                 break;
         }
+
+        // Navigated follows on a device and refreshes everything, but the bar has already re-decided
+        // the centre button for the new tab by now - against the previous tab's ShellContent.
+        this.SyncMenuContexts();
     }
 
 

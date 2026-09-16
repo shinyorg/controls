@@ -30,6 +30,7 @@ public partial class KanbanView : ComponentBase, IAsyncDisposable
 
     ElementReference rootElement;
     IJSObjectReference? module;
+    bool disposed;
     DotNetObjectReference<KanbanView>? selfRef;
     bool attached;
     bool rendered;
@@ -584,6 +585,7 @@ public partial class KanbanView : ComponentBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        this.disposed = true;
         foreach (var item in this.observedItems)
             item.PropertyChanged -= this.OnItemPropertyChanged;
 

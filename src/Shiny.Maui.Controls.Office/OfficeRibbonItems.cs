@@ -1,5 +1,6 @@
 using Shiny.Controls.Office.Icons;
 using Shiny.Controls.Office.Shapes;
+using Shiny.Maui.Controls.Infrastructure;
 using Shiny.Maui.Controls.Ribbons;
 using Shiny.Maui.Controls.Themes;
 
@@ -189,39 +190,10 @@ static class OfficeRibbonItems
 /// app was using when the ribbon was built. A dynamic resource resolves up the element tree, so the
 /// scoped palette a pinned toolbar merges over its subtree is honoured too.
 /// </remarks>
-internal sealed class OfficeRibbonIconView : GraphicsView
+internal sealed class OfficeRibbonIconView : ThemedIconView
 {
-    readonly OfficeToolbarIconDrawable drawable;
-
     public OfficeRibbonIconView(OfficeToolbarIconDrawable drawable)
+        : base(drawable, c => drawable.Color = c, 18)
     {
-        this.drawable = drawable;
-        this.Drawable = drawable;
-        this.HeightRequest = 18;
-        this.WidthRequest = 18;
-        this.InputTransparent = true;
-        this.HorizontalOptions = LayoutOptions.Center;
-        this.VerticalOptions = LayoutOptions.Center;
-
-        this.SetDynamicResource(IconColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
-        this.drawable.Color = this.IconColor;
-    }
-
-    public static readonly BindableProperty IconColorProperty = BindableProperty.Create(
-        nameof(IconColor),
-        typeof(Color),
-        typeof(OfficeRibbonIconView),
-        Colors.Gray,
-        propertyChanged: (b, _, n) =>
-        {
-            var view = (OfficeRibbonIconView)b;
-            view.drawable.Color = (Color)n;
-            view.Invalidate();
-        });
-
-    public Color IconColor
-    {
-        get => (Color)this.GetValue(IconColorProperty);
-        set => this.SetValue(IconColorProperty, value);
     }
 }
