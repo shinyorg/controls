@@ -1,3 +1,4 @@
+using Shiny.Maui.Controls.Infrastructure;
 using Shiny.Maui.Controls.Themes;
 
 namespace Shiny.Maui.Controls.Tree.Internal;
@@ -10,6 +11,7 @@ internal class TreeNodeView : Grid
     readonly Grid chevronHost;
     readonly Border? checkBox;
     readonly Label? checkGlyph;
+    readonly BoxView? checkStrokeProbe;
     readonly ContentView contentHost;
     readonly Border background;
     readonly Grid dropIndicatorAbove;
@@ -83,9 +85,19 @@ internal class TreeNodeView : Grid
                 VerticalTextAlignment = TextAlignment.Center,
                 Margin = new Thickness(0, -2, 0, 0)
             };
+            // OnPrimary never changes with selection, so it is resolved live once rather than per refresh.
+            checkGlyph.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
+
+            // A colour token cannot reach Border.Stroke (a Brush), so the stroke follows a hidden probe
+            // that resolves the token in the tree - see ThemeProbe. Copying the colour out of
+            // Application.Current.Resources instead left the box in the old palette after a light/dark
+            // flip, and never saw a palette scoped over the tree at all.
+            var (strokeBrush, strokeProbe) = ThemeProbe.Create();
+            checkStrokeProbe = strokeProbe;
             checkBox = new Border
             {
                 AutomationId = CheckBoxAutomationId,
+                Stroke = strokeBrush,
                 WidthRequest = 20,
                 HeightRequest = 20,
                 Padding = 0,
@@ -95,6 +107,7 @@ internal class TreeNodeView : Grid
                 Content = checkGlyph
             }.WithStrokeThickness(ShinyThemeKeys.Border.Medium);
             inner.Add(checkBox, 2, 0);
+            inner.Add(strokeProbe, 2, 0);
         }
 
         // Content host
@@ -285,24 +298,28 @@ internal class TreeNodeView : Grid
         }
     }
 
-    // The box is painted from resolved token values rather than dynamic resources: a colour
-    // token can't reach Border.Stroke (it's a Brush), so both ends are resolved together.
+    // Every colour goes through ThemeProbe.Tint, so an explicit CheckBoxColor wins and an unset one
+    // follows the theme token live - including across a light/dark flip with no selection change.
     void RefreshCheckBox()
     {
         if (checkBox == null)
             return;
 
-        var accent = owner.CheckBoxColor ?? ResolveColor(ShinyThemeKeys.Color.Primary, Color.FromArgb("#7C3AED"));
-        checkBox.Stroke = new SolidColorBrush(Node.IsSelected
-            ? accent
-            : ResolveColor(ShinyThemeKeys.Color.OnSurfaceVariant, Color.FromArgb("#666666")));
-        checkBox.BackgroundColor = Node.IsSelected ? accent : Colors.Transparent;
-        checkGlyph!.TextColor = ResolveColor(ShinyThemeKeys.Color.OnPrimary, Colors.White);
-        checkGlyph.IsVisible = Node.IsSelected;
+        var selected = Node.IsSelected;
+        ThemeProbe.Tint(
+            checkStrokeProbe!,
+            BoxView.ColorProperty,
+            selected ? owner.CheckBoxColor : null,
+            selected ? ShinyThemeKeys.Color.Primary : ShinyThemeKeys.Color.OnSurfaceVariant
+        );
+        ThemeProbe.Tint(
+            checkBox,
+            VisualElement.BackgroundColorProperty,
+            selected ? owner.CheckBoxColor : Colors.Transparent,
+            ShinyThemeKeys.Color.Primary
+        );
+        checkGlyph!.IsVisible = selected;
     }
-
-    static Color ResolveColor(string key, Color fallback)
-        => Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Color c ? c : fallback;
 
     void OnChevronTapped(object? sender, EventArgs e)
     {

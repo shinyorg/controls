@@ -166,6 +166,7 @@ partial class ChatBubbleView : ContentView
         this.rootLayout.Add(this.statusLabel, 0, 4);
 
         this.Content = this.rootLayout;
+        this.TrackThemeTextColors();
     }
 
     protected override void OnBindingContextChanged()
@@ -225,8 +226,9 @@ partial class ChatBubbleView : ContentView
         if (showAvatar)
         {
             this.nameLabel.Text = user?.DisplayName ?? "Unknown";
-            var avatarColor = user?.BubbleColor ?? this.chatView.OtherBubbleColor;
-            this.avatarBorder.BackgroundColor = avatarColor;
+            // Through the token, not the resolved OtherBubbleColor getter, so it follows a theme flip.
+            ThemeProbe.Tint(this.avatarBorder, VisualElement.BackgroundColorProperty,
+                user?.BubbleColor ?? this.chatView.ExplicitOtherBubbleColor, ShinyThemeKeys.Color.SurfaceContainerHigh);
 
             if (user?.Avatar is not null)
             {
@@ -250,12 +252,10 @@ partial class ChatBubbleView : ContentView
             ? this.chatView.ExplicitMyTextColor
             : this.chatView.ExplicitOtherTextColor;
 
-        Tint(this.bubbleBorder, VisualElement.BackgroundColorProperty, explicitBubble,
+        ThemeProbe.Tint(this.bubbleBorder, VisualElement.BackgroundColorProperty, explicitBubble,
             this.isMe ? ShinyThemeKeys.Color.PrimaryContainer : ShinyThemeKeys.Color.SurfaceContainerHigh);
 
-        var bubbleColor = this.bubbleBorder.BackgroundColor;
-        var textColor = explicitText
-            ?? ThemeColor(this.isMe ? ShinyThemeKeys.Color.OnPrimaryContainer : ShinyThemeKeys.Color.OnSurface);
+        var textColor = explicitText ?? this.ThemeTextColor;
 
         var radius = this.chatView.BubbleCornerRadius;
         var tailRadius = isLast ? 4 : radius;
@@ -293,7 +293,7 @@ partial class ChatBubbleView : ContentView
                 textColor,
                 this.chatView.BubbleFontSize,
                 this.chatView.BubbleFontFamily,
-                ThemeColor(ShinyThemeKeys.Color.Primary));
+                this.ThemeLinkColor);
             this.bubbleBorder.Padding = new Thickness(12, 8);
         }
 
@@ -456,22 +456,52 @@ partial class ChatBubbleView : ContentView
             this.chatView.ShowBubbleActions(msg);
     }
 
-    /// <summary>Uses the explicit colour when one was supplied, otherwise binds to the theme token.</summary>
-    static void Tint(Element target, BindableProperty property, Color? explicitColor, string themeKey)
+    // ------- theme-following text colours -------
+    //
+    // Message text is a FormattedString of spans (markdown runs and links), and a span's colour is a
+    // plain value handed over at render. Copying it out of Application.Current.Resources left every
+    // rendered bubble in the old palette after a light/dark flip - dark text on a now-dark bubble -
+    // and ignored a palette scoped over the chat. These two properties resolve the tokens live through
+    // the bubble's own tree; a change recolours the existing spans in place rather than re-rendering.
+
+    static readonly BindableProperty ThemeTextColorProperty = BindableProperty.Create(
+        nameof(ThemeTextColor), typeof(Color), typeof(ChatBubbleView), Colors.Transparent,
+        propertyChanged: static (b, _, _) => ((ChatBubbleView)b).RecolorText());
+
+    static readonly BindableProperty ThemeLinkColorProperty = BindableProperty.Create(
+        nameof(ThemeLinkColor), typeof(Color), typeof(ChatBubbleView), Colors.Transparent,
+        propertyChanged: static (b, _, _) => ((ChatBubbleView)b).RecolorText());
+
+    internal Color ThemeTextColor => (Color?)this.GetValue(ThemeTextColorProperty) ?? Colors.Transparent;
+
+    internal Color ThemeLinkColor => (Color?)this.GetValue(ThemeLinkColorProperty) ?? Colors.Transparent;
+
+    /// <summary>Test seam: the label the message body renders into.</summary>
+    internal Label TextLabel => this.textLabel;
+
+    void TrackThemeTextColors()
     {
-        if (explicitColor is null)
-        {
-            target.SetDynamicResource(property, themeKey);
-        }
-        else
-        {
-            target.RemoveDynamicResource(property);
-            target.SetValue(property, explicitColor);
-        }
+        this.SetDynamicResource(ThemeTextColorProperty,
+            this.isMe ? ShinyThemeKeys.Color.OnPrimaryContainer : ShinyThemeKeys.Color.OnSurface);
+        this.SetDynamicResource(ThemeLinkColorProperty, ShinyThemeKeys.Color.Primary);
     }
 
-    static Color ThemeColor(string key)
-        => Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Color c
-            ? c
-            : Colors.Transparent;
+    /// <summary>
+    /// Pushes the current theme colours into the spans already rendered. Links are the spans that carry
+    /// a tap recognizer; everything else is body text, which keeps an explicit My/OtherTextColor when one
+    /// is set (changing those re-renders the bubbles on its own).
+    /// </summary>
+    void RecolorText()
+    {
+        // Nothing rendered yet (the tokens first resolve in the constructor), or an image/template bubble.
+        if (this.textLabel.FormattedText is not { } formatted)
+            return;
+
+        var explicitText = this.isMe ? this.chatView.ExplicitMyTextColor : this.chatView.ExplicitOtherTextColor;
+        var text = explicitText ?? this.ThemeTextColor;
+        var link = this.ThemeLinkColor;
+
+        foreach (var span in formatted.Spans)
+            span.TextColor = span.GestureRecognizers.Count > 0 ? link : text;
+    }
 }

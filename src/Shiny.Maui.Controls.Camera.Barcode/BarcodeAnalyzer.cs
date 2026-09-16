@@ -74,6 +74,14 @@ public class BarcodeAnalyzer : FrameAnalyzer
     HashSet<string> lastDelivered = new();
 
     /// <inheritdoc/>
+    /// <remarks>Closes the native scanner client (Android ML Kit); it is re-created on the next frame.</remarks>
+    protected override void OnDetached()
+    {
+        base.OnDetached();
+        this.scanner.ReleaseNativeResources();
+    }
+
+    /// <inheritdoc/>
     public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
     {
         this.scanner.ScanWindow = this.ScanWindow;

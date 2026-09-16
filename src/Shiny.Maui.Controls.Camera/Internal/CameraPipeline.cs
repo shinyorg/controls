@@ -17,6 +17,7 @@ sealed class CameraPipeline
     readonly object gate = new();
     AnalyzerRunner? runner;
     IFrameAnalyzer? analyzer;
+    IFrameAnalyzer? attached; // the analyzer this pipeline currently holds live (see AnalyzerLifecycle)
     IReadOnlyList<OverlayBox> latest = [];
     RectF? scanWindow;
     volatile bool enabled;
@@ -126,6 +127,9 @@ sealed class CameraPipeline
             }
 
             this.Recompute();
+            // hand the live hold to the new analyzer (null when cleared or disabled); the outgoing one gets
+            // OnDetached — deferred by the lifecycle when it is mid-pass. Handler teardown lands here too.
+            this.SyncLifecycle(this.enabled ? analyzer : null);
             this.latest = [];
             this.emittedW = -1; // force the next frame to re-publish dims for the reticle
             this.emittedH = -1;
@@ -183,6 +187,21 @@ sealed class CameraPipeline
         frame.Dispose();
     }
 
+    // Move the "live" hold from whatever this pipeline currently holds to `target` (null = hold nothing),
+    // driving IFrameAnalyzer.OnAttached/OnDetached. Call under gate.
+    void SyncLifecycle(IFrameAnalyzer? target)
+    {
+        if (ReferenceEquals(this.attached, target))
+            return;
+
+        // attach first so re-assigning the same instance never dips to zero holds and closes its client
+        if (target is not null)
+            AnalyzerLifecycle.Attach(target);
+        if (this.attached is not null)
+            AnalyzerLifecycle.Detach(this.attached);
+        this.attached = target;
+    }
+
     // Refresh the cached enabled flag + scan window. Call under gate.
     void Recompute()
     {
@@ -203,6 +222,8 @@ sealed class CameraPipeline
         lock (this.gate)
         {
             this.Recompute();
+            if (enabledChanged)
+                this.SyncLifecycle(this.enabled ? this.analyzer : null);
             if (!this.enabled)
                 this.latest = []; // a disabled analyzer stops drawing immediately
             boxes = this.latest;

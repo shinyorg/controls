@@ -119,6 +119,20 @@ sealed class DataGridRow : INotifyPropertyChanged
     /// <summary>True while this row is waiting on a children or detail load.</summary>
     public bool IsBusy => this.isLoadingChildren || this.isLoadingDetail;
 
+    /// <summary>
+    /// Bumped when the grid's theme colours change. Unused by the background converters; it is a third
+    /// input to their bindings so a theme flip re-runs only those converters - cheaper than rebuilding
+    /// rows, and without disturbing selection or scroll. It must actually change: a binding that reads
+    /// back the same value does not re-run its MultiBinding.
+    /// </summary>
+    public int BackgroundRevision { get; private set; }
+
+    internal void RaiseBackgroundChanged()
+    {
+        this.BackgroundRevision++;
+        this.PropertyChanged?.Invoke(this, BackgroundRevisionArgs);
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     void RaiseGlyphs()
@@ -140,4 +154,5 @@ sealed class DataGridRow : INotifyPropertyChanged
     static readonly PropertyChangedEventArgs ShowTreeCaretArgs = new(nameof(ShowTreeCaret));
     static readonly PropertyChangedEventArgs ShowDetailCaretArgs = new(nameof(ShowDetailCaret));
     static readonly PropertyChangedEventArgs IsBusyArgs = new(nameof(IsBusy));
+    static readonly PropertyChangedEventArgs BackgroundRevisionArgs = new(nameof(BackgroundRevision));
 }

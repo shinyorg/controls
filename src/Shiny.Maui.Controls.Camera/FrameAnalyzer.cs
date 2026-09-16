@@ -127,6 +127,21 @@ public abstract class FrameAnalyzer : BindableObject, IFrameAnalyzer
     /// </remarks>
     public virtual bool WantsFrame() => true;
 
+    void IFrameAnalyzer.OnAttached() => this.OnAttached();
+    void IFrameAnalyzer.OnDetached() => this.OnDetached();
+
+    /// <inheritdoc cref="IFrameAnalyzer.OnAttached"/>
+    protected virtual void OnAttached() { }
+
+    /// <inheritdoc cref="IFrameAnalyzer.OnDetached"/>
+    /// <remarks>
+    /// Override to release native resources (always call <c>base.OnDetached()</c>). The built-in analyzers
+    /// close their Android ML Kit detector clients here and re-create them lazily on the next frame, so an
+    /// analyzer declared in XAML can be removed, disabled, re-enabled and re-attached freely. Never runs while
+    /// <see cref="AnalyzeAsync"/> is in flight — a detach that lands mid-pass is deferred until it completes.
+    /// </remarks>
+    protected virtual void OnDetached() { }
+
     /// <summary>
     /// Set by the camera pipeline so <see cref="Raise"/>/<see cref="Emit"/> post to the UI thread. Pass
     /// <c>null</c> to detach (then they run inline on the analysis thread).

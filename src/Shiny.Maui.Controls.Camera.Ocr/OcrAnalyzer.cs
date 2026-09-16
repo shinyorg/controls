@@ -75,6 +75,14 @@ public class OcrAnalyzer : FrameAnalyzer
     public event EventHandler<TextRecognizedEventArgs>? TextRecognized;
 
     /// <inheritdoc/>
+    /// <remarks>Closes the native text recognizer client (Android ML Kit); it is re-created on the next frame.</remarks>
+    protected override void OnDetached()
+    {
+        base.OnDetached();
+        this.recognizer.ReleaseNativeResources();
+    }
+
+    /// <inheritdoc/>
     public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
     {
         // ScanWindow becomes the recognizer's region of interest, so it restricts what the engine actually

@@ -1,3 +1,4 @@
+using Microsoft.Maui;
 using Microsoft.Maui.Dispatching;
 using Microsoft.Maui.Graphics;
 using Shiny.Controls.Media;
@@ -256,6 +257,43 @@ sealed class FakeMediaPlayerBackend : IMediaPlayerBackend
 
     public void RaiseRemoteCommand(MediaRemoteCommand command)
         => this.RemoteCommandReceived?.Invoke(this, command);
+}
+
+
+/// <summary>
+/// The least a view needs to count as "has a handler". A <see cref="MediaElement"/> creates its player when a
+/// handler connects and releases it when the handler goes away, so tests that drive the player attach one.
+/// </summary>
+sealed class StubViewHandler : IViewHandler
+{
+    public IElement? VirtualView { get; private set; }
+    public object? PlatformView => null;
+    public IMauiContext? MauiContext => null;
+    public bool HasContainer { get; set; }
+    public object? ContainerView => null;
+    IView? IViewHandler.VirtualView => this.VirtualView as IView;
+
+    public void SetMauiContext(IMauiContext mauiContext) { }
+    public void SetVirtualView(IElement view) => this.VirtualView = view;
+    public void UpdateValue(string property) { }
+    public void Invoke(string command, object? args = null) { }
+    public void DisconnectHandler() => this.VirtualView = null;
+    public Size GetDesiredSize(double widthConstraint, double heightConstraint) => Size.Zero;
+    public void PlatformArrange(Rect frame) { }
+}
+
+
+static class MediaElementTestExtensions
+{
+    /// <summary>Give the element a handler, as showing it on a page would. Returns it for chaining.</summary>
+    public static MediaElement Connected(this MediaElement element)
+    {
+        element.Handler = new StubViewHandler();
+        return element;
+    }
+
+    /// <summary>Take the handler away, as removing the element from the page would.</summary>
+    public static void Disconnect(this MediaElement element) => element.Handler = null;
 }
 
 

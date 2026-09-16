@@ -76,6 +76,17 @@ public partial class FaceAnalyzer : FrameAnalyzer
     /// <summary>Raised on the UI thread when one or more faces are detected in a frame, while the analyzer is armed.</summary>
     public event EventHandler<FacesDetectedEventArgs>? FacesDetected;
 
+    /// <inheritdoc/>
+    /// <remarks>Closes the native face detector clients (Android ML Kit); they are re-created on the next frame.</remarks>
+    protected override void OnDetached()
+    {
+        base.OnDetached();
+        this.PublishLive(null); // a detached analyzer tracks nothing — don't leave a mask anchored to a stale face
+        this.ReleasePlatform();
+    }
+
+    partial void ReleasePlatform();
+
     /// <summary>Deliver <see cref="FacesDetected"/>/command (while armed) and turn the faces into overlay boxes (null clears).</summary>
     protected IReadOnlyList<OverlayBox>? Report(IReadOnlyList<DetectedFace> faces)
     {

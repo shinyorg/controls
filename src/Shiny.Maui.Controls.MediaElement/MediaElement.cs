@@ -46,6 +46,9 @@ public partial class MediaElement : ContentView
     ContentPage? fullScreenPage;
     CancellationTokenSource? openCts;
 
+    // Play() called before the element had a player (no handler yet); honored once one is created.
+    bool playRequested;
+
     /// <summary>Creates a media element with the platform backend registered by <c>UseShinyMediaElement()</c>.</summary>
     public MediaElement() : this(null)
     {
@@ -55,7 +58,10 @@ public partial class MediaElement : ContentView
     internal MediaElement(MediaElement? owner)
     {
         this.mirrorOwner = owner;
-        this.backend = owner?.backend ?? MediaPlayerBackends.Create();
+
+        // An owner's player is created when its handler connects, never here — see EnsureBackend. A
+        // fullscreen mirror only borrows a player that is already running, which holds no static root of its own.
+        this.backend = owner?.backend;
 
         this.surface = new MediaSurface { Backend = this.backend };
 
@@ -138,12 +144,49 @@ public partial class MediaElement : ContentView
         b.RemoteCommandReceived -= this.OnBackendRemoteCommand;
     }
 
+    /// <summary>
+    /// Create the platform player the first time the element gets a handler (and again after a disconnect).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ⚠️ <b>Not in the constructor.</b> A backend registers itself with process-wide sources the moment it
+    /// exists — Android's static Picture-in-Picture event, <c>NSNotificationCenter.DefaultCenter</c> observers on
+    /// Apple, ExoPlayer's own playback thread — and every one of those roots the backend, whose events root this
+    /// element. The only teardown is a handler disconnect, so an element that never got a handler (built and
+    /// discarded, a template instance that was never realized) kept a live player forever, and — with a
+    /// <see cref="Source"/> set — was even buffering it.
+    /// </para>
+    /// <para>
+    /// Runs from <see cref="OnHandlerChanging"/> so the player is on <see cref="MediaSurface.Backend"/> before
+    /// the surface's own handler connects. Everything configured beforehand is pushed on connect:
+    /// <see cref="ApplyBackendSettings"/>, the pending <see cref="Source"/>, and a <see cref="Play"/> call.
+    /// </para>
+    /// </remarks>
+    void EnsureBackend()
+    {
+        if (this.backend is not null || this.mirrorOwner is not null)
+            return;
+
+        var created = MediaPlayerBackends.Create();
+        if (created is null)
+            return;
+
+        this.backend = created;
+        this.Capabilities = created.Capabilities;
+        this.SubscribeBackend(created);
+        this.surface.Backend = created;
+        this.ApplyTransportVisibility();
+    }
+
     protected override void OnHandlerChanging(HandlerChangingEventArgs args)
     {
         base.OnHandlerChanging(args);
 
         if (args.NewHandler is not null)
+        {
+            this.EnsureBackend();
             return;
+        }
 
         // The control is leaving the visual tree for good (page popped, template swapped). A fullscreen
         // mirror only borrows the player, so it detaches; the owner tears the whole thing down. Background
@@ -176,6 +219,12 @@ public partial class MediaElement : ContentView
         // A mirror inherits a player that's already loaded; only the owner opens sources.
         if (this.mirrorOwner is null && this.Source is not null && this.backend.State == MediaElementState.None)
             this.LoadSource(this.Source);
+
+        if (this.playRequested)
+        {
+            this.playRequested = false;
+            this.backend.Play();
+        }
 
         this.RestartAutoHide();
     }
@@ -432,13 +481,17 @@ public partial class MediaElement : ContentView
     /// <summary>Start or resume playback.</summary>
     public void Play()
     {
-        this.backend?.Play();
+        if (this.backend is null)
+            this.playRequested = this.mirrorOwner is null; // no player until the handler connects — remember it
+        else
+            this.backend.Play();
         this.RestartAutoHide();
     }
 
     /// <summary>Suspend playback at the current position.</summary>
     public void Pause()
     {
+        this.playRequested = false;
         this.backend?.Pause();
         this.ShowTransportBarNow();
     }
@@ -446,6 +499,7 @@ public partial class MediaElement : ContentView
     /// <summary>Halt playback and rewind to the start.</summary>
     public void Stop()
     {
+        this.playRequested = false;
         this.backend?.Stop();
         this.SetPositionFromPlayer(TimeSpan.Zero);
         this.ShowTransportBarNow();

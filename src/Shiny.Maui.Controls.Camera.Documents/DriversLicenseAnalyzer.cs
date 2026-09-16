@@ -60,6 +60,14 @@ public class DriversLicenseAnalyzer : FrameAnalyzer
     string? lastDelivered;
 
     /// <inheritdoc/>
+    /// <remarks>Closes the native barcode scanner client (Android ML Kit); it is re-created on the next frame.</remarks>
+    protected override void OnDetached()
+    {
+        base.OnDetached();
+        this.scanner.ReleaseNativeResources();
+    }
+
+    /// <inheritdoc/>
     public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
     {
         var codes = await this.scanner.ScanAsync(frame, ct).ConfigureAwait(false);

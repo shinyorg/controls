@@ -97,7 +97,8 @@ public partial class ChatView
     // Defaults resolve from the theme rather than a fixed WhatsApp-ish green/white: own messages take
     // the primary container pair, everyone else's the neutral surface container pair. Bubbles are the
     // largest surface in the control, so hardcoding them made a theme switch look like a no-op.
-    // These resolve once per read (bubbles are rebuilt via RefreshBubbles on theme change).
+    // The getters resolve the app-level token at read time. Rendered bubbles never read them: they bind
+    // the tokens themselves (ChatBubbleView), so a light/dark flip or a scoped palette repaints them live.
 
     public static readonly BindableProperty MyBubbleColorProperty = BindableProperty.Create(
         nameof(MyBubbleColor), typeof(Color), typeof(ChatView), null,
@@ -460,7 +461,10 @@ public partial class ChatView
         set => SetValue(ScrollToFirstUnreadProperty, value);
     }
 
-    /// <summary>Resolves a theme token to a concrete colour, transparent if the pack lacks the key.</summary>
+    /// <summary>
+    /// Resolves an app-level theme token at the moment of reading, transparent if the pack lacks the key.
+    /// Only the public getters use this; nothing rendered is painted from it.
+    /// </summary>
     static Color ThemeColor(string key)
         => Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Color c
             ? c

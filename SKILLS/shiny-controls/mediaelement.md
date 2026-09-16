@@ -312,6 +312,16 @@ MediaPlayerBackends.Factory = () => new MyBackend();
 
 Useful for tests (no device needed) and for plugging in a different player.
 
+**The player is created when the element's handler connects, not in its constructor**, and disposed when the
+handler disconnects (a re-shown element creates a fresh one and re-opens its `Source`). A backend registers
+with process-wide sources as soon as it exists (Android's PiP event, `NSNotificationCenter` on Apple,
+ExoPlayer's playback thread), so creating it eagerly kept every never-shown element alive forever. Everything
+set beforehand — `Source`, `Volume`, `IsMuted`, `PlaybackRate`, `IsLooping`, `Aspect`, `KeepScreenOn`,
+background playback, and a `Play()` call — is applied on connect. Consequences for generated code: a
+`MediaElement` must be in the visual tree to play (it is not an off-screen audio player), `Capabilities` is
+`None` until it has a handler, and a unit test that drives a fake backend must give the element a handler
+first (a stub `IViewHandler` assigned to `element.Handler` is enough).
+
 ---
 
 ## Generation rules

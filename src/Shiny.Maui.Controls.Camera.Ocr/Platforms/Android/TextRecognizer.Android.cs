@@ -8,8 +8,30 @@ namespace Shiny.Maui.Controls.Camera.Ocr;
 
 public partial class TextRecognizer
 {
-    readonly Xamarin.Google.MLKit.Vision.Text.ITextRecognizer recognizer =
-        TextRecognition.GetClient(TextRecognizerOptions.DefaultOptions);
+    // Created lazily (and closed by ReleaseNativeResources) rather than eagerly per instance: an ML Kit client
+    // holds native model memory until Close(), so an analyzer that was constructed but never attached, or has
+    // been detached, must not keep one alive.
+    Xamarin.Google.MLKit.Vision.Text.ITextRecognizer? client;
+
+    Xamarin.Google.MLKit.Vision.Text.ITextRecognizer Client()
+        => this.client ??= TextRecognition.GetClient(TextRecognizerOptions.DefaultOptions);
+
+    partial void ReleasePlatform()
+    {
+        var old = Interlocked.Exchange(ref this.client, null);
+        if (old is null)
+            return;
+
+        try
+        {
+            old.Close();
+        }
+        catch
+        {
+            // already closed / torn down with the process — nothing left to release
+        }
+        (old as IDisposable)?.Dispose();
+    }
 
     // Document path: detect the document quad in managed code (no OpenCV), deskew it natively with
     // Matrix.SetPolyToPoly (a true 4-point perspective warp), then OCR the flat crop. Falls back to shared
@@ -65,7 +87,7 @@ public partial class TextRecognizer
             canvas.DrawBitmap(srcBitmap, matrix, paint);
 
         var input = InputImage.FromBitmap(warped, 0);
-        var result = await GmsTaskAwaiter.AwaitAsync(this.recognizer.Process(input)).ConfigureAwait(false);
+        var result = await GmsTaskAwaiter.AwaitAsync(this.Client().Process(input)).ConfigureAwait(false);
 
         var blocks = new List<RecognizedText>();
         if (result is Text text)
@@ -135,7 +157,7 @@ public partial class TextRecognizer
             return [];
 
         var input = InputImage.FromBitmap(crop, 0);
-        var result = await GmsTaskAwaiter.AwaitAsync(this.recognizer.Process(input)).ConfigureAwait(false);
+        var result = await GmsTaskAwaiter.AwaitAsync(this.Client().Process(input)).ConfigureAwait(false);
 
         var blocks = new List<RecognizedText>();
         if (result is Text text)
@@ -197,7 +219,7 @@ public partial class TextRecognizer
         var uprightW = rotation is 90 or 270 ? frame.Height : frame.Width;
         var uprightH = rotation is 90 or 270 ? frame.Width : frame.Height;
 
-        var result = await GmsTaskAwaiter.AwaitAsync(this.recognizer.Process(input)).ConfigureAwait(false);
+        var result = await GmsTaskAwaiter.AwaitAsync(this.Client().Process(input)).ConfigureAwait(false);
 
         var blocks = new List<RecognizedText>();
         if (result is Text text)

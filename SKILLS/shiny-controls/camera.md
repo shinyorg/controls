@@ -292,6 +292,41 @@ and discarding 25 of them. `WantsFrame` is what turns that into five.
 It must be cheap and must not block or throw — it runs on the capture callback, ahead of the encoder. Read a
 cached deadline, not a setting. (Default is `true`: every frame.)
 
+### Releasing native resources — override `OnDetached`
+
+An analyzer that holds a **native** detector (an Android ML Kit client, a model session, an unmanaged
+buffer) must release it in **`OnDetached()`** and re-create it **lazily** on the next `AnalyzeAsync`:
+
+```csharp
+public class MyAnalyzer : FrameAnalyzer
+{
+    IMyNativeDetector? detector;
+
+    public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+    {
+        this.detector ??= CreateDetector();          // lazily — the analyzer can be re-attached later
+        ...
+    }
+
+    protected override void OnDetached()
+    {
+        base.OnDetached();
+        this.detector?.Close();                       // native memory is held until this runs
+        this.detector = null;
+    }
+}
+```
+
+The pipeline calls `OnDetached` when the analyzer is removed or swapped out of `CameraView.Analyzer`, when
+it is disabled (`IsEnabled = false`), and when the camera handler disconnects; `OnAttached` fires when it goes
+live again. The two strictly alternate, and **`OnDetached` never runs while `AnalyzeAsync` is in flight** — a
+detach that lands mid-pass is deferred until the pass completes, so closing the client can't race its own
+use. Keep both cheap and non-blocking. Never create the native client in the constructor or a field
+initializer: an analyzer that is built but never attached would hold it forever. Both hooks are default
+no-ops on `IFrameAnalyzer`, so interface-only analyzers are unaffected. The built-in Barcode, Face, OCR and
+document analyzers already do this (and `BarcodeScanner` / `TextRecognizer` expose
+`ReleaseNativeResources()` for custom analyzers that compose them).
+
 ### Ambient light and other whole-frame statistics
 
 For a consumer that wants a *number* rather than an image — an exposure or ambient-light average — use
@@ -831,6 +866,7 @@ Blazor mirrors the MAUI single-analyzer shape: assign a typed **`Analyzer`** (to
 - `BarcodeAnalyzer` and `DriversLicenseAnalyzer` (PDF417/AAMVA) read with the **native scanner** — Apple Vision on iOS/macOS and Android MLKit — so they only produce results there; both are a **no-op on Windows and bare `net10.0`** (no native barcode scanner). `FaceAnalyzer`, `OcrAnalyzer`, and the OCR-backed document analyzers (`InvoiceAnalyzer`, `ReceiptAnalyzer`, `BusinessCardAnalyzer`, `HealthCardAnalyzer`, `CreditCardAnalyzer`) need native OCR/ML and only produce results on iOS/Android/Windows/macOS (not bare `net10.0`). `MotionAnalyzer` is managed and works everywhere.
 - **OCR runs once per frame, shared.** Every OCR-backed analyzer (`OcrAnalyzer` + all the document analyzers) uses the same `TextRecognizer`, which caches its result on the frame instance keyed by `TextRecognitionOptions` — so enabling Invoice + Receipt + HealthCard + CreditCard + Passport together still does **one** OCR pass per frame, not five. Analyzers asking for *different* regions of interest each get their own pass, which is the intended cost: a region is a fraction of the pixels, so it is usually still cheaper than one whole-frame pass. The shared pass runs with Vision **language correction off** (it corrupts structured fields like license/MRZ/card numbers, totals, and dates by snapping codes to dictionary words); parsers fuzzy-match the raw text.
 - **Document analyzers deskew before OCR.** The document analyzers (not `OcrAnalyzer`) call `RecognizeDocumentAsync`, which detects the document, perspective-corrects (deskews) it, then OCRs the flat crop — a big accuracy win for angled cards/IDs, since flat text reads far more reliably. Per platform: **iOS/macOS** = Vision (`VNDetectDocumentSegmentationRequest`) + Core Image; **Windows** = OpenCvSharp (Canny → largest convex quad → `WarpPerspective`); **Android** = a dependency-free managed detector (Otsu + largest bright region + extreme corners) + native `Matrix.SetPolyToPoly` warp (no OpenCV, so the package stays trim/AOT-clean); **bare net10.0** = no-op. When no document is found it falls back to whole-frame OCR. The overlay becomes the detected document outline (`DocumentAnalyzer.BoxColor`). Everything keeps the live `CameraView` preview — this is a frame analyzer, not a modal scanner.
+- Custom analyzers that hold native resources must release them in `protected override void OnDetached()` and re-create them lazily in `AnalyzeAsync` — never in the constructor (see "Releasing native resources").
 - Custom analyzers should derive from `FrameAnalyzer` (not implement `IFrameAnalyzer` directly) so delivery marshals to the UI thread, they get `IsEnabled` + `ShowBoundingBox` + arming, and their `Command`/`OnDetected` bind in XAML. Deliver a confirmed result with `Deliver(args, raiseEvent, command, onDetected)` — it's gated by arming (does nothing while disarmed), consumes the arm so a lingering detection won't re-fire, and re-arms when `onDetected` returns `true`. Expose your own typed `OnDetected` (`Func<TArgs, Task<bool>>`) bindable property and pass it through. Return boxes via `ResolveOverlay(args, OverlayProvider, () => defaultBoxes)` (independent of arming — boxes always draw; suppressed only when `ShowBoundingBox` is `false`).
 - All analyzers live under the single `xmlns:cam="http://shiny.net/maui/camera"` prefix; declare the **one** active analyzer inside `<cam:CameraView>` (content property = `Analyzer`). Bind results with `…Command="{Binding …}"`; the analyzer inherits the camera's `BindingContext`. To offer several detectors, build them once and assign the chosen one to `Camera.Analyzer` (see the sample).
 - Invoice/health-card parsing is **best-effort rules** — swap accuracy in via a custom `IDocumentParser<T>`. Driver's-license parsing is deterministic (AAMVA).

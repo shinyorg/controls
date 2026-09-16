@@ -33,6 +33,28 @@ public partial class FaceAnalyzer
                 .Build());
     }
 
+    // ML Kit detector clients hold native detector memory until Close(); dropping the reference is not enough.
+    partial void ReleasePlatform()
+    {
+        Close(Interlocked.Exchange(ref this.rectangleDetector, null));
+        Close(Interlocked.Exchange(ref this.landmarkDetector, null));
+
+        static void Close(IFaceDetector? detector)
+        {
+            if (detector is null)
+                return;
+            try
+            {
+                detector.Close();
+            }
+            catch
+            {
+                // already closed / torn down with the process — nothing left to release
+            }
+            (detector as IDisposable)?.Dispose();
+        }
+    }
+
     /// <inheritdoc/>
     public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
     {

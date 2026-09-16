@@ -83,6 +83,14 @@ public abstract class DocumentAnalyzer<TDocument> : FrameAnalyzer
     IReadOnlyList<OverlayBox>? lastOverlay;
 
     /// <inheritdoc/>
+    /// <remarks>Closes the native text recognizer client (Android ML Kit); it is re-created on the next frame.</remarks>
+    protected override void OnDetached()
+    {
+        base.OnDetached();
+        this.recognizer.ReleaseNativeResources();
+    }
+
+    /// <inheritdoc/>
     public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
     {
         var doc = await this.recognizer.RecognizeDocumentAsync(frame, ct).ConfigureAwait(false);

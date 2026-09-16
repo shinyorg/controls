@@ -65,4 +65,16 @@ public partial class TextRecognizer
 
     /// <summary>Platform detect-deskew-OCR for a single frame. Invoked at most once per frame via <see cref="RecognizeDocumentAsync"/>.</summary>
     private partial Task<RecognizedDocument> RecognizeDocumentCoreAsync(CameraFrame frame, CancellationToken ct);
+
+    /// <summary>
+    /// Release the native recognizer client — on Android, closes the ML Kit <c>TextRecognizer</c>, which holds
+    /// native model memory until closed. The recognizer stays usable: the next recognition creates a fresh
+    /// client. A no-op elsewhere (Apple Vision requests are per call; Windows' <c>OcrEngine</c> holds nothing
+    /// closable). Do not call while a recognition is in flight. The built-in analyzers call this from
+    /// <see cref="FrameAnalyzer"/>'s <c>OnDetached</c>, which the camera pipeline already defers past any
+    /// in-flight pass.
+    /// </summary>
+    public void ReleaseNativeResources() => this.ReleasePlatform();
+
+    partial void ReleasePlatform();
 }

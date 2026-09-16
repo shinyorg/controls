@@ -35,12 +35,29 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
     // does not fit — a phone is narrower than any sensible desktop popup width.
     const double SideMargin = 16d;
 
+    // Hide-animation grace: past this the overlay is let go whether or not its fade reported in. A
+    // page that has been navigated away from stops ticking animations, and a fade that never ends
+    // would otherwise hold the page for the life of the app.
+    static readonly TimeSpan DetachGrace = TimeSpan.FromMilliseconds(250);
+
+    readonly Func<ContentPage?> currentPage;
+
+    // Everything below points into the page the popup was last shown on. It is all released once the
+    // popup has finished hiding: this presenter is an app-lifetime singleton, and anything it still
+    // referenced would keep that page - and every view under it - alive until the next show.
     ContentPage? page;
     OverlayHost? host;
     Overlay? overlay;
     ContentView? contentHost;
     View? content;
     bool opened;
+    int hideGeneration;
+
+    public InAppQuickEntryPresenter() : this(PageOverlay.CurrentPage) { }
+
+    /// <summary>Test seam: the page the popup draws on, in place of the application's current window.</summary>
+    internal InAppQuickEntryPresenter(Func<ContentPage?> currentPage)
+        => this.currentPage = currentPage;
 
     // The last layout arguments, replayed when the host finally reports a width. Show() can run
     // before the host has been measured, and the clamp needs a real width to work from.
@@ -50,7 +67,7 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
     public QuickEntryPresentation Kind => QuickEntryPresentation.InApp;
 
     /// <summary>Needs a <see cref="ContentPage"/> to draw on, which only exists once the app has a window.</summary>
-    public bool IsSupported => PageOverlay.CurrentPage() != null;
+    public bool IsSupported => this.currentPage() != null;
 
     public Action? Deactivated { get; set; }
 
@@ -90,8 +107,31 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
     public void Hide()
     {
         this.opened = false;
-        if (this.overlay != null)
-            this.overlay.IsShown = false;
+        var overlay = this.overlay;
+        if (overlay == null)
+            return;
+
+        overlay.IsShown = false;
+
+        // Nothing is animating out - it was never shown, or the fade finished synchronously (which
+        // already released everything through OnOverlayPropertyChanged) - so let go now.
+        if (ReferenceEquals(this.overlay, overlay) && !overlay.IsVisible)
+        {
+            this.Detach();
+            return;
+        }
+
+        // Otherwise the fade releases it when IsVisible drops. This is the backstop for a fade that
+        // never finishes, and is ignored if the popup was shown (and hidden) again in the meantime.
+        var generation = ++this.hideGeneration;
+        overlay.Dispatcher.DispatchDelayed(
+            TimeSpan.FromMilliseconds(overlay.AnimationDuration) + DetachGrace,
+            () =>
+            {
+                if (!this.opened && generation == this.hideGeneration && ReferenceEquals(this.overlay, overlay))
+                    this.Detach();
+            }
+        );
     }
 
     public void Resize(QuickEntryOptions options, double width, double height)
@@ -99,33 +139,18 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
 
     public void Teardown()
     {
-        if (this.overlay != null)
-        {
-            this.overlay.PropertyChanged -= this.OnOverlayPropertyChanged;
-            this.overlay.IsShown = false;
-            this.host?.Children.Remove(this.overlay);
-        }
-
-        // Release the content so another presenter can take it — MAUI refuses to add a view that
-        // still has a parent, and switching presentation hands this same view across.
-        if (this.contentHost != null)
-            this.contentHost.Content = null;
-
-        if (this.host != null)
-            this.host.SizeChanged -= this.OnHostSizeChanged;
-
-        this.overlay = null;
-        this.contentHost = null;
-        this.host = null;
-        this.page = null;
         this.opened = false;
+        if (this.overlay != null)
+            this.overlay.IsShown = false;
+
+        this.Detach();
     }
 
     // -------------------------------------------------------------------------------------
 
     void Attach(QuickEntryOptions options)
     {
-        var current = PageOverlay.CurrentPage();
+        var current = this.currentPage();
         if (current == null)
             return;
 
@@ -133,13 +158,7 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
             return;
 
         // Moving to a new page: let the old host go, and detach the content before it is re-parented.
-        if (this.overlay != null)
-        {
-            this.overlay.PropertyChanged -= this.OnOverlayPropertyChanged;
-            this.host?.Children.Remove(this.overlay);
-        }
-        if (this.contentHost != null)
-            this.contentHost.Content = null;
+        this.Detach();
 
         this.page = current;
         this.host = FindHost(current) ?? InstallHost(current);
@@ -155,6 +174,47 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
         this.host.SizeChanged -= this.OnHostSizeChanged;
         this.host.SizeChanged += this.OnHostSizeChanged;
         this.ApplyLayout(options, options.Width);
+    }
+
+    /// <summary>
+    /// Takes the popup back off the page it was on and forgets that page. Safe to call repeatedly.
+    /// </summary>
+    /// <remarks>
+    /// The service owns the content view and keeps it across shows, so clearing
+    /// <see cref="ContentView.Content"/> matters as much as dropping the fields: while the content
+    /// is parented, its <c>Parent</c> chain runs host → layer → page and the service roots all of it.
+    /// </remarks>
+    void Detach()
+    {
+        var overlay = this.overlay;
+        var host = this.host;
+
+        if (overlay != null)
+        {
+            overlay.PropertyChanged -= this.OnOverlayPropertyChanged;
+
+            // Cut off mid-fade: the overlay never reached the end of its hide, so it never released
+            // the host's shared backdrop either, and the page would stay dimmed.
+            if (overlay.IsVisible)
+                host?.HideBackdrop(overlay, 0);
+
+            host?.Children.Remove(overlay);
+            overlay.OverlayContentTemplate = null;
+        }
+
+        // Release the content so it can be shown again elsewhere - MAUI refuses to add a view that
+        // still has a parent, and switching presentation hands this same view across.
+        if (this.contentHost != null)
+            this.contentHost.Content = null;
+
+        if (host != null)
+            host.SizeChanged -= this.OnHostSizeChanged;
+
+        this.overlay = null;
+        this.contentHost = null;
+        this.host = null;
+        this.page = null;
+        this.hideGeneration++;
     }
 
     /// <summary>
@@ -175,6 +235,15 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
     /// </summary>
     void OnOverlayPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == VisualElement.IsVisibleProperty.PropertyName)
+        {
+            // The hide fade has finished. Unless a show landed during it, this is the end of this
+            // page's popup.
+            if (!this.opened && sender is Overlay { IsVisible: false, IsShown: false } done && ReferenceEquals(done, this.overlay))
+                this.Detach();
+            return;
+        }
+
         if (e.PropertyName != Overlay.IsShownProperty.PropertyName)
             return;
 
@@ -182,6 +251,11 @@ sealed class InAppQuickEntryPresenter : IQuickEntryPresenter
         {
             this.opened = false;
             this.Deactivated?.Invoke();
+
+            // A scrim tap the service chose not to act on still took the popup down; let the page go
+            // once the fade is over, same as an explicit hide.
+            if (!this.opened && this.overlay != null && !this.overlay.IsVisible)
+                this.Detach();
         }
     }
 

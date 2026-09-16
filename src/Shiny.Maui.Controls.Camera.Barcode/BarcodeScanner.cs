@@ -24,4 +24,16 @@ public partial class BarcodeScanner
 
     /// <summary>Scan the frame for barcodes. Returns an empty list when none are found / unsupported.</summary>
     public partial Task<List<DetectedBarcode>> ScanAsync(CameraFrame frame, CancellationToken ct);
+
+    /// <summary>
+    /// Release the native scanner client — on Android, closes the ML Kit <c>BarcodeScanner</c>, which holds
+    /// native detector memory until closed. The scanner stays usable: the next <see cref="ScanAsync"/> creates
+    /// a fresh client. A no-op elsewhere (Apple Vision requests are per scan; Windows / net10.0 have no client).
+    /// Do not call while a <see cref="ScanAsync"/> is in flight. The built-in analyzers call this from
+    /// <see cref="FrameAnalyzer"/>'s <c>OnDetached</c>, which the camera pipeline already defers past any
+    /// in-flight pass.
+    /// </summary>
+    public void ReleaseNativeResources() => this.ReleasePlatform();
+
+    partial void ReleasePlatform();
 }

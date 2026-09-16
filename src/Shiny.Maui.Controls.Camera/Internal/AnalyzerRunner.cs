@@ -32,6 +32,14 @@ sealed class AnalyzerRunner(IFrameAnalyzer analyzer, Action<string, IReadOnlyLis
         if (Interlocked.CompareExchange(ref this.busy, 1, 0) != 0)
             return false;
 
+        // a frame that raced a detach through this (now stale) runner is dropped: running it would lazily
+        // re-create a native client after OnDetached released it, and nothing would release it again
+        if (!AnalyzerLifecycle.TryBeginPass(analyzer))
+        {
+            Interlocked.Exchange(ref this.busy, 0);
+            return false;
+        }
+
         frame.Retain();
         _ = this.RunAsync(frame, ct);
         return true;
@@ -52,6 +60,8 @@ sealed class AnalyzerRunner(IFrameAnalyzer analyzer, Action<string, IReadOnlyLis
         {
             frame.Dispose();
             Interlocked.Exchange(ref this.busy, 0);
+            // runs a detach that was deferred because it landed mid-pass
+            AnalyzerLifecycle.EndPass(analyzer);
         }
     }
 }

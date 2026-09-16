@@ -10,7 +10,7 @@ public class MediaCommandTests : MediaTestBase
     [Fact]
     public void Play_pause_stop_and_toggle_commands_drive_the_backend()
     {
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
 
         element.PlayCommand.Execute(null);
         element.PauseCommand.Execute(null);
@@ -24,7 +24,7 @@ public class MediaCommandTests : MediaTestBase
     [Fact]
     public void TogglePlayPause_follows_the_current_state()
     {
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
 
         element.TogglePlayPauseCommand.Execute(null);
         element.CurrentState.ShouldBe(MediaElementState.Playing);
@@ -38,7 +38,7 @@ public class MediaCommandTests : MediaTestBase
     {
         // XAML can only hand a command a string. "30" has to mean thirty seconds — TimeSpan.Parse would
         // read it as thirty days.
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
         this.Backend.RaiseOpened(TimeSpan.FromHours(2));
 
         element.SeekCommand.Execute("30");
@@ -49,7 +49,7 @@ public class MediaCommandTests : MediaTestBase
     [Fact]
     public void A_colon_separated_parameter_is_read_as_a_timespan()
     {
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
         this.Backend.RaiseOpened(TimeSpan.FromHours(2));
 
         element.SeekCommand.Execute("00:01:30");
@@ -62,7 +62,7 @@ public class MediaCommandTests : MediaTestBase
     [InlineData(45)]
     public void Numeric_parameters_are_read_as_seconds(object parameter)
     {
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
         this.Backend.RaiseOpened(TimeSpan.FromHours(2));
 
         element.SeekCommand.Execute(parameter);
@@ -73,7 +73,7 @@ public class MediaCommandTests : MediaTestBase
     [Fact]
     public void A_TimeSpan_parameter_is_used_directly()
     {
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
         this.Backend.RaiseOpened(TimeSpan.FromHours(2));
 
         element.SeekCommand.Execute(TimeSpan.FromMinutes(3));
@@ -84,7 +84,7 @@ public class MediaCommandTests : MediaTestBase
     [Fact]
     public void An_unparseable_seek_parameter_is_ignored_rather_than_seeking_to_zero()
     {
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
         this.Backend.RaiseOpened(TimeSpan.FromHours(2));
 
         element.SeekCommand.Execute("not-a-time");
@@ -95,7 +95,7 @@ public class MediaCommandTests : MediaTestBase
     [Fact]
     public void MuteCommand_toggles_without_a_parameter_and_sets_with_one()
     {
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
 
         element.MuteCommand.Execute(null);
         element.IsMuted.ShouldBeTrue();
@@ -111,7 +111,7 @@ public class MediaCommandTests : MediaTestBase
     public void The_picture_in_picture_command_is_disabled_where_the_platform_cannot_do_it()
     {
         this.Backend.Capabilities = MediaPlaybackCapabilities.Volume;
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
 
         element.PictureInPictureCommand.CanExecute(null).ShouldBeFalse();
     }
@@ -120,7 +120,7 @@ public class MediaCommandTests : MediaTestBase
     public void The_picture_in_picture_command_is_enabled_where_the_platform_can()
     {
         this.Backend.Capabilities = MediaPlaybackCapabilities.PictureInPicture;
-        var element = new MediaElement();
+        var element = new MediaElement().Connected();
 
         element.PictureInPictureCommand.CanExecute(null).ShouldBeTrue();
     }

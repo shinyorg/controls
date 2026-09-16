@@ -1078,7 +1078,9 @@ public partial class DataGrid : ContentView
             Bindings =
             {
                 new Binding(nameof(DataGridRow.IsSelected)),
-                new Binding(nameof(DataGridRow.Index))
+                new Binding(nameof(DataGridRow.Index)),
+                // Unused by the converter: raised on a theme change so the background re-resolves.
+                new Binding(nameof(DataGridRow.BackgroundRevision))
             }
         });
 
@@ -1412,18 +1414,63 @@ public partial class DataGrid : ContentView
     }
 
     // ---------- Theme + loading ----------
+
+    // The row backgrounds are computed by a converter (selected tint, stripe, and for frozen panes an
+    // opaque composite onto the surface), so the colours have to be concrete values rather than a
+    // dynamic resource on the view. They used to be copied out of Application.Current.Resources once,
+    // in the constructor, which left every selection, stripe and pinned pane in the old palette after a
+    // light/dark flip and never saw a palette scoped over the grid. These three properties resolve the
+    // tokens live through the grid's own element tree; a change re-feeds the converters and re-runs
+    // just the row-background bindings - no rows are rebuilt.
+
+    static readonly BindableProperty ThemePrimaryProperty = BindableProperty.Create(
+        "ThemePrimary", typeof(Color), typeof(DataGrid), null,
+        propertyChanged: static (b, _, _) => ((DataGrid)b).OnThemeColorsChanged());
+
+    static readonly BindableProperty ThemeOnSurfaceProperty = BindableProperty.Create(
+        "ThemeOnSurface", typeof(Color), typeof(DataGrid), null,
+        propertyChanged: static (b, _, _) => ((DataGrid)b).OnThemeColorsChanged());
+
+    static readonly BindableProperty ThemeSurfaceProperty = BindableProperty.Create(
+        "ThemeSurface", typeof(Color), typeof(DataGrid), null,
+        propertyChanged: static (b, _, _) => ((DataGrid)b).OnThemeColorsChanged());
+
+    bool themeTracking;
+
     void ApplyTheme()
     {
-        this.selectionConverter.Selected = ResolveColor(ShinyThemeKeys.Color.Primary, Color.FromArgb("#7C3AED")).WithAlpha(0.14f);
-        this.selectionConverter.Stripe = ResolveColor(ShinyThemeKeys.Color.OnSurface, Colors.Black).WithAlpha(0.04f);
+        if (!this.themeTracking)
+        {
+            // Resolving during these calls fires OnThemeColorsChanged, which just lands on the same
+            // converter values the ApplyThemeColors below writes.
+            this.themeTracking = true;
+            this.SetDynamicResource(ThemePrimaryProperty, ShinyThemeKeys.Color.Primary);
+            this.SetDynamicResource(ThemeOnSurfaceProperty, ShinyThemeKeys.Color.OnSurface);
+            this.SetDynamicResource(ThemeSurfaceProperty, ShinyThemeKeys.Color.Surface);
+        }
+        this.ApplyThemeColors();
+    }
+
+    void ApplyThemeColors()
+    {
+        var primary = (Color?)this.GetValue(ThemePrimaryProperty) ?? Color.FromArgb("#7C3AED");
+        var onSurface = (Color?)this.GetValue(ThemeOnSurfaceProperty) ?? Colors.Black;
+        var surface = (Color?)this.GetValue(ThemeSurfaceProperty) ?? Colors.White;
+
+        this.selectionConverter.Selected = primary.WithAlpha(0.14f);
+        this.selectionConverter.Stripe = onSurface.WithAlpha(0.04f);
 
         this.frozenBackgroundConverter.Selected = this.selectionConverter.Selected;
         this.frozenBackgroundConverter.Stripe = this.selectionConverter.Stripe;
-        this.frozenBackgroundConverter.Surface = ResolveColor(ShinyThemeKeys.Color.Surface, Colors.White);
+        this.frozenBackgroundConverter.Surface = surface;
     }
 
-    static Color ResolveColor(string key, Color fallback)
-        => Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Color c ? c : fallback;
+    void OnThemeColorsChanged()
+    {
+        this.ApplyThemeColors();
+        foreach (var row in this.dataRows)
+            row.RaiseBackgroundChanged();
+    }
 
     void UpdateLoading() => this.loadingOverlay.IsVisible = this.IsLoading;
 

@@ -408,7 +408,9 @@ public partial class DataGrid
             Bindings =
             {
                 new Binding(nameof(DataGridRow.IsSelected)),
-                new Binding(nameof(DataGridRow.Index))
+                new Binding(nameof(DataGridRow.Index)),
+                // Unused by the converter: raised on a theme change so the background re-resolves.
+                new Binding(nameof(DataGridRow.BackgroundRevision))
             }
         });
 }

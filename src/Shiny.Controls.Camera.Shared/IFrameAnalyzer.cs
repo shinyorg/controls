@@ -50,4 +50,32 @@ public interface IFrameAnalyzer
     /// for cooperative cancellation when the camera stops.
     /// </summary>
     ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct);
+
+    /// <summary>
+    /// The analyzer has gone live: it was assigned to a running camera pipeline (and is enabled). Frames
+    /// may arrive from now on. Default no-op.
+    /// </summary>
+    /// <remarks>
+    /// Paired strictly with <see cref="OnDetached"/> — the two alternate, starting with this one, however many
+    /// times the analyzer is attached, detached, disabled or re-enabled. Called on whichever thread changed the
+    /// assignment (usually the UI thread); must be cheap and must not block. Prefer creating native resources
+    /// lazily on the first <see cref="AnalyzeAsync"/> rather than here, so an analyzer that is attached but
+    /// never sees a frame never pays for them.
+    /// </remarks>
+    void OnAttached() { }
+
+    /// <summary>
+    /// The analyzer is no longer live — removed from the camera (<c>Analyzer</c> reassigned or cleared),
+    /// disabled via <c>IsEnabled = false</c>, or its camera handler disconnected. <b>Release native
+    /// resources here</b> (e.g. close an Android ML Kit detector client); the analyzer may be attached again
+    /// later, so re-create them lazily on the next <see cref="AnalyzeAsync"/>. Default no-op.
+    /// </summary>
+    /// <remarks>
+    /// Never runs while an <see cref="AnalyzeAsync"/> pass is in flight: when the analyzer is detached
+    /// mid-pass the call is deferred until that pass completes (on the analysis thread), and skipped
+    /// altogether if the analyzer is re-attached before it does. So an implementation can close a client
+    /// without racing its own in-flight use of it. Must be cheap and must not block, and must tolerate being
+    /// called when nothing was ever created.
+    /// </remarks>
+    void OnDetached() { }
 }

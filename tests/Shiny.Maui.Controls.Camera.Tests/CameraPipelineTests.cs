@@ -160,6 +160,226 @@ public class CameraPipelineTests
     }
 
 
+    // ── lifecycle: OnAttached / OnDetached, which is where native detector clients are released ────
+
+    [Fact]
+    public void Assigning_attaches_and_clearing_detaches()
+    {
+        var pipeline = new CameraPipeline();
+        var analyzer = new LifecycleAnalyzer("l");
+
+        pipeline.SetAnalyzer(analyzer);
+        analyzer.Log.ShouldBe(["attach"]);
+
+        pipeline.SetAnalyzer(null);           // also what handler teardown (TeardownPipeline) does
+        analyzer.Log.ShouldBe(["attach", "detach"]);
+    }
+
+
+    [Fact]
+    public void Swapping_detaches_the_outgoing_analyzer_and_attaches_the_new_one()
+    {
+        var pipeline = new CameraPipeline();
+        var a = new LifecycleAnalyzer("a");
+        var b = new LifecycleAnalyzer("b");
+
+        pipeline.SetAnalyzer(a);
+        pipeline.SetAnalyzer(b);
+
+        a.Log.ShouldBe(["attach", "detach"]);
+        b.Log.ShouldBe(["attach"]);
+    }
+
+
+    [Fact]
+    public void Reassigning_the_same_analyzer_does_not_cycle_it()
+    {
+        // re-mapping Analyzer (e.g. a handler re-sync) must not close and re-open a detector for nothing
+        var pipeline = new CameraPipeline();
+        var analyzer = new LifecycleAnalyzer("l");
+
+        pipeline.SetAnalyzer(analyzer);
+        pipeline.SetAnalyzer(analyzer);
+
+        analyzer.Log.ShouldBe(["attach"]);
+    }
+
+
+    [Fact]
+    public void Disabling_detaches_and_enabling_reattaches()
+    {
+        var pipeline = new CameraPipeline();
+        var analyzer = new LifecycleAnalyzer("l");
+        pipeline.SetAnalyzer(analyzer);
+
+        analyzer.IsEnabled = false;
+        analyzer.Log.ShouldBe(["attach", "detach"]);
+
+        analyzer.IsEnabled = true;
+        analyzer.Log.ShouldBe(["attach", "detach", "attach"]);
+
+        // and a disabled analyzer that is then removed is not detached a second time
+        analyzer.IsEnabled = false;
+        pipeline.SetAnalyzer(null);
+        analyzer.Log.ShouldBe(["attach", "detach", "attach", "detach"]);
+    }
+
+
+    [Fact]
+    public void An_analyzer_assigned_while_disabled_is_not_attached_until_enabled()
+    {
+        var pipeline = new CameraPipeline();
+        var analyzer = new LifecycleAnalyzer("l") { IsEnabled = false };
+
+        pipeline.SetAnalyzer(analyzer);
+        analyzer.Log.ShouldBeEmpty();
+
+        analyzer.IsEnabled = true;
+        analyzer.Log.ShouldBe(["attach"]);
+    }
+
+
+    /// <summary>
+    /// The race the hook exists to win: closing an ML Kit client while its Process() task is still running.
+    /// A detach landing mid-pass must wait for the pass.
+    /// </summary>
+    [Fact]
+    public async Task A_detach_during_a_pass_is_deferred_until_the_pass_completes()
+    {
+        var pipeline = new CameraPipeline();
+        var gate = new TaskCompletionSource<IReadOnlyList<OverlayBox>?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var analyzer = new LifecycleAnalyzer("l", gate.Task);
+        pipeline.SetAnalyzer(analyzer);
+
+        pipeline.Process(new FakeFrame(), default);   // pass now in flight
+        pipeline.SetAnalyzer(null);
+        analyzer.Log.ShouldBe(["attach"]);             // not closed out from under the running pass
+
+        gate.SetResult(null);
+        await WaitFor(() => analyzer.Log.Count == 2);
+        analyzer.Log.ShouldBe(["attach", "detach"]);
+    }
+
+
+    [Fact]
+    public async Task Reattaching_before_an_in_flight_pass_completes_cancels_the_deferred_detach()
+    {
+        var pipeline = new CameraPipeline();
+        var gate = new TaskCompletionSource<IReadOnlyList<OverlayBox>?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var analyzer = new LifecycleAnalyzer("l", gate.Task);
+        pipeline.SetAnalyzer(analyzer);
+
+        pipeline.Process(new FakeFrame(), default);
+        analyzer.IsEnabled = false;                    // detach requested mid-pass...
+        analyzer.IsEnabled = true;                     // ...and withdrawn before the pass ends
+
+        gate.SetResult(null);
+        await WaitFor(() => pipeline.WantsFrame());
+        await Task.Delay(50);
+
+        analyzer.Log.ShouldBe(["attach"]);             // the client was never released and re-created
+    }
+
+
+    [Fact]
+    public void An_analyzer_shared_by_two_cameras_detaches_only_when_both_let_go()
+    {
+        var first = new CameraPipeline();
+        var second = new CameraPipeline();
+        var analyzer = new LifecycleAnalyzer("l");
+
+        first.SetAnalyzer(analyzer);
+        second.SetAnalyzer(analyzer);
+        analyzer.Log.ShouldBe(["attach"]);
+
+        first.SetAnalyzer(null);
+        analyzer.Log.ShouldBe(["attach"]);             // still live on the second camera
+
+        second.SetAnalyzer(null);
+        analyzer.Log.ShouldBe(["attach", "detach"]);
+    }
+
+
+    [Fact]
+    public void A_throwing_lifecycle_hook_does_not_break_the_pipeline()
+    {
+        var pipeline = new CameraPipeline();
+        var analyzer = new LifecycleAnalyzer("l") { Throw = true };
+        IReadOnlyList<OverlayBox> latest = [];
+        pipeline.OnOverlays = (boxes, _, _, _) => latest = boxes;
+
+        Should.NotThrow(() => pipeline.SetAnalyzer(analyzer));
+        pipeline.Process(new FakeFrame(), default);
+        latest.Count.ShouldBe(1);
+
+        Should.NotThrow(() => pipeline.SetAnalyzer(null));
+    }
+
+
+    [Fact]
+    public void An_interface_only_analyzer_runs_without_implementing_the_hooks()
+    {
+        // backward compatibility: OnAttached/OnDetached are default interface members
+        var pipeline = new CameraPipeline();
+        var a = new OverlayBox(new RectF(0, 0, 1, 1));
+        IReadOnlyList<OverlayBox> latest = [];
+        pipeline.OnOverlays = (boxes, _, _, _) => latest = boxes;
+
+        pipeline.SetAnalyzer(new ScriptedAnalyzer("s", [a]));
+        pipeline.Process(new FakeFrame(), default);
+        latest.ShouldBe([a]);
+
+        Should.NotThrow(() => pipeline.SetAnalyzer(null));
+    }
+
+
+    static async Task WaitFor(Func<bool> condition)
+    {
+        for (var i = 0; i < 200 && !condition(); i++)
+            await Task.Delay(10);
+    }
+
+
+    // Records its lifecycle. Optionally blocks each pass on a gate, to hold a pass in flight.
+    sealed class LifecycleAnalyzer(string id, Task<IReadOnlyList<OverlayBox>?>? gate = null) : FrameAnalyzer
+    {
+        readonly object sync = new();
+        readonly List<string> log = new();
+
+        public bool Throw { get; set; }
+
+        public IReadOnlyList<string> Log
+        {
+            get { lock (this.sync) return this.log.ToArray(); }
+        }
+
+        public override string Id => id;
+
+        public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+        {
+            if (gate is not null)
+                return await gate.ConfigureAwait(false);
+            return [new OverlayBox(new RectF(0, 0, 1, 1))];
+        }
+
+        protected override void OnAttached()
+        {
+            base.OnAttached();
+            lock (this.sync) this.log.Add("attach");
+            if (this.Throw)
+                throw new InvalidOperationException("attach hook is broken");
+        }
+
+        protected override void OnDetached()
+        {
+            base.OnDetached();
+            lock (this.sync) this.log.Add("detach");
+            if (this.Throw)
+                throw new InvalidOperationException("detach hook is broken");
+        }
+    }
+
+
     // ── WantsFrame: the gate platforms consult before materializing anything ─────────────────────
 
     [Fact]

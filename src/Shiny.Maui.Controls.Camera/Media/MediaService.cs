@@ -312,8 +312,18 @@ public class MediaService(MediaServiceOptions options) : IMediaService
             // covers every exit including the caller breaking out of their await foreach, which is exactly
             // how the single-result overloads close the modal after one hit
             page.Complete(null);
-            if (nav.ModalStack.Contains(page))
-                await nav.PopModalAsync(false).ConfigureAwait(true);
+            try
+            {
+                if (nav.ModalStack.Contains(page))
+                    await nav.PopModalAsync(false).ConfigureAwait(true);
+            }
+            finally
+            {
+                // The analyzer was created for this one session. Detach it explicitly rather than trusting the
+                // popped page's handler to be disconnected: detaching is what releases its native detector
+                // (an Android ML Kit client), and a page that is merely popped may keep its handler.
+                page.Camera.Analyzer = null;
+            }
         }
     }
 

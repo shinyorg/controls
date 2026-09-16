@@ -11,12 +11,16 @@ namespace Shiny.Maui.Controls.Camera.Barcode;
 public partial class BarcodeScanner
 {
     IBarcodeScanner? client;
+    IList<BarcodeFormat>? clientFormats;
 
     IBarcodeScanner GetClient()
     {
-        if (this.client != null)
+        // ML Kit bakes the formats into the client, so a Formats assigned after the first scan needs a new one
+        if (this.client != null && ReferenceEquals(this.clientFormats, this.Formats))
             return this.client;
 
+        this.ReleasePlatform();
+        this.clientFormats = this.Formats;
         var formats = ToMlFormats(this.Formats);
         var builder = new BarcodeScannerOptions.Builder();
         if (formats == null)
@@ -26,6 +30,25 @@ public partial class BarcodeScanner
 
         this.client = BarcodeScanning.GetClient(builder.Build());
         return this.client;
+    }
+
+    // ML Kit detector clients hold native model/detector memory until Close() — dropping the reference is not
+    // enough, and the managed peer alone is too small to ever pressure the GC into finalizing it.
+    partial void ReleasePlatform()
+    {
+        var old = Interlocked.Exchange(ref this.client, null);
+        if (old is null)
+            return;
+
+        try
+        {
+            old.Close();
+        }
+        catch
+        {
+            // already closed / torn down with the process — nothing left to release
+        }
+        (old as IDisposable)?.Dispose();
     }
 
     public async partial Task<List<DetectedBarcode>> ScanAsync(CameraFrame frame, CancellationToken ct)
