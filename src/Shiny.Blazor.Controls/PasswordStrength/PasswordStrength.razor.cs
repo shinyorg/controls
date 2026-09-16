@@ -388,7 +388,16 @@ public partial class PasswordStrength : ComponentBase, IDisposable
     // Rendering helpers
     // ---------------------------------------------------------------------------------------------
 
-    string? WarningText => this.ShowWarning ? result?.Warning : null;
+    /// <summary>
+    /// The warning in the current wording. A warning the evaluator tagged with a key goes through the
+    /// localizer like every other string; untagged text from a custom evaluator is shown as written.
+    /// </summary>
+    string? WarningText => this.ShowWarning ? this.LocalizedWarning(result) : null;
+
+    internal string? LocalizedWarning(PasswordStrengthResult? verdict)
+        => verdict is { Warning: { } warning, WarningKey: { } key }
+            ? this.Localize(key, warning, value: verdict.WarningValue)
+            : verdict?.Warning;
 
     string LevelAriaText => this.Level == PasswordStrengthLevel.None ? "Empty" : this.LevelText;
 
@@ -438,6 +447,6 @@ public partial class PasswordStrength : ComponentBase, IDisposable
         return this.Localize(key, rule.Description, rule.Argument);
     }
 
-    string Localize(PasswordStrengthTextKey key, string fallback, int argument = 0)
-        => this.Localizer?.Invoke(new PasswordStrengthText(key, fallback, argument)) ?? fallback;
+    string Localize(PasswordStrengthTextKey key, string fallback, int argument = 0, string? value = null)
+        => this.Localizer?.Invoke(new PasswordStrengthText(key, fallback, argument) { Value = value }) ?? fallback;
 }

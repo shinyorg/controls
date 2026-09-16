@@ -323,6 +323,12 @@ Do not generate code that assumes these exist:
 `Theme` is nullable; **leave it unset** and the grid, formula bar, toolbar and sheet tabs follow the
 host's light/dark scheme live. Pass `SpreadsheetTheme.Light` / `.Dark` only to pin one.
 
+- On MAUI a **pinned** theme carries the whole chrome with it: the formula bar inks its boxes from the
+  theme, and the toolbar scopes the app theme pack's matching light/dark token palette over the ribbon,
+  so a pinned `SpreadsheetTheme.Dark` in a light app gets a dark ribbon too.
+- Text with no colour of its own on a **filled** cell is made to contrast with the fill (a light header
+  fill keeps dark text in dark mode); an explicit font colour is left as authored.
+
 ### Toolbar
 
 The bar is a [Ribbon](ribbon.md) on both hosts — titled groups, with undo/redo in the quick access

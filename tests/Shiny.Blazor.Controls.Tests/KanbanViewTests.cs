@@ -173,6 +173,19 @@ public class KanbanViewTests
 
 
     [Fact]
+    public void ACollapsedSpineDropsTheSpacesFromItsCount()
+    {
+        // Parity with MAUI, where "3 / 4" wrapped in the 52-wide spine and only "/ 4" was left showing.
+        var view = Build(out _, out var columns);
+        columns[1].IsCollapsed = true;
+        columns[0].IsCollapsed = true;
+
+        Invoke<string>(view, "CountLabel", columns[1]).ShouldBe("1/1");
+        Invoke<string>(view, "CountLabel", columns[0]).ShouldBe("2");
+    }
+
+
+    [Fact]
     public void WidthsAreEmittedWithAnInvariantDecimalSeparator()
     {
         // A comma here is not a cosmetic problem: "width:280,5px" is not a length a browser parses,

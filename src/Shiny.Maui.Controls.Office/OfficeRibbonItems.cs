@@ -169,35 +169,59 @@ static class OfficeRibbonItems
             Tooltip = name,
             Size = RibbonItemSize.Small,
             AutomationId = "Shape" + geometry,
-            IconTemplate = new DataTemplate(() => new GraphicsView
-            {
-                Drawable = new OfficeToolbarIconDrawable { Shapes = ShapeIcons.For(geometry), Color = IconTint },
-                HeightRequest = 18,
-                WidthRequest = 18,
-                InputTransparent = true,
-                HorizontalOptions = LayoutOptions.Center,
-                VerticalOptions = LayoutOptions.Center
-            }),
+            IconTemplate = new DataTemplate(() => new OfficeRibbonIconView(new OfficeToolbarIconDrawable { Shapes = ShapeIcons.For(geometry) })),
             Command = new Command(action)
         };
 
     public static DataTemplate IconTemplateFor(OfficeIcon icon)
-        => new(() => new GraphicsView
+        => new(() => new OfficeRibbonIconView(new OfficeToolbarIconDrawable { Icon = icon }));
+}
+
+
+/// <summary>
+/// A ribbon icon that inks itself from the theme's on-surface-variant token, and keeps following it.
+/// </summary>
+/// <remarks>
+/// The icons used to copy that colour out of <c>Application.Current.Resources</c> once, when the template
+/// was inflated. A drawable's colour is a plain value, so nothing ever changed it again: pin a
+/// <see cref="SpreadsheetTheme"/> of the other appearance and the ribbon went dark around icons still
+/// drawn in the light palette's ink (dark on dark), and a light/dark flip left every icon in whatever the
+/// app was using when the ribbon was built. A dynamic resource resolves up the element tree, so the
+/// scoped palette a pinned toolbar merges over its subtree is honoured too.
+/// </remarks>
+internal sealed class OfficeRibbonIconView : GraphicsView
+{
+    readonly OfficeToolbarIconDrawable drawable;
+
+    public OfficeRibbonIconView(OfficeToolbarIconDrawable drawable)
+    {
+        this.drawable = drawable;
+        this.Drawable = drawable;
+        this.HeightRequest = 18;
+        this.WidthRequest = 18;
+        this.InputTransparent = true;
+        this.HorizontalOptions = LayoutOptions.Center;
+        this.VerticalOptions = LayoutOptions.Center;
+
+        this.SetDynamicResource(IconColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
+        this.drawable.Color = this.IconColor;
+    }
+
+    public static readonly BindableProperty IconColorProperty = BindableProperty.Create(
+        nameof(IconColor),
+        typeof(Color),
+        typeof(OfficeRibbonIconView),
+        Colors.Gray,
+        propertyChanged: (b, _, n) =>
         {
-            Drawable = new OfficeToolbarIconDrawable { Icon = icon, Color = IconTint },
-            HeightRequest = 18,
-            WidthRequest = 18,
-            InputTransparent = true,
-            HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions = LayoutOptions.Center
+            var view = (OfficeRibbonIconView)b;
+            view.drawable.Color = (Color)n;
+            view.Invalidate();
         });
 
-    /// <summary>
-    /// The ribbon draws on a themed surface, so the icons take the theme's ink rather than the
-    /// near-white the old floating bars used.
-    /// </summary>
-    static Color IconTint
-        => Application.Current?.Resources.TryGetValue(ShinyThemeKeys.Color.OnSurfaceVariant, out var v) == true && v is Color c
-            ? c
-            : Colors.Gray;
+    public Color IconColor
+    {
+        get => (Color)this.GetValue(IconColorProperty);
+        set => this.SetValue(IconColorProperty, value);
+    }
 }

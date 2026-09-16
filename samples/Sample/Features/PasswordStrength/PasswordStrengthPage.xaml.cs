@@ -32,6 +32,11 @@ public partial class PasswordStrengthPage : ContentPage
         PasswordStrengthTextKey.RuleMinimumLength => $"Au moins {text.Argument} caractères",
         PasswordStrengthTextKey.RuleNumber => "Un chiffre",
         PasswordStrengthTextKey.RuleNotCompromised => "Pas un mot de passe courant",
+        // Warnings are localized too; Value carries the word the warning is about
+        PasswordStrengthTextKey.WarningCompromised => "C'est l'un des mots de passe les plus utilisés.",
+        PasswordStrengthTextKey.WarningBlocked => "Ce mot de passe n'est pas autorisé.",
+        PasswordStrengthTextKey.WarningUserInput => "Il contient vos informations personnelles, qu'un attaquant connaît déjà.",
+        PasswordStrengthTextKey.WarningCommonPassword => $"« {text.Value} » est un mot de passe très courant.",
         _ => null // anything not translated keeps the default
     };
 }

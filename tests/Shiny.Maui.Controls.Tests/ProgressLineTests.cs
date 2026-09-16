@@ -174,6 +174,102 @@ public class ProgressLineTests
     }
 
 
+    /// <summary>
+    /// The shape XAML builds for a line declared as a direct child of the page: every direct child is
+    /// assigned to <c>Content</c> in turn, so the line is the content for a moment and the layout
+    /// declared after it replaces it. Docking is deferred here the way it is on a device - the shared
+    /// test dispatcher runs dispatched work inline, which is exactly what hid this: by the time a real
+    /// deferred dock ran, the line had no parent and never entered the tree.
+    /// </summary>
+    [Fact]
+    public void ALineDeclaredBeforeThePageContentDocksWhenDockingIsDeferred()
+    {
+        var queue = new QueuedDispatcherProvider();
+        DispatcherProvider.SetCurrent(queue);
+        try
+        {
+            var line = new ProgressLine();
+            var scroll = new ScrollView();
+            var page = new ContentPage { Content = line };
+            page.Content = scroll;
+
+            queue.Dispatcher.RunAll();
+
+            AssertDockedOn(line, page, scroll);
+        }
+        finally
+        {
+            TestDispatcherProvider.Install();
+        }
+    }
+
+
+    [Fact]
+    public void ADockedLineFollowsThePageWhenItsContentIsReplaced()
+    {
+        var line = new ProgressLine();
+        var page = PageWith(line);
+        var replacement = new Grid();
+
+        page.Content = replacement;
+
+        AssertDockedOn(line, page, replacement);
+    }
+
+
+    [Fact]
+    public void ALineRemovedOnPurposeStaysRemoved()
+    {
+        var line = new ProgressLine();
+        var page = PageWith(line);
+        ((Layout)line.Parent).Children.Remove(line);
+
+        page.Content = new Grid();
+
+        line.Parent.ShouldBeNull();
+    }
+
+
+    static void AssertDockedOn(ProgressLine line, ContentPage page, View content)
+    {
+        var root = page.Content.ShouldBeOfType<PageOverlay.ShinyOverlayRoot>();
+        PageOverlay.ContentOf(root).ShouldBeSameAs(content);
+        line.Parent.ShouldBeOfType<PageOverlay.ProgressLineLayer>().Parent.ShouldBeSameAs(root);
+    }
+
+
+    sealed class QueuedDispatcherProvider : IDispatcherProvider
+    {
+        public QueuedDispatcher Dispatcher { get; } = new();
+
+        public IDispatcher? GetForCurrentThread() => this.Dispatcher;
+    }
+
+
+    sealed class QueuedDispatcher : IDispatcher
+    {
+        readonly Queue<Action> queue = new();
+
+        public bool IsDispatchRequired => false;
+
+        public bool Dispatch(Action action)
+        {
+            this.queue.Enqueue(action);
+            return true;
+        }
+
+        public bool DispatchDelayed(TimeSpan delay, Action action) => this.Dispatch(action);
+
+        public IDispatcherTimer CreateTimer() => throw new NotSupportedException();
+
+        public void RunAll()
+        {
+            while (this.queue.TryDequeue(out var action))
+                action();
+        }
+    }
+
+
     [Fact]
     public void TheGradientFallsBackToTheThemeRatherThanAPinnedBlue()
     {

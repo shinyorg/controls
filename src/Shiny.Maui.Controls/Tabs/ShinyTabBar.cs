@@ -197,8 +197,8 @@ public partial class ShinyTabBar : Grid
             };
         }
 
-        var centerTap = new TapGestureRecognizer();
-        centerTap.Tapped += this.OnCenterTapped;
+        // Command rather than the Tapped event: a command is invokable from a test, Tapped is not.
+        var centerTap = new TapGestureRecognizer { Command = new Command(this.PressCenter) };
         this.centerCircle.GestureRecognizers.Add(centerTap);
 
         this.items.CollectionChanged += this.OnItemsCollectionChanged;
@@ -259,8 +259,15 @@ public partial class ShinyTabBar : Grid
     }
 
 
-    /// <summary>Opens the centre menu, as pressing the button would.</summary>
-    public void OpenMenu() => this.IsMenuOpen = true;
+    /// <summary>
+    /// Opens the centre menu, as pressing the button would. No-op when the current page, the button
+    /// and <see cref="MenuTemplate"/> have nothing to present - an empty card is never shown.
+    /// </summary>
+    public void OpenMenu()
+    {
+        this.menuKind = TabMenuKind.Center;
+        this.IsMenuOpen = true;
+    }
 
     /// <summary>Closes the centre menu.</summary>
     public void CloseMenu() => this.IsMenuOpen = false;
@@ -386,6 +393,10 @@ public partial class ShinyTabBar : Grid
 
         this.ApplyAllCellStates(animateIndicator: true);
 
+        // The new tab may declare a menu, or none. Here as well as on PageContext because a bar with
+        // no page context reads the selected item's.
+        this.ApplyCenterAvailability();
+
         if (this.AnimateIcons && newItem is not null && this.FindCell(newItem) is { } cell)
             TabIcons.Play(cell.IconView);
 
@@ -468,6 +479,9 @@ public partial class ShinyTabBar : Grid
     {
         if (e.PropertyName is "Badge" or "BadgeColor" or "Title")
             this.ApplyAllCellStates();
+
+        if (e.PropertyName is "Actions" or "MenuContent" or "MenuContentTemplate")
+            this.OnMenuSourceChanged();
     }
 
 
@@ -1387,12 +1401,88 @@ public partial class ShinyTabBar : Grid
         });
 
     void OnCenterActionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        => StyleGuard.WhenReady<ShinyTabBar>(this, bar => bar.OnMenuSourceChanged());
+
+
+    /// <summary>
+    /// Something the centre menu is built from changed - the button's rows, the page's rows or
+    /// content, or <see cref="MenuTemplate"/>.
+    /// </summary>
+    /// <remarks>
+    /// Rows are read when the menu opens, so while it is closed the only thing to update is whether
+    /// the button has anything to do. While it is open the change has to be rendered, or the row
+    /// someone just added is invisible until the next open - and if the last row just went, the card
+    /// closes rather than standing there empty.
+    /// </remarks>
+    void OnMenuSourceChanged()
     {
-        // Rows are read when the menu opens, so a change while it is closed needs nothing. A change
-        // while it is open has to be rendered, or the row someone just added is invisible until the
-        // next open.
-        if (this.IsMenuOpen)
-            StyleGuard.WhenReady<ShinyTabBar>(this, bar => bar.RefreshMenuContent());
+        this.ApplyCenterAvailability();
+
+        if (!this.IsMenuOpen || this.menuKind != TabMenuKind.Center)
+            return;
+
+        if (this.HasMenuToShow())
+            this.RefreshMenuContent();
+        else
+            this.IsMenuOpen = false;
+    }
+
+
+    TabActionCollection? observedPageActions;
+
+    /// <summary>
+    /// Follows the current page's <see cref="ShinyTabs.ActionsProperty"/> collection, so rows added to
+    /// or removed from it reach the button and an open menu.
+    /// </summary>
+    void ObservePageActions()
+    {
+        var context = this.PageContext ?? this.SelectedItem?.PageContext;
+        var actions = context is null ? null : ShinyTabs.GetActions(context);
+
+        if (ReferenceEquals(actions, this.observedPageActions))
+            return;
+
+        if (this.observedPageActions is not null)
+            this.observedPageActions.CollectionChanged -= this.OnCenterActionsChanged;
+
+        this.observedPageActions = actions;
+
+        if (actions is not null)
+            actions.CollectionChanged += this.OnCenterActionsChanged;
+    }
+
+
+    /// <summary>
+    /// Whether pressing the centre button does anything at all: it is enabled, and it either runs
+    /// something (<see cref="TabCenterMode.Action"/>, a <see cref="TabCenterButton.Command"/>, a
+    /// <see cref="CenterClicked"/> subscriber) or has a menu to present for the current tab.
+    /// </summary>
+    internal bool IsCenterButtonActive
+        => this.CenterButton is { IsEnabled: true } center
+           && (center.Mode == TabCenterMode.Action
+               || center.Command is not null
+               || this.centerClicked is not null
+               || this.HasMenuToShow());
+
+
+    /// <summary>
+    /// Dims the centre button while pressing it would do nothing, the same way a disabled one is.
+    /// </summary>
+    /// <remarks>
+    /// A Menu-mode button on a tab that declares no menu falls back to being a plain button - and
+    /// with no command and nobody listening, a plain button that does nothing. Leaving it at full
+    /// strength invites a press that visibly fails.
+    /// </remarks>
+    void ApplyCenterAvailability()
+    {
+        if (this.centerCircle is null)
+            return;
+
+        // Every path that can change which page is current ends up here, so this is also where the
+        // current page's rows start being watched.
+        this.ObservePageActions();
+
+        this.centerCircle.Opacity = this.CenterButton is null || this.IsCenterButtonActive ? 1 : 0.5;
     }
 
 
@@ -1428,7 +1518,7 @@ public partial class ShinyTabBar : Grid
         else
             this.centerCircle.Background = ThemeTokens.TokenBrush(ShinyThemeKeys.Color.Primary);
 
-        this.centerCircle.Opacity = center.IsEnabled ? 1 : 0.5;
+        this.ApplyCenterAvailability();
         this.centerCircle.WithElevation(ShinyThemeKeys.Elevation.Level3);
 
         var icon = TabIcons.Realize(center, this.centerIconView, center.IconSize);
@@ -1469,7 +1559,7 @@ public partial class ShinyTabBar : Grid
         this.centerCircle.WithoutElevation();
         this.centerCircle.WidthRequest = center.Size;
         this.centerCircle.HeightRequest = center.Size;
-        this.centerCircle.Opacity = center.IsEnabled ? 1 : 0.5;
+        this.ApplyCenterAvailability();
 
         if (this.centerCircle.StrokeShape is RoundRectangle shape)
             shape.CornerRadius = new CornerRadius(0);
@@ -1479,7 +1569,8 @@ public partial class ShinyTabBar : Grid
     }
 
 
-    void OnCenterTapped(object? sender, TappedEventArgs e)
+    /// <summary>What a press on the centre button does.</summary>
+    internal void PressCenter()
     {
         var center = this.CenterButton;
         if (center is null || !center.IsEnabled)
@@ -1492,7 +1583,7 @@ public partial class ShinyTabBar : Grid
         }
 
         var args = new TabCenterClickedEventArgs();
-        this.CenterClicked?.Invoke(this, args);
+        this.centerClicked?.Invoke(this, args);
         center.Invoke();
 
         if (args.Cancel || center.Mode == TabCenterMode.Action)
@@ -1623,8 +1714,28 @@ public partial class ShinyTabBar : Grid
     /// not worth caching even if it were safe to.
     /// </remarks>
     /// <summary>Whether pressing the centre button has anything to present.</summary>
+    /// <remarks>
+    /// Mirrors the precedence of <see cref="ResolveMenuContent"/> and <see cref="ResolveMenuActions"/>
+    /// without calling them: they build templates and re-seed binding contexts, and this runs on every
+    /// tab change to decide how the button looks.
+    /// </remarks>
     internal bool HasMenuToShow()
-        => this.MenuTemplate is not null || this.ResolveMenuActions().Count > 0 || this.ResolveMenuContent() is not null;
+    {
+        if (this.MenuTemplate is not null)
+            return true;
+
+        var context = this.PageContext ?? this.SelectedItem?.PageContext;
+        if (context is not null && (
+                ShinyTabs.GetMenuContentTemplate(context) is not null ||
+                ShinyTabs.GetMenuContent(context) is not null ||
+                ShinyTabs.GetActions(context) is { Count: > 0 }))
+            return true;
+
+        return this.CenterButton is { } center && (
+            center.MenuContentTemplate is not null ||
+            center.MenuContent is not null ||
+            center.Actions.Count > 0);
+    }
 
 
     Layout? ResolveMenuLayer()
@@ -1644,6 +1755,20 @@ public partial class ShinyTabBar : Grid
 
     void SyncMenuState(bool open)
     {
+        // Every route to an open menu - the press, OpenMenu(), a binding or a direct write to
+        // IsMenuOpen - comes through here, so this is where an empty card is refused. The press
+        // already checked; OpenMenu and IsMenuOpen did not, and on a tab that declares nothing they
+        // painted a card with no rows in it.
+        if (open && this.menuCard is null)
+        {
+            var hasContent = this.menuKind == TabMenuKind.Overflow ? this.HasOverflow : this.HasMenuToShow();
+            if (!hasContent)
+            {
+                this.IsMenuOpen = false;
+                return;
+            }
+        }
+
         if (open)
             _ = this.OpenMenuAsync();
         else
@@ -1759,7 +1884,12 @@ public partial class ShinyTabBar : Grid
             this.menuLayer?.Children.Remove(backdrop);
 
         if (token == this.menuToken)
+        {
+            // Back to the default, so a later write to IsMenuOpen means the centre menu rather than
+            // whichever menu happened to be open last.
+            this.menuKind = TabMenuKind.Center;
             this.MenuClosed?.Invoke(this, EventArgs.Empty);
+        }
     }
 
 

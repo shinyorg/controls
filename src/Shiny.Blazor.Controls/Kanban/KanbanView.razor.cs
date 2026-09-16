@@ -536,7 +536,11 @@ public partial class KanbanView : ComponentBase, IAsyncDisposable
         {
             KanbanColumnCount.None => string.Empty,
             KanbanColumnCount.Count => count.ToString(this.EffectiveCulture),
-            _ => limit is null ? count.ToString(this.EffectiveCulture) : $"{count} / {limit}"
+            _ when limit is null => count.ToString(this.EffectiveCulture),
+
+            // A collapsed spine drops the spaces, so "12/15" fits where "12 / 15" does not.
+            _ when column.IsCollapsed => $"{count.ToString(this.EffectiveCulture)}/{limit.Value.ToString(this.EffectiveCulture)}",
+            _ => $"{count.ToString(this.EffectiveCulture)} / {limit.Value.ToString(this.EffectiveCulture)}"
         };
     }
 

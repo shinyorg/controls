@@ -172,7 +172,7 @@
                         }
                         else
                         {
-                            <div class="shiny-kanban-head-inner @(this.IsOver(column) ? "is-over-limit" : null)">
+                            <div class="shiny-kanban-head-inner @(this.IsOver(column) ? "is-over-limit" : null) @(column.IsCollapsed ? "is-collapsed" : null)">
                                 @if (!string.IsNullOrWhiteSpace(column.Color))
                                 {
                                     <span class="shiny-kanban-head-rule" style="background:@column.Color"></span>

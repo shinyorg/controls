@@ -31,6 +31,14 @@ public partial class ProgressLine : ContentView, IDisposable
     bool dockPending;
     bool disposed;
 
+    /// <summary>
+    /// The page this line belongs to, kept after the line loses its parent. See
+    /// <see cref="OnHomePageContentChanged"/> for why.
+    /// </summary>
+    ContentPage? homePage;
+    object? outgoingContent;
+    bool docking;
+
     public ProgressLine()
     {
         this.bar = new ProgressBar
@@ -89,6 +97,9 @@ public partial class ProgressLine : ContentView, IDisposable
         if (this.Parent is null)
             return;
 
+        if (PageOverlay.FindPage(this) is { } page)
+            this.TrackHomePage(page);
+
         if (!this.Dock || this.Parent is PageOverlay.ProgressLineLayer)
         {
             this.RefreshLayout();
@@ -106,7 +117,8 @@ public partial class ProgressLine : ContentView, IDisposable
     /// </summary>
     internal void ScheduleDock()
     {
-        if (this.dockPending)
+        // Mid-dock, the move itself re-parents the line; the dock already running finishes the job.
+        if (this.dockPending || this.docking)
             return;
 
         this.dockPending = true;
@@ -120,31 +132,125 @@ public partial class ProgressLine : ContentView, IDisposable
 
     void TryDock()
     {
-        if (this.disposed || !this.Dock || this.Parent is PageOverlay.ProgressLineLayer)
+        if (this.disposed || !this.Dock)
             return;
 
         var page = PageOverlay.FindPage(this);
+
+        // Off every page, but only because the page's content was swapped out from under the line —
+        // so the page it belonged to is still the right one. A line moved somewhere else entirely has
+        // a parent of its own and is left to find its new page.
+        if (page is null && (this.Parent is null || this.Parent is PageOverlay.ProgressLineLayer))
+            page = this.homePage;
+
         if (page is null)
         {
             this.WatchForPage();
             return;
         }
 
-        this.UnwatchAncestor();
-
-        // Before reading Parent: creating the root re-parents the page's content, and this line is
-        // currently somewhere inside it.
-        var layer = PageOverlay.GetOrCreateLayer<PageOverlay.ProgressLineLayer>(page, PageOverlay.Layers.ProgressLine);
-
-        if (!this.DetachFromParent())
+        if (this.IsDockedOn(page))
             return;
 
-        layer.Children.Add(this);
+        this.UnwatchAncestor();
+        this.TrackHomePage(page);
+
+        this.docking = true;
+        try
+        {
+            // Before reading Parent: creating the root re-parents the page's content, and this line
+            // is currently somewhere inside it.
+            var layer = PageOverlay.GetOrCreateLayer<PageOverlay.ProgressLineLayer>(page, PageOverlay.Layers.ProgressLine);
+
+            if (!this.DetachFromParent())
+                return;
+
+            layer.Children.Add(this);
+        }
+        finally
+        {
+            this.docking = false;
+        }
+
         this.RefreshLayout();
 
         // Second pass once the page has laid out: the nav/tab bar's measured height is what the inset
         // is taken from, and on the first pass it is still zero.
         this.Dispatcher.Dispatch(this.RefreshLayout);
+    }
+
+
+    bool IsDockedOn(ContentPage page)
+        => this.Parent is PageOverlay.ProgressLineLayer { Parent: PageOverlay.ShinyOverlayRoot root }
+            && ReferenceEquals(page.Content, root);
+
+
+    void TrackHomePage(ContentPage page)
+    {
+        if (ReferenceEquals(page, this.homePage))
+            return;
+
+        this.UntrackHomePage();
+        this.homePage = page;
+        page.PropertyChanging += this.OnHomePageContentChanging;
+        page.PropertyChanged += this.OnHomePageContentChanged;
+    }
+
+
+    void UntrackHomePage()
+    {
+        if (this.homePage is null)
+            return;
+
+        this.homePage.PropertyChanging -= this.OnHomePageContentChanging;
+        this.homePage.PropertyChanged -= this.OnHomePageContentChanged;
+        this.homePage = null;
+        this.outgoingContent = null;
+    }
+
+
+    void OnHomePageContentChanging(object? sender, Microsoft.Maui.Controls.PropertyChangingEventArgs e)
+    {
+        if (e.PropertyName == ContentPage.ContentProperty.PropertyName)
+            this.outgoingContent = this.homePage?.Content;
+    }
+
+
+    /// <summary>
+    /// Re-docks a line the page's content was replaced out from under.
+    /// </summary>
+    /// <remarks>
+    /// This is the ordinary shape of a page declaring the line in markup: XAML treats every direct
+    /// child of a <see cref="ContentPage"/> as its <c>Content</c>, so the line is the content for a
+    /// moment and the layout after it then replaces it. Docking is deferred a tick, so by the time it
+    /// ran the line had no parent and no way back to the page — it was never added to the tree at all,
+    /// and nothing reported it. The same happens to a line that had already docked when the page's
+    /// content is later swapped: its overlay root goes with the old content.
+    /// </remarks>
+    void OnHomePageContentChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != ContentPage.ContentProperty.PropertyName)
+            return;
+
+        var outgoing = this.outgoingContent;
+        this.outgoingContent = null;
+
+        if (this.docking || this.disposed || !this.Dock || outgoing is null)
+            return;
+
+        if (ReferenceEquals(outgoing, this) || (outgoing is Element old && this.IsInside(old)))
+            this.ScheduleDock();
+    }
+
+
+    bool IsInside(Element ancestor)
+    {
+        for (var element = this.Parent; element is not null; element = element.Parent)
+        {
+            if (ReferenceEquals(element, ancestor))
+                return true;
+        }
+        return false;
     }
 
 
@@ -199,6 +305,9 @@ public partial class ProgressLine : ContentView, IDisposable
     {
         switch (this.Parent)
         {
+            case null:
+                return true;
+
             case Layout layout:
                 return layout.Children.Remove(this);
 
@@ -328,6 +437,7 @@ public partial class ProgressLine : ContentView, IDisposable
         this.disposed = true;
         this.Unsubscribe();
         this.UnwatchAncestor();
+        this.UntrackHomePage();
         this.AbortAnimation(FadeAnimationName);
         this.bar.Dispose();
         GC.SuppressFinalize(this);

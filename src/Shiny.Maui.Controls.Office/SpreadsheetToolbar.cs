@@ -229,7 +229,7 @@ public class SpreadsheetToolbar : ContentView
         typeof(SpreadsheetTheme),
         typeof(SpreadsheetToolbar),
         null,
-        propertyChanged: (b, _, _) => ((SpreadsheetToolbar)b).Refresh());
+        propertyChanged: (b, _, _) => ((SpreadsheetToolbar)b).OnThemeChanged());
 
     public static readonly BindableProperty IsReadOnlyProperty = BindableProperty.Create(
         nameof(IsReadOnly),
@@ -765,6 +765,21 @@ public class SpreadsheetToolbar : ContentView
     {
         this.Refresh();
         this.Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Puts the ribbon on the same appearance as a pinned <see cref="Theme"/>.
+    /// </summary>
+    /// <remarks>
+    /// The ribbon and everything hosted in it are built from theme tokens, not from the
+    /// <see cref="SpreadsheetTheme"/> value, so pinning <see cref="SpreadsheetTheme.Dark"/> in a light app
+    /// used to leave a light ribbon above a dark grid. Scoping the matching token palette over this view
+    /// re-themes all of it; an unset theme removes the scope and the bar follows the app again.
+    /// </remarks>
+    void OnThemeChanged()
+    {
+        OfficeScheme.ScopeTokens(this, this.Theme);
+        this.Refresh();
     }
 
     /// <summary>Reflects the active cell's formatting back into the bar.</summary>

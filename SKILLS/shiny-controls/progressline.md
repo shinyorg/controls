@@ -101,6 +101,7 @@ One rule: **a bar earns an offset exactly when it is painted inside the same coo
 | `ShinyNavigationPage` (bar wraps the overlay root in a two-row grid) | 0 - the root already starts below it |
 | `ShinyTabbedPage` (bar is a sibling of the hosted page) | 0 |
 | Native `NavigationPage` / `TabbedPage` | 0 - MAUI already excludes their chrome from the content area |
+| Shell's native nav bar, and Shell's bottom tabs when the item has more than one section | 0 - same as NavigationPage / TabbedPage |
 | Nothing on that edge | The safe-area inset (Apple heads only) |
 
 Measured height wins over the declared `BarHeight` where available, because `ShinyTabBar.RespectSafeArea` folds the home indicator into its own height - adding a safe-area inset on top would double-count it.

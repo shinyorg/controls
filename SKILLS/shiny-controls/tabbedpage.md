@@ -162,7 +162,12 @@ bottom of your own content), `CenterButton`, `IndicatorStyle`, `LabelMode`, `Sel
 It is **not a tab** — it never becomes the selection. `Mode="Action"` just runs `Command` and raises
 `ShinyTabBar.CenterClicked`. `Mode="Menu"` (the default) presents the current page's actions above
 it, and **falls back to `Action` when neither the page nor the button declares anything**, so a
-button that is only ever a button behaves like one without being reconfigured.
+button that is only ever a button behaves like one without being reconfigured. An empty menu is never
+shown: `OpenMenu()`/`IsMenuOpen = true` are refused on a tab with nothing to present, and an open menu
+whose last row is removed closes. When the fallback would also do nothing (no `Command`, no
+`CenterClicked` subscriber) the button dims to 0.5 opacity like a disabled one, tracking tab changes
+and the current page's `Actions` collection. So do not use `OpenMenu()` as a way to show an empty
+card: give the page `Actions`/`MenuContent`, or the button app-wide `Actions`.
 
 `Overhang` is how far it rises above the bar; left at `-1` it is **a third** of `Size`. Half centres
 the circle exactly on the bar's top edge, which is the textbook diagram but reads as floating away

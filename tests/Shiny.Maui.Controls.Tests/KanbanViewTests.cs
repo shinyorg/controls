@@ -258,6 +258,75 @@ public class KanbanViewTests
     }
 
 
+    [Fact]
+    public void ACollapsedHeaderStacksTheCountUnderTheChevronAndNeverWrapsIt()
+    {
+        // The bug: collapsed, the count sat in an Auto column beside a hidden Star title and the
+        // chevron, in a 52-wide spine with 20 of padding and 12 of spacing - it wrapped, and iOS
+        // showed only "/ 1".
+        var view = Build(out _, out var columns);
+        view.AllowColumnCollapse = true;
+
+        view.CollapseAllColumns();
+
+        var header = view.ColumnHeaderViews.Single(h => h.Column.Id == "doing");
+        header.CountLabel.IsVisible.ShouldBeTrue();
+        header.CountLabel.Text.ShouldBe("1/1");
+        header.CountLabel.LineBreakMode.ShouldBe(LineBreakMode.NoWrap);
+
+        header.Row.ColumnDefinitions.Count.ShouldBe(1);
+        header.Row.RowDefinitions.Count.ShouldBe(2);
+        Grid.GetRow(header.CountLabel).ShouldBe(1);
+        Grid.GetColumn(header.CountLabel).ShouldBe(0);
+        Grid.GetRow(header.Chevron).ShouldBe(0);
+
+        view.ExpandAllColumns();
+
+        header = view.ColumnHeaderViews.Single(h => h.Column.Id == "doing");
+        header.CountLabel.Text.ShouldBe("1 / 1");
+        header.Row.ColumnDefinitions.Count.ShouldBe(3);
+        Grid.GetColumn(header.CountLabel).ShouldBe(1);
+        columns.ShouldAllBe(c => !c.IsCollapsed);
+    }
+
+
+    [Fact]
+    public void ACollapsedColumnDrawsNoWellAndNoPlaceholder()
+    {
+        var view = Build(out _, out _);
+
+        // "done" has no cards, so expanded it shows the empty-column placeholder.
+        view.LaneCellViews.Single(c => c.Lane.Column.Id == "done").Stack.Children.ShouldNotBeEmpty();
+
+        view.CollapseAllColumns();
+
+        foreach (var cell in view.LaneCellViews)
+        {
+            cell.Stack.Children.ShouldBeEmpty();
+            cell.Host.BackgroundColor.ShouldBe(Colors.Transparent);
+
+            // Still full height, so it is still somewhere to drop.
+            cell.Host.MinimumHeightRequest.ShouldBe(view.MinColumnHeight);
+        }
+    }
+
+
+    [Fact]
+    public void TheCollapsedCountFormatDropsTheSpaces()
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+
+        Shiny.Maui.Controls.Kanban.Internal.KanbanColumnHeaderView
+            .FormatCount(KanbanColumnCount.CountAndLimit, 12, 15, collapsed: true, culture).ShouldBe("12/15");
+        Shiny.Maui.Controls.Kanban.Internal.KanbanColumnHeaderView
+            .FormatCount(KanbanColumnCount.CountAndLimit, 12, 15, collapsed: false, culture).ShouldBe("12 / 15");
+        Shiny.Maui.Controls.Kanban.Internal.KanbanColumnHeaderView
+            .FormatCount(KanbanColumnCount.CountAndLimit, 3, null, collapsed: true, culture).ShouldBe("3");
+        Shiny.Maui.Controls.Kanban.Internal.KanbanColumnHeaderView
+            .FormatCount(KanbanColumnCount.None, 3, 4, collapsed: true, culture).ShouldBeEmpty();
+    }
+
+
     // =============================================================================================
     // Add card
     // =============================================================================================

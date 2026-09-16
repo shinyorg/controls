@@ -44,7 +44,27 @@
     <span style="margin-left:8px;">@readReport</span>
 }
 
+<h2 style="margin-top:32px;">Inside a sheet</h2>
+<p style="color:#888;max-width:640px;">
+    A sheet moves with a CSS transform, which would trap a <code>position:fixed</code> overlay inside it.
+    The chooser, the viewer and the editor are raised to the browser's top layer, so they still cover
+    the screen.
+</p>
+<button @onclick="() => sheetOpen = true">Open a sheet with a picker</button>
+
+<SheetView @bind-IsOpen="sheetOpen" Detents="@([DetentValue.Half])" SheetCornerRadius="20">
+    <SheetContent>
+        <h3>Add a comment</h3>
+        <MediaPickerButton @bind-Photos="sheetPhotos"
+                           AllowPhotoEdit="true"
+                           MaxPhotos="1"
+                           AddButtonText="Add a photo" />
+    </SheetContent>
+</SheetView>
+
 @code {
+    bool sheetOpen;
+    IReadOnlyList<Shiny.Blazor.Controls.MediaPickerItem> sheetPhotos = [];
     IReadOnlyList<Shiny.Blazor.Controls.MediaPickerItem> photos = [];
     string readReport = "";
 

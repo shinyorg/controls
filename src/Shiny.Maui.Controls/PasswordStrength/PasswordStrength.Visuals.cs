@@ -242,8 +242,9 @@ public partial class PasswordStrength
         if (!this.ShowWarning)
             return;
 
-        entry.HintText = result.Warning;
-        entry.HasError = result.Warning is not null;
+        var warning = this.WarningText(result);
+        entry.HintText = warning;
+        entry.HasError = warning is not null;
     }
 
 
@@ -318,6 +319,16 @@ public partial class PasswordStrength
     }
 
 
-    string Localize(PasswordStrengthTextKey key, string fallback, int argument = 0)
-        => this.Localizer?.Invoke(new PasswordStrengthText(key, fallback, argument)) ?? fallback;
+    /// <summary>
+    /// The warning in the current wording. A warning the evaluator tagged with a key goes through the
+    /// localizer like every other string; untagged text from a custom evaluator is shown as written.
+    /// </summary>
+    string? WarningText(PasswordStrengthResult result)
+        => result is { Warning: { } warning, WarningKey: { } key }
+            ? this.Localize(key, warning, value: result.WarningValue)
+            : result.Warning;
+
+
+    string Localize(PasswordStrengthTextKey key, string fallback, int argument = 0, string? value = null)
+        => this.Localizer?.Invoke(new PasswordStrengthText(key, fallback, argument) { Value = value }) ?? fallback;
 }

@@ -160,4 +160,61 @@ public class ProgressLineInsetTests
             .Resolve(page, root, ProgressLinePosition.Top)
             .ShouldBe(0);
     }
+
+
+    /// <summary>
+    /// Shell draws its navigation bar natively, so the page's content area already starts below it
+    /// and the status bar. Missing this added the safe area on top, and the line painted a status
+    /// bar's height down the page, through the page's own content.
+    /// </summary>
+    [Fact]
+    public void AShellNavigationBarOwnsTheTopEdge()
+    {
+        var page = ShellPage(sections: 1);
+
+        ProgressLineInsets.NativeChromeOwnsEdge(page, ProgressLinePosition.Top).ShouldBeTrue();
+    }
+
+
+    [Fact]
+    public void AShellPageWithItsNavBarHiddenLeavesTheTopEdgeToTheLine()
+    {
+        var page = ShellPage(sections: 1);
+        Shell.SetNavBarIsVisible(page, false);
+
+        ProgressLineInsets.NativeChromeOwnsEdge(page, ProgressLinePosition.Top).ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void ShellBottomTabsOwnTheBottomEdge()
+        => ProgressLineInsets.NativeChromeOwnsEdge(ShellPage(sections: 2), ProgressLinePosition.Bottom).ShouldBeTrue();
+
+
+    /// <summary>A single-section item draws no tab bar, so the bottom edge is the home indicator's.</summary>
+    [Fact]
+    public void ASingleSectionShellItemDrawsNoBottomTabs()
+        => ProgressLineInsets.NativeChromeOwnsEdge(ShellPage(sections: 1), ProgressLinePosition.Bottom).ShouldBeFalse();
+
+
+    static ContentPage ShellPage(int sections)
+    {
+        var page = new ContentPage { Content = new VerticalStackLayout() };
+        var item = new ShellItem();
+        item.Items.Add(new ShellSection { Items = { new ShellContent { Content = page } } });
+        for (var i = 1; i < sections; i++)
+            item.Items.Add(new ShellSection { Items = { new ShellContent { Content = new ContentPage() } } });
+
+        var shell = new Shell();
+        shell.Items.Add(item);
+        return page;
+    }
+
+    /// <summary>
+    /// The line applies the safe area itself. A layer that also inset by it (a Grid's default) pushed
+    /// a bottom line up by the home indicator twice.
+    /// </summary>
+    [Fact]
+    public void TheLineLayerDoesNotApplyTheSafeAreaAgain()
+        => new PageOverlay.ProgressLineLayer().SafeAreaEdges.ShouldBe(SafeAreaEdges.None);
 }

@@ -71,7 +71,15 @@ static class PageOverlay
     /// Where <see cref="ProgressLine"/> docks. Above the tab bar, because a load indicator that runs
     /// underneath the chrome it is reporting on is not an indicator.
     /// </summary>
-    internal sealed class ProgressLineLayer : Grid, IOverlayLayer;
+    /// <remarks>
+    /// Edge-to-edge for the same reason as <see cref="ShinyOverlayRoot"/>: the line works out its own
+    /// safe-area inset, and a Grid's default <see cref="SafeAreaRegions.Container"/> applied that
+    /// inset a second time, so a bottom line floated a home indicator's height above where it belongs.
+    /// </remarks>
+    internal sealed class ProgressLineLayer : Grid, IOverlayLayer
+    {
+        public ProgressLineLayer() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
 
     /// <summary>
     /// Where <see cref="ShinyTabBar"/> puts its centre menu when it is hosted on a page it does not

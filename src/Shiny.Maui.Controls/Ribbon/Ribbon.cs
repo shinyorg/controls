@@ -71,6 +71,7 @@ public partial class Ribbon : ContentView
     readonly BoxView foregroundProbe;
     readonly BoxView outlineProbe;
     readonly BoxView accentProbe;
+    readonly BoxView onSurfaceProbe;
 
     int suppress;
     bool peeking;
@@ -82,6 +83,8 @@ public partial class Ribbon : ContentView
         (this.ForegroundBrush, this.foregroundProbe) = ThemeProbe.Create();
         (this.OutlineBrush, this.outlineProbe) = ThemeProbe.Create();
         (this.AccentBrush, this.accentProbe) = ThemeProbe.Create();
+        (_, this.onSurfaceProbe) = ThemeProbe.Create();
+        this.onSurfaceProbe.SetDynamicResource(BoxView.ColorProperty, ShinyThemeKeys.Color.OnSurface);
 
         this.contextLabel = new Label
         {
@@ -220,6 +223,7 @@ public partial class Ribbon : ContentView
         this.root.Add(this.foregroundProbe, 0, 0);
         this.root.Add(this.outlineProbe, 0, 0);
         this.root.Add(this.accentProbe, 0, 0);
+        this.root.Add(this.onSurfaceProbe, 0, 0);
         this.root.Add(this.cornerProbe.View, 0, 0);
 
         this.OnCornerRadiusChanged();
@@ -238,6 +242,13 @@ public partial class Ribbon : ContentView
 
         this.Content = this.root;
         this.Rebuild();
+
+        // The tab labels and the collapse chevron carry resolved colours (see ApplyTabInk), so a token
+        // swap - the app flipping to dark, or a pinned palette scoped over this ribbon by its host -
+        // repaints the grounds under them and leaves the ink behind. Both of the things that ink is
+        // chosen from are watched here, so it follows them.
+        this.onSurfaceProbe.PropertyChanged += this.OnInkSourceChanged;
+        this.headerFrame.PropertyChanged += this.OnInkSourceChanged;
 
         // Last line: replays any styled property applied before the children existed. See StyleGuard.
         StyleGuard.MarkReady(this, typeof(Ribbon));
@@ -474,10 +485,32 @@ public partial class Ribbon : ContentView
         }
     }
 
+    /// <remarks>
+    /// Read off a probe in this ribbon's own tree rather than out of <c>Application.Current.Resources</c>,
+    /// so a palette a host scoped over the ribbon is honoured - the application's would be the wrong
+    /// one exactly when the ribbon has been pinned to the other appearance.
+    /// </remarks>
     Color OnSurfaceInk()
-        => Application.Current?.Resources.TryGetValue(ShinyThemeKeys.Color.OnSurface, out var value) == true && value is Color color
-            ? color
-            : Colors.Black;
+        => this.onSurfaceProbe.Color is { Alpha: > 0 } probed
+            ? probed
+            : Application.Current?.Resources.TryGetValue(ShinyThemeKeys.Color.OnSurface, out var value) == true && value is Color color
+                ? color
+                : Colors.Black;
+
+    void OnInkSourceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var relevant = ReferenceEquals(sender, this.onSurfaceProbe)
+            ? e.PropertyName == BoxView.ColorProperty.PropertyName
+            : e.PropertyName == VisualElement.BackgroundColorProperty.PropertyName;
+
+        if (!relevant || this.suppress > 0)
+            return;
+
+        this.collapseGlyph.Stroke = new SolidColorBrush(this.HeaderInk);
+
+        foreach (var (tab, _, _, label) in this.tabButtons)
+            this.ApplyTabInk(label, ReferenceEquals(tab, this.SelectedTab));
+    }
 
     /// <summary>
     /// Gives a tab label the ink for the ground it is currently on.

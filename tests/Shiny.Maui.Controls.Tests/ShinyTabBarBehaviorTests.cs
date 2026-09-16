@@ -119,6 +119,32 @@ public class ShinyTabBarBehaviorTests
 
 
     [Fact]
+    public void TheCentreButtonFollowsTheShellPagesActions()
+    {
+        _ = BuildShell(out var behavior);
+        var bar = behavior.Bar;
+        bar.AnimationDuration = 0;
+        bar.CenterButton = new TabCenterButton { Mode = TabCenterMode.Menu };
+
+        // The behaviour hands the bar the Shell's current page as its PageContext; that handoff is
+        // all the menu decision reads, so it is driven directly here rather than through a Shell
+        // navigation a headless host never performs.
+        var page = new ContentPage { Content = new Label() };
+        bar.PageContext = page;
+
+        bar.IsCenterButtonActive.ShouldBeFalse();
+        bar.OpenMenu();
+        bar.IsMenuOpen.ShouldBeFalse();
+
+        ShinyTabs.GetActions(page).Add(new TabAction { Text = "Compose" });
+        bar.IsCenterButtonActive.ShouldBeTrue();
+
+        bar.PageContext = new ContentPage();
+        bar.IsCenterButtonActive.ShouldBeFalse();
+    }
+
+
+    [Fact]
     public void SelectingATabSetsTheShellsCurrentItem()
     {
         var shell = BuildShell(out var behavior);

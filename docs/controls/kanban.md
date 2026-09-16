@@ -81,6 +81,11 @@ falls into the first lane rather than disappearing. With `SwimlaneMode="None"` �
 Collapsing a band (or a column) is a display decision only: the cards still count against WIP limits
 and the lane is still a drop target.
 
+A collapsed column shrinks to a `CollapsedColumnWidth` spine. Its header is fully rounded and stacks the
+expand chevron over the count, which drops its spaces (`3/4`) so it fits. Below the header nothing is
+painted: no cards, no empty-column placeholder, no well. The lane stays there, transparent and full
+height, so a card can still be dropped into it.
+
 ## Moving a card
 
 Every move — dragged or called — goes through the same three steps:

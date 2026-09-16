@@ -146,7 +146,19 @@ public class FormulaBar : ContentView
     public void Refresh()
     {
         var theme = this.EffectiveTheme;
-        this.frame.BackgroundColor = Color.FromRgba(theme.Background.R, theme.Background.G, theme.Background.B, theme.Background.A);
+        var ground = OfficeScheme.ToMauiColor(theme.Background);
+        this.frame.BackgroundColor = ground;
+
+        // The boxes take their ink from the same theme as the ground under them. Left to the platform
+        // (or an app's implicit Entry style) the text followed the *app's* appearance while the ground
+        // followed this theme, so a pinned dark theme in a light app drew black text on a near-black bar
+        // and the reverse drew white on white.
+        foreach (var box in (Entry[])[this.nameBox, this.field])
+        {
+            box.BackgroundColor = ground;
+            box.TextColor = OfficeScheme.ToMauiColor(theme.CellText);
+            box.PlaceholderColor = OfficeScheme.ToMauiColor(theme.HeaderText);
+        }
 
         this.IsVisible = this.controller is not null;
         this.field.IsReadOnly = this.IsReadOnly;

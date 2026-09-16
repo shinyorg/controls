@@ -10,6 +10,8 @@ public partial class MediaPickerButton : IAsyncDisposable
     ElementReference rootEl;
     ElementReference galleryInputEl;
     ElementReference cameraInputEl;
+    ElementReference chooserEl;
+    ElementReference editorEl;
     ImageEditor? editor;
     byte[] editBytes = [];
 
@@ -20,6 +22,8 @@ public partial class MediaPickerButton : IAsyncDisposable
     bool showChooser;
     bool permissionDenied;
     bool editing;
+    bool chooserRaised;
+    bool editorRaised;
     int currentIndex;
 
     [Parameter] public bool AllowGallery { get; set; } = true;
@@ -85,15 +89,30 @@ public partial class MediaPickerButton : IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
-            return;
+        if (firstRender)
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/Shiny.Blazor.Controls/media-picker.js");
+            selfRef = DotNetObjectReference.Create(this);
 
-        module = await JS.InvokeAsync<IJSObjectReference>(
-            "import",
-            "./_content/Shiny.Blazor.Controls/media-picker.js");
-        selfRef = DotNetObjectReference.Create(this);
+            await module.InvokeVoidAsync("init", rootEl, galleryInputEl, cameraInputEl, selfRef, BuildOptions());
+        }
 
-        await module.InvokeVoidAsync("init", rootEl, galleryInputEl, cameraInputEl, selfRef, BuildOptions());
+        // Inside a SheetView the chooser and the editor have a transformed ancestor, which turns their
+        // position:fixed into "fixed to the sheet" - below the fold and clipped, so the button seemed
+        // to do nothing. Once on the page they are raised to the top layer. Nothing lowers them: they
+        // leave the top layer when they leave the DOM.
+        chooserRaised = await RaiseAsync(showChooser, chooserRaised, chooserEl);
+        editorRaised = await RaiseAsync(editing, editorRaised, editorEl);
+    }
+
+    async Task<bool> RaiseAsync(bool shown, bool raised, ElementReference element)
+    {
+        if (shown && !raised && module != null)
+            await module.InvokeVoidAsync("raise", element);
+
+        return shown;
     }
 
     MediaPickerJsOptions BuildOptions() => new()

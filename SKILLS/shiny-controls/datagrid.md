@@ -512,3 +512,8 @@ Rules that matter:
   their glyphs to each header. On narrow layouts prefer a handful of columns — or fold the extras into a
   single `DataGridTemplateColumn` — instead of declaring six and letting every cell render as `…`.
   A `DataGridColumn` with no `Width` is `*`, so stars split whatever the `Auto` columns leave behind.
+  When the columns genuinely do not fit (5+ on a phone), set `HorizontalScroll="True"` with absolute
+  widths that budget for the title plus its sort arrow and glyphs (~130–150 for a 10-letter title with
+  `FilterMode="Menu"`, more with `Groupable`), and `FrozenColumns="1"` to pin the identifying column.
+  Each header's glyph strip takes only its own width (MAUI); in a column too narrow for both, the title
+  keeps 60% and the glyphs clip.

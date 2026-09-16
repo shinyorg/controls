@@ -4,6 +4,23 @@
      style="@RootStyle"
      @attributes="AdditionalAttributes">
 
+    @if (IsSegmented)
+    {
+        <div class="shiny-pb-track shiny-pb-track--segmented" style="@SegmentedTrackStyle">
+            @for (var i = 0; i < Segments; i++)
+            {
+                <div class="shiny-pb-segment" style="@SegmentStyle">
+                    <div class="shiny-pb-fill" style="@SegmentFillStyle(i)"></div>
+                </div>
+            }
+            @if (ShowText)
+            {
+                <span class="shiny-pb-text" style="@TextStyle">@FormattedText</span>
+            }
+        </div>
+    }
+    else
+    {
     <div class="shiny-pb-track" style="@TrackStyle">
         <div class="shiny-pb-fill @PulseClass" style="@FillStyle"></div>
         @if (ShowText && !IsIndeterminate)
@@ -11,4 +28,5 @@
             <span class="shiny-pb-text" style="@TextStyle">@FormattedText</span>
         }
     </div>
+    }
 </div>

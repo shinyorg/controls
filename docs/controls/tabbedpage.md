@@ -54,7 +54,7 @@ public class InboxViewModel : ITabAware
 </ContentPage>
 ```
 
-`ShinyTabs.MenuContent` (or `MenuContentTemplate`) hands the bar a whole view instead, for a menu that is not a list of rows. `Mode="Menu"` falls back to a plain click when neither the page nor the button declares anything, so a centre button that is only ever a button behaves like one.
+`ShinyTabs.MenuContent` (or `MenuContentTemplate`) hands the bar a whole view instead, for a menu that is not a list of rows. `Mode="Menu"` falls back to a plain click when neither the page nor the button declares anything, so a centre button that is only ever a button behaves like one. An empty menu is never shown: `OpenMenu()` and `IsMenuOpen = true` are refused on such a tab too, and an open menu whose last row is removed closes. When the fallback click would do nothing either (no `Command`, no `CenterClicked` subscriber), the button dims to half opacity, the same as `IsEnabled="False"`. It updates as you change tabs and as the current page's `Actions` change.
 
 Both halves are optional and both are template-driven: leave `CenterButton` null for an ordinary bar, `TabCenterButton.ContentTemplate` replaces the circle entirely, and `ShinyTabBar.MenuTemplate` replaces everything inside the popup card while the bar keeps the backdrop, the anchoring and the animation.
 

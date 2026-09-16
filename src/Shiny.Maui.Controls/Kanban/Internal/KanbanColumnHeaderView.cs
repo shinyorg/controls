@@ -54,6 +54,9 @@ sealed class KanbanColumnHeaderView : Border
         this.count = new Label
         {
             FontAttributes = FontAttributes.Bold,
+            // Never wraps. In a 52-wide spine a wrapping "3 / 4" broke into lines a single-line row
+            // cannot show, and iOS centres them vertically - all that was left on screen was "/ 4".
+            LineBreakMode = LineBreakMode.NoWrap,
             VerticalTextAlignment = TextAlignment.Center,
             HorizontalTextAlignment = TextAlignment.End
         }.WithFontSize(ShinyThemeKeys.Type.LabelMediumSize);
@@ -65,19 +68,11 @@ sealed class KanbanColumnHeaderView : Border
             WidthRequest = 18
         }.WithFontSize(ShinyThemeKeys.Type.LabelMediumSize);
 
-        this.row = new Grid
-        {
-            ColumnSpacing = 6,
-            ColumnDefinitions =
-            {
-                new ColumnDefinition(GridLength.Star),
-                new ColumnDefinition(GridLength.Auto),
-                new ColumnDefinition(GridLength.Auto)
-            }
-        };
-        this.row.Add(this.title, 0, 0);
-        this.row.Add(this.count, 1, 0);
-        this.row.Add(this.chevron, 2, 0);
+        // Columns, rows and placement are set per state in ArrangeRow.
+        this.row = new Grid();
+        this.row.Add(this.title);
+        this.row.Add(this.count);
+        this.row.Add(this.chevron);
 
         var stack = new VerticalStackLayout
         {
@@ -104,11 +99,94 @@ sealed class KanbanColumnHeaderView : Border
     /// <summary>The header's own shape, so the owner can round its top two corners from the theme.</summary>
     public RoundRectangle Shape { get; }
 
+    /// <summary>The count / WIP-limit label.</summary>
+    internal Label CountLabel => this.count;
+
+    /// <summary>The row holding the title, the count and the chevron.</summary>
+    internal Grid Row => this.row;
+
+
+    /// <summary>
+    /// Lays the row out for the column's state. Expanded it is title | count | chevron across the
+    /// header. Collapsed there is no title, and a 52-wide spine has no room for three columns with
+    /// spacing between them - the count was handed whatever was left over, which was nothing - so it
+    /// stacks: the chevron on top, the count centred under it.
+    /// </summary>
+    void ArrangeRow(bool collapsed)
+    {
+        this.row.ColumnDefinitions.Clear();
+        this.row.RowDefinitions.Clear();
+
+        if (collapsed)
+        {
+            this.Padding = new Thickness(4, 8);
+            this.row.ColumnSpacing = 0;
+            this.row.RowSpacing = 4;
+            this.row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+            this.row.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            this.row.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            Place(this.title, 0, 0);
+            Place(this.chevron, 0, 0);
+            Place(this.count, 0, 1);
+
+            this.chevron.HorizontalOptions = LayoutOptions.Center;
+            this.count.HorizontalOptions = LayoutOptions.Center;
+            this.count.HorizontalTextAlignment = TextAlignment.Center;
+        }
+        else
+        {
+            this.Padding = new Thickness(10, 8);
+            this.row.ColumnSpacing = 6;
+            this.row.RowSpacing = 0;
+            this.row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+            this.row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            this.row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            this.row.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            Place(this.title, 0, 0);
+            Place(this.count, 1, 0);
+            Place(this.chevron, 2, 0);
+
+            this.chevron.HorizontalOptions = LayoutOptions.Fill;
+            this.count.HorizontalOptions = LayoutOptions.Fill;
+            this.count.HorizontalTextAlignment = TextAlignment.End;
+        }
+
+        static void Place(View view, int column, int row)
+        {
+            Grid.SetColumn(view, column);
+            Grid.SetRow(view, row);
+        }
+    }
+
+
+    /// <summary>
+    /// The count as the header shows it. A collapsed spine drops the spaces around the slash, so
+    /// "12/15" fits the spine where "12 / 15" does not.
+    /// </summary>
+    internal static string FormatCount(KanbanColumnCount display, int cardCount, int? limit, bool collapsed, IFormatProvider culture)
+    {
+        var count = cardCount.ToString(culture);
+
+        return display switch
+        {
+            KanbanColumnCount.None => String.Empty,
+            KanbanColumnCount.Count => count,
+            _ when limit is null => count,
+            _ => collapsed
+                ? $"{count}/{limit.Value.ToString(culture)}"
+                : $"{count} / {limit.Value.ToString(culture)}"
+        };
+    }
+
 
     public void Refresh(int cardCount)
     {
         var column = this.Column;
         var collapsed = column.IsCollapsed;
+
+        this.ArrangeRow(collapsed);
 
         KanbanChrome.Token(this, BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainer);
         KanbanChrome.Token(this.title, Label.TextColorProperty, ShinyThemeKeys.Color.OnSurface);
@@ -132,14 +210,7 @@ sealed class KanbanColumnHeaderView : Border
         var limit = column.WipLimit is > 0 ? column.WipLimit : null;
         var over = limit is not null && cardCount > limit;
 
-        this.count.Text = this.owner.ColumnCountDisplay switch
-        {
-            KanbanColumnCount.None => String.Empty,
-            KanbanColumnCount.Count => cardCount.ToString(this.owner.EffectiveCulture),
-            _ => limit is null
-                ? cardCount.ToString(this.owner.EffectiveCulture)
-                : $"{cardCount} / {limit}"
-        };
+        this.count.Text = FormatCount(this.owner.ColumnCountDisplay, cardCount, limit, collapsed, this.owner.EffectiveCulture);
         this.count.IsVisible = this.count.Text.Length > 0;
 
         // Over-limit colouring is ShowWipLimits' business, not WipBehavior's: a board can refuse

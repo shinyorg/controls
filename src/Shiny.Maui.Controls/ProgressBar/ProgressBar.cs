@@ -11,6 +11,8 @@ public partial class ProgressBar : ContentView, IDisposable
     readonly Label progressLabel;
     readonly Grid fillGrid;
     readonly Grid trackGrid;
+    readonly Grid segmentsGrid;
+    readonly List<(BoxView Track, BoxView Fill)> segments = new();
 
     const string FillAnimationName = "ShinyProgressFill";
 
@@ -89,6 +91,15 @@ public partial class ProgressBar : ContentView, IDisposable
 
         trackGrid.Children.Add(trackBackground);
         trackGrid.Children.Add(fillGrid);
+
+        // Built up front (empty) rather than added on demand: AppKit never realizes a child added to
+        // an already laid-out tree.
+        segmentsGrid = new Grid
+        {
+            VerticalOptions = LayoutOptions.Center,
+            IsVisible = false
+        };
+        trackGrid.Children.Add(segmentsGrid);
         trackGrid.Children.Add(progressLabel);
 
         Content = trackGrid;
@@ -146,6 +157,7 @@ public partial class ProgressBar : ContentView, IDisposable
         trackFill.HorizontalOptions = LayoutOptions.Fill;
 
         ApplyFillPaint();
+        UpdateSegmentsLayout();
 
         // Fill container (clips the pulse). Last, so the slide runs against final paint and sizing.
         SetFillWidth(fillWidth, animate);
@@ -210,7 +222,132 @@ public partial class ProgressBar : ContentView, IDisposable
         currentFillWidth = width;
         fillGrid.WidthRequest = width;
         trackFill.WidthRequest = width;
+        ApplySegmentFill(width);
     }
+
+    bool IsSegmented => Segments > 1 && !IsIndeterminate;
+
+    /// <summary>Test seam: how much of each segment is lit, from 0 to 1.</summary>
+    internal IReadOnlyList<double> SegmentFills
+        => segments.Select((s, i) => SegmentFill(currentFillWidth, i)).ToList();
+
+    double SegmentFill(double fillWidth, int index)
+        => trackWidth > 0 && segments.Count > 0
+            ? Math.Clamp(fillWidth / trackWidth * segments.Count - index, 0, 1)
+            : 0;
+
+    double SegmentWidth => segments.Count > 0
+        ? Math.Max((trackWidth - Math.Max(SegmentSpacing, 0) * (segments.Count - 1)) / segments.Count, 0)
+        : 0;
+
+    /// <summary>
+    /// Distributes the one continuous fill width across the steps, so the slide animation runs step
+    /// by step through the gaps rather than every step animating at once.
+    /// </summary>
+    void ApplySegmentFill(double width)
+    {
+        if (segments.Count == 0)
+            return;
+
+        var segmentWidth = SegmentWidth;
+        for (var i = 0; i < segments.Count; i++)
+            segments[i].Fill.WidthRequest = SegmentFill(width, i) * segmentWidth;
+    }
+
+    void OnSegmentsChanged()
+    {
+        var count = Math.Max(Segments, 0);
+        if (count < 2)
+            count = 0;
+
+        if (count != segments.Count)
+        {
+            segmentsGrid.Children.Clear();
+            segmentsGrid.ColumnDefinitions.Clear();
+            segments.Clear();
+
+            for (var i = 0; i < count; i++)
+            {
+                segmentsGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+
+                var track = new BoxView { VerticalOptions = LayoutOptions.Center };
+                var fill = new BoxView
+                {
+                    VerticalOptions = LayoutOptions.Center,
+                    HorizontalOptions = LayoutOptions.Start,
+                    WidthRequest = 0
+                };
+                Grid.SetColumn(track, i);
+                Grid.SetColumn(fill, i);
+                segmentsGrid.Children.Add(track);
+                segmentsGrid.Children.Add(fill);
+                segments.Add((track, fill));
+            }
+        }
+        this.AbortAnimation(FillAnimationName);
+        UpdateVisuals();
+    }
+
+    void UpdateSegmentsLayout()
+    {
+        var segmented = IsSegmented;
+        segmentsGrid.IsVisible = segmented;
+        trackBackground.IsVisible = !segmented;
+        fillGrid.IsVisible = !segmented;
+        if (!segmented)
+            return;
+
+        segmentsGrid.ColumnSpacing = Math.Max(SegmentSpacing, 0);
+        segmentsGrid.HeightRequest = TrackHeight;
+
+        var radius = new CornerRadius(CornerRadius);
+        for (var i = 0; i < segments.Count; i++)
+        {
+            var (track, fill) = segments[i];
+            track.HeightRequest = TrackHeight;
+            track.CornerRadius = radius;
+            fill.HeightRequest = TrackHeight;
+            fill.CornerRadius = radius;
+
+            if (TrackColor is Color trackColor)
+            {
+                track.BackgroundColor = trackColor;
+                track.Color = trackColor;
+            }
+            else
+            {
+                track.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerHighest);
+                track.SetDynamicResource(BoxView.ColorProperty, ShinyThemeKeys.Color.SurfaceContainerHighest);
+            }
+
+            if (UseGradient)
+            {
+                // Each step takes the gradient's colour at its own centre, so the run reads as one
+                // gradient without every step repeating the whole ramp. Solid, which AppKit can paint.
+                var t = (float)((i + 0.5) / segments.Count);
+                var color = LerpColor(GradientStartColor, GradientEndColor, t);
+                fill.BackgroundColor = color;
+                fill.Color = color;
+            }
+            else if (BarColor is Color barColor)
+            {
+                fill.BackgroundColor = barColor;
+                fill.Color = barColor;
+            }
+            else
+            {
+                fill.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.Primary);
+                fill.SetDynamicResource(BoxView.ColorProperty, ShinyThemeKeys.Color.Primary);
+            }
+        }
+    }
+
+    static Color LerpColor(Color from, Color to, float t) => new(
+        from.Red + (to.Red - from.Red) * t,
+        from.Green + (to.Green - from.Green) * t,
+        from.Blue + (to.Blue - from.Blue) * t,
+        from.Alpha + (to.Alpha - from.Alpha) * t
+    );
 
     void UpdatePulseOverlaySize()
     {
@@ -226,7 +363,7 @@ public partial class ProgressBar : ContentView, IDisposable
 
     void TriggerPulse()
     {
-        if (isAnimatingPulse) return;
+        if (isAnimatingPulse || IsSegmented) return;
         isAnimatingPulse = true;
 
         var percent = Maximum > Minimum
@@ -313,6 +450,7 @@ public partial class ProgressBar : ContentView, IDisposable
         isAnimatingIndeterminate = true;
 
         this.AbortAnimation(FillAnimationName);
+        UpdateSegmentsLayout();
         ApplyFillWidth(trackWidth);
         fillGrid.HeightRequest = TrackHeight;
 

@@ -65,7 +65,9 @@ allowed however full it is. A refused drop raises `DropRejected` with a `KanbanD
 `SwimlaneMode` defaults to `None`, and in that mode `KanbanCard.SwimlaneId` is **ignored**. Set it to
 `Grouped` and supply `Swimlanes` to get bands, each carrying the full set of columns. A card whose
 swimlane id matches nothing falls into the first lane. Collapsing a band or a column is display only
-— the cards still count and the lane still takes drops.
+— the cards still count and the lane still takes drops. A collapsed column is a `CollapsedColumnWidth`
+spine: its header stacks the chevron over a compact count (`3/4`), and its lanes paint nothing (no
+cards, no empty placeholder, no well) while remaining transparent drop targets.
 
 ## Moving
 

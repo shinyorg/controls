@@ -100,3 +100,10 @@ using var document = await WordDocument.OpenAsync(path, collector);
 the page's `color-scheme` on Blazor — and it keeps up live when that flips. Pass `DocumentTheme.Light`
 or `DocumentTheme.Dark` only to pin one regardless of the app around it. See
 [Styling & theming](styling.md#dark-mode).
+
+The dark theme adapts the document's own colours for contrast, and it measures that contrast against
+**whatever the text is painted on** — a shaded table cell, a shaded paragraph, a highlight or a filled
+shape — not against the page behind it. Authored fills are left as authored. Measuring against the page
+was why a table header with a light fill came out with near-white text on it in dark mode (and why white
+header text on a dark band was pushed to grey in light mode). The viewer and the editor share the
+painter, on both hosts.

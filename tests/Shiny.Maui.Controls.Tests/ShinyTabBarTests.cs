@@ -850,6 +850,7 @@ public class ShinyTabBarTests
         // On a page, so the menu has an overlay layer to paint onto - off one it cannot open at all
         // and the assertion below would pass against a menu that never existed.
         _ = new ContentPage { Content = bar };
+        GiveCentreMenu(bar);
         bar.IsMenuOpen = true;
         bar.IsMenuOpen.ShouldBeTrue();
 
@@ -864,6 +865,7 @@ public class ShinyTabBarTests
     {
         var bar = Build("One", "Two", "Three");
         _ = new ContentPage { Content = bar };
+        GiveCentreMenu(bar);
 
         // Not just a tap: the close lives where the selection actually completes, so a GoTo or a
         // binding on SelectedIndex closes it too.
@@ -882,6 +884,7 @@ public class ShinyTabBarTests
     {
         var bar = Build("One", "Two");
         _ = new ContentPage { Content = bar };
+        GiveCentreMenu(bar);
         bar.IsMenuOpen = true;
 
         // A reselect is not a change of tab - the page underneath the menu is the same one it was
@@ -1167,5 +1170,166 @@ public class ShinyTabBarTests
         // pins down is which quantity the runtime inset is added to: pinning the surface to
         // BarHeight and padding the inset in squeezes the tabs instead of lifting them.
         bar.Surface.HeightRequest.ShouldBe(60);
+    }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // A centre button with nothing to present
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>Gives the bar something to present, for tests that are about the menu's dismissal.</summary>
+    static void GiveCentreMenu(ShinyTabBar bar)
+    {
+        bar.CenterButton ??= new TabCenterButton { Mode = TabCenterMode.Menu };
+        bar.CenterButton.Actions.Add(new TabAction { Text = "App-wide" });
+    }
+
+
+    static ShinyTabBar OnPage(out ContentView plain, out ContentView withActions)
+    {
+        var bar = new ShinyTabBar { AnimationDuration = 0 };
+        plain = new ContentView();
+        withActions = new ContentView();
+        ShinyTabs.GetActions(withActions).Add(new TabAction { Text = "New" });
+
+        bar.Items.Add(new ShinyTabItem { Title = "Plain", Route = "plain", Content = plain });
+        bar.Items.Add(new ShinyTabItem { Title = "Actions", Route = "actions", Content = withActions });
+        bar.CenterButton = new TabCenterButton { Mode = TabCenterMode.Menu };
+
+        // On a page, so an open menu has a layer to paint onto - otherwise it could never open and
+        // every "stays closed" assertion below would pass for the wrong reason.
+        _ = new ContentPage { Content = bar };
+        return bar;
+    }
+
+
+    static Border CenterCircle(ShinyTabBar bar)
+        => Descendants(bar.CenterHost).OfType<Border>().First(b => b.AutomationId == "tab-center");
+
+
+    [Fact]
+    public void OpeningTheMenuOnATabThatDeclaresNothingShowsNoCard()
+    {
+        var bar = OnPage(out _, out _);
+        var opened = 0;
+        bar.MenuOpened += (_, _) => opened++;
+
+        // OpenMenu and a direct IsMenuOpen write skipped the check the press made, and painted an
+        // empty card.
+        bar.OpenMenu();
+        bar.IsMenuOpen.ShouldBeFalse();
+
+        bar.IsMenuOpen = true;
+        bar.IsMenuOpen.ShouldBeFalse();
+
+        opened.ShouldBe(0);
+    }
+
+
+    [Fact]
+    public void PressingOnATabThatDeclaresNothingIsAPlainClick()
+    {
+        var bar = OnPage(out _, out _);
+        var clicked = 0;
+        bar.CenterClicked += (_, _) => clicked++;
+
+        bar.PressCenter();
+
+        clicked.ShouldBe(1);
+        bar.IsMenuOpen.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void TheMenuOpensOnATabThatDeclaresActions()
+    {
+        var bar = OnPage(out _, out _);
+        bar.SelectedIndex = 1;
+
+        bar.PressCenter();
+
+        bar.IsMenuOpen.ShouldBeTrue();
+    }
+
+
+    [Fact]
+    public void TheButtonDimsOnTabsWhereItWouldDoNothing()
+    {
+        var bar = OnPage(out _, out _);
+
+        bar.IsCenterButtonActive.ShouldBeFalse();
+        CenterCircle(bar).Opacity.ShouldBe(0.5);
+
+        bar.SelectedIndex = 1;
+        bar.IsCenterButtonActive.ShouldBeTrue();
+        CenterCircle(bar).Opacity.ShouldBe(1);
+
+        bar.SelectedIndex = 0;
+        bar.IsCenterButtonActive.ShouldBeFalse();
+        CenterCircle(bar).Opacity.ShouldBe(0.5);
+    }
+
+
+    [Fact]
+    public void TheButtonFollowsTheCurrentPagesActionsCollection()
+    {
+        var bar = OnPage(out var plain, out _);
+        bar.IsCenterButtonActive.ShouldBeFalse();
+
+        var actions = ShinyTabs.GetActions(plain);
+        actions.Add(new TabAction { Text = "Late" });
+        CenterCircle(bar).Opacity.ShouldBe(1);
+
+        actions.Clear();
+        CenterCircle(bar).Opacity.ShouldBe(0.5);
+    }
+
+
+    [Fact]
+    public void RemovingTheLastActionClosesAnOpenMenu()
+    {
+        var bar = OnPage(out _, out var withActions);
+        bar.SelectedIndex = 1;
+        bar.OpenMenu();
+        bar.IsMenuOpen.ShouldBeTrue();
+
+        ShinyTabs.GetActions(withActions).Clear();
+
+        bar.IsMenuOpen.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public void AButtonThatRunsSomethingStaysActiveWithoutAMenu()
+    {
+        var bar = OnPage(out _, out _);
+
+        bar.CenterButton!.Command = new Command(() => { });
+        bar.IsCenterButtonActive.ShouldBeTrue();
+        bar.CenterButton.Command = null;
+        bar.IsCenterButtonActive.ShouldBeFalse();
+
+        EventHandler<TabCenterClickedEventArgs> handler = (_, _) => { };
+        bar.CenterClicked += handler;
+        CenterCircle(bar).Opacity.ShouldBe(1);
+        bar.CenterClicked -= handler;
+        CenterCircle(bar).Opacity.ShouldBe(0.5);
+
+        bar.CenterButton.Mode = TabCenterMode.Action;
+        bar.IsCenterButtonActive.ShouldBeTrue();
+    }
+
+
+    [Fact]
+    public void AnAppWideMenuKeepsTheButtonActiveOnEveryTab()
+    {
+        var bar = OnPage(out _, out _);
+
+        GiveCentreMenu(bar);
+
+        bar.IsCenterButtonActive.ShouldBeTrue();
+        CenterCircle(bar).Opacity.ShouldBe(1);
+        bar.OpenMenu();
+        bar.IsMenuOpen.ShouldBeTrue();
     }
 }

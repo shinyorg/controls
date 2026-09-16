@@ -235,7 +235,7 @@ public sealed class SpreadsheetPainter : IDisposable
         var theme = request.Theme;
         var font = this.GetFont(format.FontName, (float)format.FontSize, format.Bold, format.Italic);
 
-        this.fill.Color = ToSk(format.Foreground == ResolvedFormat.Default.Foreground ? theme.CellText : format.Foreground);
+        this.fill.Color = ToSk(CellInk(format, theme));
 
         var padding = (float)theme.CellPadding;
         var indent = (float)(format.Indent * theme.IndentWidth);
@@ -264,6 +264,25 @@ public sealed class SpreadsheetPainter : IDisposable
         canvas.ClipRect(rect);
         canvas.DrawText(text, x, y, SKTextAlign.Left, font, this.fill);
         canvas.Restore();
+    }
+
+    /// <summary>
+    /// The colour a cell's text is painted in.
+    /// </summary>
+    /// <remarks>
+    /// Text nobody coloured takes the theme's ink, which in a dark theme is near-white. On a cell the
+    /// author filled - a light header band, say - that is white on a light fill, so the theme's ink is
+    /// made to read against the fill it actually sits on. A colour the author chose alongside their own
+    /// fill is their pairing and is left exactly as authored.
+    /// </remarks>
+    internal static ArgbColor CellInk(ResolvedFormat format, SpreadsheetTheme theme)
+    {
+        if (format.Foreground != ResolvedFormat.Default.Foreground)
+            return format.Foreground;
+
+        return format.Background.IsTransparent
+            ? theme.CellText
+            : InkContrast.Legible(theme.CellText, InkContrast.Over(format.Background, theme.Background));
     }
 
     void PaintGridLines(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)

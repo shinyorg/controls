@@ -81,7 +81,13 @@ static class ProgressLineInsets
     /// Whether a platform bar owns this edge. When one does, MAUI hands the page a content area that
     /// already excludes both the bar and the safe area behind it, so the correct inset is zero.
     /// </summary>
-    static bool NativeChromeOwnsEdge(ContentPage page, ProgressLinePosition position)
+    /// <remarks>
+    /// Shell counts. It draws its navigation bar and bottom tabs natively exactly as
+    /// <c>NavigationPage</c> and <c>TabbedPage</c> do, and leaving it out added the status-bar safe
+    /// area on top of a content area that already started below the bar - the line painted a
+    /// safe area's height down the page, through the page's own content.
+    /// </remarks>
+    internal static bool NativeChromeOwnsEdge(ContentPage page, ProgressLinePosition position)
     {
         for (var element = (Element?)page; element is not null; element = element.Parent)
         {
@@ -90,8 +96,15 @@ static class ProgressLineInsets
                 case ProgressLinePosition.Top when element is NavigationPage:
                     return NavigationPage.GetHasNavigationBar(page);
 
+                case ProgressLinePosition.Top when element is Shell:
+                    return Shell.GetNavBarIsVisible(page);
+
                 case ProgressLinePosition.Bottom when element is TabbedPage:
                     return true;
+
+                case ProgressLinePosition.Bottom when element is Shell shell:
+                    // Shell only draws bottom tabs when the current item has more than one section.
+                    return Shell.GetTabBarIsVisible(page) && shell.CurrentItem?.Items.Count > 1;
             }
         }
         return false;

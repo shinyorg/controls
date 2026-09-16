@@ -57,7 +57,7 @@ view-model properties to read them; do not try to push values into them.
 | UserInputs | IList\<string\>? | null | This user's email / name — refused, and discounted when scoring |
 | Evaluator | IPasswordStrengthEvaluator? | null | Per-field scorer override; null resolves DI then the built-in |
 | DebounceMilliseconds | int | 250 | Pause before scoring; 0 scores every keystroke |
-| Localizer | PasswordStrengthLocalizer? | null | Replaces the wording; return null to keep a default |
+| Localizer | PasswordStrengthLocalizer? | null | Replaces the wording (levels, checklist, Show/Hide, built-in warnings); return null to keep a default |
 | MeterStyle | PasswordStrengthMeterStyle | Segments | `Segments` (four blocks) or `Bar` (filled to the score) |
 | MeterHeight | double | 6 | Meter thickness |
 | MeterCornerRadius | double | 3 | Meter corner radius |
@@ -175,9 +175,9 @@ a custom evaluator can reuse the list.
 | `PasswordRuleResult` | `Kind`, `Description`, `IsSatisfied`, `Argument` (the required length, for the length rule) |
 | `PasswordStrengthRules` | The policy an evaluator is handed |
 | `PasswordStrengthRequest` | `Password` + `Rules` |
-| `PasswordStrengthResult` | `Score`, `Level`, `Rules`, `IsAcceptable`, `Warning`, `Suggestions` |
+| `PasswordStrengthResult` | `Score`, `Level`, `Rules`, `IsAcceptable`, `Warning`, `WarningKey`, `WarningValue`, `Suggestions` |
 | `PasswordStrengthTextKey` | Every string the control paints |
-| `PasswordStrengthText` | `Key`, `Default`, `Argument` — what the localizer is handed |
+| `PasswordStrengthText` | `Key`, `Default`, `Argument`, `Value` — what the localizer is handed (`Value` = the matched word for `WarningCommonPassword` / `WarningUserInput`) |
 | `PasswordStrengthLocalizer` | `string? (PasswordStrengthText)`; return null to keep the default |
 
 ## Localization
@@ -189,9 +189,17 @@ control.Localizer = text => text.Key switch
     PasswordStrengthTextKey.LevelStrong => "Fort",
     // Argument carries the number, so the sentence can be rebuilt rather than patched
     PasswordStrengthTextKey.RuleMinimumLength => $"Au moins {text.Argument} caractères",
+    // The warning under the field goes through the localizer too; Value is the matched word
+    PasswordStrengthTextKey.WarningCommonPassword => $"« {text.Value} » est un mot de passe très courant.",
+    PasswordStrengthTextKey.WarningCompromised => "C'est l'un des mots de passe les plus utilisés.",
     _ => null // anything not translated keeps the default
 };
 ```
+
+The warning keys are `WarningCompromised`, `WarningBlocked`, `WarningUserInput`, `WarningCommonPassword`.
+The built-in evaluator sets `PasswordStrengthResult.WarningKey`/`WarningValue`; a custom evaluator that
+wants its warning localized by the control must set them too — a `Warning` with no `WarningKey` is
+shown verbatim. `Suggestions` are never painted by the control, so they are not localized.
 
 ## Don't
 

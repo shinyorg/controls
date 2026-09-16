@@ -76,7 +76,9 @@ Reflection-based string-path columns are annotated for trimming; set a column's 
 
 Header titles ellipsize and clip to their own column, so budget columns to the width you have: a
 phone-width grid fits roughly **3–4** columns, fewer once `AllowColumnResize`, `AllowColumnReorder`,
-`Groupable`, or `FilterMode="Menu"` add their glyphs to each header. Columns with no `Width` are `*`
+`Groupable`, or `FilterMode="Menu"` add their glyphs to each header. On MAUI those glyphs take only the
+width they need and the title gets the rest (in a column too narrow for both, the title keeps 60% and
+the glyphs clip). Columns with no `Width` are `*`
 and split whatever the `Auto` columns leave behind — or give the grid more room than it has and turn on
 horizontal scrolling instead.
 

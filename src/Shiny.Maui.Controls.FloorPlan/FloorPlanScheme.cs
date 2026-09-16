@@ -98,5 +98,14 @@ static class FloorPlanScheme
         }
 
         app.RequestedThemeChanged += Handler;
+
+        // Application raises RequestedThemeChanged through a WeakEventManager, which holds only a weak
+        // reference to the handler's target - here the closure above, which nothing else references.
+        // Without this the handler worked until the first GC and then silently stopped, so the control
+        // kept the appearance it had when that collection happened. Tying the closure's lifetime to the
+        // owner keeps it exactly as long as there is something to repaint.
+        ThemeSubscriptions.GetOrCreateValue(owner).Add(Handler);
     }
+
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, List<EventHandler<AppThemeChangedEventArgs>>> ThemeSubscriptions = new();
 }

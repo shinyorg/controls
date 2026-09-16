@@ -143,6 +143,59 @@ public class PasswordStrengthControlTests
     }
 
 
+    /// <summary>
+    /// The warning shown under the field goes through the localizer with the rest of the wording,
+    /// including the matched word — and follows the localizer being swapped after the verdict.
+    /// </summary>
+    [Fact]
+    public async Task WarningIsLocalized()
+    {
+        var control = new PasswordStrength { Password = "passXq7!" };
+        await control.EvaluateNowAsync();
+
+        var entry = (TextEntry)Root(control).Children[0];
+        entry.HintText.ShouldBe("\"pass\" is a very common password.");
+
+        control.Localizer = text => text.Key == PasswordStrengthTextKey.WarningCommonPassword
+            ? $"« {text.Value} » est un mot de passe très courant."
+            : null;
+
+        entry.HintText.ShouldBe("« pass » est un mot de passe très courant.");
+        entry.HasError.ShouldBeTrue();
+    }
+
+
+    /// <summary>A custom evaluator's untagged warning is shown exactly as written.</summary>
+    [Fact]
+    public async Task UntaggedWarningIsShownVerbatim()
+    {
+        var control = new PasswordStrength
+        {
+            Evaluator = new FixedWarningEvaluator(),
+            Localizer = _ => "translated",
+            Password = "anything"
+        };
+        await control.EvaluateNowAsync();
+
+        ((TextEntry)Root(control).Children[0]).HintText.ShouldBe("custom");
+    }
+
+
+    sealed class FixedWarningEvaluator : IPasswordStrengthEvaluator
+    {
+        public ValueTask<PasswordStrengthResult> EvaluateAsync(
+            PasswordStrengthRequest request,
+            CancellationToken cancellationToken = default
+        ) => new(new PasswordStrengthResult
+        {
+            Score = 10,
+            Level = PasswordStrengthLevel.Weak,
+            Rules = [],
+            Warning = "custom"
+        });
+    }
+
+
     sealed class ThrowingEvaluator : IPasswordStrengthEvaluator
     {
         public ValueTask<PasswordStrengthResult> EvaluateAsync(

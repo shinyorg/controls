@@ -28,7 +28,14 @@
                         GroupBy="{Binding GroupColumns}"
                         GroupSummaryPlacement="{Binding Placement}"
                         Striped="True"
-                        Bordered="True">
+                        Bordered="True"
+                        HorizontalScroll="True"
+                        FrozenColumns="1">
+
+            <!-- Five columns do not fit a phone: a header also carries its sort arrow and filter ▾,
+                 so budget each column for that and let the grid scroll sideways instead of
+                 ellipsizing every title. The frozen Department column (and the group labels, which
+                 pin with it) stays put while the numbers scroll. -->
 
             <!-- One set of definitions serves the grid's footer and every group. Scope narrows a row
                  to one of the two; the default is both. -->
@@ -46,15 +53,15 @@
                 </shiny:DataGridSummaryRow>
             </shiny:DataGrid.SummaryRows>
 
-            <shiny:DataGridColumn Title="Department" PropertyName="Department" Width="*" />
-            <shiny:DataGridColumn Title="Region" PropertyName="Region" Width="Auto" />
-            <shiny:DataGridColumn Title="Rep" PropertyName="Name" Width="*" />
+            <shiny:DataGridColumn Title="Department" PropertyName="Department" Width="150" />
+            <shiny:DataGridColumn Title="Region" PropertyName="Region" Width="120" />
+            <shiny:DataGridColumn Title="Rep" PropertyName="Name" Width="110" />
 
             <!-- No format on the summary cell: an aggregate wears its own column's dress, so the
                  total under a currency column is currency too. -->
             <shiny:DataGridColumn Title="Revenue" PropertyName="Revenue"
-                                  DisplayAs="Currency" Decimals="0" Width="*" />
-            <shiny:DataGridColumn Title="Deals" PropertyName="Deals" Width="Auto" />
+                                  DisplayAs="Currency" Decimals="0" Width="130" />
+            <shiny:DataGridColumn Title="Deals" PropertyName="Deals" Width="110" />
         </shiny:DataGrid>
 
         <Label Grid.Row="3"
@@ -67,7 +74,9 @@
                         Groupable="True"
                         GroupsInitiallyExpanded="False"
                         GroupSummaryPlacement="Header"
-                        Dense="True">
+                        Dense="True"
+                        HorizontalScroll="True"
+                        FrozenColumns="1">
 
             <!-- The collection form, for a grouping the page owns rather than the view model. -->
             <shiny:DataGrid.GroupBy>
@@ -81,11 +90,12 @@
                 </shiny:DataGridSummaryRow>
             </shiny:DataGrid.SummaryRows>
 
-            <shiny:DataGridColumn Title="Department" PropertyName="Department" Width="*" />
-            <shiny:DataGridColumn Title="Region" PropertyName="Region" Width="Auto" />
-            <shiny:DataGridColumn Title="Rep" PropertyName="Name" Width="*" />
+            <!-- Wider than the top grid's columns: the ⊞ joins the ▾ in every header. -->
+            <shiny:DataGridColumn Title="Department" PropertyName="Department" Width="150" />
+            <shiny:DataGridColumn Title="Region" PropertyName="Region" Width="120" />
+            <shiny:DataGridColumn Title="Rep" PropertyName="Name" Width="110" />
             <shiny:DataGridColumn Title="Revenue" PropertyName="Revenue"
-                                  DisplayAs="Currency" Decimals="0" Width="*" />
+                                  DisplayAs="Currency" Decimals="0" Width="140" />
         </shiny:DataGrid>
     </Grid>
 </ContentPage>

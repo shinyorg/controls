@@ -4,6 +4,7 @@
 // only the viewer's half: which element is transformed, and the backdrop that closes it.
 
 import * as core from './zoom-pan-core.js';
+import * as topLayer from './top-layer.js';
 
 const states = new WeakMap();
 
@@ -30,16 +31,20 @@ export function init(root, backdrop, img, dotnetRef, maxZoom) {
     state.onBackdropClick = onBackdropClick;
 }
 
+// Raised to the top layer while open, so a viewer opened from inside a sheet or a panel covers the
+// screen rather than the panel - see top-layer.js.
 export function open(root) {
     const state = states.get(root);
     if (state)
         core.reset(state, false);
+    topLayer.show(root);
 }
 
 export function close(root) {
     const state = states.get(root);
     if (state)
         core.reset(state, false);
+    topLayer.hide(root);
 }
 
 export function dispose(root) {

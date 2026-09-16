@@ -53,7 +53,7 @@
 
     @if (showChooser)
     {
-        <div class="shiny-mediapicker-sheet-backdrop" @onclick="() => showChooser = false">
+        <div class="shiny-mediapicker-sheet-backdrop" popover="manual" @ref="chooserEl" @onclick="() => showChooser = false">
             <div class="shiny-mediapicker-sheet" @onclick:stopPropagation="true">
                 <button type="button" @onclick="PickFromGalleryAsync">@GalleryActionText</button>
                 <button type="button" @onclick="CaptureFromCameraAsync">@CameraActionText</button>
@@ -87,7 +87,7 @@
 
 @if (editing)
 {
-    <div class="shiny-mediapicker-editor">
+    <div class="shiny-mediapicker-editor" popover="manual" @ref="editorEl">
         <ImageEditor @ref="editor"
                      ImageData="@editBytes"
                      AllowCrop="true" AllowRotate="true" AllowDraw="true"

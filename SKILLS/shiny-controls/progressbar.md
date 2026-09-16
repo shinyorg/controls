@@ -52,6 +52,8 @@ For the thin line that runs across the **top or bottom of the window** rather th
 | TextColor | Color | White | Text color |
 | FontSize | double | 11 | Text font size |
 | IsIndeterminate | bool | false | Indeterminate mode |
+| Segments | int | 0 | Split the bar into this many steps; `0`/`1` = continuous |
+| SegmentSpacing | double | 4 | Gap between segments |
 | AnimateProgress | bool | true | Slide the fill to each new value instead of snapping |
 | ProgressAnimationDuration | int | 250 | Slide length in ms; `0` snaps |
 | ProgressAnimationEasing | Easing | CubicOut | Curve the slide follows |
@@ -143,6 +145,8 @@ For the thin line that runs across the **top or bottom of the window** rather th
 | TextColor | string | "#FFFFFF" | Text color |
 | FontSize | double | 11 | Text font size |
 | IsIndeterminate | bool | false | Indeterminate mode |
+| Segments | int | 0 | Split the bar into this many steps; `0`/`1` = continuous |
+| SegmentSpacing | double | 4 | Gap between segments in px |
 | CssClass | string? | null | Additional CSS class |
 | AdditionalAttributes | IDictionary | null | Unmatched HTML attributes |
 
@@ -172,6 +176,36 @@ For the thin line that runs across the **top or bottom of the window** rather th
              CornerRadius="10px"
              ShowText="true" />
 ```
+
+## Segments (Steps)
+
+Set `Segments` to split the bar into separate steps with a gap between them instead of one solid bar - the stepped look of a delivery tracker or a multi-stage upload. `0` (the default) or `1` draws the continuous bar.
+
+```xml
+<shiny:ProgressBar Value="{Binding CompletedStops}"
+                   Maximum="11"
+                   Segments="11"
+                   SegmentSpacing="6"
+                   TrackHeight="12"
+                   CornerRadius="6"
+                   BarColor="#22A33A" />
+```
+
+```razor
+<ProgressBar Value="@completedStops"
+             Maximum="11"
+             Segments="11"
+             SegmentSpacing="6"
+             TrackHeight="12"
+             CornerRadius="6px"
+             BarColor="#22A33A" />
+```
+
+- The fill runs across the steps in order, so a value part-way through a step lights that step **partially**. For whole steps, make `Maximum` (or the value's step size) line up with the segment count - `Maximum="11" Segments="11"`, or `Segments="10"` with a value moving in 10s.
+- `TrackColor`, `BarColor` and `CornerRadius` apply to each step. A gradient is spread across the run: each step is painted with the gradient's colour at its centre.
+- The fill slide still animates, and it travels step by step through the gaps.
+- `ShowText` centres the text over the whole bar.
+- Indeterminate mode and the pulse sheen always use the continuous bar.
 
 ## Pulse Behavior
 

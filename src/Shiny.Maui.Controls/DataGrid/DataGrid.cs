@@ -752,26 +752,14 @@ public partial class DataGrid : ContentView
                     AddGlyph(this.ReorderArrow("›", capture, +1));
                 }
 
-                // Star columns (not Auto) so the title keeps a fixed share of a narrow column and
-                // ellipsizes, instead of an Auto glyph strip eating the row and squeezing the title
-                // down to nothing. Clipped, so whatever does not fit is cut rather than spilling
-                // into the next header.
-                var cell = new Grid
+                // The glyphs take only the width they measure and the title gets the rest, with the
+                // title guaranteed most of a column too narrow for both. A fixed 3*/2* split used to
+                // reserve 40% for a lone ▾ and ellipsize narrow headers down to a bare "…".
+                headerView = new DataGridHeaderCellLayout(sortablePart, glyphs.Children.Count > 0 ? glyphs : null)
                 {
-                    ColumnSpacing = 6,
-                    Padding = this.CellPadding,
-                    IsClippedToBounds = true
+                    Spacing = 6,
+                    Padding = this.CellPadding
                 };
-                cell.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(3, GridUnitType.Star)));
-                cell.Add(sortablePart, 0, 0);
-
-                if (glyphs.Children.Count > 0)
-                {
-                    cell.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(2, GridUnitType.Star)));
-                    cell.Add(glyphs, 1, 0);
-                }
-
-                headerView = cell;
             }
 
             var resizable = this.AllowColumnResize && column.Resizable;

@@ -65,6 +65,28 @@
     overflow: hidden;
 }
 
+/* Collapsed, the header is the whole spine: no well under it, so all four corners round, and the
+   chevron stacks over the count - a 52px spine has no room for them side by side. */
+.shiny-kanban-head-inner.is-collapsed {
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-1, 4px);
+    border-radius: var(--shiny-shape-corner-small, 8px);
+}
+
+.shiny-kanban-head-inner.is-collapsed .shiny-kanban-head-row {
+    flex-direction: column;
+    gap: var(--shiny-spacing-1, 4px);
+}
+
+.shiny-kanban-head-inner.is-collapsed .shiny-kanban-head-count {
+    order: 2;
+    margin-left: 0;
+    white-space: nowrap;
+}
+
+.shiny-kanban-head-inner.is-collapsed .shiny-kanban-chevron {
+    order: 1;
+}
+
 .shiny-kanban-head-inner.is-over-limit {
     background: var(--shiny-color-error-container, #F2CDCB);
 }
@@ -179,8 +201,11 @@
     background: var(--shiny-color-surface-container-low, #EFF4FB);
 }
 
+/* A collapsed column draws no well: its cards are off screen, and a painted but empty box under
+   every spine reads as a placeholder. The cell stays, full height, as the drop target. */
 .shiny-kanban-cell.is-collapsed {
-    padding: var(--shiny-spacing-1, 4px);
+    padding: 0;
+    background: transparent;
 }
 
 .shiny-kanban-cell-empty {

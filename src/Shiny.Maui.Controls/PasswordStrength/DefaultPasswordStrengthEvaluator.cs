@@ -47,6 +47,8 @@ public class DefaultPasswordStrengthEvaluator : IPasswordStrengthEvaluator
 
         var suggestions = new List<string>();
         string? warning = null;
+        PasswordStrengthTextKey? warningKey = null;
+        string? warningValue = null;
 
         var matchedUserInput = FindUserInput(password, request.Rules.UserInputs);
         var matchedCommonWord = CommonPasswords.FindLongestMatch(password);
@@ -61,6 +63,9 @@ public class DefaultPasswordStrengthEvaluator : IPasswordStrengthEvaluator
             warning = isBlocked
                 ? "This password is not allowed."
                 : "This is one of the most commonly used passwords.";
+            warningKey = isBlocked
+                ? PasswordStrengthTextKey.WarningBlocked
+                : PasswordStrengthTextKey.WarningCompromised;
             suggestions.Add("Use a phrase of several unrelated words instead.");
         }
         else
@@ -70,11 +75,15 @@ public class DefaultPasswordStrengthEvaluator : IPasswordStrengthEvaluator
             if (matchedUserInput is not null)
             {
                 warning = "This contains your own details, which an attacker already knows.";
+                warningKey = PasswordStrengthTextKey.WarningUserInput;
+                warningValue = matchedUserInput;
                 suggestions.Add("Leave your name and email address out of it.");
             }
             else if (matchedCommonWord is not null)
             {
                 warning = $"\"{matchedCommonWord}\" is a very common password.";
+                warningKey = PasswordStrengthTextKey.WarningCommonPassword;
+                warningValue = matchedCommonWord;
                 suggestions.Add("Build the password out of words nobody would guess for you.");
             }
         }
@@ -93,6 +102,8 @@ public class DefaultPasswordStrengthEvaluator : IPasswordStrengthEvaluator
             Level = level,
             Rules = rules,
             Warning = warning,
+            WarningKey = warningKey,
+            WarningValue = warningValue,
             Suggestions = suggestions
         });
     }

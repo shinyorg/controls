@@ -6,6 +6,17 @@
     overflow: hidden;
     user-select: none;
     touch-action: none;
+    /* It is a popover, raised to the top layer while open (image-viewer.js); these undo the UA
+       popover box so it still fills the screen. */
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
 }
 
 .shiny-imgviewer.is-open { display: block; }

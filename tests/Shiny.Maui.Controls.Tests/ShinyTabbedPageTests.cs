@@ -366,6 +366,44 @@ public class ShinyTabbedPageTests
     }
 
 
+    [Fact]
+    public void ATabWithoutActionsNeverOpensAnEmptyMenu()
+    {
+        var page = new ShinyTabbedPage { Transition = StateTransition.None, TabBar = { AnimationDuration = 0 } };
+        page.Tabs.Add(new ShinyTabItem { Title = "Home", Content = new Label() });
+        page.Tabs.Add(new ShinyTabItem
+        {
+            Title = "Inbox",
+            ContentTemplate = new DataTemplate(() =>
+            {
+                var inbox = new ContentPage { Content = new Label() };
+                ShinyTabs.GetActions(inbox).Add(new TabAction { Text = "Compose" });
+                return inbox;
+            })
+        });
+        page.CenterButton = new TabCenterButton { Icon = "plus", Mode = TabCenterMode.Menu };
+
+        page.TabBar.PressCenter();
+        page.TabBar.OpenMenu();
+        page.TabBar.IsMenuOpen.ShouldBeFalse();
+        MenuLayerOf(page).Children.ShouldBeEmpty();
+        page.TabBar.IsCenterButtonActive.ShouldBeFalse();
+
+        // The lazily-built page's actions count once it exists...
+        page.TabBar.GoTo(1);
+        page.TabBar.IsCenterButtonActive.ShouldBeTrue();
+        page.TabBar.PressCenter();
+        MenuLayerOf(page).Children.Count.ShouldBe(2);
+
+        // ...and stop counting the moment the user is back on a tab without any.
+        page.TabBar.GoTo(0);
+        page.TabBar.IsMenuOpen.ShouldBeFalse();
+        page.TabBar.IsCenterButtonActive.ShouldBeFalse();
+        page.TabBar.OpenMenu();
+        MenuLayerOf(page).Children.ShouldBeEmpty();
+    }
+
+
     static Layout MenuLayerOf(ShinyTabbedPage page)
         => ((ShinyTabBar.ITabMenuHost)page).GetTabMenuLayer();
 

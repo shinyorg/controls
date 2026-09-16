@@ -736,6 +736,13 @@
                              Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate tags:TagEntryPage}" Route="tagentry" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Chip Group">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25CD;" Size="20"
+                             Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
+        </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate chips:ChipGroupPage}" Route="chipgroup" />
     </FlyoutItem>
 

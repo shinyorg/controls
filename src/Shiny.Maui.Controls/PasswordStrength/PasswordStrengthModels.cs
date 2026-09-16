@@ -125,6 +125,21 @@ public sealed class PasswordStrengthResult
     /// <summary>Why the score is low, when there is a specific reason. Null when there is not.</summary>
     public string? Warning { get; init; }
 
+    /// <summary>
+    /// Which known sentence <see cref="Warning"/> is, so the control can hand it to its
+    /// <c>Localizer</c> like every other string it paints. Null for free-form text from a custom
+    /// evaluator, which is then shown exactly as written.
+    /// </summary>
+    public PasswordStrengthTextKey? WarningKey { get; init; }
+
+    /// <summary>
+    /// The word the warning is about, where there is one — the matched common password for
+    /// <see cref="PasswordStrengthTextKey.WarningCommonPassword"/>, the matched detail for
+    /// <see cref="PasswordStrengthTextKey.WarningUserInput"/>. Passed to the localizer as
+    /// <see cref="PasswordStrengthText.Value"/>.
+    /// </summary>
+    public string? WarningValue { get; init; }
+
     /// <summary>Concrete things that would help, in priority order. May be empty.</summary>
     public IReadOnlyList<string> Suggestions { get; init; } = [];
 
@@ -154,7 +169,19 @@ public enum PasswordStrengthTextKey
     LevelGood,
     LevelStrong,
     ShowPassword,
-    HidePassword
+    HidePassword,
+
+    /// <summary>"This is one of the most commonly used passwords." — the whole password is a known one.</summary>
+    WarningCompromised,
+
+    /// <summary>"This password is not allowed." — it is on the <c>BlockedPasswords</c> list.</summary>
+    WarningBlocked,
+
+    /// <summary>"This contains your own details, which an attacker already knows." <see cref="PasswordStrengthText.Value"/> is the matched detail.</summary>
+    WarningUserInput,
+
+    /// <summary><c>"pass" is a very common password.</c> <see cref="PasswordStrengthText.Value"/> is the matched word.</summary>
+    WarningCommonPassword
 }
 
 
@@ -165,7 +192,14 @@ public enum PasswordStrengthTextKey
 /// The number in the sentence, where there is one — the required length for
 /// <see cref="PasswordStrengthTextKey.RuleMinimumLength"/>. Zero otherwise.
 /// </param>
-public sealed record PasswordStrengthText(PasswordStrengthTextKey Key, string Default, int Argument = 0);
+public sealed record PasswordStrengthText(PasswordStrengthTextKey Key, string Default, int Argument = 0)
+{
+    /// <summary>
+    /// The word in the sentence, where there is one — the matched common password for
+    /// <see cref="PasswordStrengthTextKey.WarningCommonPassword"/>. Null otherwise.
+    /// </summary>
+    public string? Value { get; init; }
+}
 
 
 /// <summary>

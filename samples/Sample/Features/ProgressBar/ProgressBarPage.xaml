@@ -45,6 +45,24 @@
                                GradientEndColor="#F59E0B"
                                ShowText="True" />
 
+            <!-- Segmented -->
+            <Label Text="Segments (steps)" FontSize="18" FontAttributes="Bold" />
+            <shiny:ProgressBar Value="{Binding BasicValue}"
+                               TrackHeight="12"
+                               CornerRadius="6"
+                               Segments="10"
+                               SegmentSpacing="6"
+                               BarColor="#22A33A" />
+
+            <Label Text="Segments + Gradient" FontSize="18" FontAttributes="Bold" />
+            <shiny:ProgressBar Value="{Binding BasicValue}"
+                               TrackHeight="8"
+                               CornerRadius="4"
+                               Segments="5"
+                               UseGradient="True"
+                               GradientStartColor="#3B82F6"
+                               GradientEndColor="#8B5CF6" />
+
             <!-- Pulse on Value Change -->
             <Label Text="Pulse on Value Change (Vista shimmer)" FontSize="18" FontAttributes="Bold" />
             <shiny:ProgressBar Value="{Binding PulseValue}"

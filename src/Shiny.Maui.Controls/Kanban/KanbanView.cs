@@ -49,7 +49,6 @@ public partial class KanbanView : ContentView, IDisposable
     readonly Dictionary<KanbanCard, KanbanCardView> defaultCardViews = [];
     readonly Dictionary<KanbanCard, View> cardHosts = [];
     readonly List<KanbanColumnHeaderView> columnHeaders = [];
-    readonly List<RoundRectangle> headerShapes = [];
     readonly List<RoundRectangle> cellShapes = [];
     readonly List<INotifyPropertyChanged> observedItems = [];
     readonly CornerRadiusProbe columnRadius;
@@ -140,6 +139,13 @@ public partial class KanbanView : ContentView, IDisposable
 
     internal CultureInfo EffectiveCulture => this.Culture ?? CultureInfo.CurrentCulture;
 
+    /// <summary>The default column headers currently on screen, in column order.</summary>
+    internal IReadOnlyList<KanbanColumnHeaderView> ColumnHeaderViews => this.columnHeaders;
+
+    /// <summary>Each lane well currently on screen and the stack its cards render into.</summary>
+    internal IEnumerable<(KanbanLane Lane, Border Host, VerticalStackLayout Stack)> LaneCellViews
+        => this.laneCells.Select(c => (c.Lane, c.Host, c.Stack));
+
 
     // =============================================================================================
     // One column-by-swimlane bucket, as it exists on screen
@@ -201,7 +207,6 @@ public partial class KanbanView : ContentView, IDisposable
 
         this.laneCells.Clear();
         this.columnHeaders.Clear();
-        this.headerShapes.Clear();
         this.cellShapes.Clear();
         this.cardHosts.Clear();
         this.defaultCardViews.Clear();
@@ -257,8 +262,14 @@ public partial class KanbanView : ContentView, IDisposable
     {
         var radius = this.columnRadius.Radius;
 
-        foreach (var shape in this.headerShapes)
-            shape.CornerRadius = new CornerRadius(radius, radius, 0, 0);
+        // A collapsed column has no well under its header, so the header is the whole spine and
+        // rounds on all four corners.
+        foreach (var header in this.columnHeaders)
+        {
+            header.Shape.CornerRadius = header.Column.IsCollapsed
+                ? new CornerRadius(radius)
+                : new CornerRadius(radius, radius, 0, 0);
+        }
 
         foreach (var shape in this.cellShapes)
             shape.CornerRadius = new CornerRadius(0, 0, radius, radius);
@@ -290,7 +301,6 @@ public partial class KanbanView : ContentView, IDisposable
             {
                 var built = new KanbanColumnHeaderView(this, column, this.Board.CountIn(column.Id));
                 this.columnHeaders.Add(built);
-                this.headerShapes.Add(built.Shape);
                 this.WireColumnCollapse(built);
                 header = built;
             }
@@ -400,14 +410,20 @@ public partial class KanbanView : ContentView, IDisposable
             VerticalOptions = LayoutOptions.Fill,
             StrokeShape = shape
         };
-        KanbanChrome.Token(host, BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerLow);
 
         var cell = new LaneCell { Lane = lane, Host = host, Stack = stack };
 
         // A collapsed column still counts and is still a drop target, but it draws nothing: the
-        // whole point of collapsing it is to get its cards off the screen.
+        // whole point of collapsing it is to get its cards off the screen. That includes the well
+        // itself - painted, every lane of a collapsed board was an empty placeholder box under its
+        // spine. The host stays, transparent and full height, so a drop still lands on it.
         if (lane.Column.IsCollapsed)
+        {
+            host.BackgroundColor = Colors.Transparent;
             return cell;
+        }
+
+        KanbanChrome.Token(host, BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerLow);
 
         foreach (var card in lane.Cards)
         {

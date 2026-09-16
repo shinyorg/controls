@@ -6,6 +6,7 @@
 @if (rendered)
 {
     <div class="shiny-imgviewer @(IsOpen ? "is-open" : "")"
+         popover="manual"
          @ref="rootEl"
          style="@(IsOpen ? "" : "pointer-events:none;")">
         <div class="shiny-imgviewer-backdrop" @ref="backdropEl"></div>

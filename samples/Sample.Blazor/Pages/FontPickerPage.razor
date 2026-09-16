@@ -1,0 +1,49 @@
+@page "/fontpicker"
+
+<PageTitle>Font Picker</PageTitle>
+
+<h1>Font Picker</h1>
+
+<p>
+    Font family and size selection, inline or as a popup button. Every row previews itself in its own
+    typeface.
+</p>
+
+<section class="demo-section">
+    <h2>Preview</h2>
+    <div style="padding:14px; border:1px solid var(--shiny-color-outline-variant, #ccc); border-radius:8px;
+                font-family:'@family'; font-size:@Css(size)px;">
+        The quick brown fox jumps over the lazy dog
+    </div>
+    <p style="margin-top:8px; opacity:.7;">Family: @family · Size: @Css(size)</p>
+</section>
+
+<section class="demo-section">
+    <h2>Popup pickers</h2>
+    <div style="display:flex; align-items:center; gap:12px;">
+        <FontPickerButton @bind-SelectedFont="family" />
+        <FontSizePickerButton @bind-SelectedFontSize="size" />
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Inline FontPicker</h2>
+    <FontPicker @bind-SelectedFont="family"
+                PreviewText="Sphinx of black quartz"
+                PreviewFontSize="17"
+                />
+</section>
+
+<section class="demo-section">
+    <h2>Inline FontSizePicker</h2>
+    <FontSizePicker @bind-SelectedFontSize="size"
+                    PreviewText="Aa"
+                    />
+</section>
+
+@code {
+    string family = "Georgia";
+    double size = 20;
+
+    static string Css(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

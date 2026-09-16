@@ -184,6 +184,21 @@ meaning rather than surface, and an app's accent is no substitute for any of the
 a purple selection is not a themed spreadsheet, it is a different control. Set `Theme` to override any
 of it.
 
+A **pinned** theme on MAUI carries the chrome with it. The formula bar's boxes take their ink and ground
+from the theme (they used to take the app's ink on the theme's ground, so a pinned dark theme in a light
+app drew black text on a near-black bar), and the toolbar merges the active theme pack's light or dark
+token palette — whichever matches the pinned theme's background — into its own resources, so the ribbon
+and the pickers hosted in it match the grid. Unpinning removes it.
+
+Following the app also survives the process running for a while: the MAUI views used to lose their
+light/dark subscription at the first garbage collection (`Application.RequestedThemeChanged` holds its
+handlers weakly), after which a flip repainted the ribbon but left the formula bar, sheet tabs and grid
+on the old appearance.
+
+Cell text with no colour of its own takes the theme's ink, and on a cell the author **filled** that ink
+is made to contrast with the fill — a light header band keeps dark text in dark mode. An explicit font
+colour is the author's pairing with their own fill and is left alone.
+
 A **document** or a **deck** takes only its surround from the theme: the page and the slides are
 pictures of printed things, and tinting the paper would misrepresent what the document actually looks
 like.

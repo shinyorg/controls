@@ -15,6 +15,10 @@
 
 const states = new Map();
 
+// The chooser and the editor cover the screen, and a picker inside a sheet or a panel has a
+// transformed ancestor - so they are raised to the top layer rather than trusting position:fixed.
+export { show as raise } from './top-layer.js';
+
 export function init(root, galleryInput, cameraInput, dotnetRef, options) {
     const state = { dotnetRef, options, galleryInput, cameraInput, blobs: new Map(), urls: new Map() };
 

@@ -43,6 +43,7 @@ public partial class ProgressBar
                 pb.trackBackground.BackgroundColor = c;
             else
                 pb.trackBackground.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerHighest);
+            pb.UpdateSegmentsLayout();
         }));
     /// <summary>Track background color. When null, the theme SurfaceContainerHighest token is used.</summary>
     public Color? TrackColor { get => (Color?)GetValue(TrackColorProperty); set => SetValue(TrackColorProperty, value); }
@@ -199,6 +200,33 @@ public partial class ProgressBar
                 ((ProgressBar)b).progressLabel.FontSize = (double)n;
             }));
     public double FontSize { get => (double)GetValue(FontSizeProperty); set => SetValue(FontSizeProperty, value); }
+
+    // Segments
+    public static readonly BindableProperty SegmentsProperty = BindableProperty.Create(
+        nameof(Segments), typeof(int), typeof(ProgressBar), 0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(ProgressBar), () =>
+            {
+                ((ProgressBar)b).OnSegmentsChanged();
+            }));
+    /// <summary>
+    /// Splits the bar into this many separate steps with a gap between them. <c>0</c> or <c>1</c> draws
+    /// the continuous bar. The fill runs across the steps in order, so a value part-way through a step
+    /// lights that step partially - set <see cref="Maximum"/> to the segment count for whole steps.
+    /// </summary>
+    /// <remarks>
+    /// Indeterminate mode and the pulse sheen always use the continuous bar. A gradient is spread
+    /// across the steps, each step taking the colour at its centre.
+    /// </remarks>
+    public int Segments { get => (int)GetValue(SegmentsProperty); set => SetValue(SegmentsProperty, value); }
+
+    public static readonly BindableProperty SegmentSpacingProperty = BindableProperty.Create(
+        nameof(SegmentSpacing), typeof(double), typeof(ProgressBar), 4.0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(ProgressBar), () =>
+            {
+                ((ProgressBar)b).UpdateVisuals();
+            }));
+    /// <summary>Gap between segments.</summary>
+    public double SegmentSpacing { get => (double)GetValue(SegmentSpacingProperty); set => SetValue(SegmentSpacingProperty, value); }
 
     // Indeterminate
     public static readonly BindableProperty IsIndeterminateProperty = BindableProperty.Create(

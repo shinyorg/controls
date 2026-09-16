@@ -64,6 +64,21 @@ public partial class ProgressBar : IDisposable
     /// <summary>CSS timing function for the fill slide.</summary>
     [Parameter] public string ProgressAnimationEasing { get; set; } = "cubic-bezier(0.33, 1, 0.68, 1)";
 
+    // Segments
+    /// <summary>
+    /// Splits the bar into this many separate steps with a gap between them. <c>0</c> or <c>1</c> draws
+    /// the continuous bar. The fill runs across the steps in order, so a value part-way through a step
+    /// lights that step partially - set <see cref="Maximum"/> to the segment count for whole steps.
+    /// </summary>
+    /// <remarks>
+    /// Indeterminate mode and the pulse sheen always use the continuous bar. A gradient is spread
+    /// across the steps, each step taking the colour at its centre.
+    /// </remarks>
+    [Parameter] public int Segments { get; set; }
+
+    /// <summary>Gap between segments in px.</summary>
+    [Parameter] public double SegmentSpacing { get; set; } = 4;
+
     // Indeterminate
     [Parameter] public bool IsIndeterminate { get; set; }
 
@@ -107,6 +122,43 @@ public partial class ProgressBar : IDisposable
                 + $" {pulseVars} {fillVars}";
         }
     }
+
+    bool IsSegmented => Segments > 1 && !IsIndeterminate;
+
+    string SegmentedTrackStyle =>
+        StyleDefaults.Override("height", TrackHeight, DefaultTrackHeight) +
+        $"gap: {Css(Math.Max(SegmentSpacing, 0))}px;";
+
+    string SegmentStyle =>
+        StyleDefaults.Override("border-radius", CornerRadius, DefaultCornerRadius) +
+        StyleDefaults.Override("background", TrackColor, DefaultTrackColor);
+
+    /// <summary>How much of segment <paramref name="index"/> is lit, from 0 to 1.</summary>
+    internal double SegmentFill(int index)
+        => Math.Clamp(Percentage / 100 * Segments - index, 0, 1);
+
+    string SegmentFillStyle(int index)
+    {
+        string bg;
+        if (UseGradient)
+        {
+            // Each step takes the gradient's colour at its own centre, so the run of steps reads as one
+            // gradient without every step repeating the whole ramp.
+            var endWeight = Segments > 1 ? (index + 0.5) / Segments * 100 : 0;
+            bg = $"background: color-mix(in srgb, {GradientStartColor}, {GradientEndColor} {Css(endWeight)}%);";
+        }
+        else
+        {
+            bg = StyleDefaults.Override("background", BarColor, DefaultBarColor);
+        }
+
+        var duration = AnimateProgress && ProgressAnimationDuration > 0 ? ProgressAnimationDuration : 0;
+        return $"width: {Css(SegmentFill(index) * 100)}%; {bg}"
+            + StyleDefaults.Override("border-radius", CornerRadius, DefaultCornerRadius)
+            + $" --fill-duration: {duration}ms; --fill-easing: {ProgressAnimationEasing};";
+    }
+
+    static string Css(double value) => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
     string TextStyle =>
         StyleDefaults.Override("color", TextColor, DefaultTextColor) +

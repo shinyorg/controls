@@ -191,6 +191,8 @@
     </FlyoutItem>
     <FlyoutItem Title="Tag Entry">
         <ShellContent ContentTemplate="{DataTemplate tags:TagEntryPage}" Route="tagentry" />
+    </FlyoutItem>
+    <FlyoutItem Title="Chip Group">
         <ShellContent ContentTemplate="{DataTemplate chips:ChipGroupPage}" Route="chipgroup" />
     </FlyoutItem>
     <FlyoutItem Title="Security Pin">

@@ -274,7 +274,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
                 canvas.Translate((float)request.ResolvedContentX, (float)(top + setup.HeaderDistance));
 
                 foreach (var block in header.Blocks)
-                    this.PaintBlock(canvas, block, theme);
+                    this.PaintBlock(canvas, block, theme, theme.PageBackground);
 
                 canvas.Restore();
             }
@@ -292,7 +292,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
                     (float)(top + request.PageHeight - setup.FooterDistance - footer.Height));
 
                 foreach (var block in footer.Blocks)
-                    this.PaintBlock(canvas, block, theme);
+                    this.PaintBlock(canvas, block, theme, theme.PageBackground);
 
                 canvas.Restore();
             }
@@ -388,7 +388,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             if (block.Y > flowBottom)
                 break;
 
-            this.PaintBlock(canvas, block, theme);
+            this.PaintBlock(canvas, block, theme, theme.PageBackground);
         }
 
         // Squiggles go over the text: they mark it rather than sit behind it, and a wash underneath
@@ -472,16 +472,20 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
         this.stroke.StrokeWidth = 1;
     }
 
-    void PaintBlock(SKCanvas canvas, LaidOutBlock block, DocumentTheme theme)
+    /// <param name="ground">
+    /// What the block is painted on: the page, or the shading of the table cell it sits in. Ink is made
+    /// legible against this rather than against the page - see <see cref="InkContrast"/>.
+    /// </param>
+    void PaintBlock(SKCanvas canvas, LaidOutBlock block, DocumentTheme theme, ArgbColor ground)
     {
         switch (block)
         {
             case LaidOutParagraph paragraph:
-                this.PaintParagraph(canvas, paragraph, theme);
+                this.PaintParagraph(canvas, paragraph, theme, ground);
                 break;
 
             case LaidOutTable table:
-                this.PaintTable(canvas, table, theme);
+                this.PaintTable(canvas, table, theme, ground);
                 break;
 
             case LaidOutRule rule:
@@ -492,10 +496,12 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
         }
     }
 
-    void PaintParagraph(SKCanvas canvas, LaidOutParagraph paragraph, DocumentTheme theme)
+    void PaintParagraph(SKCanvas canvas, LaidOutParagraph paragraph, DocumentTheme theme, ArgbColor ground)
     {
         if (paragraph.Format.Shading is { } shading)
         {
+            ground = InkContrast.Over(shading, ground);
+
             this.fill.Color = ToSk(shading);
             canvas.DrawRect(
                 new SKRect((float)paragraph.X, (float)paragraph.Y, (float)(paragraph.X + paragraph.Width), (float)(paragraph.Y + paragraph.Height)),
@@ -507,7 +513,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             var baseline = paragraph.Y + line.Y + line.Ascent;
 
             foreach (var run in line.Runs)
-                this.PaintRun(canvas, run, paragraph.X, baseline, theme);
+                this.PaintRun(canvas, run, paragraph.X, baseline, theme, ground);
         }
 
         // The list label sits on the first line's baseline, outside the text body.
@@ -517,7 +523,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             var baseline = paragraph.Y + first.Y + first.Ascent;
             var style = paragraph.LabelStyle;
 
-            this.fill.Color = ToSk(theme.OverrideDocumentColors ? theme.Text : Legible(style.Color, theme));
+            this.fill.Color = ToSk(Ink(style.Color, theme, ground));
             canvas.DrawText(label, (float)paragraph.LabelX, (float)baseline, SKTextAlign.Left, measurer.GetFont(style), this.fill);
         }
     }
@@ -546,7 +552,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
     static SKRect ToRect(GridRectLike r)
         => new((float)r.X, (float)r.Y, (float)r.Right, (float)r.Bottom);
 
-    void PaintRun(SKCanvas canvas, LaidOutRun run, double originX, double baseline, DocumentTheme theme)
+    void PaintRun(SKCanvas canvas, LaidOutRun run, double originX, double baseline, DocumentTheme theme, ArgbColor ground)
     {
         var x = originX + run.X;
 
@@ -571,7 +577,12 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
                         canvas, this.fill, this.stroke, shape.Geometry, box, shape.Fill, shape.Outline, shape.CornerRadius);
 
                     if (shape.Text.Count > 0)
-                        this.PaintShapeText(canvas, shape, box, theme);
+                    {
+                        // A gradient has no single colour to measure against; its text keeps the ground
+                        // the shape itself sits on.
+                        var shapeGround = shape.Fill?.Solid is { } solid ? InkContrast.Over(solid, ground) : ground;
+                        this.PaintShapeText(canvas, shape, box, theme, shapeGround);
+                    }
 
                     break;
             }
@@ -591,6 +602,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
         if (style.Highlight is { } highlight)
         {
             this.fill.Color = ToSk(highlight);
+            ground = InkContrast.Over(highlight, ground);
             var metrics = font.Metrics;
             canvas.DrawRect(
                 new SKRect((float)x, (float)(y + metrics.Ascent), (float)(x + run.Width), (float)(y + metrics.Descent)),
@@ -598,8 +610,8 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
         }
 
         var color = style.Link is not null
-            ? theme.Link
-            : theme.OverrideDocumentColors ? theme.Text : Legible(style.Color, theme);
+            ? InkContrast.Legible(theme.Link, ground)
+            : Ink(style.Color, theme, ground);
 
         this.fill.Color = ToSk(color);
         canvas.DrawText(run.Text, (float)x, (float)y, SKTextAlign.Left, font, this.fill);
@@ -639,7 +651,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
     /// nothing and would put a second text layout in the cached layout tree. Text taller than the
     /// shape is clipped to it, which is what Word does for a text box with autofit off.
     /// </remarks>
-    void PaintShapeText(SKCanvas canvas, InlineShape shape, SKRect box, DocumentTheme theme)
+    void PaintShapeText(SKCanvas canvas, InlineShape shape, SKRect box, DocumentTheme theme, ArgbColor ground)
     {
         var engine = new TextLayoutEngine(measurer);
         var inset = 4f;
@@ -661,7 +673,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
                 if (piece.Text.Length == 0)
                     continue;
 
-                this.fill.Color = ToSk(theme.OverrideDocumentColors ? theme.Text : Legible(piece.Style.Color, theme));
+                this.fill.Color = ToSk(Ink(piece.Style.Color, theme, ground));
                 canvas.DrawText(
                     piece.Text,
                     box.Left + inset + (float)piece.X,
@@ -675,20 +687,25 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
         canvas.Restore();
     }
 
-    void PaintTable(SKCanvas canvas, LaidOutTable table, DocumentTheme theme)
+    void PaintTable(SKCanvas canvas, LaidOutTable table, DocumentTheme theme, ArgbColor ground)
     {
         foreach (var cell in table.Cells)
         {
             var rect = new SKRect((float)cell.X, (float)cell.Y, (float)(cell.X + cell.Width), (float)(cell.Y + cell.Height));
+            var cellGround = ground;
 
             if (cell.Shading is { } shading)
             {
                 this.fill.Color = ToSk(shading);
                 canvas.DrawRect(rect, this.fill);
+
+                // The cell's text sits on its shading, not on the page. Measured against the page, a
+                // light header fill in a dark theme got its text lifted to white on top of the fill.
+                cellGround = InkContrast.Over(shading, ground);
             }
 
             foreach (var block in cell.Blocks)
-                this.PaintBlock(canvas, block, theme);
+                this.PaintBlock(canvas, block, theme, cellGround);
 
             if (!table.HasBorders)
                 continue;
@@ -746,56 +763,28 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
     }
 
     /// <summary>
+    /// The colour a run is painted in: the authored colour (or the theme's, when overriding), made to
+    /// read against the ground it actually sits on.
+    /// </summary>
+    static ArgbColor Ink(ArgbColor authored, DocumentTheme theme, ArgbColor ground)
+    {
+        if (theme.OverrideDocumentColors)
+            return InkContrast.Legible(theme.Text, ground);
+
+        return theme.AdaptDocumentColors ? InkContrast.Legible(authored, ground) : authored;
+    }
+
+    /// <summary>
     /// Adjusts an authored colour so it reads against the page, keeping its hue and saturation.
     /// </summary>
     /// <remarks>
     /// Only moves a colour that is genuinely on the wrong side of the page's lightness — a red that
     /// already contrasts is left exactly as authored, so the adaptation is invisible on a light theme
-    /// and only does work where it is needed.
+    /// and only does work where it is needed. Text on a shaded cell, a shaded paragraph or a highlight
+    /// is measured against that fill instead; see <see cref="Ink"/>.
     /// </remarks>
     static ArgbColor Legible(ArgbColor color, DocumentTheme theme)
-    {
-        if (!theme.AdaptDocumentColors)
-            return color;
-
-        var pageLight = Luminance(theme.PageBackground);
-        var textLight = Luminance(color);
-
-        // Comfortably clear of the page: nothing to do.
-        if (Math.Abs(pageLight - textLight) >= 0.34)
-            return color;
-
-        var target = pageLight < 0.5
-            ? Math.Max(textLight, 0.72)   // dark page: lift the text
-            : Math.Min(textLight, 0.34);  // light page: push it down
-
-        return WithLightness(color, target);
-    }
-
-    /// <summary>Perceived brightness, weighted the way the eye responds rather than by raw average.</summary>
-    static double Luminance(ArgbColor color)
-        => (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255d;
-
-    static ArgbColor WithLightness(ArgbColor color, double target)
-    {
-        var current = Luminance(color);
-
-        if (current <= 0.001)
-        {
-            // Pure black carries no hue to preserve, so it simply becomes the corresponding grey.
-            var grey = (byte)Math.Clamp(Math.Round(target * 255), 0, 255);
-            return color with { R = grey, G = grey, B = grey };
-        }
-
-        // Scaling all three channels keeps the ratios between them, and therefore the hue.
-        var factor = target / current;
-        return color with
-        {
-            R = (byte)Math.Clamp(Math.Round(color.R * factor), 0, 255),
-            G = (byte)Math.Clamp(Math.Round(color.G * factor), 0, 255),
-            B = (byte)Math.Clamp(Math.Round(color.B * factor), 0, 255)
-        };
-    }
+        => theme.AdaptDocumentColors ? InkContrast.Legible(color, theme.PageBackground) : color;
 
     static SKColor ToSk(ArgbColor color) => new(color.R, color.G, color.B, color.A);
 }

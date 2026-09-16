@@ -193,6 +193,10 @@ alignment, vertical anchoring, PowerPoint's recorded autofit shrink, pictures, a
 `DocumentTheme.Dark` darkens the page and **adapts the document's own colours for contrast**, keeping
 their hue: black body text lifts to light grey, blue headings stay blue, red stays red. A colour that
 already contrasts is left exactly as authored, so the adaptation is invisible on the light theme.
+Contrast is measured against **what the text sits on**, not the page: text in a shaded table cell, a
+shaded paragraph, a highlight or a filled shape is adapted against that fill, and the fill itself is
+left as authored. So a light header band stays light with dark text in dark mode, and white text on a
+dark header band stays white in light mode. The same rule applies in `DocumentEditor`, on both hosts.
 Set `OverrideDocumentColors = true` to force every colour to `Text` instead — legible, but it flattens
 headings and warnings to one grey.
 

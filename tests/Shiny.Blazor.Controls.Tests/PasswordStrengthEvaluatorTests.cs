@@ -206,6 +206,31 @@ public class PasswordStrengthEvaluatorTests
 
         result.ShouldNotBeNull();
     }
+
+
+    /// <summary>
+    /// Every built-in warning carries a key so the control can localize it. A warning without one is
+    /// shown verbatim, which is how "pass is a very common password" stayed English under a French
+    /// localizer.
+    /// </summary>
+    [Fact]
+    public void BuiltInWarningsCarryALocalizationKey()
+    {
+        var common = Score("passXq7!");
+        common.WarningKey.ShouldBe(PasswordStrengthTextKey.WarningCommonPassword);
+        common.WarningValue.ShouldBe("pass");
+
+        Score("password").WarningKey.ShouldBe(PasswordStrengthTextKey.WarningCompromised);
+        Score("Shiny", r => r.BlockedPasswords = ["shiny"]).WarningKey.ShouldBe(PasswordStrengthTextKey.WarningBlocked);
+
+        var own = Score("lovelace-and-more-words-here", r => r.UserInputs = ["ada.lovelace@example.com"]);
+        own.WarningKey.ShouldBe(PasswordStrengthTextKey.WarningUserInput);
+        own.WarningValue.ShouldBe("lovelace");
+
+        var clean = Score("the slow red barn on nine");
+        clean.Warning.ShouldBeNull();
+        clean.WarningKey.ShouldBeNull();
+    }
 }
 
 

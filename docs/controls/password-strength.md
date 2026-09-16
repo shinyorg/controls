@@ -46,7 +46,7 @@ disagree — a forty-character passphrase scores 100 and still fails a rule dema
 | UserInputs | IList&lt;string&gt;? | null | This user's email / name — refused, and discounted when scoring |
 | Evaluator | IPasswordStrengthEvaluator? | null | Per-field scorer override |
 | DebounceMilliseconds | int | 250 | Pause before scoring; 0 scores every keystroke |
-| Localizer | PasswordStrengthLocalizer? | null | Replaces the wording; return null to keep a default |
+| Localizer | PasswordStrengthLocalizer? | null | Replaces the wording — level labels, checklist, Show/Hide, and the built-in warnings; return null to keep a default |
 | MeterStyle | PasswordStrengthMeterStyle | Segments | Four blocks, or one bar filled to the score |
 | MeterHeight / MeterCornerRadius / SegmentSpacing | double | 6 / 3 / 4 | Meter geometry |
 | TrackColor / WeakColor / FairColor / GoodColor / StrongColor | Color? | null | Null follows the surface-container-highest / critical / caution / warning / success tokens |
@@ -93,6 +93,15 @@ The interface is asynchronous and cancellable precisely so a network-backed impl
 possible: keystrokes are debounced and the previous evaluation is cancelled before the next starts.
 If a custom evaluator throws, the built-in one answers instead, so losing the network downgrades the
 meter rather than freezing it.
+
+**Localized wording.** `Localizer` is handed a `PasswordStrengthText` (`Key`, `Default`, `Argument`,
+`Value`) for every string the control paints, and returns the replacement or null to keep the default.
+That includes the warning shown under the field: the built-in evaluator tags each one with
+`PasswordStrengthResult.WarningKey` (`WarningCompromised`, `WarningBlocked`, `WarningUserInput`,
+`WarningCommonPassword`), and `Value` carries the word it is about — so
+`$"« {text.Value} » est un mot de passe très courant."` translates `"pass" is a very common password`.
+A custom evaluator's warning with no `WarningKey` is shown exactly as written; translate it in the
+evaluator. `Suggestions` are not painted by the control and stay as the evaluator wrote them.
 
 **Never send the password itself anywhere.** HIBP's range API takes the first five characters of the
 SHA-1 hash and returns a bucket of suffixes exactly so the password — and its full hash — never

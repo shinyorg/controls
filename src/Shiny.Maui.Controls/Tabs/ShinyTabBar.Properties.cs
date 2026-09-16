@@ -278,11 +278,7 @@ public partial class ShinyTabBar
     /// <summary>Backing store for <see cref="MenuTemplate"/>.</summary>
     public static readonly BindableProperty MenuTemplateProperty = BindableProperty.Create(
         nameof(MenuTemplate), typeof(DataTemplate), typeof(ShinyTabBar), null,
-        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar =>
-        {
-            if (bar.IsMenuOpen)
-                bar.RefreshMenuContent();
-        }));
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ShinyTabBar>(b, bar => bar.OnMenuSourceChanged()));
 
     /// <summary>Backing store for <see cref="PageContext"/>.</summary>
     public static readonly BindableProperty PageContextProperty = BindableProperty.Create(
@@ -295,7 +291,11 @@ public partial class ShinyTabBar
             if (n is BindableObject next)
                 next.PropertyChanged += bar.OnPageContextPropertyChanged;
 
-            StyleGuard.WhenReady<ShinyTabBar>(b, x => x.ApplyAllCellStates());
+            StyleGuard.WhenReady<ShinyTabBar>(b, x =>
+            {
+                x.ApplyAllCellStates();
+                x.ApplyCenterAvailability();
+            });
         });
 
     /// <summary>Backing store for <see cref="IsMenuOpen"/>.</summary>
@@ -575,7 +575,23 @@ public partial class ShinyTabBar
     /// Raised when the centre button is pressed, before anything is presented. Cancel it to handle
     /// the press entirely yourself.
     /// </summary>
-    public event EventHandler<TabCenterClickedEventArgs>? CenterClicked;
+    public event EventHandler<TabCenterClickedEventArgs>? CenterClicked
+    {
+        // Explicit accessors because a subscriber is one of the things that gives the centre button
+        // something to do - see IsCenterButtonActive.
+        add
+        {
+            this.centerClicked += value;
+            this.ApplyCenterAvailability();
+        }
+        remove
+        {
+            this.centerClicked -= value;
+            this.ApplyCenterAvailability();
+        }
+    }
+
+    EventHandler<TabCenterClickedEventArgs>? centerClicked;
 
     /// <summary>Raised when a row of the centre menu is tapped, after its own command has run.</summary>
     public event EventHandler<TabActionEventArgs>? ActionInvoked;
