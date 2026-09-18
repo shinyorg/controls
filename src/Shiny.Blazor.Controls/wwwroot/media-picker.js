@@ -19,6 +19,16 @@ const states = new Map();
 // transformed ancestor - so they are raised to the top layer rather than trusting position:fixed.
 export { show as raise } from './top-layer.js';
 
+// WebKit on iPhone and iPad answers any <input type="file" accept="image/*"> with its own sheet -
+// Photo Library, Take Photo, Choose File - and nothing on the input skips it. A chooser of our own in
+// front of that asks the same question twice, so on those devices the button goes straight to it.
+// iPadOS reports itself as a Mac; touch support is what gives it away.
+function hasNativeImageChooser() {
+    const ua = navigator.userAgent;
+    return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+// Answers whether the platform shows its own gallery/camera sheet (see hasNativeImageChooser).
 export function init(root, galleryInput, cameraInput, dotnetRef, options) {
     const state = { dotnetRef, options, galleryInput, cameraInput, blobs: new Map(), urls: new Map() };
 
@@ -40,6 +50,8 @@ export function init(root, galleryInput, cameraInput, dotnetRef, options) {
     cameraInput.addEventListener('change', handler);
     state.handler = handler;
     states.set(root, state);
+
+    return hasNativeImageChooser();
 }
 
 export function updateOptions(root, options) {

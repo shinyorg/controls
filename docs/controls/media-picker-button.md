@@ -21,7 +21,7 @@ A button that adds photos from the gallery and/or camera, compresses/re-encodes 
 | Property | Type | Default | Description |
 |---|---|---|---|
 | AllowGallery | bool | true | Offer "choose from gallery" |
-| AllowCamera | bool | true | Offer "take photo" (chooser shown when both are enabled) |
+| AllowCamera | bool | true | Offer "take photo" (chooser shown when both are enabled; on Blazor on iPhone/iPad the browser's own library/camera/files sheet is used instead) |
 | AllowPhotoEdit | bool | false | Show an Edit button that opens the ImageEditor |
 | PermissionDeniedText | string | "Permission denied…" | Shown when camera/gallery access is denied |
 | NoImagesTemplate | DataTemplate? | null | Shown when there are no photos yet |

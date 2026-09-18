@@ -21,6 +21,7 @@ public partial class MediaPickerButton : IAsyncDisposable
     bool viewerOpen;
     string? viewerSource;
     bool showChooser;
+    bool nativeChooser;
     bool permissionDenied;
     bool editing;
     bool chooserRaised;
@@ -99,7 +100,7 @@ public partial class MediaPickerButton : IAsyncDisposable
             module = loaded;
             selfRef = DotNetObjectReference.Create(this);
 
-            await module.InvokeVoidAsync("init", rootEl, galleryInputEl, cameraInputEl, selfRef, BuildOptions());
+            nativeChooser = await module.InvokeAsync<bool>("init", rootEl, galleryInputEl, cameraInputEl, selfRef, BuildOptions());
         }
 
         // Inside a SheetView the chooser and the editor have a transformed ancestor, which turns their
@@ -134,7 +135,13 @@ public partial class MediaPickerButton : IAsyncDisposable
         if (module != null)
             await module.InvokeVoidAsync("updateOptions", rootEl, BuildOptions());
 
-        if (AllowGallery && AllowCamera)
+        // On iPhone and iPad the browser shows its own library/camera/files sheet for the gallery
+        // input, so ours would only put the same choice in front of it.
+        if (AllowGallery && AllowCamera && nativeChooser)
+        {
+            await PickFromGalleryAsync();
+        }
+        else if (AllowGallery && AllowCamera)
         {
             showChooser = true;
         }

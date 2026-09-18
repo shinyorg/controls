@@ -54,7 +54,7 @@ ObservableCollection<MediaPickerItem> photos = new();   // Shiny.Maui.Controls.M
 | Property | Type (MAUI / Blazor) | Default | Description |
 |---|---|---|---|
 | `AllowGallery` | `bool` | `true` | Offer "choose from gallery" |
-| `AllowCamera` | `bool` | `true` | Offer "take photo". When both are true, tapping shows a gallery/camera chooser; when only one is true it is invoked directly |
+| `AllowCamera` | `bool` | `true` | Offer "take photo". When both are true, tapping shows a gallery/camera chooser; when only one is true it is invoked directly. Blazor on iPhone/iPad skips the chooser: WebKit's own Photo Library / Take Photo / Choose File sheet already offers both, so don't turn `AllowCamera` off there to avoid a double prompt |
 | `AllowPhotoEdit` | `bool` | `false` | Show an **Edit** button in the viewer that opens the ImageEditor; edits are re-saved into the collection |
 | `PermissionDeniedText` | `string` | "Permission denied…" | Message shown when camera/gallery access is denied |
 | `NoImagesTemplate` | `DataTemplate?` / `RenderFragment?` | `null` | Shown when there are no photos yet (a default "No photos yet" is used otherwise) |
