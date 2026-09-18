@@ -83,9 +83,7 @@ public static class Catalog
             new("passwordstrength", "Password Strength", "▓", "Password field with a live strength meter and rule checklist"),
             new("captcha", "Captcha", "🛡", "Human check — local challenge, reCAPTCHA, hCaptcha or Turnstile"),
             new("signaturepad", "Signature Pad", "✍", "Draw, clear and export a signature"),
-            new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Touch / kiosk QWERTY that never steals the caret"),
-            new("quickentry", "Quick Entry", "✧", "Assistant-style prompt popup with a Siri-style screen glow"),
-            new("filedrop", "File Drop", "⇩", "Files dropped anywhere on the page, caught before the browser navigates")
+            new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Touch / kiosk QWERTY that never steals the caret")
         ]),
 
         new("Actions & Navigation", "#2DD4BF",
@@ -107,13 +105,21 @@ public static class Catalog
         [
             new("pills", "Pills", "●", "Status badges in a range of tones"),
             new("badge", "Badge", "●", "Corner badge that wraps any content"),
-            new("toast", "Toast", "▬", "Queued toasts with progress and spinners"),
-            new("dialogs", "Dialogs", "❕", "Owned alert, confirm, prompt and action sheet"),
             new("progressbar", "Progress Bar", "▣", "Determinate and indeterminate progress"),
-            new("progressline", "Progress Line", "━", "Page-edge loading line, docked and service-driven"),
             new("skeleton", "Skeleton", "☰", "Shimmering placeholders while content loads"),
             new("splashscreen", "Splash Screen", "☀", "Startup screen with status and progress"),
             new("motionicons", "Motion Icons", "✦", "42 animated icons on timer, hover, tap or command")
+        ]),
+
+        // Everything here is driven from code through an injected service rather than placed as markup
+        new("Services", "#FB923C",
+        [
+            new("dialogs", "Dialogs", "❕", "Owned alert, confirm, prompt and action sheet"),
+            new("toast", "Toast", "▬", "Queued toasts with progress and spinners"),
+            new("progressline", "Progress Line", "━", "Page-edge loading line, docked and service-driven"),
+            new("mediaservice", "Media Service", "⚙", "Camera capture, gallery picks and barcode/document scans from one service"),
+            new("filedrop", "File Drop", "⇩", "Files dropped anywhere on the page, caught before the browser navigates"),
+            new("quickentry", "Quick Entry", "✧", "Assistant-style prompt popup with a Siri-style screen glow")
         ]),
 
         new("Media", "#C084FC",

@@ -1,0 +1,142 @@
+@namespace Shiny.Blazor.Controls.Camera.Media
+@implements IDisposable
+
+@if (Media.ActiveSession is { } s)
+{
+    var opts = s.Options;
+    var reviewing = s.PendingPhoto is not null;
+
+    <div @key="s.Key"
+         @ref="root"
+         class="shiny-media-host @CssClass"
+         role="dialog"
+         aria-modal="true"
+         aria-label="@(opts.Title ?? DefaultLabel(s))"
+         tabindex="-1"
+         @onkeydown="e => OnKeyDown(s, e)">
+
+        <div class="shiny-media-stage">
+            <CameraView @ref="camera"
+                        Facing="s.Facing"
+                        CameraId="@s.CameraId"
+                        Analyzer="s.Analyzer"
+                        Filter="s.Filter"
+                        Effects="s.Effects"
+                        ShowOverlay="true"
+                        Style="width:100%;height:100%;"
+                        OnStarted="() => OnStarted(s)"
+                        OnError="message => Media.OnCameraError(s, message)" />
+
+            @if (s.PendingPhoto is { } pending)
+            {
+                <img class="shiny-media-review" src="@pending.Url" alt="Captured photo" />
+            }
+
+            @if (!string.IsNullOrEmpty(s.Error))
+            {
+                <div class="shiny-media-message" role="alert">@s.Error</div>
+            }
+            else if (!string.IsNullOrEmpty(s.Status))
+            {
+                <div class="shiny-media-status" role="status">@s.Status</div>
+            }
+        </div>
+
+        <div class="shiny-media-top">
+            <button type="button" class="shiny-media-icon" aria-label="@opts.CloseText" title="@opts.CloseText" @onclick="() => Media.Cancel(s)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+
+            <div class="shiny-media-heading">
+                @if (!string.IsNullOrEmpty(opts.Title))
+                {
+                    <div class="shiny-media-title">@opts.Title</div>
+                }
+                @if (!string.IsNullOrEmpty(opts.Instructions))
+                {
+                    <div class="shiny-media-instructions">@opts.Instructions</div>
+                }
+            </div>
+
+            @if (opts.AllowCameraSwitch && !reviewing && !s.IsRecording)
+            {
+                <button type="button" class="shiny-media-icon" aria-label="Switch camera" title="Switch camera" @onclick="() => Media.Flip(s)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a8 8 0 0 1 14.5-3M20 4v4h-4M20 15a8 8 0 0 1-14.5 3M4 20v-4h4" /></svg>
+                </button>
+            }
+            else
+            {
+                <span class="shiny-media-icon-spacer"></span>
+            }
+        </div>
+
+        <div class="shiny-media-bottom">
+            @if (s.EffectChoices.Count > 0 && !reviewing)
+            {
+                <div class="shiny-media-effects" role="listbox" aria-label="Looks">
+                    @foreach (var choice in s.EffectChoices)
+                    {
+                        var selected = ReferenceEquals(choice, s.SelectedEffect);
+                        <button type="button"
+                                role="option"
+                                aria-selected="@(selected ? "true" : "false")"
+                                class="shiny-media-chip @(selected ? "is-selected" : null)"
+                                @onclick="() => Media.SelectEffect(s, choice)">@choice.Name</button>
+                    }
+                </div>
+            }
+
+            @if (s.Kind == MediaSessionKind.Scan && opts is MediaScanOptions scan && scan.ShowResultCount && s.ResultCount > 0)
+            {
+                <div class="shiny-media-results" aria-live="polite">
+                    <strong>@s.ResultCount</strong> scanned
+                    @if (!string.IsNullOrEmpty(s.LastResult))
+                    {
+                        <span class="shiny-media-last">· @s.LastResult</span>
+                    }
+                </div>
+            }
+
+            @if (s.Kind == MediaSessionKind.Video && opts is VideoCaptureOptions video && video.ShowElapsed && s.RecordingStartedAt is { } started && s.IsRecording)
+            {
+                <div class="shiny-media-elapsed" aria-live="off"><span class="shiny-media-rec-dot"></span>@FormatElapsed(started)</div>
+            }
+
+            <div class="shiny-media-controls">
+                @switch (s.Kind)
+                {
+                    case MediaSessionKind.Photo when reviewing:
+                        <button type="button" class="shiny-media-round" aria-label="Retake" title="Retake" disabled="@s.IsBusy" @onclick="() => Media.RetakeAsync(s)">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                        </button>
+                        <button type="button" class="shiny-media-round is-accept" aria-label="Use photo" title="Use photo" disabled="@s.IsBusy" @onclick="() => Media.AcceptAsync(s)">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                        </button>
+                        break;
+
+                    case MediaSessionKind.Photo:
+                        <button type="button" class="shiny-media-shutter" aria-label="Take photo" title="Take photo"
+                                disabled="@(s.IsBusy || !IsReady(s))" @onclick="() => Media.ShutterAsync(s)">
+                            <span></span>
+                        </button>
+                        break;
+
+                    case MediaSessionKind.Video:
+                        <button type="button" class="shiny-media-shutter is-video @(s.IsRecording ? "is-recording" : null)"
+                                aria-label="@(s.IsRecording ? "Stop recording" : "Start recording")"
+                                aria-pressed="@(s.IsRecording ? "true" : "false")"
+                                disabled="@(s.IsBusy || !IsReady(s))" @onclick="() => Media.ToggleRecordingAsync(s)">
+                            <span></span>
+                        </button>
+                        break;
+
+                    case MediaSessionKind.Scan when opts is MediaScanOptions { ShowDoneButton: true }:
+                        <button type="button" class="shiny-media-round is-accept" aria-label="Done" title="Done" @onclick="() => Media.Done(s)">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                        </button>
+                        break;
+                }
+            </div>
+        </div>
+    </div>
+}

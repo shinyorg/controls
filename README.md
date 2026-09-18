@@ -338,7 +338,7 @@ colour, and why appearance properties default to `-1` rather than a real value.
 | **[FloatingToolbar](docs/controls/floating-toolbar.md)** | A toolbar that floats over a control like a tooltip, across or down |
 | **[ImageEditor](docs/controls/image-editor.md)** | Crop, rotate, draw, shapes, text annotations, undo/redo and export |
 | **[CameraView](docs/controls/camera.md)** | Preview, photo/video capture, an effects pipeline, and pluggable frame analyzers |
-| **[IMediaService](docs/controls/media-service.md)** | MAUI service over a modal CameraView — permissions, capture, gallery, and Scan… for barcodes/OCR/documents |
+| **[IMediaService](docs/controls/media-service.md)** | MAUI + Blazor service over a modal CameraView — permissions, capture, gallery, and Scan… for barcodes/OCR/documents |
 | **[MediaElement](docs/controls/mediaelement.md)** | Local and remote audio/video, background playback with lock-screen controls, and PiP |
 | **[ChatView](docs/controls/chatview.md)** | Provider-driven chat UI — bubbles, typing, paging, reactions, attachments, composer |
 | **[Scheduler](docs/controls/scheduler.md)** | Calendar grid, agenda timeline and event list over one provider interface |

@@ -4,6 +4,7 @@ using Sample.Blazor;
 using Sample.Blazor.DockPanels;
 using Shiny.Blazor.Controls;
 using Shiny.Blazor.Controls.Captchas;
+using Shiny.Blazor.Controls.Camera.Media;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -30,6 +31,10 @@ builder.Services.AddShinyControls(cfg => cfg
     .AddDockPanel<EditorPanel>("editor", "Program.cs", "📄")
     .AddDockPanel<ReadmePanel>("readme", "README.md", "📘")
 );
+
+// The camera package ships separately, so its service is not part of AddShinyControls. The modal is drawn by
+// the <MediaHost /> in MainLayout.
+builder.Services.AddShinyMediaService(o => o.MaxDimension = 2560);
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddSingleton<Sample.Blazor.Chat.InMemoryChatSessionProvider>();

@@ -1,12 +1,10 @@
-# IMediaService (MAUI only)
+# IMediaService (MAUI + Blazor)
 
-An injectable service for everything camera- and gallery-shaped, driving Shiny's **own modal `CameraView`
-page** rather than the system camera UI. Ships in `Shiny.Maui.Controls.Camera`; registered by
-`.UseShinyCamera()`.
-
-> **MAUI only.** There is no Blazor `IMediaService` — the modal is a MAUI page, and the browser's file input
-> already covers gallery picking. On Blazor use `<CameraView>` from `Shiny.Blazor.Controls.Camera` directly.
-> Never emit `AddShinyMediaService`, `IMediaService` or `MediaPhoto` in Blazor code.
+An injectable service for everything camera- and gallery-shaped, driving Shiny's **own modal `CameraView`**
+rather than the system camera UI. MAUI: ships in `Shiny.Maui.Controls.Camera`, registered by
+`.UseShinyCamera()`. Blazor: ships in `Shiny.Blazor.Controls.Camera`, registered by
+`AddShinyMediaService()` and drawn by one `<MediaHost />` in the layout. See **Blazor** at the end for the
+Blazor API. It is a deliberate subset of the MAUI one, so do not emit MAUI-only members in Blazor code.
 
 ## When to reach for it
 
@@ -181,9 +179,54 @@ Shared by every modal (`MediaCameraOptions`):
 to inherit the `UseShinyCamera(...)` defaults. Do not set them to a literal just to "be explicit"; that
 overrides the app's house style.
 
+## Blazor
+
+```csharp
+// Program.cs — the camera package is not part of AddShinyControls()
+builder.Services.AddShinyMediaService(o => { o.CompressionQuality = 85; o.MaxDimension = 2048; });
+```
+
+```razor
+@* MainLayout.razor, once, next to <DialogHost /> *@
+<Shiny.Blazor.Controls.Camera.Media.MediaHost />
+```
+
+Namespaces: `Shiny.Blazor.Controls.Camera.Media` (service, options, results, barcode + document-image
+verbs), `Shiny.Blazor.Controls.Camera.Ai` (AI document verbs), `Shiny.Controls.Camera` (`DetectedBarcode`,
+`BarcodeFormat`, `AiDocument`). In a page that also imports `Shiny.Controls.Barcodes`, qualify
+`Shiny.Controls.Camera.BarcodeFormat`, because both namespaces define it.
+
+| Member | Returns | Notes |
+|---|---|---|
+| `IsCameraSupportedAsync()` | `Task<bool>` | Replaces MAUI's `IsCameraSupported` (needs JS) |
+| `RequestCameraPermissionAsync(includeMicrophone)` | `MediaPermissionStatus` | Browser prompt |
+| `GetAvailableCamerasAsync()` | `IReadOnlyList<CameraDevice>` | Names only after permission |
+| `TakePhotoAsync(PhotoCaptureOptions?)` | `MediaPhoto?` | `Data`, `Width`, `Height`, `ContentType`, `ToDataUrl()` |
+| `RecordVideoAsync(VideoCaptureOptions?)` | `MediaVideo?` | `Url`, `Length`, `Duration`, `OpenReadAsync()`; **dispose it** |
+| `PickPhotoAsync` / `PickPhotosAsync(maxCount)` / `PickVideoAsync()` | as MAUI | Browser file chooser |
+| `ScanAsync<T>(MediaScanRequest<T>)` | `IAsyncEnumerable<T>` | Request has `Next = (ctx, ct) => …`, not `Subscribe` |
+| `ScanBarcodeAsync` / `ScanBarcodesAsync(filterDuplicates, formats, options)` | `DetectedBarcode` | Chromium only (`BarcodeDetector`) |
+| `IsBarcodeScanningSupportedAsync()` | `Task<bool>` | Hide barcode buttons where false |
+| `ScanDocumentImageAsync` / `ScanDocumentImagesAsync` | `CameraDocumentImage` (`Jpeg`, `Bounds`) | Cropped page; the stream waits for each page to leave the frame |
+| `ScanDocumentAsync(IChatClient)` | `AiDocument?` | `.Camera.Ai`; vision model required |
+| `ScanDocumentAsync<T>(AiDocumentScanner<T>)` / `ScanDocumentsAsync<T>` | `T?` / stream | Typed extraction; pass `SerializerOptions` from a JsonSerializerContext for trimmed WASM |
+
+Blazor options drop what browsers cannot do: no `AllowTorch`/`IsTorchOn`, `Zoom`/`MaxZoom`/`AllowZoom`,
+`FlashMode`, `Quality`, `Bitrate`/`FrameRate`/`FilePath`/`Overlay`, `ConfigureCamera`/`ConfigurePage`, and no
+`RequestGalleryPermissionAsync`/`OpenSettingsAsync`. Options they keep: `Title`, `Instructions`, `Facing`,
+`CameraId`, `AllowCameraSwitch`, `Filter`, `Effects`, `ShowEffectPicker`, `EffectChoices`,
+`PermissionDeniedText`, `CloseText`, and the photo, video, scan and pick options with MAUI's names.
+
+For credit cards, licenses, receipts and other documents on Blazor, generate a record plus
+`media.ScanDocumentAsync(new AiDocumentScanner<MyRecord>(chat))`. There is no `ScanCreditCardAsync`,
+`ScanTextAsync` or `DetectFacesAsync` on Blazor.
+
 ## Rules for generated code
 
 - Inject `IMediaService`; never `new MediaService(...)`.
+- Blazor: always pair `AddShinyMediaService()` with exactly one `<MediaHost />` in the layout — a call
+  without a host throws. Only one modal at a time; await (or cancel) one before starting another.
+- Blazor: dispose every `MediaVideo` you are done with, because it holds a browser blob.
 - Never construct `MediaCapturePage` — it is internal.
 - A **scan modal has no capture button**; do not offer or document one.
 - The modal's buttons are drawn icons, so there are no `CancelText` / `DoneText` / `ConfirmText`

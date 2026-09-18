@@ -2,9 +2,13 @@
 
 [← All Shiny Controls](../../README.md)
 
-Ships in `Shiny.Maui.Controls.Camera` (**MAUI only**). Registered by `UseShinyCamera()`. The `Scan…`
-extensions come from the analyzer add-ons (`.Camera.Barcode`, `.Camera.Ocr`, `.Camera.Documents`,
-`.Camera.Face`) — install the ones you need and the matching verbs appear on the service.
+**MAUI:** ships in `Shiny.Maui.Controls.Camera`, registered by `UseShinyCamera()`. The `Scan…` extensions
+come from the analyzer add-ons (`.Camera.Barcode`, `.Camera.Ocr`, `.Camera.Documents`, `.Camera.Face`) —
+install the ones you need and the matching verbs appear on the service.
+
+**Blazor:** ships in `Shiny.Blazor.Controls.Camera`, registered by `AddShinyMediaService()` and drawn by a
+`<MediaHost />` in your layout. Barcode and document-image scans come with the package; AI document scans
+come from `Shiny.Blazor.Controls.Camera.Ai`. See [Blazor](#blazor) for what differs.
 
 <!-- TODO: capture screenshots for media-service -->
 
@@ -232,10 +236,70 @@ is actively unhelpful to a detector.
 `ConfigurePage` is handed the page itself before presentation. Reach for them when you need something these
 option classes do not surface.
 
+## Blazor
+
+The same service, the same verbs and the same option names, over `getUserMedia` and the browser's file
+chooser. Register it and render the host once:
+
+```csharp
+// Program.cs
+builder.Services.AddShinyMediaService(o =>
+{
+    o.CompressionQuality = 85;
+    o.MaxDimension = 2048;
+});
+```
+
+```razor
+@* MainLayout.razor — next to <DialogHost /> *@
+<Shiny.Blazor.Controls.Camera.Media.MediaHost />
+```
+
+```razor
+@inject IMediaService Media
+
+var photo = await Media.TakePhotoAsync(new PhotoCaptureOptions { Title = "Receipt" });
+if (photo is not null)
+    imageUrl = photo.ToDataUrl();
+
+var code = await Media.ScanBarcodeAsync();                 // DetectedBarcode, same type as MAUI
+
+await foreach (var page in Media.ScanDocumentImagesAsync()) // cropped JPEG per page held up
+    pages.Add(page.Jpeg);
+
+var receipt = await Media.ScanDocumentAsync(chatClient);  // .Camera.Ai — the model reads the page
+```
+
+| Package | Verbs |
+|---|---|
+| `Shiny.Blazor.Controls.Camera` | `ScanBarcodeAsync`, `ScanBarcodesAsync`, `ScanDocumentImageAsync`, `ScanDocumentImagesAsync`, `IsBarcodeScanningSupportedAsync` |
+| `Shiny.Blazor.Controls.Camera.Ai` | `ScanDocumentAsync(IChatClient)` → `AiDocument`, `ScanDocumentAsync<T>(AiDocumentScanner<T>)`, `ScanDocumentsAsync<T>(…)` |
+
+What differs from MAUI, and why:
+
+- **No OCR, face, or per-document verbs.** Browsers have no on-device text or face engine. Credit cards,
+  licenses, receipts and the rest are covered by the AI verbs instead: define a record for the document and
+  hand an `AiDocumentScanner<T>` to `ScanDocumentAsync`.
+- **Barcodes need `BarcodeDetector`**, which ships in Chromium (Chrome, Edge, Android) only. Elsewhere the
+  modal opens and says so; call `IsBarcodeScanningSupportedAsync()` first to hide the button instead.
+- **Document pages stream one per page.** `ScanDocumentImagesAsync` waits for the last page to leave the
+  frame before it captures the next, so holding one page up does not capture it over and over.
+- **No torch, zoom or flash options.** `getUserMedia` has no portable control for them.
+- **`MediaVideo` keeps its bytes in the browser.** It exposes `Url` (plays with no copy), `Length`,
+  `Duration` and `OpenReadAsync()` (streamed in chunks), and must be disposed to free the blob. Photos are
+  read into `MediaPhoto.Data` the same way, as a stream and never as one interop message, so large captures
+  are safe on Blazor Server.
+- **Permissions:** `IsCameraSupportedAsync()` replaces `IsCameraSupported`. There is no gallery permission
+  and no `OpenSettingsAsync`, because browsers have neither. A capture or scan returns `null` without
+  opening when the site is already blocked. Otherwise the modal opens and the camera's own prompt asks.
+- **Scan requests are pulled, not pushed.** A custom `MediaScanRequest<T>` supplies
+  `Next = (ctx, ct) => …` against `ctx.Camera` (browser analyzers are armed per request), and can show a
+  status line with `ctx.SetStatus("Reading…")` while slow work runs.
+- One modal at a time: starting a second while one is open throws `InvalidOperationException`, as does any
+  call without a rendered `<MediaHost />`.
+
 ## Platform notes
 
-- **MAUI only.** Blazor has no equivalent: the modal is a MAUI page, and the browser's file input already
-  covers gallery picking. Use `Shiny.Blazor.Controls.Camera` directly there.
 - Frames, analyzers and capture come from `CameraView`, so every platform note in
   [CameraView](camera.md) applies — including that barcode and OCR are a no-op on Windows and the bare
   `net10.0` head, where there is no native scanner.

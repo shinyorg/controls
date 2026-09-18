@@ -16,7 +16,7 @@ public partial class CameraView : IAsyncDisposable
     ElementReference overlayEl;
     bool started;
     bool disposed;
-    TaskCompletionSource<CameraBarcode>? pendingScan;
+    TaskCompletionSource<IReadOnlyList<CameraBarcode>>? pendingScan;
     TaskCompletionSource<CameraDocumentImage>? pendingDocument;
 
     /// <summary>Which camera to use. <see cref="CameraFacing.Front"/> maps to the browser "user" facing mode.</summary>
@@ -218,6 +218,12 @@ public partial class CameraView : IAsyncDisposable
             this.appliedOverlay = this.ShowOverlay;
             this.appliedFacing = this.Facing;
             this.appliedCameraId = this.CameraId;
+
+            // A restart (lens flip, analyzer swap) builds fresh JS state with the detector disarmed, so a
+            // request made before it would otherwise wait forever for a delivery that can no longer come.
+            if (this.pendingScan != null || this.pendingDocument != null)
+                await this.module.InvokeVoidAsync("arm", this.videoEl);
+
             await this.OnStarted.InvokeAsync();
         }
         catch (Exception ex)
@@ -243,13 +249,21 @@ public partial class CameraView : IAsyncDisposable
     /// (e.g. in a loop to collect several codes). Pass a <paramref name="ct"/> to cancel an outstanding request.
     /// </summary>
     public async Task<CameraBarcode> RequestBarcodeAsync(CancellationToken ct = default)
+        => (await this.RequestBarcodesAsync(ct))[0];
+
+
+    /// <summary>
+    /// <see cref="RequestBarcodeAsync"/>, but completing with <b>every</b> code decoded in that frame — a
+    /// shipping label or a shelf of products puts several in view at once. Never completes with an empty list.
+    /// </summary>
+    public async Task<IReadOnlyList<CameraBarcode>> RequestBarcodesAsync(CancellationToken ct = default)
     {
         if (this.module == null)
             throw new InvalidOperationException("CameraView is not started");
 
         // only one outstanding request at a time — supersede any prior wait
         this.pendingScan?.TrySetCanceled();
-        var tcs = new TaskCompletionSource<CameraBarcode>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs = new TaskCompletionSource<IReadOnlyList<CameraBarcode>>(TaskCreationOptions.RunContinuationsAsynchronously);
         this.pendingScan = tcs;
 
         await using var reg = ct.Register(() =>
@@ -270,7 +284,17 @@ public partial class CameraView : IAsyncDisposable
     /// in view, so the (paid) AI call you make with the result isn't run on every frame. Call it again to keep
     /// scanning. Requires the <see cref="Analyzer"/> to be a <see cref="DocumentAnalyzer"/>.
     /// </summary>
-    public async Task<CameraDocumentImage> RequestDocumentImageAsync(CancellationToken ct = default)
+    public Task<CameraDocumentImage> RequestDocumentImageAsync(CancellationToken ct = default)
+        => this.RequestDocumentImageAsync(false, ct);
+
+
+    /// <summary>
+    /// <see cref="RequestDocumentImageAsync(CancellationToken)"/>, optionally insisting on a <i>different</i>
+    /// page: with <paramref name="requireNewDocument"/> the page delivered last time has to leave the frame
+    /// first, so a loop collecting a stack of pages does not capture the same one over and over while it is
+    /// still being held up.
+    /// </summary>
+    public async Task<CameraDocumentImage> RequestDocumentImageAsync(bool requireNewDocument, CancellationToken ct = default)
     {
         if (this.module == null)
             throw new InvalidOperationException("CameraView is not started");
@@ -285,7 +309,7 @@ public partial class CameraView : IAsyncDisposable
                 _ = this.module.InvokeVoidAsync("disarm", this.videoEl).AsTask();
         });
 
-        await this.module.InvokeVoidAsync("arm", this.videoEl);
+        await this.module.InvokeVoidAsync("arm", this.videoEl, requireNewDocument);
         return await tcs.Task;
     }
 
@@ -299,6 +323,30 @@ public partial class CameraView : IAsyncDisposable
         // the SVG defs are already in the document from ApplyFilterAsync, so the CSS alone is enough here
         var css = BlazorCameraFilters.Resolve(this.EffectChain, this.filterIdPrefix).Css;
         return await this.module.InvokeAsync<byte[]>("capture", this.videoEl, css);
+    }
+
+
+    /// <summary>
+    /// IMediaService capture: a still downscaled to <paramref name="maxDimension"/> (0 = full size) and encoded as
+    /// <paramref name="contentType"/>, kept browser-side so the bytes can be streamed rather than sent as one message.
+    /// </summary>
+    internal async Task<Media.MediaBlobInfo> CaptureStoredAsync(int maxDimension, string contentType, int quality)
+    {
+        if (this.module == null)
+            throw new InvalidOperationException("CameraView is not started");
+
+        var css = BlazorCameraFilters.Resolve(this.EffectChain, this.filterIdPrefix).Css;
+        return await this.module.InvokeAsync<Media.MediaBlobInfo>("captureStored", this.videoEl, css, maxDimension, contentType, quality);
+    }
+
+
+    /// <summary>IMediaService recording: stop and keep the video browser-side, returning its descriptor.</summary>
+    internal async Task<Media.MediaBlobInfo> StopRecordingStoredAsync()
+    {
+        if (this.module == null)
+            throw new InvalidOperationException("CameraView is not started");
+
+        return await this.module.InvokeAsync<Media.MediaBlobInfo>("stopRecordingStored", this.videoEl);
     }
 
 
@@ -343,14 +391,14 @@ public partial class CameraView : IAsyncDisposable
 
         var pending = this.pendingScan;
         this.pendingScan = null;
-        pending?.TrySetResult(barcodes[0]);
+        pending?.TrySetResult(barcodes);
         await this.BarcodesDetected.InvokeAsync(barcodes);
     }
 
 
     /// <summary>
     /// Invoked from JS (only while armed) with the cropped JPEG of a steadily-present document and its bounds.
-    /// Completes any outstanding <see cref="RequestDocumentImageAsync"/>. <paramref name="box"/> is a flat
+    /// Completes any outstanding <see cref="RequestDocumentImageAsync(CancellationToken)"/>. <paramref name="box"/> is a flat
     /// [x, y, w, h] in normalized upright video space; <paramref name="jpeg"/> is the cropped image bytes.
     /// </summary>
     [JSInvokable]

@@ -1,0 +1,334 @@
+@page "/mediaservice"
+@using Microsoft.Maui.Graphics
+@using Shiny.Blazor.Controls.Camera
+@using Shiny.Blazor.Controls.Camera.Ai
+@using Shiny.Blazor.Controls.Camera.Media
+@using Shiny.Controls.Camera
+@inject IMediaService Media
+@implements IAsyncDisposable
+
+<PageTitle>Media Service</PageTitle>
+
+<h1>Media Service</h1>
+
+<p style="max-width:720px;">
+    <code>IMediaService</code> opens Shiny's own modal <code>CameraView</code> — permissions, photo and video
+    capture, gallery picking, and the <code>Scan…</code> extensions — without a camera page of your own. The
+    modal is drawn by the one <code>&lt;MediaHost /&gt;</code> in this app's layout. The same calls exist on
+    MAUI.
+</p>
+
+<section class="demo-section">
+    <h2>Permissions</h2>
+    <div class="media-buttons">
+        <button @onclick="RequestCamera">Camera</button>
+        <button @onclick="RequestCameraMic">Camera + Mic</button>
+        <button @onclick="ListCameras">List Cameras</button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Capture (modal CameraView)</h2>
+    <div class="media-buttons">
+        <button @onclick="TakePhoto">Take Photo</button>
+        <button @onclick="TakePhotoWithEffects">Photo + Effects</button>
+        <button @onclick="TakeCompressedPhoto">Photo 60% @@ 1024</button>
+        <button @onclick="TakePhotoNoConfirm">Photo (no review)</button>
+        <button @onclick="RecordVideo">Record Video</button>
+        <button @onclick="RecordShortVideo">Record 10s Max</button>
+        <button @onclick="RecordSilentVideo">Record (no audio)</button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Gallery</h2>
+    <div class="media-buttons">
+        <button @onclick="PickPhoto">Pick Photo</button>
+        <button @onclick="PickPhotos">Pick 5 Photos</button>
+        <button @onclick="PickVideo">Pick Video</button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Scanning (extension methods)</h2>
+    @if (barcodeSupported == false)
+    {
+        <p class="media-note">
+            This browser has no native <code>BarcodeDetector</code> (it ships in Chrome, Edge and Android), so the
+            barcode scans open and say so. Document scans work everywhere.
+        </p>
+    }
+    <div class="media-buttons">
+        <button @onclick="ScanBarcode">Barcode (one)</button>
+        <button @onclick="ScanBarcodes">Barcodes (stream)</button>
+        <button @onclick="ScanQrBand">QR only, banded</button>
+        <button @onclick="ScanDocumentImage">Document Image</button>
+        <button @onclick="ScanDocumentPages">Document Pages (stream)</button>
+        <button @onclick="ScanAiDocument">AI Document</button>
+    </div>
+    <p class="media-note">
+        AI Document uses an offline stand-in <code>IChatClient</code> that returns a canned receipt — register a
+        real vision model and the call is identical.
+    </p>
+</section>
+
+@if (previewUrl is not null)
+{
+    <section class="demo-section">
+        <h2>Result</h2>
+        @if (previewIsVideo)
+        {
+            <video class="media-preview" src="@previewUrl" controls playsinline></video>
+        }
+        else
+        {
+            <img class="media-preview" src="@previewUrl" alt="Last photo" />
+        }
+    </section>
+}
+
+<section class="demo-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h2>Log</h2>
+        <button @onclick="() => log.Clear()">Clear</button>
+    </div>
+    <ul class="media-log">
+        @foreach (var line in log)
+        {
+            <li>@line</li>
+        }
+    </ul>
+</section>
+
+<style>
+    .media-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+    .media-note { color: var(--shiny-color-on-surface-variant, #6B7280); font-size: 13px; max-width: 720px; }
+    .media-preview { display: block; max-width: 100%; max-height: 320px; border-radius: 10px; background: #000; }
+    .media-log { list-style: none; padding: 0; margin: 0; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .media-log li { padding: 4px 0; border-bottom: 1px solid var(--shiny-color-outline-variant, #E5E7EB); overflow-wrap: anywhere; }
+</style>
+
+@code {
+    readonly List<string> log = [];
+    string? previewUrl;
+    bool previewIsVideo;
+    MediaVideo? lastVideo;
+    bool? barcodeSupported;
+
+    protected override async Task OnInitializedAsync()
+        => barcodeSupported = await Media.IsBarcodeScanningSupportedAsync();
+
+    void Log(string line) => log.Insert(0, $"{DateTime.Now:HH:mm:ss}  {line}");
+
+    // --- permissions ---------------------------------------------------------------------------------
+
+    async Task RequestCamera() => Log($"Camera: {await Media.RequestCameraPermissionAsync()}");
+
+    async Task RequestCameraMic() => Log($"Camera + mic: {await Media.RequestCameraPermissionAsync(includeMicrophone: true)}");
+
+    async Task ListCameras()
+    {
+        var cameras = await Media.GetAvailableCamerasAsync();
+        Log(cameras.Count == 0
+            ? "No cameras (or names hidden until permission is granted)"
+            : $"{cameras.Count} camera(s): {string.Join(", ", cameras.Select(c => c.Name))}");
+    }
+
+    // --- capture -------------------------------------------------------------------------------------
+
+    Task TakePhoto() => Photo(Media.TakePhotoAsync(new PhotoCaptureOptions { Title = "Take a photo" }));
+
+    Task TakePhotoWithEffects() => Photo(Media.TakePhotoAsync(new PhotoCaptureOptions
+    {
+        Title = "Pick a look",
+        ShowEffectPicker = true
+    }));
+
+    Task TakeCompressedPhoto() => Photo(Media.TakePhotoAsync(new PhotoCaptureOptions
+    {
+        Title = "60% JPEG, 1024px",
+        CompressionQuality = 60,
+        MaxDimension = 1024
+    }));
+
+    Task TakePhotoNoConfirm() => Photo(Media.TakePhotoAsync(new PhotoCaptureOptions { ShowConfirmation = false }));
+
+    Task RecordVideo() => Video(Media.RecordVideoAsync(new VideoCaptureOptions { Title = "Record" }));
+
+    Task RecordShortVideo() => Video(Media.RecordVideoAsync(new VideoCaptureOptions
+    {
+        Title = "Up to 10 seconds",
+        MaxDuration = TimeSpan.FromSeconds(10)
+    }));
+
+    Task RecordSilentVideo() => Video(Media.RecordVideoAsync(new VideoCaptureOptions
+    {
+        Title = "Video only",
+        IncludeAudio = false
+    }));
+
+    // --- gallery -------------------------------------------------------------------------------------
+
+    Task PickPhoto() => Photo(Media.PickPhotoAsync(new MediaPickOptions { MaxDimension = 2048 }));
+
+    async Task PickPhotos()
+    {
+        var photos = await Media.PickPhotosAsync(5, new MediaPickOptions { MaxDimension = 1600 });
+        Log(photos.Count == 0
+            ? "Pick cancelled"
+            : $"Picked {photos.Count}: {string.Join(", ", photos.Select(p => $"{p.Width}×{p.Height} {p.Data.Length / 1024}KB"))}");
+
+        if (photos.Count > 0)
+            await ShowPhotoAsync(photos[^1]);
+    }
+
+    Task PickVideo() => Video(Media.PickVideoAsync());
+
+    // --- scanning ------------------------------------------------------------------------------------
+
+    async Task ScanBarcode()
+    {
+        var code = await Media.ScanBarcodeAsync(options: new MediaScanOptions
+        {
+            Title = "Scan a barcode",
+            Instructions = "Hold the code steady in view",
+            ShowDoneButton = false
+        });
+        Log(code is null ? "Barcode scan cancelled" : $"{code.Format}: {code.Value}");
+    }
+
+    async Task ScanBarcodes()
+    {
+        var count = 0;
+        await foreach (var code in Media.ScanBarcodesAsync(options: new MediaScanOptions
+        {
+            Title = "Scan barcodes",
+            Instructions = "Tap ✓ when you're done"
+        }))
+        {
+            count++;
+            Log($"#{count} {code.Format}: {code.Value}");
+            StateHasChanged();
+        }
+        Log($"Barcode session ended — {count} code(s)");
+    }
+
+    async Task ScanQrBand()
+    {
+        var code = await Media.ScanBarcodeAsync(
+            formats: [Shiny.Controls.Camera.BarcodeFormat.QrCode],
+            options: new MediaScanOptions
+            {
+                Title = "QR codes only",
+                Instructions = "Line the code up inside the box",
+                ScanWindow = new RectF(0.15f, 0.3f, 0.7f, 0.4f),
+                Timeout = TimeSpan.FromSeconds(30),
+                ShowDoneButton = false
+            });
+        Log(code is null ? "QR scan cancelled or timed out" : $"QR: {code.Value}");
+    }
+
+    async Task ScanDocumentImage()
+    {
+        var page = await Media.ScanDocumentImageAsync(new MediaScanOptions
+        {
+            Title = "Scan a document",
+            Instructions = "Place the page on a dark surface",
+            ShowDoneButton = false
+        });
+
+        if (page is null)
+        {
+            Log("Document scan cancelled");
+            return;
+        }
+
+        Log($"Document captured — {page.Jpeg.Length / 1024}KB");
+        await ShowPhotoAsync(new MediaPhoto(page.Jpeg, 0, 0));
+    }
+
+    async Task ScanDocumentPages()
+    {
+        var pages = 0;
+        await foreach (var page in Media.ScanDocumentImagesAsync(new MediaScanOptions
+        {
+            Title = "Scan pages",
+            Instructions = "Hold up each page in turn, then tap ✓"
+        }))
+        {
+            pages++;
+            Log($"Page {pages} — {page.Jpeg.Length / 1024}KB");
+            await ShowPhotoAsync(new MediaPhoto(page.Jpeg, 0, 0));
+        }
+        Log($"Page session ended — {pages} page(s)");
+    }
+
+    async Task ScanAiDocument()
+    {
+        var doc = await Media.ScanDocumentAsync(new SampleVisionChatClient(), new MediaScanOptions
+        {
+            Title = "AI document",
+            Instructions = "Hold a receipt or card steady",
+            ShowDoneButton = false
+        });
+
+        if (doc is null)
+        {
+            Log("AI scan cancelled");
+            return;
+        }
+
+        Log($"{doc.DocumentType}: {doc.Summary}");
+        foreach (var field in doc.Fields)
+            Log($"    {field.Label} = {field.Value}");
+    }
+
+    // --- results -------------------------------------------------------------------------------------
+
+    async Task Photo(Task<MediaPhoto?> operation)
+    {
+        var photo = await operation;
+        if (photo is null)
+        {
+            Log("Cancelled");
+            return;
+        }
+
+        Log($"Photo {photo.Width}×{photo.Height}, {photo.ContentType}, {photo.Data.Length / 1024}KB");
+        await ShowPhotoAsync(photo);
+    }
+
+    async Task Video(Task<MediaVideo?> operation)
+    {
+        var video = await operation;
+        if (video is null)
+        {
+            Log("Cancelled");
+            return;
+        }
+
+        Log($"Video {video.ContentType}, {video.Length / 1024}KB, {video.Duration?.ToString(@"m\:ss") ?? "unknown length"}");
+        await ReleaseVideoAsync();
+        lastVideo = video;
+        previewUrl = video.Url;
+        previewIsVideo = true;
+    }
+
+    async Task ShowPhotoAsync(MediaPhoto photo)
+    {
+        await ReleaseVideoAsync();
+        previewUrl = photo.ToDataUrl();
+        previewIsVideo = false;
+    }
+
+    async Task ReleaseVideoAsync()
+    {
+        if (lastVideo is not null)
+        {
+            await lastVideo.DisposeAsync();
+            lastVideo = null;
+        }
+    }
+
+    public ValueTask DisposeAsync() => lastVideo?.DisposeAsync() ?? ValueTask.CompletedTask;
+}

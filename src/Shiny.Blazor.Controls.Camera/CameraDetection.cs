@@ -54,4 +54,29 @@ public class CameraBarcode
     public float Y { get; set; }
     public float W { get; set; }
     public float H { get; set; }
+
+    /// <summary>
+    /// Project to the shared <see cref="DetectedBarcode"/> the MAUI scanner returns, mapping the browser's format
+    /// names (<c>qr_code</c>, <c>ean_13</c>, …) onto <see cref="BarcodeFormat"/>.
+    /// </summary>
+    public DetectedBarcode ToDetectedBarcode()
+        => new(this.Value, ParseFormat(this.Format), new RectF(this.X, this.Y, this.W, this.H));
+
+    internal static BarcodeFormat ParseFormat(string? format) => format switch
+    {
+        "qr_code" => BarcodeFormat.QrCode,
+        "aztec" => BarcodeFormat.Aztec,
+        "data_matrix" => BarcodeFormat.DataMatrix,
+        "pdf417" => BarcodeFormat.Pdf417,
+        "code_128" => BarcodeFormat.Code128,
+        "code_39" => BarcodeFormat.Code39,
+        "code_93" => BarcodeFormat.Code93,
+        "codabar" => BarcodeFormat.Codabar,
+        "ean_8" => BarcodeFormat.Ean8,
+        "ean_13" => BarcodeFormat.Ean13,
+        "upc_a" => BarcodeFormat.UpcA,
+        "upc_e" => BarcodeFormat.UpcE,
+        "itf" => BarcodeFormat.Itf,
+        _ => BarcodeFormat.Unknown
+    };
 }

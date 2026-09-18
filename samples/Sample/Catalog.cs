@@ -100,7 +100,6 @@ public static class Catalog
 
         new("Actions & Navigation", "#2DD4BF",
         [
-            new("quickentry", "Quick Entry", "⌨", "Assistant-style prompt popup with a screen-edge glow"),
             new("walkthrough", "Walkthrough", "◎", "Guided tour that spotlights one control at a time"),
             new("tooltip", "Tooltip", "▣", "Themed bubble that points at its target and auto-flips"),
             new("buttons", "ShinyButton", "⬭", "States, icons, loading and long-press"),
@@ -113,17 +112,24 @@ public static class Catalog
 
         new("Status & Feedback", "#F472B6",
         [
-            new("progressline", "Progress Line", "▬", "Page-edge loading line, docked clear of the bars"),
             new("pills", "Pills", "●", "Status badges in a range of tones"),
             new("badge", "Badge", "◍", "Corner badge that wraps any content"),
-            new("toast", "Toast", "▬", "Queued toasts with progress and spinners"),
-            new("dialogs", "Dialogs", "❕", "Owned alert, confirm, prompt and action sheet"),
-            new("feedback", "Feedback", "◈", "Haptics and system sounds"),
             new("progressbar", "Progress Bar", "▤", "Determinate and indeterminate progress"),
             new("skeleton", "Skeleton", "☰", "Shimmering placeholders while content loads")
         ]),
 
-        new("Animation", "#FB923C",
+        // Everything here is driven from code through an injected service rather than placed as markup
+        new("Services", "#FB923C",
+        [
+            new("dialogs", "Dialogs", "❕", "Owned alert, confirm, prompt and action sheet"),
+            new("toast", "Toast", "▬", "Queued toasts with progress and spinners"),
+            new("progressline", "Progress Line", "▬", "Page-edge loading line, docked clear of the bars"),
+            new("feedback", "Feedback", "◈", "Haptics and system sounds"),
+            new("mediaservice", "Media Service", "⚙", "Camera capture, gallery picks and barcode/OCR/document scans from one service"),
+            new("quickentry", "Quick Entry", "⌨", "Assistant-style prompt popup with a screen-edge glow")
+        ]),
+
+        new("Animation", "#F59E0B",
         [
             new("keyframe", "Keyframe", "◐", "Seekable CSS-style keyframe animation in XAML"),
             new("motionicons", "Motion Icons", "✦", "42 animated icons on timer, hover, tap or command")

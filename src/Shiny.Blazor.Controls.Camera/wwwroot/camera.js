@@ -1,6 +1,8 @@
 // Shiny Blazor CameraView interop.
 // All frame analysis runs here in JS; only flat overlay-box + barcode DTOs cross back to .NET.
 
+import { keep, encode } from './media-store.js';
+
 const states = new WeakMap();
 
 // A start() still waiting on getUserMedia (the permission prompt can sit there indefinitely) has no state
@@ -22,8 +24,12 @@ export async function start(video, overlay, dotnetRef, facingMode, analyzerKind,
     if (!navigator.mediaDevices?.getUserMedia)
         throw new Error('getUserMedia is unavailable (requires a secure context / HTTPS).');
 
-    // an exact deviceId pins a specific camera; otherwise fall back to the front/back facing hint
-    const video_constraints = deviceId ? { deviceId: { exact: deviceId } } : { facingMode };
+    // an exact deviceId pins a specific camera; otherwise fall back to the front/back facing hint. The ideal
+    // size is a preference, not a requirement — without one Chrome opens the camera at 640×480, which makes
+    // every capture a VGA photo however good the lens is.
+    const video_constraints = deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        : { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } };
     const pending = { cancelled: false };
     pendingStarts.set(video, pending);
 
@@ -69,7 +75,9 @@ export async function start(video, overlay, dotnetRef, facingMode, analyzerKind,
         detector: null,
         busy: false,
         armed: false,  // gated: a result is only delivered to .NET while armed (see arm())
-        docStable: 0   // consecutive frames a document has been present (document mode)
+        docStable: 0,  // consecutive frames a document has been present (document mode)
+        docCleared: true,   // no document has been in view since the last delivery
+        requireNew: false   // this arm wants a different page: wait for docCleared before delivering
     };
     states.set(video, state);
 
@@ -123,6 +131,7 @@ export async function start(video, overlay, dotnetRef, facingMode, analyzerKind,
                     if (state.scanWindow && !boxCenterInWindow(box, state.scanWindow)) {
                         // outside the aim window — treat as absent
                         state.docStable = 0;
+                        state.docCleared = true;
                     }
                     else {
                         state.docStable++;
@@ -133,6 +142,7 @@ export async function start(video, overlay, dotnetRef, facingMode, analyzerKind,
                 }
                 else {
                     state.docStable = 0;
+                    state.docCleared = true;   // the page left the frame; the next one is a new document
                 }
 
                 const boxes = drawBox ? [drawBox] : [];
@@ -140,9 +150,10 @@ export async function start(video, overlay, dotnetRef, facingMode, analyzerKind,
                 await state.dotnet.invokeMethodAsync('OnOverlays', boxes);
 
                 // ship the image to .NET only when armed and the document has been steadily in view
-                if (state.armed && box && state.docStable >= DOC_STABILITY) {
+                if (state.armed && box && state.docStable >= DOC_STABILITY && (!state.requireNew || state.docCleared)) {
                     state.armed = false;
                     state.docStable = 0;
+                    state.docCleared = false;
                     const jpeg = captureRegion(video, state.filterCss, box, DOC_PADDING);
                     await state.dotnet.invokeMethodAsync('OnDocumentImage', [box.x, box.y, box.w, box.h], jpeg);
                 }
@@ -187,9 +198,11 @@ export function stop(video) {
 
 // Arm the detector to deliver the next frame's decoded barcodes to .NET (then it self-disarms). Boxes keep
 // drawing every frame regardless; this only gates the OnBarcodes callback.
-export function arm(video) {
+export function arm(video, requireNew) {
     const state = states.get(video);
-    if (state) state.armed = true;
+    if (!state) return;
+    state.armed = true;
+    state.requireNew = !!requireNew;
 }
 
 
@@ -272,30 +285,59 @@ export async function startRecording(video, includeAudio) {
         catch { extraAudio = null; /* fall back to video-only */ }
     }
 
+    // The microphone prompt can sit open indefinitely. If the camera was stopped meanwhile (the view closed),
+    // starting now would record a dead stream and, worse, leave the freshly granted microphone on.
+    if (states.get(video) !== state || !state.running) {
+        extraAudio?.getTracks().forEach(t => t.stop());
+        throw new Error('Camera stopped before recording could start');
+    }
+
     const chunks = [];
     const rec = new MediaRecorder(stream);
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     state.recorder = rec;
     state.recChunks = chunks;
     state.recExtraAudio = extraAudio;
+    state.recStartedAt = performance.now();
     rec.start();
 }
 
 
-export function stopRecording(video) {
+// Stop the recorder and resolve with the finished Blob plus how long it ran.
+function finishRecording(video) {
     return new Promise((resolve, reject) => {
         const state = states.get(video);
-        if (!state?.recorder) { reject('Not recording'); return; }
+        if (!state?.recorder) { reject(new Error('Not recording')); return; }
         const rec = state.recorder;
-        rec.onstop = async () => {
+        rec.onstop = () => {
             const blob = new Blob(state.recChunks, { type: rec.mimeType || 'video/webm' });
-            const buf = new Uint8Array(await blob.arrayBuffer());
+            const durationMs = state.recStartedAt ? performance.now() - state.recStartedAt : -1;
             state.recExtraAudio?.getTracks().forEach(t => t.stop());
-            state.recorder = null; state.recChunks = null; state.recExtraAudio = null;
-            resolve(buf);
+            state.recorder = null; state.recChunks = null; state.recExtraAudio = null; state.recStartedAt = null;
+            resolve({ blob, durationMs });
         };
         rec.stop();
     });
+}
+
+
+export async function stopRecording(video) {
+    const { blob } = await finishRecording(video);
+    return new Uint8Array(await blob.arrayBuffer());
+}
+
+
+// IMediaService: stop and keep the recording in media-store.js, handing back only its descriptor.
+export async function stopRecordingStored(video) {
+    const { blob, durationMs } = await finishRecording(video);
+    return keep(blob, video.videoWidth, video.videoHeight, durationMs, null);
+}
+
+
+// IMediaService: capture a still downscaled to maxDim and encoded as mime/quality, kept in media-store.js.
+export async function captureStored(video, filterCss, maxDim, mime, quality) {
+    const { blob, width, height } = await encode(video, video.videoWidth, video.videoHeight, maxDim, mime, quality, filterCss);
+    return keep(blob, width, height, -1, null);
 }
 
 
