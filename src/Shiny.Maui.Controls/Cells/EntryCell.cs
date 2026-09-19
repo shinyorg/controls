@@ -342,6 +342,18 @@ public class EntryCell : CellBase, IKeyboardAccessoryHost
                 ValueText = e.NewTextValue;
             }
         };
+        entry.Focused += (s, e) =>
+        {
+            // The entry fills the row with its text right-aligned, so a tap anywhere left of the value
+            // puts the caret at offset 0 on Android - backspace then deletes nothing, and a full
+            // MaxLength blocks typing too. Deferred because the platform places the caret at the tap
+            // point after focus is taken.
+            Dispatcher.Dispatch(() =>
+            {
+                if (entry.IsFocused && entry.SelectionLength == 0)
+                    entry.CursorPosition = entry.Text?.Length ?? 0;
+            });
+        };
         entry.Completed += (s, e) =>
         {
             Completed?.Invoke(this, EventArgs.Empty);
