@@ -15,6 +15,8 @@
         <PackageVersion Include="SkiaSharp.Views.Blazor" Version="4.151.1"/>
         <PackageVersion Include="SkiaSharp.Views.Maui.Controls" Version="4.151.1"/>
         <PackageVersion Include="Shiny.Speech" Version="2.1.0"/>
+        <PackageVersion Include="Shiny.Gamepad" Version="5.8.0-beta-0002"/>
+        <PackageVersion Include="Shiny.Gamepad.Blazor" Version="5.8.0-beta-0002"/>
         <PackageVersion Include="System.Drawing.Common" Version="10.0.0"/>
         <PackageVersion Include="ZXing.Net" Version="0.16.11"/>
         <PackageVersion Include="Microsoft.Extensions.AI" Version="10.8.3"/>

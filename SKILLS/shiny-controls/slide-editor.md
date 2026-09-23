@@ -236,13 +236,77 @@ Deck-specific behaviour:
   shape, a paragraph and an offset, and neither has one.
 - `FindMatchRects()` returns highlights for the **showing slide only**, in viewport coordinates.
 
+## Slides: new, duplicate, delete, reorder
+
+`SlideEditorView` has a **Home ▸ Slides** group (New slide, Duplicate, Delete, Earlier, Later). The
+controller API, all undoable:
+
+```csharp
+var c = view.Controller!;          // SlideEditorView.Controller on both hosts
+
+c.NewSlide();                      // inserts after the current slide and navigates to it
+c.DuplicateSlide();                // copy goes to Index + 1
+c.DeleteSlide();                   // or DeleteSlide(index) - NEVER confirms
+c.MoveSlide(from: 3, to: 0);       // `to` is counted with the slide already removed
+c.MoveSlideEarlier();  c.MoveSlideLater();
+
+bool ok = c.CanDeleteSlide && c.CanMoveSlideEarlier && c.CanMoveSlideLater;
+```
+
+Or through the commands: `new NewSlideCommand(at, layoutOf)`, `new DuplicateSlideCommand(i)`,
+`new DeleteSlideCommand(i)`, `new MoveSlideCommand(from, to)` via `deck.Execute(...)`.
+
+Rules to generate against:
+
+- A new slide uses the current slide's layout; after a **title** slide it uses the master's
+  "Title and Content" (`obj`) layout. Its placeholders are empty and `SlideShape.Prompt` carries the
+  "Click to add title/text/subtitle" body the **editor** paints (the viewer never does). Don't put
+  prompt text into the slide yourself — it would become real content.
+- **Delete confirmation lives in the view, not the controller.** `SlideEditorView` confirms by default
+  (`ConfirmSlideDelete = true`); supply `ConfirmDeleteSlide = Func<int, Task<bool>>` to use the app's
+  `IDialogService.Confirm`. If you build your own toolbar over `SlideEditor`, confirm before calling
+  `DeleteSlide`. `RequestDeleteSlide()` (Blazor) / `RequestDeleteSlideAsync()` (MAUI) runs the view's flow.
+- Every structural change (including undo/redo) raises `SlideDeck.SlidesChanged` with a `Focus` index,
+  **clears the shape selection** and moves `Index` there — don't hold a shape index across one.
+- Undo of a delete works across saves: deleted parts stay in the live package and are stripped only
+  from the saved copy. Sections (`p14:sectionLst`) and custom shows are kept consistent.
+- Keyboard: Ctrl+M = New slide on Blazor. MAUI has no key for it (`EditorKey` has none).
+
+## Shapes: nudge, arrange, clipboard, groups, table cells
+
+```csharp
+c.Nudge(1, 0);                 // arrows while a SHAPE (not text) is selected; fine: true for 1px
+c.Arrange(ShapeZOrder.BringToFront);   // BringToFront/BringForward/SendBackward/SendToBack
+c.CopyShape(); c.CutShape(); c.Paste(); c.DuplicateShape();
+c.Clipboard;                   // per controller - assign it to another editor to share
+```
+
+- Clipboard holds shapes, not text, and carries referenced parts (images) — pastes across decks work.
+- Groups: `SlideShape.IsGroup` is the group's own entry (listed after its children); `IsInGroup` marks
+  children. A click selects the group; `PointerDoubleClick` enters it (`IsInsideGroup`). Moves are
+  written in the group's child units automatically.
+- Tables: `PointerDoubleClick` on a cell (or `BeginTextEditing(x, y)`) sets `ActiveCell`; all text
+  commands then target that cell; `HandleTab` walks cells. Tables can be moved/resized.
+- MAUI keys: `EditorKey.Copy/Cut/Paste/Duplicate/NewSlide/BringForward/SendBackward` through `HandleKey`.
+
+## Layouts, notes, rail
+
+```csharp
+var layouts = c.Layouts;       // SlideLayoutOption(Name, Index, IsCurrent)
+c.SetLayout(layouts[1]);       // re-lays placeholders; undoable
+c.NewSlide(layouts[1]);
+
+c.Notes; c.SetNotes("...");    // creates notes page + notes master if missing; merges into one undo step
+```
+
+`SlideEditorView`: `ShowSlideRail` (default true, hidden < 600px), `ShowNotes` (default false, two-way).
+`SlideRail` is a standalone control on both hosts (`Controller` = the editor's controller); its logic is
+`SlideRailController` (tap = open slide, drag = `MoveSlide`).
+
 ## Not implemented
 
 - **Soft line breaks** (`a:br`) — read and rendered, but they contribute no characters to the offset
   space, so the caret cannot sit on one and Shift+Enter does not insert one.
-- Editing **table cells** and **grouped** shapes (rendered, not selectable). A table can be *added*
-  and moved or resized as a whole; typing into its cells cannot.
-- Adding, removing or reordering **slides**.
 - **Rotation** handles — a rotated shape renders rotated and can be moved/resized, but the drag works
   in unrotated slide coordinates.
 - Everything the viewer does not render — see `document-viewer.md`.

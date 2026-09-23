@@ -1,0 +1,78 @@
+.gp-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    align-items: center;
+}
+
+.gp-options label {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+
+/* overlay: the pad covers the playfield and passes every miss through to it */
+.gp-stage {
+    position: relative;
+    height: min(62vh, 520px);
+    border-radius: 12px;
+    overflow: hidden;
+    background: radial-gradient(circle at 30% 20%, #1e293b, #0f172a);
+    margin: 12px 0;
+}
+
+.gp-field {
+    position: absolute;
+    inset: 0;
+}
+
+.gp-pad {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+/* inline: the pad sits under the playfield as a picture of a controller */
+.gp-stage.is-inline {
+    height: auto;
+    display: grid;
+    grid-template-rows: 280px 240px;
+    gap: 12px;
+    background: none;
+}
+
+.gp-stage.is-inline .gp-field {
+    position: relative;
+    border-radius: 12px;
+    background: radial-gradient(circle at 30% 20%, #1e293b, #0f172a);
+}
+
+.gp-stage.is-inline .gp-pad {
+    position: relative;
+    inset: auto;
+    pointer-events: auto;
+}
+
+.gp-player {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    box-shadow: 0 0 24px currentColor;
+    transition: width 0.08s, height 0.08s, background 0.1s;
+}
+
+/* top centre - the corners belong to the shoulder buttons */
+.gp-hud {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: #cbd5e1;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.gp-hud code {
+    color: #f8fafc;
+}

@@ -1,0 +1,116 @@
+<div @ref="root"
+     class="shiny-gamepad @(PassThrough ? "is-pass-through" : null) @(engine.IsEditing ? "is-editing" : null) @Class"
+     style="@RootStyle"
+     role="application"
+     aria-label="@GamepadName"
+     @attributes="AdditionalAttributes">
+    @if (!steppedAside && width > 0 && height > 0)
+    {
+        var scale = engine.VisualScale;
+        var stroke = Math.Max(1f, 1.5f * scale);
+
+        <svg class="shiny-gamepad__svg" width="@F(width)" height="@F(height)" viewBox="0 0 @F(width) @F(height)" xmlns="http://www.w3.org/2000/svg">
+            @if ((ShowBody ?? Sizing == GamepadSizing.Uniform) && engine.Body is { } body)
+            {
+                <rect class="shiny-gamepad__body" x="@F(body.X)" y="@F(body.Y)" width="@F(body.Width)" height="@F(body.Height)"
+                      rx="@F(body.Height * engine.Layout.BodyRoundness)" />
+            }
+
+            @foreach (var v in engine.Elements)
+            {
+                var e = v.Element;
+                var b = v.Bounds;
+                <g @key="v" class="shiny-gamepad__element @(v.IsPressed || v.IsActive || v.PressedDirections != GamepadButton.None ? "is-pressed" : null)" data-id="@e.Id">
+                    @switch (e.Kind)
+                    {
+                        case GamepadElementKind.DPad:
+                            var arm = b.Width / 3f;
+                            var r = arm * 0.2f;
+                            <path class="shiny-gamepad__shape" stroke-width="@F(stroke)" d="@CrossPath(b)" />
+                            @if (v.PressedDirections.HasFlag(GamepadButton.DPadUp))
+                            {
+                                <rect class="shiny-gamepad__lit" x="@F(b.CenterX - arm / 2)" y="@F(b.Y)" width="@F(arm)" height="@F(arm)" rx="@F(r)" />
+                            }
+                            @if (v.PressedDirections.HasFlag(GamepadButton.DPadDown))
+                            {
+                                <rect class="shiny-gamepad__lit" x="@F(b.CenterX - arm / 2)" y="@F(b.Bottom - arm)" width="@F(arm)" height="@F(arm)" rx="@F(r)" />
+                            }
+                            @if (v.PressedDirections.HasFlag(GamepadButton.DPadLeft))
+                            {
+                                <rect class="shiny-gamepad__lit" x="@F(b.X)" y="@F(b.CenterY - arm / 2)" width="@F(arm)" height="@F(arm)" rx="@F(r)" />
+                            }
+                            @if (v.PressedDirections.HasFlag(GamepadButton.DPadRight))
+                            {
+                                <rect class="shiny-gamepad__lit" x="@F(b.Right - arm)" y="@F(b.CenterY - arm / 2)" width="@F(arm)" height="@F(arm)" rx="@F(r)" />
+                            }
+                            <path class="shiny-gamepad__arrow" d="@ArrowsPath(b)" />
+                            break;
+
+                        case GamepadElementKind.Stick:
+                            var knob = v.Travel * 0.62f;
+                            <g class="@(e.IsFloating && !v.IsActive ? "shiny-gamepad__resting" : null)">
+                                <circle class="shiny-gamepad__shape" stroke-width="@F(stroke)" cx="@F(v.BaseX)" cy="@F(v.BaseY)" r="@F(v.Travel)" />
+                                <circle class="shiny-gamepad__knob" stroke-width="@F(stroke)" cx="@F(v.KnobX)" cy="@F(v.KnobY)" r="@F(knob)" />
+                                @if (v.IsClicked)
+                                {
+                                    <circle class="shiny-gamepad__clicked" stroke-width="@F(Math.Max(2f, 3f * scale))" cx="@F(v.KnobX)" cy="@F(v.KnobY)" r="@F(knob - 3)" />
+                                }
+                            </g>
+                            break;
+
+                        default:
+                            var fillStyle = v.Face.Fill is { } fill ? $"fill:{fill}" : null;
+                            @if (e.Shape == GamepadElementShape.Circle)
+                            {
+                                <circle class="shiny-gamepad__shape" style="@fillStyle" stroke-width="@F(stroke)" cx="@F(b.CenterX)" cy="@F(b.CenterY)" r="@F(Math.Min(b.Width, b.Height) / 2)" />
+                            }
+                            else
+                            {
+                                <rect class="shiny-gamepad__shape" style="@fillStyle" stroke-width="@F(stroke)" x="@F(b.X)" y="@F(b.Y)" width="@F(b.Width)" height="@F(b.Height)"
+                                      rx="@F(e.Shape == GamepadElementShape.Pill ? b.Height / 2 : b.Height * 0.3f)" />
+                            }
+
+                            @if (v.Face.Glyph is { } glyph)
+                            {
+                                var glyphStyle = v.Face.Accent is { } stroke2 ? $"stroke:{stroke2}" : null;
+                                var size = Math.Min(b.Width, b.Height) * 0.62f;
+                                <path class="shiny-gamepad__glyph" style="@glyphStyle" d="@glyph"
+                                      transform="translate(@F(b.CenterX - size / 2) @F(b.CenterY - size / 2)) scale(@F(size))"
+                                      stroke-width="@F(Math.Max(1.5f, size * 0.1f) / size)" />
+                            }
+                            else if (!string.IsNullOrEmpty(v.Face.Text))
+                            {
+                                var textStyle = v.Face.Accent is { } accent ? $"fill:{accent}" : null;
+                                @* wrapped: in code context Razor reads a bare <text> as its own markup escape, not SVG *@
+                                <g><text class="shiny-gamepad__label" style="@textStyle" x="@F(b.CenterX)" y="@F(b.CenterY)"
+                                      font-size="@F(FontSize(v))">@v.Face.Text</text></g>
+                            }
+                            break;
+                    }
+
+                    @if (engine.IsEditing)
+                    {
+                        <rect class="shiny-gamepad__edit @(v.IsSelected ? "is-selected" : null)" x="@F(b.X - 4)" y="@F(b.Y - 4)" width="@F(b.Width + 8)" height="@F(b.Height + 8)" rx="8" />
+                    }
+                </g>
+            }
+
+            @* hit shapes last and on top: the only things that take pointer events in pass-through mode.
+               Their own group, because @key must be unique among siblings and they key on the same visuals. *@
+            <g class="shiny-gamepad__hits">
+            @foreach (var v in engine.Elements)
+            {
+                var hit = HitShape(v);
+                @if (hit.Circle)
+                {
+                    <circle @key="v" class="shiny-gamepad__hit" cx="@F(hit.Rect.CenterX)" cy="@F(hit.Rect.CenterY)" r="@F(hit.Rect.Width / 2)" />
+                }
+                else
+                {
+                    <rect @key="v" class="shiny-gamepad__hit" x="@F(hit.Rect.X)" y="@F(hit.Rect.Y)" width="@F(hit.Rect.Width)" height="@F(hit.Rect.Height)" />
+                }
+            }
+            </g>
+        </svg>
+    }
+</div>

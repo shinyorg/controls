@@ -178,7 +178,28 @@ public enum OfficeIcon
 
     Duplicate,
 
-    Lock
+    Lock,
+
+    /// <summary>A landscape slide with a plus: add a slide. Landscape so it is not read as New Page.</summary>
+    NewSlide,
+
+    /// <summary>A slide with an arrow above it: move the slide earlier in the deck.</summary>
+    MoveSlideEarlier,
+
+    /// <summary>A slide with an arrow below it: move the slide later in the deck.</summary>
+    MoveSlideLater,
+
+    /// <summary>A shape with an arrow up beside it: one step towards the front.</summary>
+    BringForward,
+
+    /// <summary>A shape with an arrow down beside it: one step towards the back.</summary>
+    SendBackward,
+
+    /// <summary>A page of lines: the speaker notes.</summary>
+    Notes,
+
+    /// <summary>A slide split into a title bar and two panes: its layout.</summary>
+    SlideLayout
 }
 
 
@@ -876,6 +897,59 @@ public static class OfficeIcons
         OfficeIcon.MarginsNormal => MarginsIcon(3f),
         OfficeIcon.MarginsModerate => MarginsIcon(4.5f),
         OfficeIcon.MarginsWide => MarginsIcon(6f),
+
+        OfficeIcon.NewSlide =>
+        [
+            OfficeIconShape.Rectangle(2.5f, 5f, 14f, 9f, 1.5f),
+            OfficeIconShape.Line(15.5f, 18.5f, 21.5f, 18.5f),
+            OfficeIconShape.Line(18.5f, 15.5f, 18.5f, 21.5f)
+        ],
+
+        // Up and down rather than left and right: that is the way a slide list runs in every
+        // presentation app, so "earlier" is up. Left and right already mean previous and next here.
+        OfficeIcon.MoveSlideEarlier =>
+        [
+            OfficeIconShape.Rectangle(4.5f, 11.5f, 15f, 9f, 1.5f),
+            OfficeIconShape.Line(12f, 9f, 12f, 3f),
+            OfficeIconShape.Polyline(8.5f, 6.5f, 12f, 3f, 15.5f, 6.5f)
+        ],
+
+        OfficeIcon.MoveSlideLater =>
+        [
+            OfficeIconShape.Rectangle(4.5f, 3.5f, 15f, 9f, 1.5f),
+            OfficeIconShape.Line(12f, 15f, 12f, 21f),
+            OfficeIconShape.Polyline(8.5f, 17.5f, 12f, 21f, 15.5f, 17.5f)
+        ],
+
+        OfficeIcon.BringForward =>
+        [
+            OfficeIconShape.Rectangle(3.5f, 8.5f, 11f, 11f, 1f),
+            OfficeIconShape.Line(18.5f, 20f, 18.5f, 4.5f),
+            OfficeIconShape.Polyline(15.5f, 7.5f, 18.5f, 4.5f, 21.5f, 7.5f)
+        ],
+
+        OfficeIcon.SendBackward =>
+        [
+            OfficeIconShape.Rectangle(3.5f, 4.5f, 11f, 11f, 1f),
+            OfficeIconShape.Line(18.5f, 4f, 18.5f, 19.5f),
+            OfficeIconShape.Polyline(15.5f, 16.5f, 18.5f, 19.5f, 21.5f, 16.5f)
+        ],
+
+        OfficeIcon.Notes =>
+        [
+            OfficeIconShape.Rectangle(4.5f, 3.5f, 15f, 17f, 1.5f),
+            OfficeIconShape.Line(8f, 8.5f, 16f, 8.5f),
+            OfficeIconShape.Line(8f, 12f, 16f, 12f),
+            OfficeIconShape.Line(8f, 15.5f, 13f, 15.5f)
+        ],
+
+        OfficeIcon.SlideLayout =>
+        [
+            OfficeIconShape.Rectangle(2.5f, 4.5f, 19f, 15f, 1.5f),
+            OfficeIconShape.Line(5.5f, 8.5f, 18.5f, 8.5f),
+            OfficeIconShape.Rectangle(5.5f, 11.5f, 5.5f, 5f, 0.5f),
+            OfficeIconShape.Rectangle(13f, 11.5f, 5.5f, 5f, 0.5f)
+        ],
 
         _ => []
     };

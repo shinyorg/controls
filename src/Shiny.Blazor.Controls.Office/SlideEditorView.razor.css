@@ -27,6 +27,32 @@
     min-height: 0;
 }
 
+/* The rail and the slide side by side, filling what the ribbon and status line leave. */
+.slide-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+}
+
+.slide-rail-pane {
+    flex: 0 0 180px;
+    min-height: 0;
+    border-right: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+/* A phone has room for the slide or the rail, and the slide is the point. */
+@media (max-width: 600px) {
+    .slide-rail-pane { display: none; }
+}
+
+.slide-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 /* min-height:0 matters: without it the flex child refuses to shrink and the canvas overflows. */
 .slide-surface {
     flex: 1 1 auto;
@@ -34,7 +60,32 @@
     position: relative;
 }
 
+.slide-notes {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+.slide-notes textarea {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: 96px;
+    resize: vertical;
+    padding: 8px 12px;
+    border: 0;
+    outline: none;
+    background: var(--shiny-color-surface, #FFFFFF);
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
 .slide-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     flex: 0 0 auto;
     padding: 4px 10px;
     border-top: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
@@ -171,3 +222,101 @@
     color: var(--shiny-color-on-surface, #161C23);
     background: var(--shiny-color-surface, #F6FAFE);
 }
+
+/*
+    The built-in delete confirmation. Absolutely placed over the slide surface - which is the
+    positioned box - so it covers the slide it is about and never the ribbon's pickers.
+*/
+.slide-confirm-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: color-mix(in srgb, var(--shiny-color-scrim, #000) 32%, transparent);
+}
+
+.slide-confirm {
+    width: min(360px, 100%);
+    padding: 18px 20px 14px;
+    border-radius: 12px;
+    background: var(--shiny-color-surface-container-high, #FFFFFF);
+    color: var(--shiny-color-on-surface, #161C23);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+.slide-confirm-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.slide-confirm-body {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    overflow-wrap: anywhere;
+}
+
+.slide-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.slide-confirm-actions button {
+    min-width: 76px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.slide-confirm-actions button:focus-visible {
+    outline: 2px solid var(--shiny-color-primary, #2F6FED);
+    outline-offset: 2px;
+}
+
+.slide-confirm-actions .slide-confirm-danger {
+    border-color: transparent;
+    background: var(--shiny-color-error, #BA1A1A);
+    color: var(--shiny-color-on-error, #FFFFFF);
+}
+
+.slide-status > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.slide-status-notes {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.slide-status-notes ::deep svg,
+.slide-status-notes svg {
+    width: 16px;
+    height: 16px;
+}
+
+.slide-status-notes:hover:not(:disabled) { background: color-mix(in srgb, currentColor 10%, transparent); }
+.slide-status-notes.on { background: color-mix(in srgb, currentColor 14%, transparent); }
+.slide-status-notes:disabled { opacity: 0.4; cursor: default; }

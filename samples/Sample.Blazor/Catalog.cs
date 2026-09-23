@@ -83,7 +83,8 @@ public static class Catalog
             new("passwordstrength", "Password Strength", "▓", "Password field with a live strength meter and rule checklist"),
             new("captcha", "Captcha", "🛡", "Human check — local challenge, reCAPTCHA, hCaptcha or Turnstile"),
             new("signaturepad", "Signature Pad", "✍", "Draw, clear and export a signature"),
-            new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Touch / kiosk QWERTY that never steals the caret")
+            new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Touch / kiosk QWERTY that never steals the caret"),
+            new("gamepad", "Gamepad", "✚", "On-screen NES, SNES and Xbox/PlayStation controller that is a real Shiny.Gamepad IGamepad")
         ]),
 
         new("Actions & Navigation", "#2DD4BF",

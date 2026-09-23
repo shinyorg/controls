@@ -1,0 +1,107 @@
+.shiny-gamepad {
+    --shiny-gamepad-button: rgba(39, 43, 51, 0.65);
+    --shiny-gamepad-pressed: rgba(91, 100, 114, 0.9);
+    --shiny-gamepad-label: #f2f4f7;
+    --shiny-gamepad-outline: rgba(255, 255, 255, 0.35);
+    --shiny-gamepad-body: #1e2128;
+    --shiny-gamepad-accent: #38bdf8;
+
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 120px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.4s ease-out;
+}
+
+/* only the hit shapes take pointer events, so the game under an overlay still gets every other touch */
+.shiny-gamepad.is-pass-through {
+    pointer-events: none;
+}
+
+.shiny-gamepad[data-idle] {
+    opacity: var(--shiny-gamepad-idle-opacity, 1);
+}
+
+.shiny-gamepad__svg {
+    display: block;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.shiny-gamepad__body {
+    fill: var(--shiny-gamepad-body);
+}
+
+.shiny-gamepad__shape {
+    fill: var(--shiny-gamepad-button);
+    stroke: var(--shiny-gamepad-outline);
+}
+
+.shiny-gamepad__element.is-pressed .shiny-gamepad__shape {
+    filter: brightness(1.45);
+}
+
+.shiny-gamepad__lit {
+    fill: var(--shiny-gamepad-pressed);
+}
+
+.shiny-gamepad__arrow {
+    fill: var(--shiny-gamepad-label);
+    opacity: 0.8;
+}
+
+.shiny-gamepad__knob {
+    fill: var(--shiny-gamepad-pressed);
+    stroke: var(--shiny-gamepad-outline);
+}
+
+.shiny-gamepad__resting {
+    opacity: 0.55;
+}
+
+.shiny-gamepad__clicked {
+    fill: none;
+    stroke: var(--shiny-gamepad-accent);
+}
+
+.shiny-gamepad__label {
+    fill: var(--shiny-gamepad-label);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.shiny-gamepad__glyph {
+    fill: none;
+    stroke: var(--shiny-gamepad-label);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.shiny-gamepad__edit {
+    fill: none;
+    stroke: var(--shiny-gamepad-accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+}
+
+.shiny-gamepad__edit.is-selected {
+    stroke-width: 3;
+    stroke-dasharray: none;
+}
+
+.shiny-gamepad__hit {
+    fill: transparent;
+    pointer-events: all;
+    cursor: pointer;
+}
+
+.is-editing .shiny-gamepad__hit {
+    cursor: move;
+}

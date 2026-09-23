@@ -56,6 +56,9 @@ public static class MauiProgram
                 media.MaxDimension = 2048;
             })
             .UseShinyMediaElement()
+            // the on-screen gamepad: its iOS/Android multi-touch handler, and IGamepadManager reporting
+            // on-screen and physical controllers together (use it instead of Shiny.Gamepad's AddGamepads)
+            .UseShinyGamepad()
             .UseTrayIcon()
             .UseFileDrop()
             .UseDesktopQuickEntry()

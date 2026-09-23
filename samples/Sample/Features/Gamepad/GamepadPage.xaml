@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<shiny:ShinyContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             x:Class="Sample.Features.Gamepad.GamepadPage"
+             Title="Gamepad"
+             AutomationId="GamepadPage">
+  <shiny:ShinyContentPage.PageContent>
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- options -->
+        <ScrollView Orientation="Horizontal" Padding="12,8">
+            <HorizontalStackLayout Spacing="14">
+                <Picker x:Name="PresetPicker" Title="Layout" WidthRequest="120" SelectedIndexChanged="OnPresetChanged" />
+                <Picker x:Name="FacePicker" Title="Labels" WidthRequest="140" SelectedIndexChanged="OnFaceChanged" />
+                <HorizontalStackLayout Spacing="4">
+                    <Switch x:Name="InlineSwitch" Toggled="OnInlineToggled" />
+                    <Label Text="Inline" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Switch x:Name="FloatingSwitch" Toggled="OnTweakToggled" />
+                    <Label Text="Floating stick" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Switch x:Name="TurboSwitch" Toggled="OnTweakToggled" />
+                    <Label Text="Turbo A" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Switch x:Name="FadeSwitch" Toggled="OnFadeToggled" />
+                    <Label Text="Idle fade" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <!-- Switch.IsToggled binds two-way, so this alone drives the property -->
+                    <Switch IsToggled="{Binding ButtonHapticFeedback, Source={x:Reference Pad}}" />
+                    <Label Text="Button haptics" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Switch IsToggled="{Binding DirectionalHapticFeedback, Source={x:Reference Pad}}" />
+                    <Label Text="D-pad haptics" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Switch x:Name="EditSwitch" Toggled="OnEditToggled" />
+                    <Label Text="Edit layout" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <!-- the game and the pad share one cell: overlay mode draws the pad over the playfield and
+             passes every touch that misses it through; inline mode moves the pad into its own row -->
+        <Grid x:Name="Stage" Grid.Row="1" RowDefinitions="*,0">
+            <AbsoluteLayout x:Name="Field" BackgroundColor="#0F172A">
+                <AbsoluteLayout.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnFieldTapped" />
+                </AbsoluteLayout.GestureRecognizers>
+                <Ellipse x:Name="Player" Fill="#38BDF8" WidthRequest="28" HeightRequest="28" />
+                <Label x:Name="Hud" TextColor="#CBD5E1" FontSize="12" FontFamily="Courier"
+                       AbsoluteLayout.LayoutBounds="0.5,0,AutoSize,AutoSize"
+                       AbsoluteLayout.LayoutFlags="PositionProportional"
+                       Margin="0,8,0,0" HorizontalTextAlignment="Center" />
+            </AbsoluteLayout>
+
+            <shiny:GamepadView x:Name="Pad"
+                               Preset="Standard"
+                               HideWhenControllerConnected="True"
+                               IdleDelay="0:0:2"
+                               ButtonChanged="OnButtonChanged" />
+        </Grid>
+    </Grid>
+  </shiny:ShinyContentPage.PageContent>
+</shiny:ShinyContentPage>

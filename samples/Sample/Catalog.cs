@@ -95,7 +95,8 @@ public static class Catalog
             new("securitypin", "Security Pin", "✱", "PIN entry with masking and shake-on-error"),
             new("passwordstrength", "Password Strength", "▓", "Password field with a live strength meter and rule checklist"),
             new("signaturepad", "Signature Pad", "✍", "Draw, clear and export a signature"),
-            new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Desktop virtual keyboard for kiosks")
+            new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Desktop virtual keyboard for kiosks"),
+            new("gamepad", "Gamepad", "✚", "On-screen NES, SNES and Xbox/PlayStation controller that is a real Shiny.Gamepad IGamepad")
         ]),
 
         new("Actions & Navigation", "#2DD4BF",

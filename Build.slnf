@@ -5,6 +5,7 @@
             "src/Shiny.Controls.MotionIcons.Shared/Shiny.Controls.MotionIcons.Shared.csproj",
             "src/Shiny.Controls.Gantt.Shared/Shiny.Controls.Gantt.Shared.csproj",
             "src/Shiny.Controls.Diagram.Shared/Shiny.Controls.Diagram.Shared.csproj",
+            "src/Shiny.Controls.Gamepad.Shared/Shiny.Controls.Gamepad.Shared.csproj",
             "src/Shiny.Controls.FloorPlan.Shared/Shiny.Controls.FloorPlan.Shared.csproj",
             "src/Shiny.Maui.Controls/Shiny.Maui.Controls.csproj",
             "src/Shiny.Maui.Controls.Themes.Ocean/Shiny.Maui.Controls.Themes.Ocean.csproj",
@@ -36,6 +37,7 @@
             "src/Shiny.Maui.Controls.Markdown/Shiny.Maui.Controls.Markdown.csproj",
             "src/Shiny.Maui.Controls.MermaidDiagrams/Shiny.Maui.Controls.MermaidDiagrams.csproj",
             "src/Shiny.Maui.Controls.Diagram/Shiny.Maui.Controls.Diagram.csproj",
+            "src/Shiny.Maui.Controls.Gamepad/Shiny.Maui.Controls.Gamepad.csproj",
             "src/Shiny.Blazor.Controls/Shiny.Blazor.Controls.csproj",
             "src/Shiny.Blazor.Controls.Themes.Ocean/Shiny.Blazor.Controls.Themes.Ocean.csproj",
             "src/Shiny.Blazor.Controls.Themes.Material/Shiny.Blazor.Controls.Themes.Material.csproj",
@@ -49,7 +51,8 @@
             "src/Shiny.Blazor.Controls.FloorPlan/Shiny.Blazor.Controls.FloorPlan.csproj",
         "src/Shiny.Blazor.Controls.MediaElement/Shiny.Blazor.Controls.MediaElement.csproj",
             "src/Shiny.Blazor.Controls.MermaidDiagrams/Shiny.Blazor.Controls.MermaidDiagrams.csproj",
-            "src/Shiny.Blazor.Controls.Diagram/Shiny.Blazor.Controls.Diagram.csproj"
+            "src/Shiny.Blazor.Controls.Diagram/Shiny.Blazor.Controls.Diagram.csproj",
+            "src/Shiny.Blazor.Controls.Gamepad/Shiny.Blazor.Controls.Gamepad.csproj"
         ]
     }
 }

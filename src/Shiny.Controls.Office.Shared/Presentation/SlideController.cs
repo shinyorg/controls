@@ -80,9 +80,14 @@ public class SlideController
 
     public int Count => this.Deck.Slides.Count;
 
+    /// <remarks>
+    /// Clamped on read as well as on write: the deck can lose slides underneath a controller — a
+    /// slide deleted in the editor while a viewer shares the deck — and an index left pointing past
+    /// the end would throw from <see cref="Current"/> on the next paint.
+    /// </remarks>
     public int Index
     {
-        get => this.index;
+        get => Math.Clamp(this.index, 0, Math.Max(0, this.Count - 1));
         set
         {
             var clamped = Math.Clamp(value, 0, Math.Max(0, this.Count - 1));
@@ -94,7 +99,7 @@ public class SlideController
         }
     }
 
-    public Slide? Current => this.Count == 0 ? null : this.Deck.Slides[this.index];
+    public Slide? Current => this.Count == 0 ? null : this.Deck.Slides[this.Index];
 
     public SlideViewMode Mode
     {
@@ -112,12 +117,12 @@ public class SlideController
 
     public double ScrollY => this.scrollY;
 
-    public bool CanGoNext => this.index < this.Count - 1;
-    public bool CanGoPrevious => this.index > 0;
+    public bool CanGoNext => this.Index < this.Count - 1;
+    public bool CanGoPrevious => this.Index > 0;
 
-    public void Next() => this.Index = this.index + 1;
+    public void Next() => this.Index = this.Index + 1;
 
-    public void Previous() => this.Index = this.index - 1;
+    public void Previous() => this.Index = this.Index - 1;
 
     public void Resize(double width, double height)
     {

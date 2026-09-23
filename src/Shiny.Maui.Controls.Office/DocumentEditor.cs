@@ -1013,5 +1013,26 @@ public enum EditorKey
     /// then puts the pen down and returns to the select tool, then clears the selection. The document
     /// and slide editors have no modes to leave and simply do not route it.
     /// </remarks>
-    Escape
+    Escape,
+
+    /// <summary>Ctrl+C. The slide editor copies the selected shape; editors without a shape clipboard ignore it.</summary>
+    Copy,
+
+    /// <summary>Ctrl+X.</summary>
+    Cut,
+
+    /// <summary>Ctrl+V.</summary>
+    Paste,
+
+    /// <summary>Ctrl+D: duplicate the selected shape.</summary>
+    Duplicate,
+
+    /// <summary>Ctrl+M: a new slide.</summary>
+    NewSlide,
+
+    /// <summary>Ctrl+]: one step to the front; with <c>shift</c>, all the way.</summary>
+    BringForward,
+
+    /// <summary>Ctrl+[: one step to the back; with <c>shift</c>, all the way.</summary>
+    SendBackward
 }

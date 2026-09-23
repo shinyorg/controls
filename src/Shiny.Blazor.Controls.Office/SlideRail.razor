@@ -1,0 +1,183 @@
+@using SkiaSharp
+@using SkiaSharp.Views.Blazor
+@using Shiny.Controls.Office.Presentation
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    The column of slide thumbnails beside the editor: tap one to open it, drag one to move it. All of
+    the behaviour is SlideRailController's, shared with MAUI; this forwards the pointer and paints.
+*@
+<div class="shiny-slide-rail @Class"
+     style="@Style"
+     role="listbox"
+     aria-label="Slides"
+     @ref="host"
+     @onwheel="OnWheel"
+     @onwheel:preventDefault="true"
+     @onpointerdown="OnPointerDown"
+     @onpointerdown:preventDefault="true"
+     @onpointermove="OnPointerMove"
+     @onpointerup="OnPointerUp"
+     @onpointerleave="OnPointerLeave">
+    <SKCanvasView @ref="canvas" IgnorePixelScaling="false" OnPaintSurface="OnPaint" />
+</div>
+
+@code {
+    ElementReference host;
+    SKCanvasView? canvas;
+    SkiaTextMeasurer? measurer;
+    SlidePainter? slides;
+    SlideRailPainter? painter;
+    SlideRailController? rail;
+    SlideEditorController? attached;
+    ThemeSchemeWatcher scheme = null!;
+    double dpr = 1;
+    int lastIndex = -1;
+
+    /// <summary>The editor whose deck the rail shows and whose slide it follows.</summary>
+    [Parameter] public SlideEditorController? Controller { get; set; }
+
+    /// <summary>The slide canvas colours, forwarded from the editor. Unset follows the page.</summary>
+    [Parameter] public SlideTheme? Theme { get; set; }
+
+    /// <summary>Raised after a tap or a drag ends, so a host can put the keyboard focus back where it belongs.</summary>
+    [Parameter] public EventCallback Interacted { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Style { get; set; }
+
+    /// <summary>The rail's own controller, for a host that wants to scroll it or read its layout.</summary>
+    public SlideRailController? Rail => this.rail;
+
+    protected override void OnInitialized()
+        => this.scheme = new ThemeSchemeWatcher(this.Js, () =>
+        {
+            this.canvas?.Invalidate();
+            return Task.CompletedTask;
+        });
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(this.attached, this.Controller))
+        {
+            this.canvas?.Invalidate();
+            return;
+        }
+
+        if (this.attached is not null)
+            this.attached.Changed -= this.OnEditorChanged;
+
+        this.attached = this.Controller;
+        this.rail = null;
+
+        if (this.Controller is { } controller)
+        {
+            this.measurer ??= new SkiaTextMeasurer();
+            this.slides ??= new SlidePainter(this.measurer);
+            this.painter ??= new SlideRailPainter(this.slides);
+
+            this.rail = new SlideRailController(controller);
+            this.rail.Changed += (_, _) => this.canvas?.Invalidate();
+            controller.Changed += this.OnEditorChanged;
+        }
+
+        this.canvas?.Invalidate();
+    }
+
+    void OnEditorChanged(object? sender, EventArgs e)
+    {
+        // Follow the editor: a slide opened with the arrows, found by a search or just added scrolls
+        // into view here too.
+        if (this.rail is { } rail && this.Controller is { } controller && controller.Index != this.lastIndex)
+        {
+            this.lastIndex = controller.Index;
+            rail.EnsureVisible(controller.Index);
+        }
+
+        this.canvas?.Invalidate();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await this.scheme.StartAsync(this.host);
+
+        try
+        {
+            this.dpr = await this.Js.InvokeAsync<double>("eval", "window.devicePixelRatio || 1");
+        }
+        catch (Exception)
+        {
+            this.dpr = 1;
+        }
+
+        if (this.dpr <= 0)
+            this.dpr = 1;
+
+        this.canvas?.Invalidate();
+    }
+
+    void OnPaint(SKPaintSurfaceEventArgs e)
+    {
+        if (this.rail is not { } rail || this.painter is null)
+        {
+            e.Surface.Canvas.Clear(SKColors.Transparent);
+            return;
+        }
+
+        var width = e.Info.Width / this.dpr;
+        var height = e.Info.Height / this.dpr;
+        if (Math.Abs(width - rail.ViewportWidth) > 0.5 || Math.Abs(height - rail.ViewportHeight) > 0.5)
+        {
+            rail.Resize(width, height);
+            rail.EnsureVisible(rail.Editor.Index);
+        }
+
+        var slideTheme = OfficeScheme.Resolve(this.scheme, this.Theme);
+        var dark = this.Theme is { } pinned ? pinned == SlideTheme.Dark : this.scheme.IsDark;
+
+        this.painter.Paint(e.Surface.Canvas, rail, dark ? SlideRailTheme.Dark : SlideRailTheme.Light, slideTheme, (float)this.dpr);
+    }
+
+    void OnPointerDown(PointerEventArgs e) => this.rail?.PointerDown(e.OffsetX, e.OffsetY);
+
+    void OnPointerMove(PointerEventArgs e)
+    {
+        if ((e.Buttons & 1) == 1)
+            this.rail?.PointerMove(e.OffsetX, e.OffsetY);
+    }
+
+    async Task OnPointerUp(PointerEventArgs e)
+    {
+        if (this.rail is null)
+            return;
+
+        this.rail.PointerUp();
+
+        if (this.Interacted.HasDelegate)
+            await this.Interacted.InvokeAsync();
+    }
+
+    // Leaving the rail mid-drag abandons it rather than dropping wherever the pointer last was.
+    void OnPointerLeave(PointerEventArgs e)
+    {
+        if (this.rail is { IsDragging: true } rail)
+            rail.PointerCancel();
+    }
+
+    void OnWheel(WheelEventArgs e) => this.rail?.Scroll(e.DeltaY);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (this.attached is not null)
+            this.attached.Changed -= this.OnEditorChanged;
+
+        this.painter?.Dispose();
+        this.slides?.Dispose();
+        await this.scheme.DisposeAsync();
+    }
+}

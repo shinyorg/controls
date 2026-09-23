@@ -34,7 +34,7 @@ theme-derived fills it carries survive a formatting change. A whole drag is **on
 per pointer sample.
 
 The toolbar draws from the **same icon set** as the document editor — see above — adding `Previous`,
-`Next`, `SlideShow`, `BulletList`, `NumberedList`, `Indent`, `Outdent`, `TextBox` and `Delete`, and
+`Next`, `SlideShow`, `NewSlide`, `Duplicate`, `MoveSlideEarlier`, `MoveSlideLater`, `BulletList`, `NumberedList`, `Indent`, `Outdent`, `TextBox` and `Delete`, and
 takes the same `ShowToolbarTooltips`.
 
 | | Blazor | MAUI |
@@ -87,8 +87,130 @@ slide — same platforms, same rejections, same `DropRejected` event as the docu
 **Highlighting** uses the same palette as the document side. `a:highlight` holds a real colour, so
 nothing is approximated here.
 
-⚠️ Not implemented, deliberately: soft line breaks, editing table cells or grouped shapes, adding or
-reordering slides, and rotation handles.
+⚠️ Not implemented, deliberately: soft line breaks and rotation handles.
+
+## Nudging, arranging and the shape clipboard
+
+With a shape selected (not its text), the **arrow keys nudge it** 8 slide pixels, or 1 with
+<kbd>Alt</kbd>/<kbd>Ctrl</kbd>; a run of nudges is one undo step, like a drag. With nothing selected
+they still page through the deck. On MAUI route them through `HandleKey`.
+
+**Insert ▸ Clipboard** — Paste, Cut, Copy, Duplicate — and **Insert ▸ Arrange** — To front, Forward,
+Backward, To back — act on the selected shape. Keys on Blazor: <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/
+<kbd>V</kbd>/<kbd>D</kbd>, <kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>[</kbd> (with <kbd>Shift</kbd> for all the
+way); on MAUI the new `EditorKey.Copy`, `Cut`, `Paste`, `Duplicate`, `BringForward`, `SendBackward`.
+
+```csharp
+c.Nudge(dx: 1, dy: 0, fine: false);
+c.CopyShape(); c.CutShape(); c.Paste(); c.DuplicateShape();
+c.BringToFront(); c.BringForward(); c.SendBackward(); c.SendToBack();   // or Arrange(ShapeZOrder)
+```
+
+A copied picture brings its image with it, to another slide or **another deck**: the clip keeps the
+parts the shape refers to and pasting relates the target slide to them (copying across packages).
+Pasting onto the slide it came from cascades each copy 16px down and right; every pasted drawing gets a
+fresh id. The clipboard is **per controller** (`Controller.Clipboard`) — on Blazor Server a static one
+would paste one user's shapes into another's deck; share one between editors by assigning it. It is not
+the system clipboard.
+
+## Groups and table cells
+
+A **group** now reads through its own coordinate space (`chOff`/`chExt` → `off`/`ext`), so a scaled
+group draws where PowerPoint draws it. A click selects the whole group — move or resize it and its
+children come along; a **double-click goes into it** and selects the child under the pointer, and a
+further double-click edits that child's text. Moves are written back in the group's units. Delete and
+undo put a child back inside its group.
+
+A **table** can be moved and resized (its `p:xfrm` was never written before, so this silently did
+nothing). **Double-click a cell to type in it**: every text command — typing, Enter, Backspace,
+formatting, bullets — works inside the cell, and <kbd>Tab</kbd>/<kbd>Shift</kbd>+<kbd>Tab</kbd> walks
+the cells. `Controller.ActiveCell` says which; `SlidePosition.Cell` carries it. Cells are read from their
+own `a:txBody` now, not a copy, which is what lets an edit reach the file.
+
+## Layouts
+
+**Home ▸ Slides ▸ Layout** lists the master's layouts, the current one checked. Picking one re-lays
+the slide: placeholders are matched by index then type and take the new layout's position; one with
+content and nowhere to go is pinned where it was drawn; an empty one without a match goes; the new
+layout's unmatched placeholders arrive empty with their prompts. **New slide with layout** adds one.
+
+```csharp
+foreach (var layout in c.Layouts) { /* Name, Index, IsCurrent */ }
+c.SetLayout(c.Layouts[1]);
+c.NewSlide(c.Layouts[1]);
+```
+
+## Speaker notes
+
+The **Notes** button in the status bar (or `ShowNotes`) opens a notes box under the slide. It writes through as you
+type and a run of edits undoes as one step. A slide without a notes page gets one — and a deck without a
+notes master gets one, with a copy of the slide master's theme — so the result opens in PowerPoint.
+`c.Notes` / `c.SetNotes(text)`. Notes are now read from the notes page's **body placeholder**, one line
+per paragraph, blank lines kept; they used to include the slide-number placeholder's text.
+
+## The slide rail
+
+A column of thumbnails left of the slide (`ShowSlideRail`, on by default, hidden below 600px wide).
+Tap one to open it; **drag one to move it** — an insertion line shows where it will land, the rail
+scrolls itself near either edge, and dropping is one undoable `MoveSlide`. A small wobble is still a
+tap. It follows the editor: a slide opened by the arrows, a search or New slide scrolls into view. The
+behaviour is the shared `SlideRailController`; `SlideRail` is the control on both hosts.
+
+## Adding, removing and reordering slides
+
+**Home ▸ Slides** — New slide, Duplicate, Delete, Earlier and Later. All five are undoable, and all of
+them are on the controller for a host building its own chrome:
+
+```csharp
+c.NewSlide();            // after the current slide, and opens it
+c.DuplicateSlide();      // the copy goes straight after the original
+c.DeleteSlide();         // never asks - see below
+c.MoveSlideEarlier();    // or MoveSlideLater(), or MoveSlide(from, to)
+
+c.CanDeleteSlide; c.CanMoveSlideEarlier; c.CanMoveSlideLater;
+```
+
+**New slide takes the current slide's layout**, except after a title slide, where it takes the
+master's "Title and Content" layout instead — PowerPoint's rule. It arrives with the layout's
+placeholders, empty, each showing its prompt (**Click to add title**, **Click to add text**) in a
+dashed outline, laid out in the placeholder's own size, font and bullet so the prompt is exactly where
+the first keystroke will land. The prompts are editor chrome: the viewer and a slide show never draw
+them, and the one the caret is inside disappears. Date, footer and slide-number placeholders are left
+off, as PowerPoint leaves them off. <kbd>Ctrl</kbd>+<kbd>M</kbd> adds a slide on Blazor.
+
+**Duplicate** copies the slide's XML and shares its pictures, charts and media with the original — two
+relationships to one part, the way PowerPoint stores a picture pasted twice — but gives the copy its
+own notes page, since a notes page points back at its slide.
+
+**Delete asks first.** Both toolbars confirm (*Delete slide 3? "Roadmap" and everything on it will be
+removed from the deck. You can undo this.*) with Cancel focused. Turn it off with
+`ConfirmSlideDelete="false"`, or put the app's own dialog in its place:
+
+```razor
+<SlideEditorView Deck="deck" ConfirmDeleteSlide="@(i => Dialogs.Confirm("Delete slide?", $"Slide {i + 1} will be removed.", "Delete", "Cancel"))" />
+```
+
+```csharp
+view.ConfirmDeleteSlide = i => dialogs.Confirm("Delete slide?", $"Slide {i + 1} will be removed.", "Delete", "Cancel");
+```
+
+On MAUI the default is the page's alert; with no page to show it on, nothing is deleted.
+`SlideEditorController.DeleteSlide` itself never asks.
+
+**Undo brings back the same slide, even after a save.** A deleted slide's part stays in the live
+package, out of the running order, and is stripped from the *saved copy* only — so undo restores the
+very slide, notes and pictures included, not a reconstruction of it.
+
+**Sections are kept consistent.** A deck with sections lists every slide in exactly one of them, in
+running order, and PowerPoint repairs a file that does not. A new or moved slide joins the section of
+the slide it now follows, a deleted one leaves its section, and a custom show loses its reference to a
+deleted slide. Undo puts all of it back exactly.
+
+Every structural change — including an undo — drops the shape selection and goes to the slide it
+happened at; a selection is an index into the slide that was showing, and after a reorder it would name
+a shape on a different one. `SlideDeck.SlidesChanged` reports these for a host keeping its own index.
+
+Reorder by dragging in the slide rail (below), or with Earlier/Later.
 
 ## Playing the deck
 
@@ -164,8 +286,10 @@ group at all and every command ends up behind a dropdown. See [Ribbon](ribbon.md
 
 ## The toolbar
 
-Two tabs. **Home** is the slide you are on and the text on it — Slide (previous / counter / next), Font
-and Paragraph. **Insert** is what goes on it — a text box, a shape, a table, a picture, and, behind a
+Two tabs. **Home** is the slide you are on and the text on it — Slide (previous / counter / next / slide
+show), Slides (new / duplicate / delete / earlier / later / layout), Font and Paragraph. **Insert** adds
+objects and acts on them — Insert, Clipboard and Arrange. Speaker notes are toggled from the status bar,
+where PowerPoint keeps them. **Insert** is what goes on it — a text box, a shape, a table, a picture, and, behind a
 rule, the way to remove the selected one.
 
 The split is only worth making because the second tab holds a real bar rather than a token button. The

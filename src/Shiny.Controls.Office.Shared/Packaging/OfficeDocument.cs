@@ -71,6 +71,29 @@ public abstract class OfficeDocument : IDisposable
     /// <summary>Flushes pending DOM changes into the package buffer. Implementations must be idempotent.</summary>
     protected abstract void FlushToPackage();
 
+    /// <summary>
+    /// A copy of the package to write in place of the live buffer, or null to write the buffer itself.
+    /// </summary>
+    /// <remarks>
+    /// For state that has to stay in the live package — so it can still be undone — but must not reach
+    /// the saved file. A deck keeps a deleted slide's part so undoing the delete can bring it back, and
+    /// strips it from the copy instead. Called after <see cref="FlushToPackage"/>; the caller disposes it.
+    /// </remarks>
+    protected virtual MemoryStream? CreateSaveCopy() => null;
+
+    /// <summary>Flushes, then returns the stream to write and whether the caller owns it.</summary>
+    MemoryStream PrepareSave(out bool owned)
+    {
+        this.FlushToPackage();
+
+        var copy = this.CreateSaveCopy();
+        owned = copy is not null;
+
+        var stream = copy ?? this.Buffer;
+        stream.Position = 0;
+        return stream;
+    }
+
     /// <summary>Saves back over <see cref="Path"/>.</summary>
     public Task SaveAsync(CancellationToken cancellationToken = default)
     {
@@ -87,7 +110,7 @@ public abstract class OfficeDocument : IDisposable
     public async Task SaveAsAsync(string path, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        this.FlushToPackage();
+        var source = this.PrepareSave(out var owned);
 
         var directory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path));
         var temp = System.IO.Path.Combine(directory ?? ".", $".{System.IO.Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
@@ -96,8 +119,7 @@ public abstract class OfficeDocument : IDisposable
         {
             await using (var file = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
             {
-                this.Buffer.Position = 0;
-                await this.Buffer.CopyToAsync(file, cancellationToken).ConfigureAwait(false);
+                await source.CopyToAsync(file, cancellationToken).ConfigureAwait(false);
                 await file.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
 
@@ -119,6 +141,11 @@ public abstract class OfficeDocument : IDisposable
 
             throw;
         }
+        finally
+        {
+            if (owned)
+                source.Dispose();
+        }
 
         this.Path = path;
         this.IsDirty = false;
@@ -129,16 +156,33 @@ public abstract class OfficeDocument : IDisposable
     public async Task SaveToAsync(Stream destination, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        this.FlushToPackage();
-        this.Buffer.Position = 0;
-        await this.Buffer.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+        var source = this.PrepareSave(out var owned);
+
+        try
+        {
+            await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (owned)
+                source.Dispose();
+        }
     }
 
     /// <summary>Returns the current package bytes, flushing pending changes first.</summary>
     public byte[] ToArray()
     {
-        this.FlushToPackage();
-        return this.Buffer.ToArray();
+        var source = this.PrepareSave(out var owned);
+
+        try
+        {
+            return source.ToArray();
+        }
+        finally
+        {
+            if (owned)
+                source.Dispose();
+        }
     }
 
     protected virtual void Dispose(bool disposing)

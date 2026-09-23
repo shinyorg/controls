@@ -25,6 +25,9 @@
     <Project Path="src/Shiny.Controls.MotionIcons.Shared/Shiny.Controls.MotionIcons.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Gantt.Shared/Shiny.Controls.Gantt.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Diagram.Shared/Shiny.Controls.Diagram.Shared.csproj" />
+    <Project Path="src/Shiny.Controls.Gamepad.Shared/Shiny.Controls.Gamepad.Shared.csproj" />
+    <Project Path="src/Shiny.Maui.Controls.Gamepad/Shiny.Maui.Controls.Gamepad.csproj" />
+    <Project Path="src/Shiny.Blazor.Controls.Gamepad/Shiny.Blazor.Controls.Gamepad.csproj" />
     <Project Path="src/Shiny.Controls.FloorPlan.Shared/Shiny.Controls.FloorPlan.Shared.csproj" />
     <Project Path="src/Shiny.Maui.Controls/Shiny.Maui.Controls.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Themes.Ocean/Shiny.Maui.Controls.Themes.Ocean.csproj" />
@@ -78,6 +81,7 @@
     <Project Path="tests/Shiny.Controls.MotionIcons.Tests/Shiny.Controls.MotionIcons.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Gantt.Tests/Shiny.Controls.Gantt.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Diagram.Tests/Shiny.Controls.Diagram.Tests.csproj" />
+    <Project Path="tests/Shiny.Controls.Gamepad.Tests/Shiny.Controls.Gamepad.Tests.csproj" />
     <Project Path="tests/Shiny.Maui.Controls.Diagram.Tests/Shiny.Maui.Controls.Diagram.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Diagram.Tests/Shiny.Blazor.Controls.Diagram.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.FloorPlan.Tests/Shiny.Controls.FloorPlan.Tests.csproj" />

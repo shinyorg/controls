@@ -25,6 +25,7 @@ public sealed class SlideDeck : OfficeDocument
     readonly List<SlidePart> parts = new();
     readonly IUnsupportedFeatureSink sink;
     bool contentChanged;
+    bool structureChanged;
 
     SlideDeck(MemoryStream buffer, string? path, Package document, IUnsupportedFeatureSink unsupported)
         : base(buffer, path, unsupported)
@@ -60,6 +61,16 @@ public sealed class SlideDeck : OfficeDocument
 
     /// <summary>Raised after any edit, so a view can repaint.</summary>
     public event EventHandler? ContentChanged;
+
+    /// <summary>
+    /// Raised when slides are added, removed or reordered — including by undo and redo — before
+    /// <see cref="ContentChanged"/>.
+    /// </summary>
+    /// <remarks>
+    /// Carries the slide the change happened at, so a view can go there. Every index a view is holding
+    /// — the slide it shows, the shape selected on it — may now point at a different slide.
+    /// </remarks>
+    public event EventHandler<SlidesChangedEventArgs>? SlidesChanged;
 
     /// <summary>Applies an edit through the undo stack.</summary>
     public void Execute(IEditCommand<SlideDeck> command)
@@ -169,6 +180,12 @@ public sealed class SlideDeck : OfficeDocument
         foreach (var part in this.dirty)
             part.Slide?.Save();
 
+        foreach (var part in this.dirtyParts)
+            part.RootElement?.Save();
+
+        if (this.structureChanged)
+            this.document.PresentationPart?.Presentation?.Save();
+
         // document.Save() is the only public flush the SDK offers, and it re-serialises every part
         // whose DOM has been materialised - which, for a deck, is every slide, layout, master, theme
         // and notes part the reader had to walk. Those round-trip through the same object model, so
@@ -176,7 +193,59 @@ public sealed class SlideDeck : OfficeDocument
         // *unedited* deck only, which is what the early return above guarantees.
         this.document.Save();
         this.dirty.Clear();
+        this.dirtyParts.Clear();
         this.contentChanged = false;
+        this.structureChanged = false;
+    }
+
+    /// <summary>
+    /// Writes a copy with deleted slides stripped out, when there are any.
+    /// </summary>
+    /// <remarks>
+    /// A deleted slide's part stays in the live package, out of the running order, so undoing the
+    /// delete can put the very same part back — its pictures, notes and relationships included. The
+    /// saved file must not carry it: a slide part the presentation relates to but never lists is one
+    /// PowerPoint offers to repair. So the strip happens on a copy, and the deck being edited keeps
+    /// everything it needs to undo, even across a save.
+    /// </remarks>
+    protected override MemoryStream? CreateSaveCopy()
+    {
+        if (this.parked.Count == 0)
+            return null;
+
+        var uris = this.parked.Select(x => x.Uri).ToHashSet();
+        var copy = new MemoryStream();
+
+        try
+        {
+            this.Buffer.Position = 0;
+            this.Buffer.CopyTo(copy);
+            copy.Position = 0;
+
+            using (var clone = Package.Open(copy, isEditable: true, new OpenSettings { AutoSave = false }))
+            {
+                var presentationPart = clone.PresentationPart!;
+                foreach (var part in presentationPart.SlideParts.Where(x => uris.Contains(x.Uri)).ToList())
+                {
+                    // The notes page points back at its slide, so it is not an orphan the SDK would
+                    // collect on its own once the slide goes.
+                    if (part.NotesSlidePart is { } notes)
+                        part.DeletePart(notes);
+
+                    presentationPart.DeletePart(part);
+                }
+
+                clone.Save();
+            }
+
+            copy.Position = 0;
+            return copy;
+        }
+        catch
+        {
+            copy.Dispose();
+            throw;
+        }
     }
 
     // ---- editing surface, driven by the commands ----
@@ -224,6 +293,126 @@ public sealed class SlideDeck : OfficeDocument
         this.ContentChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    // ---- slide structure, driven by the slide commands ----
+
+    /// <summary>Slides deleted in this session, kept in the package so an undo can restore them.</summary>
+    readonly HashSet<SlidePart> parked = new();
+
+    uint nextSlideId;
+
+    internal PresentationPart PresentationPart => this.document.PresentationPart!;
+
+    internal DocumentFormat.OpenXml.Presentation.Presentation? PresentationRoot => this.PresentationPart.Presentation;
+
+    /// <summary>The running order, created in its schema position if the deck has none.</summary>
+    internal SlideIdList EnsureSlideIdList()
+    {
+        var presentation = this.PresentationRoot
+            ?? throw new InvalidDataException("The package has no presentation element.");
+
+        if (presentation.SlideIdList is { } list)
+            return list;
+
+        // p:sldIdLst follows the three master lists and precedes p:sldSz; appended anywhere else it is
+        // a file PowerPoint refuses.
+        list = new SlideIdList();
+        OpenXmlElement? after = presentation.HandoutMasterIdList
+            ?? (OpenXmlElement?)presentation.NotesMasterIdList
+            ?? presentation.SlideMasterIdList;
+
+        if (after is not null)
+            presentation.InsertAfter(list, after);
+        else
+            presentation.PrependChild(list);
+
+        return list;
+    }
+
+    /// <summary>
+    /// An id no slide in this session has used.
+    /// </summary>
+    /// <remarks>
+    /// Monotonic rather than "one past the current maximum": a deleted slide's id is still held by the
+    /// undo history, and handing it to a new slide would put two slides with one id in the running order
+    /// the moment that delete is undone.
+    /// </remarks>
+    internal uint AllocateSlideId()
+    {
+        if (this.nextSlideId == 0)
+        {
+            var highest = this.PresentationRoot?.SlideIdList?.Elements<SlideId>()
+                .Select(x => x.Id?.Value ?? 0)
+                .DefaultIfEmpty(0U)
+                .Max() ?? 0;
+
+            this.nextSlideId = Math.Max(256, highest + 1);
+        }
+
+        // 2147483648 and above are reserved for masters and layouts.
+        if (this.nextSlideId >= 2147483648U)
+            throw new InvalidOperationException("The deck has run out of slide ids.");
+
+        return this.nextSlideId++;
+    }
+
+    readonly HashSet<OpenXmlPart> dirtyParts = new();
+
+    /// <summary>A part other than a slide that an edit wrote into — a notes page, a new notes master.</summary>
+    internal void MarkPartDirty(OpenXmlPart part)
+    {
+        this.dirtyParts.Add(part);
+        this.contentChanged = true;
+    }
+
+    /// <summary>The presentation element itself changed, outside a slide-structure edit.</summary>
+    internal void MarkStructureDirty()
+    {
+        this.structureChanged = true;
+        this.contentChanged = true;
+    }
+
+    internal void Park(SlidePart part) => this.parked.Add(part);
+
+    internal void Unpark(SlidePart part) => this.parked.Remove(part);
+
+    /// <summary>
+    /// Rebuilds the slide list from the running order after slides were added, removed or reordered.
+    /// </summary>
+    /// <remarks>
+    /// A slide that was already read is reused and only renumbered — a reorder has not changed what is
+    /// on it. Only a part this deck has not read before is read.
+    /// </remarks>
+    internal void Restructure(int focus, SlidePart? added = null)
+    {
+        var known = new Dictionary<SlidePart, Slide>();
+        for (var i = 0; i < this.parts.Count; i++)
+            known[this.parts[i]] = this.slides[i];
+
+        this.parts.Clear();
+        this.slides.Clear();
+
+        var number = 1;
+        foreach (var part in EnumerateSlides(this.PresentationPart))
+        {
+            this.parts.Add(part);
+            this.slides.Add(known.TryGetValue(part, out var slide)
+                ? slide with { Number = number }
+                : new SlideReader(part, this.sink).Read(number));
+
+            number++;
+        }
+
+        if (added is not null)
+            this.dirty.Add(added);
+
+        this.structureChanged = true;
+        this.contentChanged = true;
+        this.MarkDirty();
+
+        this.SlidesChanged?.Invoke(this, new SlidesChangedEventArgs(Math.Clamp(focus, 0, Math.Max(0, this.slides.Count - 1))));
+        this.ContentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -231,4 +420,11 @@ public sealed class SlideDeck : OfficeDocument
 
         base.Dispose(disposing);
     }
+}
+
+/// <summary>Slides were added, removed or reordered.</summary>
+public sealed class SlidesChangedEventArgs(int focus) : EventArgs
+{
+    /// <summary>The slide the change happened at, which is where a view should now be.</summary>
+    public int Focus { get; } = focus;
 }

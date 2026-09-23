@@ -92,6 +92,56 @@
                                       Clicked="() => StartPresentingAsync()" />
                     </RibbonGroup>
 
+                    @*
+                        The deck's own structure: add, copy, remove and reorder. Beside navigation
+                        rather than on Insert, because PowerPoint puts New Slide on Home and that is
+                        where people look for it. Delete asks first - see RequestDeleteSlide.
+                    *@
+                    <RibbonGroup Title="Slides" Priority="105">
+                        @*
+                            Two rows rather than a large New Slide and columns of small buttons: a
+                            column each for Duplicate/Delete, Earlier/Later and Layout made the group
+                            wide enough to push Paragraph into a dropdown at ordinary desktop widths.
+                            Earlier and Later are icon only; their tooltips name them.
+                        *@
+                        <RibbonRow>
+                            <RibbonButton Size="RibbonItemSize.Small" Text="New slide"
+                                          Tooltip="Add a slide after this one (Ctrl+M)"
+                                          Icon="@Ico(OfficeIcon.NewSlide)"
+                                          Disabled="Disabled"
+                                          Clicked="() => Run(c => c.NewSlide())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Text="Duplicate"
+                                          Tooltip="Duplicate this slide"
+                                          Icon="@Ico(OfficeIcon.Duplicate)"
+                                          Disabled="@(Disabled || (Controller?.Count ?? 0) == 0)"
+                                          Clicked="() => Run(c => c.DuplicateSlide())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Text="Delete"
+                                          Tooltip="Delete this slide"
+                                          Icon="@Ico(OfficeIcon.Delete)"
+                                          Disabled="@(Disabled || !(Controller?.CanDeleteSlide ?? false))"
+                                          Clicked="RequestDeleteSlide" />
+                        </RibbonRow>
+                        <RibbonRow>
+                            <RibbonButton Size="RibbonItemSize.Small"
+                                          Tooltip="Move this slide earlier"
+                                          Icon="@Ico(OfficeIcon.MoveSlideEarlier)"
+                                          Disabled="@(Disabled || !(Controller?.CanMoveSlideEarlier ?? false))"
+                                          Clicked="() => Run(c => c.MoveSlideEarlier())" />
+                            <RibbonButton Size="RibbonItemSize.Small"
+                                          Tooltip="Move this slide later"
+                                          Icon="@Ico(OfficeIcon.MoveSlideLater)"
+                                          Disabled="@(Disabled || !(Controller?.CanMoveSlideLater ?? false))"
+                                          Clicked="() => Run(c => c.MoveSlideLater())" />
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Layout"
+                                              Tooltip="Change this slide's layout, or add a slide with one"
+                                              Icon="@Ico(OfficeIcon.SlideLayout)"
+                                              Disabled="@(Disabled || (Controller?.Count ?? 0) == 0)"
+                                              Menu="LayoutMenu" />
+                        </RibbonRow>
+                    </RibbonGroup>
+
+
+
                     @* Rows: the two boxes on top, the run of marks underneath. Filling columns put
                        bold above italic and underline above strikethrough - a 2x2 block of a run
                        people read across - and forced the font picker to share a column with a
@@ -246,6 +296,43 @@
                                       Disabled="@(!HasSelection)" Clicked="() => Run(c => c.DeleteSelectedShape())" />
                     </RibbonGroup>
 
+                    @*
+                        Shapes, not text: text copy and paste go through the browser from inside a
+                        shape. These act on the selected shape, and Ctrl+C/X/V/D do the same.
+                    *@
+                    <RibbonGroup Title="Clipboard" Priority="95">
+                        <RibbonButton Size="RibbonItemSize.Large" Text="Paste"
+                                      Tooltip="Paste the copied shape (Ctrl+V)"
+                                      Icon="@Ico(OfficeIcon.Paste)"
+                                      Disabled="@(Disabled || !(Controller?.CanPaste ?? false))"
+                                      Clicked="() => Run(c => c.Paste())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Cut" Tooltip="Cut the selected shape (Ctrl+X)"
+                                      Icon="@Ico(OfficeIcon.Cut)" Disabled="@(!CanCopyShape)"
+                                      Clicked="() => Run(c => c.CutShape())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Copy" Tooltip="Copy the selected shape (Ctrl+C)"
+                                      Icon="@Ico(OfficeIcon.Copy)" Disabled="@(!CanCopyShape)"
+                                      Clicked="() => Run(c => c.CopyShape())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Duplicate" Tooltip="Duplicate the selected shape (Ctrl+D)"
+                                      Icon="@Ico(OfficeIcon.Duplicate)" Disabled="@(!CanCopyShape)"
+                                      Clicked="() => Run(c => c.DuplicateShape())" />
+                    </RibbonGroup>
+
+                    @* Stacking order. Ctrl+Shift+] and Ctrl+] bring forward, [ sends back. *@
+                    <RibbonGroup Title="Arrange" Priority="85">
+                        <RibbonButton Size="RibbonItemSize.Small" Text="To front" Tooltip="Bring to front (Ctrl+Shift+])"
+                                      Icon="@Ico(OfficeIcon.BringToFront)" Disabled="@(!CanArrange)"
+                                      Clicked="() => Run(c => c.BringToFront())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Forward" Tooltip="Bring forward (Ctrl+])"
+                                      Icon="@Ico(OfficeIcon.BringForward)" Disabled="@(!CanArrange)"
+                                      Clicked="() => Run(c => c.BringForward())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Backward" Tooltip="Send backward (Ctrl+[)"
+                                      Icon="@Ico(OfficeIcon.SendBackward)" Disabled="@(!CanArrange)"
+                                      Clicked="() => Run(c => c.SendBackward())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="To back" Tooltip="Send to back (Ctrl+Shift+[)"
+                                      Icon="@Ico(OfficeIcon.SendToBack)" Disabled="@(!CanArrange)"
+                                      Clicked="() => Run(c => c.SendToBack())" />
+                    </RibbonGroup>
+
                 </RibbonTab>
 
                 <OfficeShapesTab Disabled="Disabled" Picked="OnShapePicked" />
@@ -254,6 +341,19 @@
         </div>
     }
 
+    <div class="slide-body">
+    @*
+        The rail is only drawn once the editor has made its controller - it is the editor's deck and
+        the editor's slide the rail shows.
+    *@
+    @if (ShowSlideRail && Controller is { } railController)
+    {
+        <div class="slide-rail-pane">
+            <SlideRail Controller="railController" Theme="Theme" Interacted="FocusEditorAsync" />
+        </div>
+    }
+
+    <div class="slide-main">
     <div class="slide-surface">
         <SlideEditor @ref="editor"
                      Deck="Deck"
@@ -266,6 +366,52 @@
                      AllowFileDrop="AllowFileDrop"
                      DropRejected="DropRejected"
                      DeckChanged="OnDeckChanged" />
+
+        @*
+            The built-in delete confirmation, over the slide it is about. In the view rather than the
+            core DialogService because that service needs a host registered and mounted in the app's
+            layout, and a control that quietly deletes when nobody registered one is worse than one
+            that asks in a plainer box. ConfirmDeleteSlide swaps in the app's own dialog.
+        *@
+        @if (this.pendingDelete is { } pending)
+        {
+            <div class="slide-confirm-backdrop" @onclick="CancelDeleteSlide">
+                <div class="slide-confirm"
+                     role="alertdialog"
+                     aria-modal="true"
+                     aria-labelledby="@($"{this.confirmId}-title")"
+                     aria-describedby="@($"{this.confirmId}-body")"
+                     @onclick:stopPropagation="true"
+                     @onkeydown="OnConfirmKeyDown">
+                    <div class="slide-confirm-title" id="@($"{this.confirmId}-title")">Delete slide @(pending + 1)?</div>
+                    <div class="slide-confirm-body" id="@($"{this.confirmId}-body")">
+                        @(DescribeSlide(pending)) will be removed from the deck. You can undo this.
+                    </div>
+                    <div class="slide-confirm-actions">
+                        <button type="button" @ref="confirmCancel" @onclick="CancelDeleteSlide">Cancel</button>
+                        <button type="button" class="slide-confirm-danger" @onclick="ConfirmDeleteSlideAsync">Delete</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (ShowNotes)
+    {
+        @*
+            Written through on every keystroke; SetSlideNotesCommand merges a run of them into one undo
+            step. The box holds its own draft rather than echoing the deck back, because the deck trims
+            a trailing blank line and echoing that would swallow every Enter pressed at the end.
+        *@
+        <div class="slide-notes">
+            <textarea aria-label="Speaker notes"
+                      placeholder="Click to add notes"
+                      readonly="@Disabled"
+                      value="@notesDraft"
+                      @oninput="OnNotesInput"></textarea>
+        </div>
+    }
+    </div>
     </div>
 
     @if (ShowStatus)
@@ -273,12 +419,26 @@
         <div class="slide-status">
             @if (Controller is { SelectedShape: >= 0 } controller)
             {
-                <span>@(controller.IsEditingText ? "Editing text — double-click a word to select it, Esc to leave" : "Shape selected — double-click to edit its text")</span>
+                <span>@(controller.IsEditingText
+                            ? controller.ActiveCell is not null
+                                ? "Editing a cell — Tab moves to the next one, Esc to leave"
+                                : "Editing text — double-click a word to select it, Esc to leave"
+                            : controller.Selection?.IsGroup == true
+                                ? "Group selected — double-click to select a shape inside it"
+                                : "Shape selected — arrows nudge it, double-click to edit its text")</span>
             }
             else
             {
                 <span>Click a shape to select it; double-click to edit its text.</span>
             }
+
+            @* Where PowerPoint keeps it: the notes are a way of looking at the slide, not a command. *@
+            <button type="button"
+                    class="slide-status-notes @(ShowNotes ? "on" : null)"
+                    aria-pressed="@(ShowNotes ? "true" : "false")"
+                    disabled="@(Deck is null)"
+                    title="Show the speaker notes under the slide"
+                    @onclick="ToggleNotesAsync">@OfficeToolbarIcons.Get(OfficeIcon.Notes)<span>Notes</span></button>
         </div>
     }
 
@@ -313,6 +473,102 @@
     SlideEditor? editor;
     SlideView? show;
     bool presenting;
+
+    /// <summary>The slide the built-in confirmation is asking about, or null when it is closed.</summary>
+    int? pendingDelete;
+    bool focusConfirm;
+    ElementReference confirmCancel;
+    readonly string confirmId = $"slide-confirm-{Guid.NewGuid():N}";
+
+    /// <summary>
+    /// Ask before the toolbar deletes a slide. On by default.
+    /// </summary>
+    /// <remarks>
+    /// Undo brings a deleted slide back, but a slide is a lot of work to lose to a mis-click on a
+    /// button that sits beside New Slide, and nothing on screen says undo is the way back. Off, the
+    /// button deletes straight away. <see cref="SlideEditorController.DeleteSlide"/> never asks.
+    /// </remarks>
+    [Parameter] public bool ConfirmSlideDelete { get; set; } = true;
+
+    /// <summary>
+    /// Replaces the built-in confirmation, e.g. with the app's <c>IDialogService.Confirm</c>. Given the
+    /// index of the slide about to go; return true to delete it.
+    /// </summary>
+    [Parameter] public Func<int, Task<bool>>? ConfirmDeleteSlide { get; set; }
+
+    /// <summary>Deletes the current slide, asking first unless <see cref="ConfirmSlideDelete"/> is off.</summary>
+    public async Task RequestDeleteSlide()
+    {
+        if (this.Controller is not { CanDeleteSlide: true } controller || this.Disabled)
+            return;
+
+        var index = controller.Index;
+
+        if (!this.ConfirmSlideDelete)
+        {
+            await this.Run(c => c.DeleteSlide(index));
+            return;
+        }
+
+        if (this.ConfirmDeleteSlide is { } ask)
+        {
+            if (await ask(index))
+                await this.Run(c => c.DeleteSlide(index));
+
+            return;
+        }
+
+        this.pendingDelete = index;
+        this.focusConfirm = true;
+        this.StateHasChanged();
+    }
+
+    async Task ConfirmDeleteSlideAsync()
+    {
+        if (this.pendingDelete is not { } index)
+            return;
+
+        this.pendingDelete = null;
+        await this.Run(c => c.DeleteSlide(index));
+    }
+
+    /// <summary>After a tap or drag in the rail the keys belong to the editor again - undo, arrows, Delete.</summary>
+    async Task FocusEditorAsync()
+    {
+        if (this.editor is not null)
+            await this.editor.FocusAsync();
+
+        this.SyncNotesDraft();
+        this.StateHasChanged();
+    }
+
+    async Task CancelDeleteSlide()
+    {
+        this.pendingDelete = null;
+
+        if (this.editor is not null)
+            await this.editor.FocusAsync();
+    }
+
+    Task OnConfirmKeyDown(KeyboardEventArgs e)
+        => e.Key == "Escape" ? this.CancelDeleteSlide() : Task.CompletedTask;
+
+    /// <summary>The slide's title in quotes, or "This slide" when it has none.</summary>
+    string DescribeSlide(int index)
+        => this.Deck?.Slides.ElementAtOrDefault(index)?.Title is { Length: > 0 } title
+            ? $"“{title}” and everything on it"
+            : "This slide and everything on it";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Cancel takes the focus, not Delete: Enter on a dialog that opened under the user's hands
+        // should be the harmless answer.
+        if (this.focusConfirm && this.pendingDelete is not null)
+        {
+            this.focusConfirm = false;
+            await this.confirmCancel.FocusAsync();
+        }
+    }
 
     /// <summary>The deck to edit. Must have been opened with <c>editable: true</c>.</summary>
     [Parameter] public SlideDeck? Deck { get; set; }
@@ -486,6 +742,108 @@
 
     bool HasSelection => !this.Disabled && this.Controller?.SelectedShape >= 0;
 
+    bool CanCopyShape => !this.Disabled && (this.Controller?.CanCopyShape ?? false);
+
+    bool CanArrange => !this.Disabled && (this.Controller?.CanArrange ?? false);
+
+    /// <summary>
+    /// Show the slide rail — thumbnails to click and drag — beside the slide. On by default; below
+    /// 600px wide the stylesheet hides it, since a phone has no room for two columns.
+    /// </summary>
+    [Parameter] public bool ShowSlideRail { get; set; } = true;
+
+    /// <summary>Show the speaker-notes box under the slide. Off by default; the ribbon's Notes toggles it.</summary>
+    [Parameter] public bool ShowNotes { get; set; }
+
+    [Parameter] public EventCallback<bool> ShowNotesChanged { get; set; }
+
+    string? notesDraft;
+    int notesSlide = -1;
+
+    async Task ToggleNotesAsync()
+    {
+        this.ShowNotes = !this.ShowNotes;
+        this.SyncNotesDraft(force: true);
+
+        if (this.ShowNotesChanged.HasDelegate)
+            await this.ShowNotesChanged.InvokeAsync(this.ShowNotes);
+    }
+
+    async Task OnNotesInput(ChangeEventArgs e)
+    {
+        if (this.Controller is not { } controller || this.Disabled)
+            return;
+
+        this.notesDraft = e.Value as string;
+        this.notesSlide = controller.Index;
+        controller.SetNotes(this.notesDraft);
+
+        if (this.DeckChanged.HasDelegate)
+            await this.DeckChanged.InvokeAsync();
+    }
+
+    /// <summary>
+    /// Refills the notes box from the deck when the slide changed, or when the notes changed from
+    /// somewhere other than the box — an undo, say.
+    /// </summary>
+    void SyncNotesDraft(bool force = false)
+    {
+        if (this.Controller is not { } controller)
+            return;
+
+        static string Normal(string? value) => (value ?? string.Empty).Replace("\r\n", "\n").TrimEnd();
+
+        if (force || controller.Index != this.notesSlide || Normal(this.notesDraft) != Normal(controller.Notes))
+        {
+            this.notesDraft = controller.Notes;
+            this.notesSlide = controller.Index;
+        }
+    }
+
+    /// <summary>The layouts on offer: pick one to re-lay the current slide, or add a new slide with it.</summary>
+    List<RibbonMenuEntry> LayoutMenu
+    {
+        get
+        {
+            if (this.Controller is not { } controller)
+                return [];
+
+            var layouts = controller.Layouts;
+            return
+            [
+                .. layouts.Select(layout => new RibbonMenuEntry
+                {
+                    Text = layout.Name,
+                    IsChecked = layout.IsCurrent,
+                    IsDisabled = this.Disabled,
+                    OnClick = EventCallback.Factory.Create(this, () => this.Run(c => c.SetLayout(layout)))
+                }),
+                new RibbonMenuEntry { IsSeparator = true },
+                new RibbonMenuEntry
+                {
+                    Text = "New slide with layout",
+                    IsDisabled = this.Disabled,
+                    Children =
+                    [
+                        .. layouts.Select(layout => new RibbonMenuEntry
+                        {
+                            Text = layout.Name,
+                            OnClick = EventCallback.Factory.Create(this, () => this.Run(c => c.NewSlide(layout)))
+                        })
+                    ]
+                }
+            ];
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // The editor makes its controller while it renders, after this view already has; one more
+        // render lets the rail and the controller-driven buttons see it.
+        if (firstRender && this.Controller is not null)
+            this.StateHasChanged();
+    }
+
     /// <summary>
     /// Text formatting only applies while a caret is actually inside a shape's text.
     /// </summary>
@@ -583,6 +941,7 @@
     async Task OnSlideIndexChanged(int index)
     {
         this.SlideIndex = index;
+        this.SyncNotesDraft();
 
         if (this.SlideIndexChanged.HasDelegate)
             await this.SlideIndexChanged.InvokeAsync(index);
@@ -590,7 +949,11 @@
         this.StateHasChanged();
     }
 
-    async Task OnDeckChanged() => await this.RaiseChangedAsync();
+    async Task OnDeckChanged()
+    {
+        this.SyncNotesDraft();
+        await this.RaiseChangedAsync();
+    }
 
     async Task RaiseChangedAsync()
     {

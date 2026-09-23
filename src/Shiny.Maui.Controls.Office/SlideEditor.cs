@@ -239,7 +239,12 @@ public class SlideEditor : ContentView, IDisposable
             DestinationHeight = placement.Height,
             Theme = theme,
             Scale = scale,
-            Chrome = this.BuildChrome()
+            Chrome = this.BuildChrome(),
+
+            // An empty placeholder's "Click to add title" is editing chrome, so it belongs to the
+            // editor and not the viewer - and not to the one placeholder the caret is inside.
+            ShowPlaceholderPrompts = !this.IsReadOnly,
+            PromptHiddenShape = this.controller is { IsEditingText: true } editing ? editing.SelectedShape : -1
         });
     }
 
@@ -537,12 +542,53 @@ public class SlideEditor : ContentView, IDisposable
                 this.controller.BeginTextEditing(0, 0);
                 break;
 
+            // With a shape selected the arrows nudge it (Ctrl for a fine nudge); with nothing
+            // selected, left and right page through the deck.
+            case EditorKey.Left or EditorKey.Right or EditorKey.Up or EditorKey.Down
+                when !this.controller.IsEditingText && this.controller.SelectedShape >= 0:
+                this.controller.Nudge(
+                    key == EditorKey.Left ? -1 : key == EditorKey.Right ? 1 : 0,
+                    key == EditorKey.Up ? -1 : key == EditorKey.Down ? 1 : 0,
+                    fine: control);
+                break;
+
             case EditorKey.Left when !this.controller.IsEditingText:
                 this.controller.Previous();
                 break;
 
             case EditorKey.Right when !this.controller.IsEditingText:
                 this.controller.Next();
+                break;
+
+            case EditorKey.Up or EditorKey.Down when !this.controller.IsEditingText:
+                return false;
+
+            case EditorKey.Copy when !this.controller.IsEditingText:
+                this.controller.CopyShape();
+                break;
+
+            case EditorKey.Cut when !this.controller.IsEditingText:
+                this.controller.CutShape();
+                break;
+
+            case EditorKey.Paste when !this.controller.IsEditingText:
+                this.controller.Paste();
+                break;
+
+            case EditorKey.Duplicate when !this.controller.IsEditingText:
+                this.controller.DuplicateShape();
+                break;
+
+            case EditorKey.NewSlide:
+                this.controller.NewSlide();
+                break;
+
+            case EditorKey.BringForward when !this.controller.IsEditingText:
+                this.controller.Arrange(shift ? ShapeZOrder.BringToFront : ShapeZOrder.BringForward);
+                break;
+
+            case EditorKey.SendBackward when !this.controller.IsEditingText:
+                this.controller.Arrange(shift ? ShapeZOrder.SendToBack : ShapeZOrder.SendBackward);
                 break;
 
             case EditorKey.Left: this.controller.MoveLeft(shift); break;

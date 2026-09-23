@@ -1,0 +1,215 @@
+@page "/gamepad"
+@implements IAsyncDisposable
+@inject IGamepadManager Gamepads
+
+<PageTitle>Gamepad</PageTitle>
+
+<h1>Gamepad</h1>
+
+<div class="demo-section">
+    <p>
+        An on-screen controller that <em>is</em> a Shiny.Gamepad <code>IGamepad</code>. The playfield below
+        reads it every frame with <code>GetState()</code> - the same code a physical controller drives.
+        Drag the stick or d-pad to move, hold A to grow. Touches that miss the controller reach the
+        playfield underneath.
+    </p>
+
+    <div class="gp-options">
+        <label>Layout
+            <select @bind="preset">
+                @foreach (var p in Enum.GetValues<GamepadPreset>())
+                {
+                    <option value="@p">@p</option>
+                }
+            </select>
+        </label>
+        <label>Labels
+            <select @bind="faceStyle">
+                <option value="">Layout default</option>
+                @foreach (var f in Enum.GetValues<GamepadFaceStyle>())
+                {
+                    <option value="@f">@f</option>
+                }
+            </select>
+        </label>
+        <label><input type="checkbox" @bind="inline" /> Inline controller</label>
+        <label><input type="checkbox" @bind="floating" /> Floating left stick</label>
+        <label><input type="checkbox" @bind="turbo" /> Turbo on the bottom button</label>
+        <label><input type="checkbox" @bind="fade" /> Fade when idle</label>
+        <label><input type="checkbox" @bind="editing" /> Edit layout (drag / pinch)</label>
+        @if (customLayout != null)
+        {
+            <button @onclick="ResetLayout">Reset layout</button>
+        }
+    </div>
+</div>
+
+<div class="gp-stage @(inline ? "is-inline" : null)">
+    <div class="gp-field" @onclick="OnFieldClick">
+        <div class="gp-player" style="left:@(Pct(x));top:@(Pct(y));width:@(size)px;height:@(size)px;background:@color"></div>
+        <div class="gp-hud">
+            <div>Buttons: <code>@(state.Buttons == GamepadButton.None ? "-" : state.Buttons.ToString())</code></div>
+            <div>Left <code>@Stick(state.LeftStick)</code> Right <code>@Stick(state.RightStick)</code></div>
+            <div>Triggers <code>@state.LeftTrigger.ToString("0.0") / @state.RightTrigger.ToString("0.0")</code></div>
+            <div>Field taps (pass-through): <code>@fieldTaps</code></div>
+        </div>
+    </div>
+
+    <div class="gp-pad">
+        <GamepadView @ref="view"
+                     Preset="preset"
+                     @bind-ControllerLayout="customLayout"
+                     FaceStyle="faceStyle"
+                     Sizing="@(inline ? GamepadSizing.Uniform : GamepadSizing.Anchored)"
+                     IsEditing="editing"
+                     IdleOpacity="@(fade ? 0.35 : 1.0)"
+                     IdleDelay="TimeSpan.FromSeconds(2)"
+                     HideWhenControllerConnected="true"
+                     OnButtonChanged="OnButton" />
+    </div>
+</div>
+
+<div class="demo-section">
+    <h3>IGamepadManager.GetGamepads()</h3>
+    <p>The on-screen pad is listed next to any physical controller - press a button on one to make the browser reveal it. Picking one up hides the on-screen pad.</p>
+    <ul>
+        @foreach (var pad in pads)
+        {
+            <li><code>@pad.Kind</code> @pad.Name <small>(@pad.Id)</small></li>
+        }
+    </ul>
+    <div class="state">Last button event: <code>@lastEvent</code></div>
+</div>
+
+@code {
+    GamepadView? view;
+    GamepadPreset presetValue = GamepadPreset.Standard;
+    GamepadFaceStyle? faceStyle;
+    GamepadLayout? customLayout;
+    bool inline, editing, fade;
+    bool floatingValue, turboValue;
+    GamepadState state;
+    IReadOnlyList<IGamepad> pads = [];
+    string lastEvent = "-";
+    int fieldTaps;
+    float x = 0.5f, y = 0.4f, size = 28;
+    string color = "#38BDF8";
+    CancellationTokenSource? loop;
+
+    GamepadPreset preset
+    {
+        get => presetValue;
+        set { presetValue = value; ApplyTweaks(); }
+    }
+
+    bool floating
+    {
+        get => floatingValue;
+        set { floatingValue = value; ApplyTweaks(); }
+    }
+
+    bool turbo
+    {
+        get => turboValue;
+        set { turboValue = value; ApplyTweaks(); }
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        Gamepads.Connected += OnConnectionChanged;
+        Gamepads.Disconnected += OnConnectionChanged;
+        loop = new CancellationTokenSource();
+        _ = RunLoop(loop.Token);
+        pads = await Gamepads.GetGamepads();
+    }
+
+
+    // a real game loop: read the state every frame, whatever is driving it
+    async Task RunLoop(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(16));
+        try
+        {
+            await Tick(timer, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // page left
+        }
+    }
+
+
+    async Task Tick(PeriodicTimer timer, CancellationToken ct)
+    {
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            if (view == null)
+                continue;
+
+            var next = view.Gamepad.GetState();
+            var move = next.GetMovement();
+            var dpad = next.DPad;
+            var dx = move.X + dpad.X;
+            var dy = move.Y + dpad.Y;
+            if (dx == 0 && dy == 0 && next == state)
+                continue;
+
+            state = next;
+            x = Math.Clamp(x + dx * 0.012f, 0.03f, 0.97f);
+            y = Math.Clamp(y - dy * 0.012f, 0.05f, 0.95f);
+            size = next.IsPressed(GamepadButton.A) ? 48 : 28;
+            color = next.IsPressed(GamepadButton.B) ? "#F472B6" : next.IsPressed(GamepadButton.X) ? "#A3E635" : "#38BDF8";
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+    void ApplyTweaks()
+    {
+        var layout = GamepadLayouts.Get(presetValue);
+        var ls = layout.Elements.FirstOrDefault(e => e.Kind == GamepadElementKind.Stick);
+        if (ls != null)
+            ls.IsFloating = floatingValue;
+
+        var bottom = layout.Elements.FirstOrDefault(e => e.Button == GamepadButton.A);
+        if (bottom != null)
+            bottom.IsTurbo = turboValue;
+
+        customLayout = floatingValue || turboValue ? layout : null;
+    }
+
+
+    void ResetLayout()
+    {
+        floatingValue = turboValue = false;
+        customLayout = null;
+    }
+
+
+    void OnButton(GamepadButtonChangedEventArgs e)
+        => lastEvent = $"{e.Button} {(e.IsPressed ? "pressed" : "released")}";
+
+
+    void OnFieldClick() => fieldTaps++;
+
+
+    async void OnConnectionChanged(object? sender, GamepadConnectionEventArgs e)
+    {
+        pads = await Gamepads.GetGamepads();
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    static string Pct(float v) => (v * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
+    static string Stick(GamepadStick s) => $"{s.X:0.00}, {s.Y:0.00}";
+
+
+    public ValueTask DisposeAsync()
+    {
+        loop?.Cancel();
+        Gamepads.Connected -= OnConnectionChanged;
+        Gamepads.Disconnected -= OnConnectionChanged;
+        return ValueTask.CompletedTask;
+    }
+}

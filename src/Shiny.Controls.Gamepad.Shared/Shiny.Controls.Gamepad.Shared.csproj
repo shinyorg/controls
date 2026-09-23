@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Shared rather than mirrored for the same reason the Diagram engine is: an on-screen gamepad
+             is mostly arithmetic - which element a finger landed on, how far a thumb is from a stick's
+             centre, which of eight directions a d-pad is leaning. A stick that read differently on the
+             two hosts would be a bug neither host's own tests could see, so the possibility is removed
+             rather than tested for. The hosts only draw and forward raw pointers. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.Gaming</RootNamespace>
+        <Description>Host-neutral engine behind the Shiny on-screen gamepad for .NET MAUI and Blazor - NES, SNES, Xbox/PlayStation and twin-stick layouts, multi-touch hit testing, sticks, d-pads, turbo and layout editing, surfaced as a Shiny.Gamepad IGamepad so game code cannot tell it from hardware.</Description>
+        <PackageTags>maui blazor shiny gamepad controller joystick dpad touch virtual onscreen</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Shiny.Gamepad"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.Gamepad.Tests" />
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Gamepad" />
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.Gamepad" />
+    </ItemGroup>
+
+</Project>

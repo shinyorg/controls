@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <RootNamespace>Shiny.Blazor.Controls.Gaming</RootNamespace>
+        <Description>An on-screen gamepad for Blazor - NES, SNES, Xbox/PlayStation, twin-stick and arcade layouts as a game overlay or an inline controller, with multi-touch sticks and d-pads, turbo, vibration, a drag-and-pinch layout editor, and auto-hide when a real controller is used. It is a Shiny.Gamepad IGamepad, so game code reads it exactly like hardware. Built for mobile browsers.</Description>
+        <PackageTags>blazor shiny gamepad controller joystick dpad touch virtual onscreen game</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <SupportedPlatform Include="browser" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web"/>
+        <PackageReference Include="Shiny.Gamepad.Blazor"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.Gamepad.Shared\Shiny.Controls.Gamepad.Shared.csproj"/>
+    </ItemGroup>
+
+</Project>

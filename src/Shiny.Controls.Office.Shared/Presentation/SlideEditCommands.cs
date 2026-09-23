@@ -17,7 +17,16 @@ namespace Shiny.Controls.Office.Presentation;
 /// </remarks>
 public readonly record struct SlidePosition(int Slide, int Shape, int Paragraph, int Offset)
 {
-    public bool SameShape(SlidePosition other) => this.Slide == other.Slide && this.Shape == other.Shape;
+    /// <summary>
+    /// The table cell the text is in, when the shape is a table; null for a shape's own text.
+    /// </summary>
+    /// <remarks>
+    /// Row and column index <see cref="SlideTable.Rows"/> directly — a merged-away cell still has a
+    /// slot. Nullable rather than defaulting to -1 so a <c>default</c> position means "not a cell".
+    /// </remarks>
+    public (int Row, int Column)? Cell { get; init; }
+
+    public bool SameShape(SlidePosition other) => this.Slide == other.Slide && this.Shape == other.Shape && this.Cell == other.Cell;
 
     /// <summary>Ordering within one shape. Comparing across shapes is meaningless and returns 0.</summary>
     public int CompareWithin(SlidePosition other)
@@ -58,10 +67,17 @@ public abstract record SlideCommand : IEditCommand<SlideDeck>
 
     /// <summary>The <c>a:p</c> a position points at, or null when the position is stale.</summary>
     private protected static D.Paragraph? ParagraphAt(SlideDeck deck, SlidePosition at)
-        => deck.Slides.ElementAtOrDefault(at.Slide)?
-            .Shapes.ElementAtOrDefault(at.Shape)?
-            .Text?.Paragraphs.ElementAtOrDefault(at.Paragraph)?
-            .Element;
+        => TextAt(deck, at)?.Paragraphs.ElementAtOrDefault(at.Paragraph)?.Element;
+
+    /// <summary>The text body a position is in: the shape's own, or one of its table's cells.</summary>
+    internal static ShapeTextBody? TextAt(SlideDeck deck, SlidePosition at)
+    {
+        var shape = deck.Slides.ElementAtOrDefault(at.Slide)?.Shapes.ElementAtOrDefault(at.Shape);
+
+        return at.Cell is { } cell
+            ? shape?.Table?.Rows.ElementAtOrDefault(cell.Row)?.ElementAtOrDefault(cell.Column)?.Text
+            : shape?.Text;
+    }
 
     private protected static SlideShape? ShapeAt(SlideDeck deck, int slide, int shape)
         => deck.Slides.ElementAtOrDefault(slide)?.Shapes.ElementAtOrDefault(shape);
@@ -454,23 +470,76 @@ public sealed record SetShapeBoundsCommand(int Slide, int Shape, double X, doubl
 
         var inverse = new SetShapeBoundsCommand(this.Slide, this.Shape, shape.X, shape.Y, shape.Width, shape.Height);
 
-        var transform = EnsureTransform(shape.Element);
-        if (transform is null)
-            return new NoOpSlideCommand();
-
-        transform.Offset ??= new D.Offset();
-        transform.Extents ??= new D.Extents();
-
-        transform.Offset.X = OoxmlUnits.PixelsToEmu(this.X);
-        transform.Offset.Y = OoxmlUnits.PixelsToEmu(this.Y);
-
         // A zero-sized shape cannot be grabbed again, so a resize can never take a shape below a
-        // size that still has a handle on it.
-        transform.Extents.Cx = OoxmlUnits.PixelsToEmu(Math.Max(4, this.Width));
-        transform.Extents.Cy = OoxmlUnits.PixelsToEmu(Math.Max(4, this.Height));
+        // size that still has a handle on it. The request is in slide space; the file wants the space
+        // the shape's transform is written in, which inside a group is the group's child space.
+        var (x, y, width, height) = shape.Space.FromSlide(this.X, this.Y, Math.Max(4, this.Width), Math.Max(4, this.Height));
+
+        if (!WriteBounds(
+                shape.Element,
+                OoxmlUnits.PixelsToEmu(x),
+                OoxmlUnits.PixelsToEmu(y),
+                Math.Max(1, OoxmlUnits.PixelsToEmu(width)),
+                Math.Max(1, OoxmlUnits.PixelsToEmu(height))))
+        {
+            return new NoOpSlideCommand();
+        }
 
         context.Reproject(this.Slide);
         return inverse;
+    }
+
+    static bool WriteBounds(OpenXmlElement element, long x, long y, long cx, long cy)
+    {
+        switch (element)
+        {
+            case GraphicFrame frame:
+                // p:xfrm, a direct child of the frame, and a different type from a:xfrm. This used to
+                // return nothing, so a table could be added but never moved or resized.
+                var frameTransform = frame.Transform ??= new Transform();
+                frameTransform.Offset ??= new D.Offset();
+                frameTransform.Extents ??= new D.Extents();
+                frameTransform.Offset.X = x;
+                frameTransform.Offset.Y = y;
+                frameTransform.Extents.Cx = cx;
+                frameTransform.Extents.Cy = cy;
+                return true;
+
+            case GroupShape group:
+                var properties = group.GroupShapeProperties ??= new GroupShapeProperties();
+                var groupTransform = properties.TransformGroup;
+                if (groupTransform is null)
+                {
+                    groupTransform = new D.TransformGroup();
+                    properties.InsertAt(groupTransform, 0);
+                }
+
+                groupTransform.Offset ??= new D.Offset { X = x, Y = y };
+                groupTransform.Extents ??= new D.Extents { Cx = cx, Cy = cy };
+
+                // The child space is pinned to where the group was, so moving or resizing the group
+                // carries and scales its children rather than leaving them behind.
+                groupTransform.ChildOffset ??= new D.ChildOffset { X = groupTransform.Offset.X?.Value ?? x, Y = groupTransform.Offset.Y?.Value ?? y };
+                groupTransform.ChildExtents ??= new D.ChildExtents { Cx = groupTransform.Extents.Cx?.Value ?? cx, Cy = groupTransform.Extents.Cy?.Value ?? cy };
+
+                groupTransform.Offset.X = x;
+                groupTransform.Offset.Y = y;
+                groupTransform.Extents.Cx = cx;
+                groupTransform.Extents.Cy = cy;
+                return true;
+        }
+
+        var transform = EnsureTransform(element);
+        if (transform is null)
+            return false;
+
+        transform.Offset ??= new D.Offset();
+        transform.Extents ??= new D.Extents();
+        transform.Offset.X = x;
+        transform.Offset.Y = y;
+        transform.Extents.Cx = cx;
+        transform.Extents.Cy = cy;
+        return true;
     }
 
     /// <summary>A drag is one undo step, not one per pointer sample.</summary>
@@ -513,12 +582,6 @@ public sealed record SetShapeBoundsCommand(int Slide, int Shape, double X, doubl
                 var connectionProperties = connection.ShapeProperties ??= new ShapeProperties();
                 return connectionProperties.Transform2D ??= NewTransform(connectionProperties);
 
-            case GraphicFrame frame:
-                // A graphic frame's transform is p:xfrm, a direct child, and is a different element
-                // from the a:xfrm every other shape uses.
-                frame.Transform ??= new Transform();
-                return null;
-
             default:
                 return null;
         }
@@ -543,16 +606,18 @@ public sealed record DeleteShapeCommand(int Slide, int Shape) : SlideCommand
         if (ShapeAt(context, this.Slide, this.Shape) is not { Element: { } element } shape || !shape.IsEditable)
             return new NoOpSlideCommand();
 
-        // The index a shape sits at in the *slide's own* tree, which is what an undo has to put it
-        // back at — the model's index also counts the layout and master shapes painted underneath.
-        var tree = element.Parent;
-        var position = tree is null ? -1 : tree.ChildElements.ToList().IndexOf(element);
+        // The index a shape sits at in its *own parent* — the slide's tree, or the group it is in —
+        // which is what an undo has to put it back at. The model's index also counts the layout and
+        // master shapes painted underneath, and the children of every group.
+        var parent = element.Parent;
+        var position = parent is null ? -1 : parent.ChildElements.ToList().IndexOf(element);
+        var path = parent is null ? null : ShapeTreePath.Of(parent);
 
         var snapshot = element.CloneNode(true);
         element.Remove();
         context.Reproject(this.Slide);
 
-        return new InsertShapeCommand(this.Slide, position, snapshot);
+        return new InsertShapeCommand(this.Slide, position, snapshot) { ParentPath = path };
     }
 }
 
@@ -561,9 +626,16 @@ public sealed record InsertShapeCommand(int Slide, int TreeIndex, OpenXmlElement
 {
     public override string Name => "Add shape";
 
+    /// <summary>
+    /// Child indices from the slide's shape tree down to the group to insert into; null or empty for
+    /// the tree itself.
+    /// </summary>
+    /// <remarks>An index path rather than an element, because an undo may have replaced the element since.</remarks>
+    public IReadOnlyList<int>? ParentPath { get; init; }
+
     public override IEditCommand<SlideDeck> Apply(SlideDeck context)
     {
-        if (context.TreeAt(this.Slide) is not { } tree)
+        if (context.TreeAt(this.Slide) is not { } root || ShapeTreePath.Resolve(root, this.ParentPath) is not { } tree)
             return new NoOpSlideCommand();
 
         var clone = this.Element.CloneNode(true);
@@ -606,4 +678,36 @@ public readonly record struct SlideCaretFormat(
 
     public static SlideCaretFormat Default => new(
         false, false, false, false, 18, "Calibri", new ArgbColor(255, 0, 0, 0), TextAlignment.Left);
+}
+
+/// <summary>Addresses an element inside a slide's shape tree by child indices, so it survives a DOM swap.</summary>
+static class ShapeTreePath
+{
+    public static IReadOnlyList<int>? Of(OpenXmlElement element)
+    {
+        var path = new List<int>();
+        for (var current = element; current is not ShapeTree; current = current.Parent!)
+        {
+            if (current.Parent is null)
+                return null;
+
+            path.Insert(0, current.Parent.ChildElements.ToList().IndexOf(current));
+        }
+
+        return path;
+    }
+
+    public static OpenXmlElement? Resolve(ShapeTree tree, IReadOnlyList<int>? path)
+    {
+        OpenXmlElement current = tree;
+        foreach (var index in path ?? [])
+        {
+            if (current.ChildElements.ElementAtOrDefault(index) is not { } next)
+                return null;
+
+            current = next;
+        }
+
+        return current;
+    }
 }

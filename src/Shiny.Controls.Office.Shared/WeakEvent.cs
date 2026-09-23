@@ -50,4 +50,26 @@ static class WeakEvent
 
         return forwarder;
     }
+
+    /// <summary>The same, for an event that carries arguments the target needs.</summary>
+    public static EventHandler<TArgs> Forward<TTarget, TSource, TArgs>(
+        TTarget target,
+        TSource source,
+        Action<TTarget, TArgs> onRaised,
+        Action<TSource, EventHandler<TArgs>> unsubscribe)
+        where TTarget : class
+    {
+        var reference = new WeakReference<TTarget>(target);
+        EventHandler<TArgs>? forwarder = null;
+
+        forwarder = (_, args) =>
+        {
+            if (reference.TryGetTarget(out var alive))
+                onRaised(alive, args);
+            else
+                unsubscribe(source, forwarder!);
+        };
+
+        return forwarder;
+    }
 }

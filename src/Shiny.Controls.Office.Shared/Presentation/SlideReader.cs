@@ -72,6 +72,25 @@ sealed class SlideReader
     }
 
     IEnumerable<SlideShape> ReadTree(OpenXmlElement tree, bool decorativeOnly)
+        => this.ReadTree(tree, decorativeOnly, ChildSpace.Identity, null);
+
+    IEnumerable<SlideShape> ReadTree(OpenXmlElement tree, bool decorativeOnly, ChildSpace space, OpenXmlElement? group)
+        => this.ReadTreeLocal(tree, decorativeOnly, space, group);
+
+    /// <summary>
+    /// Maps a shape read in a group's child space into slide space, remembering the mapping so a move
+    /// can be written back in the group's units.
+    /// </summary>
+    static SlideShape Place(SlideShape shape, ChildSpace space, OpenXmlElement? group)
+    {
+        if (group is null)
+            return shape;
+
+        var (x, y, w, h) = space.ToSlide(shape.X, shape.Y, shape.Width, shape.Height);
+        return shape with { X = x, Y = y, Width = w, Height = h, Space = space, Group = group };
+    }
+
+    IEnumerable<SlideShape> ReadTreeLocal(OpenXmlElement tree, bool decorativeOnly, ChildSpace space, OpenXmlElement? parentGroup)
     {
         // decorativeOnly means this tree is a layout or master, whose shapes belong to every slide
         // using it rather than to this one - so nothing read from here is editable.
@@ -89,40 +108,66 @@ sealed class SlideReader
 
                     var read = this.ReadShape(shape);
                     if (read is not null)
-                        yield return read with { IsEditable = editable, Element = editable ? shape : null };
+                        yield return Place(read with { IsEditable = editable, Element = editable ? shape : null }, space, parentGroup);
 
                     break;
 
                 case Picture picture:
                     var image = this.ReadPicture(picture);
                     if (image is not null)
-                        yield return image with { IsEditable = editable, Element = editable ? picture : null };
+                        yield return Place(image with { IsEditable = editable, Element = editable ? picture : null }, space, parentGroup);
 
                     break;
 
                 case GraphicFrame frame:
                     var table = this.ReadTable(frame);
                     if (table is not null)
-                        yield return table with { IsEditable = editable, Element = editable ? frame : null };
+                        yield return Place(table with { IsEditable = editable, Element = editable ? frame : null }, space, parentGroup);
 
                     break;
 
                 case GroupShape group:
-                    // Groups carry their own coordinate space; the viewer flattens them, which is
-                    // correct whenever the group has not been scaled relative to its children.
-                    //
-                    // A flattened child is deliberately NOT editable: its position here is the
-                    // group's space collapsed into the slide's, so writing a new one back would put
-                    // it somewhere else entirely.
-                    foreach (var child in this.ReadTree(group, decorativeOnly))
-                        yield return child with { IsEditable = false, Element = null };
+                    // A group has a coordinate space of its own: its children are written in
+                    // chOff/chExt units and drawn scaled into off/ext. Each child is mapped into
+                    // slide space and keeps the mapping, so a move can be written back in the
+                    // group's units.
+                    var groupTransform = group.GroupShapeProperties?.TransformGroup;
+                    var inner = ChildSpaceOf(groupTransform).Then(space);
+
+                    foreach (var child in this.ReadTree(group, decorativeOnly, inner, group))
+                        yield return child with { IsEditable = editable && child.IsEditable, Element = editable ? child.Element : null };
+
+                    // The group's own entry comes after its children, so a click finds it first.
+                    if (groupTransform?.Offset is { } offset && groupTransform.Extents is { } extents)
+                    {
+                        var (gx, gy, gw, gh) = space.ToSlide(
+                            OoxmlUnits.EmuToPixels(offset.X?.Value ?? 0),
+                            OoxmlUnits.EmuToPixels(offset.Y?.Value ?? 0),
+                            OoxmlUnits.EmuToPixels(extents.Cx?.Value ?? 0),
+                            OoxmlUnits.EmuToPixels(extents.Cy?.Value ?? 0));
+
+                        yield return new SlideShape
+                        {
+                            X = gx,
+                            Y = gy,
+                            Width = gw,
+                            Height = gh,
+                            Geometry = ShapeGeometry.None,
+                            IsGroup = true,
+                            IsEditable = editable,
+                            Element = editable ? group : null,
+                            Group = parentGroup,
+                            Space = space,
+                            Name = group.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Name?.Value
+                        };
+                    }
 
                     break;
 
                 case ConnectionShape connection:
                     var line = this.ReadConnection(connection);
                     if (line is not null)
-                        yield return line with { IsEditable = editable, Element = editable ? connection : null };
+                        yield return Place(line with { IsEditable = editable, Element = editable ? connection : null }, space, parentGroup);
 
                     break;
             }
@@ -165,23 +210,72 @@ sealed class SlideReader
                 "Freeform shapes are drawn as their bounding rectangle."));
         }
 
+        var text = this.ReadTextBody(shape.TextBody, placeholder, inherited);
+
         return new SlideShape
         {
             X = OoxmlUnits.EmuToPixels(offset.X?.Value ?? 0),
             Y = OoxmlUnits.EmuToPixels(offset.Y?.Value ?? 0),
             Width = OoxmlUnits.EmuToPixels(extents.Cx?.Value ?? 0),
             Height = OoxmlUnits.EmuToPixels(extents.Cy?.Value ?? 0),
+            Prompt = this.ReadPrompt(shape.TextBody, text, placeholder, inherited),
             Geometry = shape.ShapeProperties?.GetFirstChild<D.PresetGeometry>() is null && inherited is null && !custom
                 ? ShapeGeometry.None
                 : DrawingReader.MapGeometry(preset),
             Fill = fill,
             Outline = this.drawing.ReadOutline(shape.ShapeProperties) ?? this.drawing.ReadOutline(inherited?.ShapeProperties),
-            Text = this.ReadTextBody(shape.TextBody, placeholder, inherited),
+            Text = text,
             Rotation = transform.Rotation?.Value is { } rotation ? OoxmlUnits.AngleToDegrees(rotation) : 0,
             FlipHorizontal = transform.HorizontalFlip?.Value ?? false,
             FlipVertical = transform.VerticalFlip?.Value ?? false,
             Name = shape.NonVisualShapeProperties?.NonVisualDrawingProperties?.Name?.Value
         };
+    }
+
+    /// <summary>The grey the placeholder prompts are drawn in, PowerPoint's own.</summary>
+    static readonly ArgbColor PromptInk = new(255, 0x80, 0x80, 0x80);
+
+    /// <summary>
+    /// The "Click to add …" text an empty placeholder shows while it is being edited.
+    /// </summary>
+    /// <remarks>
+    /// Laid out by reading the placeholder's first paragraph again with the prompt appended as a run,
+    /// so the prompt takes exactly the size, font, alignment and bullet the user's first keystroke
+    /// will — a title prompt is title-sized and a body prompt carries its bullet. A layout that wrote
+    /// its own prompt (<c>hasCustomPrompt</c>) is quoted instead.
+    /// </remarks>
+    ShapeTextBody? ReadPrompt(TextBody? body, ShapeTextBody? text, PlaceholderShape? placeholder, Shape? inherited)
+    {
+        if (placeholder is null || body is null || text is null || text.PlainText.Trim().Length > 0)
+            return null;
+
+        var custom = placeholder.HasCustomPrompt?.Value == true ||
+            inherited?.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?.PlaceholderShape?.HasCustomPrompt?.Value == true
+                ? inherited?.TextBody?.InnerText
+                : null;
+
+        var type = placeholder.Type?.Value;
+        var prompt = !string.IsNullOrWhiteSpace(custom) ? custom
+            : type == PlaceholderValues.Title || type == PlaceholderValues.CenteredTitle ? "Click to add title"
+            : type == PlaceholderValues.SubTitle ? "Click to add subtitle"
+            : type is null || type == PlaceholderValues.Body || type == PlaceholderValues.Object ? "Click to add text"
+            : null;
+
+        if (prompt is null || body.Elements<D.Paragraph>().FirstOrDefault() is not { } first)
+            return null;
+
+        // Read, never written: the run goes after a:endParaRPr, which the schema forbids, but this
+        // element never leaves the method.
+        var synthetic = (D.Paragraph)first.CloneNode(true);
+        synthetic.Append(new D.Run(new D.Text(prompt)));
+
+        var paragraph = this.ReadParagraph(synthetic, this.ResolveListStyle(placeholder, inherited), new ShapeNumbering());
+        paragraph = paragraph with
+        {
+            Runs = paragraph.Runs.Select(x => x with { Style = x.Style with { Color = PromptInk } }).ToList()
+        };
+
+        return text with { Paragraphs = [paragraph] };
     }
 
     /// <summary>
@@ -235,7 +329,13 @@ sealed class SlideReader
         }
     }
 
-    ShapeTextBody? ReadTextBody(TextBody? body, PlaceholderShape? placeholder, Shape? inherited)
+    /// <remarks>
+    /// Takes the element rather than a typed body because a table cell's <c>a:txBody</c> and a
+    /// shape's <c>p:txBody</c> are two types with one shape. Reading the cell's own element — not a
+    /// copy re-wrapped as the other type, which is what this used to do — is what lets an edit to a
+    /// cell's paragraphs reach the file.
+    /// </remarks>
+    ShapeTextBody? ReadTextBody(OpenXmlCompositeElement? body, PlaceholderShape? placeholder, Shape? inherited)
     {
         if (body is null)
             return null;
@@ -254,7 +354,7 @@ sealed class SlideReader
         if (paragraphs.Count == 0)
             return null;
 
-        var properties = body.BodyProperties;
+        var properties = body.GetFirstChild<D.BodyProperties>();
         var normalAutofit = properties?.GetFirstChild<D.NormalAutoFit>();
 
         return new ShapeTextBody(paragraphs)
@@ -549,6 +649,32 @@ sealed class SlideReader
         };
     }
 
+    /// <summary>The mapping from a group's child space to the space the group itself is placed in.</summary>
+    static ChildSpace ChildSpaceOf(D.TransformGroup? transform)
+    {
+        if (transform?.Offset is not { } offset || transform.Extents is not { } extents)
+            return ChildSpace.Identity;
+
+        // Missing child extents mean the child space is the group's own, which is identity.
+        var childOffset = transform.ChildOffset;
+        var childExtents = transform.ChildExtents;
+
+        double ox = offset.X?.Value ?? 0, oy = offset.Y?.Value ?? 0;
+        double cx = extents.Cx?.Value ?? 0, cy = extents.Cy?.Value ?? 0;
+        double chx = childOffset?.X?.Value ?? ox, chy = childOffset?.Y?.Value ?? oy;
+        double chcx = childExtents?.Cx?.Value ?? cx, chcy = childExtents?.Cy?.Value ?? cy;
+
+        var sx = chcx == 0 ? 1 : cx / chcx;
+        var sy = chcy == 0 ? 1 : cy / chcy;
+
+        // In pixels: scale is unit-free, the offset is converted.
+        return new ChildSpace(
+            sx,
+            OoxmlUnits.EmuToPixels((long)Math.Round(ox - chx * sx)),
+            sy,
+            OoxmlUnits.EmuToPixels((long)Math.Round(oy - chy * sy)));
+    }
+
     SlideShape? ReadConnection(ConnectionShape connection)
     {
         var transform = connection.ShapeProperties?.Transform2D;
@@ -604,7 +730,7 @@ sealed class SlideReader
             {
                 var merged = (cell.HorizontalMerge?.Value ?? false) || (cell.VerticalMerge?.Value ?? false);
                 cells.Add(new SlideTableCell(
-                    this.ReadTextBody(TextBodyOf(cell), null, null),
+                    this.ReadTextBody(cell.TextBody, null, null),
                     this.drawing.ReadFill(cell.TableCellProperties).Solid,
                     (int)(cell.GridSpan?.Value ?? 1),
                     (int)(cell.RowSpan?.Value ?? 1),
@@ -624,22 +750,6 @@ sealed class SlideReader
             Table = new SlideTable(columnWidths, rowHeights, rows),
             Name = frame.NonVisualGraphicFrameProperties?.NonVisualDrawingProperties?.Name?.Value
         };
-    }
-
-    /// <summary>A table cell's text body is DrawingML's own, not the Presentation one.</summary>
-    static TextBody? TextBodyOf(D.TableCell cell)
-    {
-        var body = cell.TextBody;
-        if (body is null)
-            return null;
-
-        // Re-wrap so the shared paragraph reader can walk it: the two TextBody types are structurally
-        // identical but live in different namespaces.
-        var wrapper = new TextBody();
-        foreach (var child in body.ChildElements)
-            wrapper.AppendChild(child.CloneNode(true));
-
-        return wrapper;
     }
 
     ShapeFill ReadBackground()
@@ -663,14 +773,34 @@ sealed class SlideReader
         return ShapeFill.None;
     }
 
+    /// <summary>
+    /// The speaker notes: the notes page's body placeholder, one line per paragraph.
+    /// </summary>
+    /// <remarks>
+    /// The body placeholder only, when there is one. Walking every paragraph on the page also picked up
+    /// the slide-number and header placeholders, and dropping blank paragraphs meant notes could not
+    /// round-trip through an editor that writes them back.
+    /// </remarks>
     string? ReadNotes()
     {
-        var text = this.part.NotesSlidePart?.NotesSlide?.CommonSlideData?.ShapeTree?
-            .Descendants<D.Paragraph>()
+        var tree = this.part.NotesSlidePart?.NotesSlide?.CommonSlideData?.ShapeTree;
+        if (tree is null)
+            return null;
+
+        if (SlideNotes.BodyOf(tree) is { } body)
+        {
+            var lines = body.Elements<D.Paragraph>().Select(x => x.InnerText).ToList();
+            while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[^1]))
+                lines.RemoveAt(lines.Count - 1);
+
+            return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
+        }
+
+        var text = tree.Descendants<D.Paragraph>()
             .Select(x => x.InnerText)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToList();
 
-        return text is null || text.Count == 0 ? null : string.Join(Environment.NewLine, text);
+        return text.Count == 0 ? null : string.Join(Environment.NewLine, text);
     }
 }

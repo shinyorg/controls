@@ -47,6 +47,15 @@ public sealed class SlideEditorController : SlideController
     SlidePosition caret;
     SlidePosition anchor;
 
+    /// <summary>The table cell the caret is in, when the selection is a table being edited.</summary>
+    (int Row, int Column)? activeCell;
+
+    /// <summary>The group double-clicked into, whose children a click now reaches. Null at the top level.</summary>
+    OpenXmlElement? enteredGroup;
+
+    /// <summary>How many times the clip has been pasted onto the slide it came from, to cascade the copies.</summary>
+    int pasteCount;
+
     public SlideEditorController(SlideDeck deck, ITextMeasurer measurer)
         : base(deck)
     {
@@ -62,6 +71,31 @@ public sealed class SlideEditorController : SlideController
         // fires for a command that turned out to be a no-op.
         // Weakly: the deck is the app's and outlives the view this controller paints. See WeakEvent.
         deck.ContentChanged += WeakEvent.Forward(this, deck, static c => c.OnDeckContentChanged(), static (d, h) => d.ContentChanged -= h);
+        deck.SlidesChanged += WeakEvent.Forward<SlideEditorController, SlideDeck, SlidesChangedEventArgs>(
+            this, deck, static (c, e) => c.OnSlidesChanged(e.Focus), static (d, h) => d.SlidesChanged -= h);
+    }
+
+    /// <summary>
+    /// Slides were added, removed or reordered — by this controller, by undo, or by anything else
+    /// driving the deck.
+    /// </summary>
+    /// <remarks>
+    /// The selection is dropped rather than carried: it is an index into the slide that was showing,
+    /// and after a reorder that index names a shape on a different slide. Going to where the change
+    /// happened is what makes undoing a delete visibly bring the slide back instead of restoring it
+    /// somewhere off screen.
+    /// </remarks>
+    void OnSlidesChanged(int focus)
+    {
+        this.dragging = ShapeHandle.None;
+        this.selected = -1;
+        this.IsEditingText = false;
+        this.activeCell = null;
+        this.enteredGroup = null;
+
+        this.Index = focus;
+        this.caret = new SlidePosition(this.Index, -1, 0, 0);
+        this.anchor = this.caret;
     }
 
     void OnDeckContentChanged()
@@ -199,18 +233,41 @@ public sealed class SlideEditorController : SlideController
         if (this.Current is not { } slide)
             return -1;
 
-        for (var i = slide.Shapes.Count - 1; i >= 0; i--)
+        // Inside a group that has been entered, its children are what a click reaches; a click that
+        // misses all of them leaves the group, as in PowerPoint.
+        if (this.enteredGroup is { } group)
         {
-            var shape = slide.Shapes[i];
-            if (!shape.IsEditable)
-                continue;
+            var inside = Find(x => ReferenceEquals(x.Group, group));
+            if (inside >= 0)
+                return inside;
 
-            if (this.BoundsOf(shape) is { } bounds && bounds.Contains(viewportX, viewportY))
-                return i;
+            this.enteredGroup = null;
         }
 
-        return -1;
+        // At the top level a group's children are never hit directly: the group's own entry is.
+        return Find(x => !x.IsInGroup);
+
+        int Find(Func<SlideShape, bool> eligible)
+        {
+            for (var i = slide.Shapes.Count - 1; i >= 0; i--)
+            {
+                var shape = slide.Shapes[i];
+                if (!shape.IsEditable || !eligible(shape))
+                    continue;
+
+                if (this.BoundsOf(shape) is { } bounds && bounds.Contains(viewportX, viewportY))
+                    return i;
+            }
+
+            return -1;
+        }
     }
+
+    /// <summary>True while the selection is a group's child reached by double-clicking into the group.</summary>
+    public bool IsInsideGroup => this.enteredGroup is not null;
+
+    /// <summary>The table cell the caret is in, or null when not editing a table.</summary>
+    public (int Row, int Column)? ActiveCell => this.activeCell;
 
     /// <summary>The handle under a point, or <see cref="ShapeHandle.None"/>.</summary>
     public ShapeHandle HandleAt(double viewportX, double viewportY)
@@ -226,21 +283,105 @@ public sealed class SlideEditorController : SlideController
             : ShapeHandle.None;
     }
 
-    /// <summary>The text position under a point inside the selected shape.</summary>
+    /// <summary>The text position under a point inside the text being edited.</summary>
     public SlidePosition? TextPositionAt(double viewportX, double viewportY)
     {
-        if (this.Selection is not { Text: { } body } shape)
+        if (this.TextTarget() is not { } target || this.Scale <= 0)
             return null;
 
-        if (this.BoundsOf(shape) is not { } bounds || this.Scale <= 0)
-            return null;
-
-        var layout = ShapeTextLayout.Layout(body, shape.Width, shape.Height, this.measurer);
-        var localX = (viewportX - bounds.X) / this.Scale;
-        var localY = (viewportY - bounds.Y) / this.Scale;
+        var layout = ShapeTextLayout.Layout(target.Body, target.Width, target.Height, this.measurer);
+        var localX = (viewportX - target.Bounds.X) / this.Scale;
+        var localY = (viewportY - target.Bounds.Y) / this.Scale;
 
         var (paragraph, offset) = ShapeTextLayout.PositionAt(layout, localX, localY, this.measurer);
-        return new SlidePosition(this.Index, this.selected, paragraph, offset);
+        return this.Position(paragraph, offset);
+    }
+
+    /// <summary>
+    /// The text being edited and where it is: a shape's own text, or the active cell of a table.
+    /// </summary>
+    /// <remarks>
+    /// Bounds are in viewport coordinates, width and height in slide units — which is what the text
+    /// layout runs in. Everything that lays out, hit-tests or measures the text goes through here, so
+    /// a cell and a shape are edited by exactly the same code.
+    /// </remarks>
+    (ShapeTextBody Body, SlideRect Bounds, double Width, double Height)? TextTarget()
+    {
+        if (this.Selection is not { } shape || this.BoundsOf(shape) is not { } bounds)
+            return null;
+
+        if (this.activeCell is { } cell)
+        {
+            if (shape.Table is not { } table ||
+                table.Rows.ElementAtOrDefault(cell.Row)?.ElementAtOrDefault(cell.Column)?.Text is not { } text)
+            {
+                return null;
+            }
+
+            var (x, y, w, h) = table.CellBounds(cell.Row, cell.Column, shape.Width, shape.Height);
+            return (text, new SlideRect(bounds.X + x * this.Scale, bounds.Y + y * this.Scale, w * this.Scale, h * this.Scale), w, h);
+        }
+
+        return shape.Text is { } body ? (body, bounds, shape.Width, shape.Height) : null;
+    }
+
+    ShapeTextBody? ActiveText => this.TextTarget()?.Body;
+
+    SlidePosition Position(int paragraph, int offset)
+        => new(this.Index, this.selected, paragraph, offset) { Cell = this.activeCell };
+
+    /// <summary>The cell of a selected table under a point, or null.</summary>
+    (int Row, int Column)? CellAt(double viewportX, double viewportY)
+    {
+        if (this.Selection is not { Table: { } table } shape || this.BoundsOf(shape) is not { } bounds || this.Scale <= 0)
+            return null;
+
+        return table.CellAt((viewportX - bounds.X) / this.Scale, (viewportY - bounds.Y) / this.Scale, shape.Width, shape.Height);
+    }
+
+    /// <summary>
+    /// Moves the caret to the next (or previous) cell in reading order, selecting its text — Tab and
+    /// Shift+Tab. Stops at either end of the table.
+    /// </summary>
+    public void MoveToCell(int direction)
+    {
+        if (this.activeCell is not { } current || this.Selection?.Table is not { } table)
+            return;
+
+        var cells = new List<(int Row, int Column)>();
+        for (var r = 0; r < table.Rows.Count; r++)
+        {
+            for (var c = 0; c < table.Rows[r].Count; c++)
+            {
+                if (!table.Rows[r][c].IsMerged && table.Rows[r][c].Text is not null)
+                    cells.Add((r, c));
+            }
+        }
+
+        var at = cells.IndexOf(current) + Math.Sign(direction);
+        if (at < 0 || at >= cells.Count)
+            return;
+
+        this.activeCell = cells[at];
+        this.SelectAll();
+    }
+
+    /// <summary>A selected table can be typed into: its first cell with text, when no point says which.</summary>
+    (int Row, int Column)? FirstCell()
+    {
+        if (this.Selection?.Table is not { } table)
+            return null;
+
+        for (var r = 0; r < table.Rows.Count; r++)
+        {
+            for (var c = 0; c < table.Rows[r].Count; c++)
+            {
+                if (!table.Rows[r][c].IsMerged && table.Rows[r][c].Text is not null)
+                    return (r, c);
+            }
+        }
+
+        return null;
     }
 
     // ---- selection ----
@@ -256,6 +397,12 @@ public sealed class SlideEditorController : SlideController
 
         this.selected = clamped;
         this.IsEditingText = false;
+        this.activeCell = null;
+
+        // Selecting something outside the group that was entered leaves it.
+        if (this.enteredGroup is { } group && this.Selection is { } now && !ReferenceEquals(now.Group, group))
+            this.enteredGroup = null;
+
         this.caret = new SlidePosition(this.Index, clamped, 0, 0);
         this.anchor = this.caret;
 
@@ -265,19 +412,28 @@ public sealed class SlideEditorController : SlideController
 
     public void ClearSelection() => this.Select(-1);
 
-    /// <summary>Puts the caret inside the selected shape's text, at a point.</summary>
+    /// <summary>Puts the caret inside the selected shape's text — or, for a table, the cell — at a point.</summary>
     public void BeginTextEditing(double viewportX, double viewportY)
     {
-        if (this.Selection is not { Text: not null })
+        if (this.Selection is not { } shape)
             return;
+
+        if (shape.Table is not null)
+        {
+            this.activeCell = this.CellAt(viewportX, viewportY) ?? this.FirstCell();
+            if (this.activeCell is null)
+                return;
+        }
+        else if (shape.Text is null)
+        {
+            return;
+        }
 
         this.IsEditingText = true;
 
-        if (this.TextPositionAt(viewportX, viewportY) is { } position)
-        {
-            this.caret = position;
-            this.anchor = position;
-        }
+        var position = this.TextPositionAt(viewportX, viewportY) ?? this.Position(0, 0);
+        this.caret = position;
+        this.anchor = position;
 
         this.RefreshCaretFormat();
         this.RaiseChanged();
@@ -289,6 +445,7 @@ public sealed class SlideEditorController : SlideController
             return;
 
         this.IsEditingText = false;
+        this.activeCell = null;
         this.RaiseChanged();
     }
 
@@ -323,6 +480,17 @@ public sealed class SlideEditorController : SlideController
             // text and behaves as an ordinary click on the slide.
             if (this.SelectionBounds()?.Contains(x, y) == true)
             {
+                // Inside a table, a click in another cell moves the caret into that cell.
+                if (this.activeCell is { } current && this.CellAt(x, y) is { } cell && cell != current && !extendSelection)
+                {
+                    this.activeCell = cell;
+                    this.anchor = this.caret = this.TextPositionAt(x, y) ?? this.Position(0, 0);
+                    this.RefreshCaretFormat();
+                    this.RaiseChanged();
+                    this.dragging = ShapeHandle.None;
+                    return true;
+                }
+
                 if (this.TextPositionAt(x, y) is { } position)
                     this.MoveCaret(position, extendSelection);
 
@@ -422,7 +590,10 @@ public sealed class SlideEditorController : SlideController
         this.deck.Undo.BreakCoalescing();
     }
 
-    /// <summary>A double-click enters the shape's text, which is what PowerPoint does.</summary>
+    /// <summary>
+    /// A double-click enters the shape's text, which is what PowerPoint does — or goes into a group, or
+    /// into the table cell under the pointer.
+    /// </summary>
     public void PointerDoubleClick(double x, double y)
     {
         if (this.Mode != SlideViewMode.Single || this.IsReadOnly)
@@ -432,25 +603,39 @@ public sealed class SlideEditorController : SlideController
         if (hit < 0)
             return;
 
-        // Already inside this shape's text, so the second double-click means the word under it - the
-        // same thing it means in the document editor. Re-entering text editing would only put the
-        // caret back where it already is, which is why double-clicking a word here used to do nothing.
-        if (this.IsEditingText && this.selected == hit && this.TextPositionAt(x, y) is { } inside)
+        // Already inside this text, so the second double-click means the word under it - the same
+        // thing it means in the document editor.
+        if (this.IsEditingText && this.selected == hit &&
+            (this.activeCell is null || this.CellAt(x, y) == this.activeCell) &&
+            this.TextPositionAt(x, y) is { } inside)
         {
             this.SelectWordAt(inside);
             return;
         }
 
+        // Into a group: its child under the pointer becomes the selection, and a second double-click
+        // goes into that child's text.
+        if (this.Current?.Shapes[hit] is { IsGroup: true, Element: { } group })
+        {
+            this.enteredGroup = group;
+            hit = this.ShapeAt(x, y);
+            if (hit < 0 || this.Current.Shapes[hit].IsGroup)
+            {
+                this.Select(hit);
+                return;
+            }
+        }
+
         this.Select(hit);
 
-        if (this.Selection?.Text is not null)
+        if (this.Selection is { Table: not null } or { Text: not null })
             this.BeginTextEditing(x, y);
     }
 
     /// <summary>Selects the word at <paramref name="position"/> — what a double-click inside text does.</summary>
     public void SelectWordAt(SlidePosition position)
     {
-        if (this.Selection?.Text?.Paragraphs.ElementAtOrDefault(position.Paragraph) is not { } paragraph)
+        if (this.ActiveText?.Paragraphs.ElementAtOrDefault(position.Paragraph) is not { } paragraph)
             return;
 
         var (start, end) = WordBoundaries.RangeAt(paragraph.PlainText, position.Offset);
@@ -581,7 +766,7 @@ public sealed class SlideEditorController : SlideController
         {
             this.Execute(new DeleteSlideRangeCommand(new SlideTextRange(at, at with { Offset = at.Offset + 1 })));
         }
-        else if (this.Selection?.Text is { } body && at.Paragraph + 1 < body.Paragraphs.Count)
+        else if (this.ActiveText is { } body && at.Paragraph + 1 < body.Paragraphs.Count)
         {
             this.Execute(new MergeSlideParagraphCommand(at with { Paragraph = at.Paragraph + 1 }));
         }
@@ -630,7 +815,7 @@ public sealed class SlideEditorController : SlideController
 
         if (at.Offset < length)
             this.MoveCaret(at with { Offset = at.Offset + 1 }, extend);
-        else if (this.Selection?.Text is { } body && at.Paragraph + 1 < body.Paragraphs.Count)
+        else if (this.ActiveText is { } body && at.Paragraph + 1 < body.Paragraphs.Count)
             this.MoveCaret(at with { Paragraph = at.Paragraph + 1, Offset = 0 }, extend);
     }
 
@@ -650,7 +835,7 @@ public sealed class SlideEditorController : SlideController
     public void MoveDown(bool extend = false)
     {
         var at = this.caret;
-        if (this.Selection?.Text is not { } body || at.Paragraph + 1 >= body.Paragraphs.Count)
+        if (this.ActiveText is not { } body || at.Paragraph + 1 >= body.Paragraphs.Count)
         {
             this.MoveCaret(at with { Offset = this.LengthOf(at.Paragraph) }, extend);
             return;
@@ -668,15 +853,11 @@ public sealed class SlideEditorController : SlideController
     /// <summary>Selects every paragraph in the shape.</summary>
     public void SelectAll()
     {
-        if (this.Selection?.Text is not { } body || body.Paragraphs.Count == 0)
+        if (this.ActiveText is not { } body || body.Paragraphs.Count == 0)
             return;
 
-        this.anchor = new SlidePosition(this.Index, this.selected, 0, 0);
-        this.caret = new SlidePosition(
-            this.Index,
-            this.selected,
-            body.Paragraphs.Count - 1,
-            this.LengthOf(body.Paragraphs.Count - 1));
+        this.anchor = this.Position(0, 0);
+        this.caret = this.Position(body.Paragraphs.Count - 1, this.LengthOf(body.Paragraphs.Count - 1));
 
         this.RefreshCaretFormat();
         this.RaiseChanged();
@@ -763,6 +944,13 @@ public sealed class SlideEditorController : SlideController
         if (!this.CanEditText())
             return false;
 
+        // In a table Tab walks the cells, as it does in PowerPoint, rather than nesting a bullet.
+        if (this.activeCell is not null)
+        {
+            this.MoveToCell(shift ? -1 : 1);
+            return true;
+        }
+
         this.ShiftLevel(shift ? -1 : 1);
         return true;
     }
@@ -780,7 +968,7 @@ public sealed class SlideEditorController : SlideController
         if (!this.IsAutoFormatListEnabled || !this.TextSelection.IsEmpty)
             return false;
 
-        if (this.Selection?.Text?.Paragraphs.ElementAtOrDefault(this.caret.Paragraph) is not { } paragraph)
+        if (this.ActiveText?.Paragraphs.ElementAtOrDefault(this.caret.Paragraph) is not { } paragraph)
             return false;
 
         // Already carrying a mark: what was typed is text the user meant to keep.
@@ -918,6 +1106,12 @@ public sealed class SlideEditorController : SlideController
         if (this.IsReadOnly || this.deck.TreeAt(this.Index) is not { } tree)
             return;
 
+        // The factory writes placeholder ids; every drawing on a slide needs its own, and two shapes
+        // sharing one is what PowerPoint's repair prompt is made of.
+        var nextId = SlideObjects.NextShapeId(tree);
+        foreach (var properties in element.Descendants<DocumentFormat.OpenXml.Presentation.NonVisualDrawingProperties>())
+            properties.Id = nextId++;
+
         this.Execute(new InsertShapeCommand(this.Index, -1, element));
 
         if (tree.LastChild is not { } added)
@@ -939,6 +1133,292 @@ public sealed class SlideEditorController : SlideController
         _ => (320d, 240d)
     };
 
+    // ---- slides ----
+
+    public bool CanMoveSlideEarlier => !this.IsReadOnly && this.Count > 1 && this.Index > 0;
+
+    public bool CanMoveSlideLater => !this.IsReadOnly && this.Index < this.Count - 1;
+
+    public bool CanDeleteSlide => !this.IsReadOnly && this.Count > 0;
+
+    /// <summary>
+    /// Adds an empty slide after the one being edited and opens it — PowerPoint's New Slide.
+    /// </summary>
+    /// <remarks>
+    /// It takes the current slide's layout, except that a title slide is followed by a content slide.
+    /// The placeholders arrive empty and show their "Click to add …" prompts.
+    /// </remarks>
+    public void NewSlide()
+    {
+        if (this.IsReadOnly)
+            return;
+
+        var empty = this.Count == 0;
+        this.Execute(new NewSlideCommand(empty ? 0 : this.Index + 1, empty ? null : this.Index));
+    }
+
+    /// <summary>Copies the slide being edited and opens the copy, which goes straight after it.</summary>
+    public void DuplicateSlide()
+    {
+        if (this.IsReadOnly || this.Count == 0)
+            return;
+
+        this.Execute(new DuplicateSlideCommand(this.Index));
+    }
+
+    /// <summary>
+    /// Deletes a slide — the one being edited unless told otherwise. Undoable.
+    /// </summary>
+    /// <remarks>
+    /// Does not ask. Confirmation is the view's job, because only the view knows how to ask; the
+    /// toolbars on both hosts confirm before they call this.
+    /// </remarks>
+    public void DeleteSlide(int? index = null)
+    {
+        if (!this.CanDeleteSlide)
+            return;
+
+        this.Execute(new DeleteSlideCommand(index ?? this.Index));
+    }
+
+    /// <summary>Moves a slide to <paramref name="to"/>, counted with the slide already taken out. Undoable.</summary>
+    public void MoveSlide(int from, int to)
+    {
+        if (this.IsReadOnly)
+            return;
+
+        this.Execute(new MoveSlideCommand(from, to));
+    }
+
+    /// <summary>Swaps the slide being edited with the one before it.</summary>
+    public void MoveSlideEarlier()
+    {
+        if (this.CanMoveSlideEarlier)
+            this.MoveSlide(this.Index, this.Index - 1);
+    }
+
+    /// <summary>Swaps the slide being edited with the one after it.</summary>
+    public void MoveSlideLater()
+    {
+        if (this.CanMoveSlideLater)
+            this.MoveSlide(this.Index, this.Index + 1);
+    }
+
+    // ---- nudge, arrange ----
+
+    /// <summary>Distance an arrow key moves the selected shape, in slide pixels.</summary>
+    public double NudgeDistance { get; set; } = 8;
+
+    /// <summary>Distance a fine nudge (Ctrl/Alt + arrow) moves it.</summary>
+    public double FineNudgeDistance { get; set; } = 1;
+
+    /// <summary>
+    /// Moves the selected shape by whole nudges — what the arrow keys do while a shape (not its text) is
+    /// selected. Returns false when nothing moved, so a host can let the key fall through.
+    /// </summary>
+    /// <remarks>
+    /// A run of nudges on one shape is one undo step, like a drag. Without a selection the arrows keep
+    /// moving between slides.
+    /// </remarks>
+    public bool Nudge(int dx, int dy, bool fine = false)
+    {
+        if (this.IsReadOnly || this.IsEditingText || this.Selection is not { Element: not null } shape || (dx == 0 && dy == 0))
+            return false;
+
+        var step = fine ? this.FineNudgeDistance : this.NudgeDistance;
+        this.Execute(new SetShapeBoundsCommand(this.Index, this.selected, shape.X + dx * step, shape.Y + dy * step, shape.Width, shape.Height));
+        return true;
+    }
+
+    public bool CanArrange => !this.IsReadOnly && this.Selection is { Element: not null };
+
+    /// <summary>Moves the selected shape in the stacking order, keeping it selected.</summary>
+    public void Arrange(ShapeZOrder order)
+    {
+        if (!this.CanArrange || this.Selection?.Element is not { } element)
+            return;
+
+        this.EndTextEditing();
+        this.Execute(new ReorderShapeCommand(this.Index, this.selected, order));
+        this.Reselect(element);
+    }
+
+    public void BringToFront() => this.Arrange(ShapeZOrder.BringToFront);
+
+    public void BringForward() => this.Arrange(ShapeZOrder.BringForward);
+
+    public void SendBackward() => this.Arrange(ShapeZOrder.SendBackward);
+
+    public void SendToBack() => this.Arrange(ShapeZOrder.SendToBack);
+
+    /// <summary>Selects a shape again after an edit moved it to another index.</summary>
+    void Reselect(OpenXmlElement element)
+    {
+        var index = this.Current?.Shapes.ToList().FindIndex(x => ReferenceEquals(x.Element, element)) ?? -1;
+        this.selected = -1;
+        this.Select(index);
+    }
+
+    // ---- clipboard ----
+
+    /// <summary>
+    /// What Copy and Cut put aside and Paste puts back.
+    /// </summary>
+    /// <remarks>
+    /// Per controller, not process-wide: on Blazor Server one process serves every user, and a static
+    /// clipboard would paste one user's shapes into another's deck. Two editors that should share a
+    /// clipboard share it by assigning one's to the other. The system clipboard is not involved — a
+    /// shape is not text, and no other app could paste it.
+    /// </remarks>
+    public SlideClip? Clipboard { get; set; }
+
+    /// <summary>A shape (not text) is selected, so Copy, Cut and Duplicate have something to act on.</summary>
+    public bool CanCopyShape => !this.IsEditingText && this.Selection is { Element: not null };
+
+    public bool CanPaste => !this.IsReadOnly && this.Clipboard is not null && this.Count > 0;
+
+    /// <summary>Copies the selected shape. Returns false when there was nothing to copy.</summary>
+    public bool CopyShape()
+    {
+        if (!this.CanCopyShape || SlideClip.Copy(this.deck, this.Index, this.selected) is not { } clip)
+            return false;
+
+        this.Clipboard = clip;
+        this.pasteCount = 0;
+        this.RaiseChanged();
+        return true;
+    }
+
+    /// <summary>Copies the selected shape and removes it.</summary>
+    public bool CutShape()
+    {
+        if (this.IsReadOnly || !this.CopyShape())
+            return false;
+
+        this.DeleteSelectedShape();
+        return true;
+    }
+
+    /// <summary>
+    /// Pastes the clipboard onto the slide being edited and selects what arrived.
+    /// </summary>
+    /// <remarks>
+    /// Onto the slide it was copied from, each paste steps down and right of the last so the copies do
+    /// not stack invisibly on the original; onto any other slide it lands where it was.
+    /// </remarks>
+    public void Paste()
+    {
+        if (!this.CanPaste || this.Clipboard is not { } clip)
+            return;
+
+        var sameSlide = clip.Source.TryGetTarget(out var source) && ReferenceEquals(source, this.deck) && clip.SourceSlide == this.Index;
+        var offset = sameSlide ? ++this.pasteCount * 16d : 0;
+
+        this.PasteCore(clip, offset);
+    }
+
+    /// <summary>Copies the selected shape straight onto the same slide, offset — Ctrl+D.</summary>
+    public void DuplicateShape()
+    {
+        if (this.IsReadOnly || !this.CanCopyShape || SlideClip.Copy(this.deck, this.Index, this.selected) is not { } clip)
+            return;
+
+        this.PasteCore(clip, 16);
+    }
+
+    void PasteCore(SlideClip clip, double offset)
+    {
+        this.EndTextEditing();
+        this.enteredGroup = null;
+        this.Execute(new PasteShapesCommand(this.Index, clip, offset, offset));
+
+        if (this.deck.TreeAt(this.Index)?.LastChild is { } added)
+            this.Reselect(added);
+    }
+
+    // ---- layouts ----
+
+    /// <summary>The layouts the current slide's master offers, marking the one it uses.</summary>
+    public IReadOnlyList<SlideLayoutOption> Layouts
+    {
+        get
+        {
+            var part = this.deck.PartAt(this.Index);
+            var current = part?.SlideLayoutPart;
+            var master = current?.SlideMasterPart ?? this.deck.PresentationPart.SlideMasterParts.FirstOrDefault();
+            if (master is null)
+                return [];
+
+            // In the master's own list order, which is the order PowerPoint's gallery shows them in.
+            var ordered = master.SlideMaster?.SlideLayoutIdList?.Elements<DocumentFormat.OpenXml.Presentation.SlideLayoutId>()
+                .Select(x => x.RelationshipId?.Value is { } id ? master.GetPartById(id) as DocumentFormat.OpenXml.Packaging.SlideLayoutPart : null)
+                .OfType<DocumentFormat.OpenXml.Packaging.SlideLayoutPart>()
+                .ToList();
+
+            if (ordered is null || ordered.Count == 0)
+                ordered = master.SlideLayoutParts.ToList();
+
+            return ordered
+                .Select((layout, i) => new SlideLayoutOption(
+                    layout.SlideLayout?.CommonSlideData?.Name?.Value is { Length: > 0 } name ? name : $"Layout {i + 1}",
+                    i,
+                    ReferenceEquals(layout, current))
+                { Part = layout })
+                .ToList();
+        }
+    }
+
+    /// <summary>Puts the current slide on another layout, carrying its content across. Undoable.</summary>
+    public void SetLayout(SlideLayoutOption layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+
+        if (this.IsReadOnly || this.Count == 0 || layout.Part is null || layout.IsCurrent)
+            return;
+
+        this.EndTextEditing();
+        this.ClearSelection();
+        this.Execute(new SetSlideLayoutCommand(this.Index, layout.Part));
+    }
+
+    /// <summary>Adds a slide with a chosen layout after the current one.</summary>
+    public void NewSlide(SlideLayoutOption layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+
+        if (this.IsReadOnly)
+            return;
+
+        var at = this.Count == 0 ? 0 : this.Index + 1;
+        this.Execute(new NewSlideCommand(at) { Layout = layout.Part });
+    }
+
+    // ---- notes ----
+
+    /// <summary>The current slide's speaker notes, or null.</summary>
+    public string? Notes => this.Current?.Notes;
+
+    /// <summary>
+    /// Replaces the current slide's speaker notes. Undoable as one step.
+    /// </summary>
+    /// <remarks>
+    /// Written whole, not per keystroke: a notes box commits when it loses focus, and every character
+    /// being its own undo step would bury the slide edits around it.
+    /// </remarks>
+    public void SetNotes(string? text)
+    {
+        if (this.IsReadOnly || this.Count == 0)
+            return;
+
+        // Unchanged notes are not an edit: a notes box losing focus would otherwise leave an undo step
+        // that does nothing.
+        static string Normal(string? value) => (value ?? string.Empty).Replace("\r\n", "\n").TrimEnd();
+        if (Normal(text) == Normal(this.Notes))
+            return;
+
+        this.Execute(new SetSlideNotesCommand(this.Index, text));
+    }
+
     // ---- undo ----
 
     public void Undo() => this.deck.Undo.Undo();
@@ -950,13 +1430,11 @@ public sealed class SlideEditorController : SlideController
     /// <summary>The caret rectangle in viewport coordinates, or null when not editing text.</summary>
     public SlideRect? CaretRect()
     {
-        if (!this.IsEditingText || this.Selection is not { Text: { } body } shape)
+        if (!this.IsEditingText || this.TextTarget() is not { } target)
             return null;
 
-        if (this.BoundsOf(shape) is not { } bounds)
-            return null;
-
-        var layout = ShapeTextLayout.Layout(body, shape.Width, shape.Height, this.measurer);
+        var bounds = target.Bounds;
+        var layout = ShapeTextLayout.Layout(target.Body, target.Width, target.Height, this.measurer);
         if (ShapeTextLayout.CaretAt(layout, this.caret.Paragraph, this.caret.Offset, this.measurer) is not { } caret)
             return null;
 
@@ -970,17 +1448,15 @@ public sealed class SlideEditorController : SlideController
     /// <summary>Highlight rectangles for the text selection, in viewport coordinates.</summary>
     public IEnumerable<SlideRect> TextSelectionRects()
     {
-        if (!this.IsEditingText || this.Selection is not { Text: { } body } shape)
+        if (!this.IsEditingText || this.TextTarget() is not { } target)
             yield break;
 
-        if (this.BoundsOf(shape) is not { } bounds)
-            yield break;
-
+        var bounds = target.Bounds;
         var range = this.TextSelection.Normalized();
         if (range.IsEmpty)
             yield break;
 
-        var layout = ShapeTextLayout.Layout(body, shape.Width, shape.Height, this.measurer);
+        var layout = ShapeTextLayout.Layout(target.Body, target.Width, target.Height, this.measurer);
 
         for (var i = range.Start.Paragraph; i <= range.End.Paragraph; i++)
         {
@@ -1091,6 +1567,8 @@ public sealed class SlideEditorController : SlideController
 
         this.selected = match.Shape;
         this.IsEditingText = true;
+        this.activeCell = null;
+        this.enteredGroup = null;
         this.anchor = match.Position;
         this.caret = match.Position with { Offset = match.End };
 
@@ -1101,10 +1579,10 @@ public sealed class SlideEditorController : SlideController
     // ---- plumbing ----
 
     bool CanEditText()
-        => !this.IsReadOnly && this.IsEditingText && this.Selection?.Text is not null;
+        => !this.IsReadOnly && this.IsEditingText && this.ActiveText is not null;
 
     int LengthOf(int paragraph)
-        => this.Selection?.Text?.Paragraphs.ElementAtOrDefault(paragraph)?.PlainText.Length ?? 0;
+        => this.ActiveText?.Paragraphs.ElementAtOrDefault(paragraph)?.PlainText.Length ?? 0;
 
     void Execute(IEditCommand<SlideDeck> command) => this.deck.Execute(command);
 
@@ -1117,7 +1595,7 @@ public sealed class SlideEditorController : SlideController
     /// </remarks>
     void RefreshCaretFormat()
     {
-        if (this.Selection?.Text?.Paragraphs.ElementAtOrDefault(this.caret.Paragraph) is not { } paragraph)
+        if (this.ActiveText?.Paragraphs.ElementAtOrDefault(this.caret.Paragraph) is not { } paragraph)
         {
             this.CaretFormat = SlideCaretFormat.Default;
             return;

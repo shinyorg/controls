@@ -55,6 +55,28 @@ public class SlideEditorView : ContentView, IDisposable
     readonly RibbonButton insertPicture;
     readonly RibbonButton watermark;
     readonly RibbonButton deleteShape;
+    readonly RibbonButton newSlide;
+    readonly RibbonButton duplicateSlide;
+    readonly RibbonButton deleteSlide;
+    readonly RibbonButton moveSlideEarlier;
+    readonly RibbonButton moveSlideLater;
+    readonly RibbonMenuButton slideLayout;
+    readonly Button notesButton;
+    readonly Grid statusBar;
+    readonly RibbonButton paste;
+    readonly RibbonButton cut;
+    readonly RibbonButton copy;
+    readonly RibbonButton duplicateShape;
+    readonly RibbonButton toFront;
+    readonly RibbonButton forward;
+    readonly RibbonButton backward;
+    readonly RibbonButton toBack;
+    readonly SlideRail rail = new();
+    readonly Editor notes;
+    readonly ColumnDefinition railColumn = new(180);
+    string? notesDraft;
+    int notesSlide = -1;
+    bool writingNotes;
     readonly RibbonButton undo;
     readonly RibbonButton redo;
     readonly OfficeFindBar findBar = new();
@@ -86,6 +108,61 @@ public class SlideEditorView : ContentView, IDisposable
         // Large, like the Blazor bar's: the label is what says "show" where the icon beside two
         // chevrons could still read as one more way to move a slide.
         this.present.Size = RibbonItemSize.Large;
+
+        // The deck's own structure. Labelled, because a slide with a plus, a slide with an arrow and a
+        // bin are four guesses in a row without words under them.
+        this.newSlide = this.MakeButton(OfficeIcon.NewSlide, "Add a slide after this one", () => this.editor.Controller?.NewSlide(), "New slide");
+        this.duplicateSlide = this.MakeButton(OfficeIcon.Duplicate, "Duplicate this slide", () => this.editor.Controller?.DuplicateSlide(), "Duplicate", "SlideToolbarDuplicateSlide");
+        this.deleteSlide = this.MakeAsyncButton(OfficeIcon.Delete, "Delete this slide", this.RequestDeleteSlideAsync, "Delete", "SlideToolbarDeleteSlide");
+        this.moveSlideEarlier = this.MakeButton(OfficeIcon.MoveSlideEarlier, "Move this slide earlier", () => this.editor.Controller?.MoveSlideEarlier());
+        this.moveSlideLater = this.MakeButton(OfficeIcon.MoveSlideLater, "Move this slide later", () => this.editor.Controller?.MoveSlideLater());
+
+        // Layouts are read off the current slide's master each time the menu opens, so it is built
+        // empty here and filled in RefreshBar.
+        this.slideLayout = this.Track(new RibbonMenuButton
+        {
+            Text = "Layout",
+            Tooltip = "Change this slide's layout, or add a slide with one",
+            Size = RibbonItemSize.Small,
+            AutomationId = "SlideToolbarLayout",
+            IconTemplate = OfficeRibbonItems.IconTemplateFor(OfficeIcon.SlideLayout)
+        });
+
+        // In the status bar, where PowerPoint keeps it: the notes are a way of looking at the slide,
+        // and a ribbon column for them pushed Paragraph into a dropdown at desktop widths.
+        this.notesButton = new Button
+        {
+            Text = "Notes",
+            FontSize = 12,
+            Padding = new Thickness(10, 2),
+            MinimumHeightRequest = 0,
+            BackgroundColor = Colors.Transparent,
+            AutomationId = "SlideNotesToggle"
+        };
+        this.notesButton.Clicked += (_, _) => this.ShowNotes = !this.ShowNotes;
+        this.notesButton.SetAppThemeColor(Button.TextColorProperty, Color.FromArgb("#161C23"), Color.FromArgb("#E3E7EE"));
+
+        this.paste = this.MakeButton(OfficeIcon.Paste, "Paste the copied shape", () => this.editor.Controller?.Paste(), "Paste");
+        this.paste.Size = RibbonItemSize.Large;
+        this.cut = this.MakeButton(OfficeIcon.Cut, "Cut the selected shape", () => this.editor.Controller?.CutShape(), "Cut");
+        this.copy = this.MakeButton(OfficeIcon.Copy, "Copy the selected shape", () => this.editor.Controller?.CopyShape(), "Copy");
+        this.duplicateShape = this.MakeButton(OfficeIcon.Duplicate, "Duplicate the selected shape", () => this.editor.Controller?.DuplicateShape(), "Duplicate", "SlideToolbarDuplicateShape");
+
+        this.toFront = this.MakeButton(OfficeIcon.BringToFront, "Bring to front", () => this.editor.Controller?.BringToFront(), "To front");
+        this.forward = this.MakeButton(OfficeIcon.BringForward, "Bring forward", () => this.editor.Controller?.BringForward(), "Forward");
+        this.backward = this.MakeButton(OfficeIcon.SendBackward, "Send backward", () => this.editor.Controller?.SendBackward(), "Backward");
+        this.toBack = this.MakeButton(OfficeIcon.SendToBack, "Send to back", () => this.editor.Controller?.SendToBack(), "To back");
+
+        this.notes = new Editor
+        {
+            Placeholder = "Tap to add notes",
+            HeightRequest = 96,
+            FontSize = 13,
+            AutoSize = EditorAutoSizeOption.Disabled,
+            IsVisible = false,
+            AutomationId = "SlideNotes"
+        };
+        this.notes.TextChanged += this.OnNotesChanged;
 
         this.bold = this.MakeToggle(OfficeIcon.Bold, "Bold (Ctrl+B)", () => this.editor.Controller?.ToggleBold());
         this.italic = this.MakeToggle(OfficeIcon.Italic, "Italic (Ctrl+I)", () => this.editor.Controller?.ToggleItalic());
@@ -166,11 +243,43 @@ public class SlideEditorView : ContentView, IDisposable
             }
         };
 
+        // The rail beside the slide, the notes under it. Built now rather than added when first shown:
+        // AppKit never realizes a child added to a laid-out view, so both are toggled by IsVisible.
+        var main = new Grid
+        {
+            RowDefinitions = { new RowDefinition(GridLength.Star), new RowDefinition(GridLength.Auto) }
+        };
+        main.Add(this.editor);
+        main.Add(this.notes);
+        Grid.SetRow(this.notes, 1);
+
+        var body = new Grid
+        {
+            ColumnDefinitions = { this.railColumn, new ColumnDefinition(GridLength.Star) }
+        };
+        body.Add(this.rail);
+        body.Add(main);
+        Grid.SetColumn(main, 1);
+
+        this.rail.Interacted += (_, _) =>
+        {
+            this.editor.FocusEditor();
+            this.RefreshBar();
+        };
+
         this.root.Add(this.ribbon);
-        this.root.Add(this.editor);
-        this.root.Add(this.status);
-        Grid.SetRow(this.editor, 1);
-        Grid.SetRow(this.status, 2);
+        this.root.Add(body);
+        this.statusBar = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }
+        };
+        this.statusBar.Add(this.status);
+        this.statusBar.Add(this.notesButton);
+        Grid.SetColumn(this.notesButton, 1);
+
+        this.root.Add(this.statusBar);
+        Grid.SetRow(body, 1);
+        Grid.SetRow(this.statusBar, 2);
 
         this.editor.DeckChanged += this.OnDeckChanged;
         this.AttachDrop();
@@ -231,7 +340,7 @@ public class SlideEditorView : ContentView, IDisposable
         typeof(bool),
         typeof(SlideEditorView),
         true,
-        propertyChanged: (b, _, value) => ((SlideEditorView)b).status.IsVisible = (bool)value);
+        propertyChanged: (b, _, value) => ((SlideEditorView)b).statusBar.IsVisible = (bool)value);
 
     /// <summary>
     /// Whether the icon-only toolbar buttons carry a hover tooltip naming what they do.
@@ -540,6 +649,30 @@ public class SlideEditorView : ContentView, IDisposable
         slide.Items.Add(this.present);
         tab.Groups.Add(slide);
 
+        // Beside navigation rather than on Insert: PowerPoint puts New Slide on Home, and that is
+        // where people look for it.
+        var slides = new RibbonGroup { Title = "Slides", Priority = 105 };
+
+        // Two rows, the Blazor bar's shape: a large New Slide and a column per pair made the group
+        // wide enough to push Paragraph into a dropdown. Earlier and Later are icon only.
+        this.newSlide.Size = RibbonItemSize.Small;
+        slides.Items.Add(OfficeRibbonItems.Row(this.newSlide, this.duplicateSlide, this.deleteSlide));
+        slides.Items.Add(OfficeRibbonItems.Row(this.moveSlideEarlier, this.moveSlideLater, this.slideLayout));
+        tab.Groups.Add(slides);
+
+        // Shapes, not text. The same commands as Ctrl+C/X/V/D through HandleKey.
+        var clipboard = new RibbonGroup { Title = "Clipboard", Priority = 95 };
+        clipboard.Items.Add(this.paste);
+        clipboard.Items.Add(this.cut);
+        clipboard.Items.Add(this.copy);
+        clipboard.Items.Add(this.duplicateShape);
+
+        var arrange = new RibbonGroup { Title = "Arrange", Priority = 85 };
+        arrange.Items.Add(this.toFront);
+        arrange.Items.Add(this.forward);
+        arrange.Items.Add(this.backward);
+        arrange.Items.Add(this.toBack);
+
         // Rows: the two boxes on top, the run of marks underneath - the same shape the document editor
         // draws, so the two bars are learned once. Filling columns put bold above italic and underline
         // above strikethrough, and forced the font picker to share a column with a toggle.
@@ -609,6 +742,11 @@ public class SlideEditorView : ContentView, IDisposable
         this.deleteShape.Text = "Delete";
         insert.Items.Add(OfficeRibbonItems.Row(this.deleteShape));
         insertTab.Groups.Add(insert);
+
+        // Clipboard and Arrange act on objects, so they sit with the other object commands. On Home
+        // they pushed Font and Paragraph into dropdowns at ordinary desktop widths.
+        insertTab.Groups.Add(clipboard);
+        insertTab.Groups.Add(arrange);
 
         // The watermark is a picture drawn behind the whole slide, not a thing you place on it - so it
         // is about the design of the slide rather than its contents, and sat oddly among the four
@@ -859,12 +997,14 @@ public class SlideEditorView : ContentView, IDisposable
     const double ToolbarItemHeight = OfficeToolbarButton.ItemHeight;
 
 
-    RibbonButton MakeButton(OfficeIcon icon, string hint, Action action)
+    // AutomationId is set-once in MAUI, so a second button on the same icon names its own here
+    // rather than having it reassigned afterwards.
+    RibbonButton MakeButton(OfficeIcon icon, string hint, Action action, string? text = null, string? automationId = null)
         => this.Track(OfficeRibbonItems.Command(icon, hint, () =>
         {
             action();
             this.AfterCommand();
-        }, automationId: $"SlideToolbar{icon}"));
+        }, text, automationId: automationId ?? $"SlideToolbar{icon}"));
 
     /// <summary>
     /// A command whose work opens a menu or a file picker first.
@@ -873,8 +1013,223 @@ public class SlideEditorView : ContentView, IDisposable
     /// It does not call <c>AfterCommand</c> itself: each waits for the user to choose something, and
     /// refreshing the bar before then would happen while the menu is still up.
     /// </remarks>
-    RibbonButton MakeAsyncButton(OfficeIcon icon, string hint, Func<Task> action)
-        => this.Track(OfficeRibbonItems.Command(icon, hint, () => _ = action(), automationId: $"SlideToolbar{icon}"));
+    RibbonButton MakeAsyncButton(OfficeIcon icon, string hint, Func<Task> action, string? text = null, string? automationId = null)
+        => this.Track(OfficeRibbonItems.Command(icon, hint, () => _ = action(), text, automationId ?? $"SlideToolbar{icon}"));
+
+    /// <summary>
+    /// Ask before the toolbar deletes a slide. On by default.
+    /// </summary>
+    /// <remarks>
+    /// Undo brings a deleted slide back, but a slide is a lot of work to lose to a mis-tap on a button
+    /// beside New Slide, and nothing on screen says undo is the way back.
+    /// <see cref="SlideEditorController.DeleteSlide"/> itself never asks.
+    /// </remarks>
+    public static readonly BindableProperty ConfirmSlideDeleteProperty = BindableProperty.Create(
+        nameof(ConfirmSlideDelete),
+        typeof(bool),
+        typeof(SlideEditorView),
+        true);
+
+    public bool ConfirmSlideDelete
+    {
+        get => (bool)this.GetValue(ConfirmSlideDeleteProperty);
+        set => this.SetValue(ConfirmSlideDeleteProperty, value);
+    }
+
+    /// <summary>
+    /// Replaces the built-in confirmation — the page's alert — with the app's own, e.g.
+    /// <c>IDialogService.Confirm</c>. Given the index of the slide about to go; return true to delete it.
+    /// </summary>
+    public Func<int, Task<bool>>? ConfirmDeleteSlide { get; set; }
+
+    /// <summary>
+    /// Show the slide rail — thumbnails to tap and drag — beside the slide. On by default; the view
+    /// hides it on its own below 600 wide, where there is room for one column.
+    /// </summary>
+    public static readonly BindableProperty ShowSlideRailProperty = BindableProperty.Create(
+        nameof(ShowSlideRail),
+        typeof(bool),
+        typeof(SlideEditorView),
+        true,
+        propertyChanged: (b, _, _) => ((SlideEditorView)b).ApplyRailVisibility());
+
+    public bool ShowSlideRail
+    {
+        get => (bool)this.GetValue(ShowSlideRailProperty);
+        set => this.SetValue(ShowSlideRailProperty, value);
+    }
+
+    /// <summary>Show the speaker-notes box under the slide. Off by default; the ribbon's Notes toggles it.</summary>
+    public static readonly BindableProperty ShowNotesProperty = BindableProperty.Create(
+        nameof(ShowNotes),
+        typeof(bool),
+        typeof(SlideEditorView),
+        false,
+        BindingMode.TwoWay,
+        propertyChanged: (b, _, value) =>
+        {
+            var view = (SlideEditorView)b;
+            view.notes.IsVisible = (bool)value;
+            view.notesSlide = -1;
+            view.RefreshBar();
+        });
+
+    public bool ShowNotes
+    {
+        get => (bool)this.GetValue(ShowNotesProperty);
+        set => this.SetValue(ShowNotesProperty, value);
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+        this.ApplyRailVisibility();
+    }
+
+    void ApplyRailVisibility()
+    {
+        var show = this.ShowSlideRail && (this.Width <= 0 || this.Width >= 600);
+        this.rail.IsVisible = show;
+        this.railColumn.Width = show ? new GridLength(180) : new GridLength(0);
+    }
+
+    /// <summary>
+    /// Writes the notes box through to the deck as the user types; the command merges a run of these
+    /// into one undo step.
+    /// </summary>
+    void OnNotesChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (this.writingNotes || this.editor.Controller is not { } controller || this.IsReadOnly)
+            return;
+
+        this.notesDraft = e.NewTextValue;
+        this.notesSlide = controller.Index;
+        controller.SetNotes(this.notesDraft);
+        this.DeckChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Refills the notes box when the slide changed, or when the notes changed from anywhere but the
+    /// box — an undo. Never while the text matches, which is what keeps a trailing Enter from being
+    /// swallowed: the deck trims trailing blank lines, the box must not.
+    /// </summary>
+    void SyncNotes(SlideEditorController? controller)
+    {
+        if (controller is null || !this.notes.IsVisible)
+            return;
+
+        static string Normal(string? value) => (value ?? string.Empty).Replace("\r\n", "\n").TrimEnd();
+
+        if (controller.Index == this.notesSlide && Normal(this.notesDraft) == Normal(controller.Notes))
+            return;
+
+        this.notesDraft = controller.Notes;
+        this.notesSlide = controller.Index;
+
+        this.writingNotes = true;
+        try
+        {
+            this.notes.Text = this.notesDraft ?? string.Empty;
+        }
+        finally
+        {
+            this.writingNotes = false;
+        }
+    }
+
+    string? layoutMenuKey;
+
+    /// <summary>Rebuilds the layout menu only when what it would show has changed — not on every caret move.</summary>
+    void RebuildLayoutMenu(SlideEditorController? controller, bool enabled)
+    {
+        var layouts = controller?.Layouts ?? [];
+        var key = $"{enabled}|{string.Join("|", layouts.Select(x => $"{x.Name}{(x.IsCurrent ? "*" : "")}"))}";
+        if (key == this.layoutMenuKey)
+            return;
+
+        this.layoutMenuKey = key;
+        this.slideLayout.Menu.Clear();
+        if (controller is null)
+            return;
+
+        foreach (var layout in layouts)
+        {
+            var chosen = layout;
+            this.slideLayout.Menu.Add(new RibbonMenuEntry
+            {
+                Text = layout.Name,
+                IsChecked = layout.IsCurrent,
+                IsEnabled = enabled,
+                Command = new Command(() =>
+                {
+                    this.editor.Controller?.SetLayout(chosen);
+                    this.AfterCommand();
+                })
+            });
+        }
+
+        this.slideLayout.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+
+        var add = new RibbonMenuEntry { Text = "New slide with layout", IsEnabled = enabled };
+        foreach (var layout in layouts)
+        {
+            var chosen = layout;
+            add.Children.Add(new RibbonMenuEntry
+            {
+                Text = layout.Name,
+                Command = new Command(() =>
+                {
+                    this.editor.Controller?.NewSlide(chosen);
+                    this.AfterCommand();
+                })
+            });
+        }
+
+        this.slideLayout.Menu.Add(add);
+    }
+
+    /// <summary>Deletes the current slide, asking first unless <see cref="ConfirmSlideDelete"/> is off.</summary>
+    public async Task RequestDeleteSlideAsync()
+    {
+        if (this.editor.Controller is not { CanDeleteSlide: true } controller || this.IsReadOnly)
+            return;
+
+        var index = controller.Index;
+
+        if (this.ConfirmSlideDelete)
+        {
+            bool confirmed;
+
+            if (this.ConfirmDeleteSlide is { } ask)
+            {
+                confirmed = await ask(index);
+            }
+            else if (OfficeMenus.PageOf(this) is { } page)
+            {
+                var what = this.Deck?.Slides.ElementAtOrDefault(index)?.Title is { Length: > 0 } title
+                    ? $"“{title}” and everything on it"
+                    : "This slide and everything on it";
+
+                confirmed = await page.DisplayAlertAsync(
+                    $"Delete slide {index + 1}?",
+                    $"{what} will be removed from the deck. You can undo this.",
+                    "Delete",
+                    "Cancel");
+            }
+            else
+            {
+                // Nowhere to ask, so nothing is deleted: a confirmation that silently never appears
+                // must not turn into a delete that silently always happens.
+                return;
+            }
+
+            if (!confirmed)
+                return;
+        }
+
+        controller.DeleteSlide(index);
+        this.AfterCommand();
+    }
 
     RibbonToggleButton MakeToggle(OfficeIcon icon, string hint, Action action)
         => this.Track(OfficeRibbonItems.Toggle(icon, hint, () =>
@@ -901,6 +1256,8 @@ public class SlideEditorView : ContentView, IDisposable
 
     void AttachController()
     {
+        this.rail.Controller = this.editor.Controller;
+
         if (this.editor.Controller is { } controller)
             controller.Changed += this.OnControllerChanged;
 
@@ -968,6 +1325,31 @@ public class SlideEditorView : ContentView, IDisposable
         this.insertPicture.IsEnabled = enabled;
         this.deleteShape.IsEnabled = hasSelection;
 
+        this.newSlide.IsEnabled = enabled;
+        this.duplicateSlide.IsEnabled = enabled && (controller?.Count ?? 0) > 0;
+        this.deleteSlide.IsEnabled = enabled && (controller?.CanDeleteSlide ?? false);
+        this.moveSlideEarlier.IsEnabled = enabled && (controller?.CanMoveSlideEarlier ?? false);
+        this.moveSlideLater.IsEnabled = enabled && (controller?.CanMoveSlideLater ?? false);
+        this.slideLayout.IsEnabled = enabled && (controller?.Count ?? 0) > 0;
+        this.RebuildLayoutMenu(controller, enabled);
+
+        var canCopy = enabled && (controller?.CanCopyShape ?? false);
+        this.paste.IsEnabled = enabled && (controller?.CanPaste ?? false);
+        this.cut.IsEnabled = canCopy;
+        this.copy.IsEnabled = canCopy;
+        this.duplicateShape.IsEnabled = canCopy;
+
+        var canArrange = enabled && (controller?.CanArrange ?? false);
+        this.toFront.IsEnabled = canArrange;
+        this.forward.IsEnabled = canArrange;
+        this.backward.IsEnabled = canArrange;
+        this.toBack.IsEnabled = canArrange;
+
+        this.notesButton.FontAttributes = this.ShowNotes ? FontAttributes.Bold : FontAttributes.None;
+        this.notesButton.IsEnabled = this.Deck is not null;
+        this.notes.IsReadOnly = !enabled;
+        this.SyncNotes(controller);
+
         this.previous.IsEnabled = controller?.CanGoPrevious ?? false;
         this.next.IsEnabled = controller?.CanGoNext ?? false;
 
@@ -982,7 +1364,9 @@ public class SlideEditorView : ContentView, IDisposable
 
         this.status.Text = controller switch
         {
+            { SelectedShape: >= 0, IsEditingText: true, ActiveCell: not null } => "Editing a cell — Tab moves to the next one",
             { SelectedShape: >= 0, IsEditingText: true } => "Editing text — double-tap a word to select it, Esc to leave",
+            { SelectedShape: >= 0, Selection.IsGroup: true } => "Group selected — double-tap to select a shape inside it",
             { SelectedShape: >= 0 } => "Shape selected — double-tap to edit its text",
             _ => "Tap a shape to select it; double-tap to edit its text."
         };

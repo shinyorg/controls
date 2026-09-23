@@ -32,6 +32,7 @@
                   xmlns:autocomplete="clr-namespace:Sample.Features.AutoComplete"
                   xmlns:countryaddress="clr-namespace:Sample.Features.CountryAddress"
                   xmlns:sigpad="clr-namespace:Sample.Features.SignaturePad"
+                  xmlns:gamepad="clr-namespace:Sample.Features.Gamepad"
                   xmlns:pickers="clr-namespace:Sample.Features.Pickers"
                   xmlns:glass="clr-namespace:Sample.Features.FrostedGlass"
                   xmlns:toast="clr-namespace:Sample.Features.Toast"
@@ -776,6 +777,14 @@
                              Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate osk:OnScreenKeyboardPage}" Route="onscreenkeyboard" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Gamepad">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x271A;" Size="20"
+                             Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate gamepad:GamepadPage}" Route="gamepad" />
     </FlyoutItem>
 
     <!-- ============================================================ -->

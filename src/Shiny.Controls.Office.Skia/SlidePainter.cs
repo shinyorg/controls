@@ -79,6 +79,18 @@ public sealed record SlidePaintRequest
     /// targets too small to hit.
     /// </remarks>
     public SlideEditorChrome? Chrome { get; init; }
+
+    /// <summary>
+    /// Draw each empty placeholder's prompt — "Click to add title" — inside a dashed outline.
+    /// </summary>
+    /// <remarks>
+    /// The editor's to turn on. A viewer and a show leave it off, which is PowerPoint's behaviour: the
+    /// prompts say where to click, and nobody is clicking in a slide show.
+    /// </remarks>
+    public bool ShowPlaceholderPrompts { get; init; }
+
+    /// <summary>The shape whose prompt is suppressed because the caret is inside it, or -1.</summary>
+    public int PromptHiddenShape { get; init; } = -1;
 }
 
 /// <summary>The editor's overlay, in viewport coordinates.</summary>
@@ -160,8 +172,14 @@ public sealed class SlidePainter(SkiaTextMeasurer measurer) : IDisposable
 
         this.PaintBackground(canvas, request, theme);
 
-        foreach (var shape in request.Slide.Shapes)
-            this.PaintShape(canvas, shape, theme);
+        var shapes = request.Slide.Shapes;
+        for (var i = 0; i < shapes.Count; i++)
+        {
+            this.PaintShape(canvas, shapes[i], theme);
+
+            if (request.ShowPlaceholderPrompts && shapes[i].Prompt is { } prompt && i != request.PromptHiddenShape)
+                this.PaintPrompt(canvas, shapes[i], prompt, scaleX);
+        }
 
         canvas.Restore();
 
@@ -258,6 +276,10 @@ public sealed class SlidePainter(SkiaTextMeasurer measurer) : IDisposable
 
     void PaintShape(SKCanvas canvas, SlideShape shape, SlideTheme theme)
     {
+        // A group's own entry is bounds for selecting the whole group; its children paint themselves.
+        if (shape.IsGroup)
+            return;
+
         var bounds = new SKRect((float)shape.X, (float)shape.Y, (float)(shape.X + shape.Width), (float)(shape.Y + shape.Height));
 
         canvas.Save();
@@ -294,63 +316,59 @@ public sealed class SlidePainter(SkiaTextMeasurer measurer) : IDisposable
     }
 
 
-    void PaintTable(SKCanvas canvas, SlideTable table, SKRect bounds, SlideTheme theme)
+    /// <summary>An empty placeholder's dashed outline and prompt text, in slide coordinates.</summary>
+    void PaintPrompt(SKCanvas canvas, SlideShape shape, ShapeTextBody prompt, double scale)
     {
-        var columnWidths = Distribute(table.ColumnWidths, bounds.Width);
-        var rowHeights = Distribute(table.RowHeights, bounds.Height);
+        var bounds = new SKRect((float)shape.X, (float)shape.Y, (float)(shape.X + shape.Width), (float)(shape.Y + shape.Height));
 
-        var y = bounds.Top;
-        for (var r = 0; r < table.Rows.Count && r < rowHeights.Count; r++)
-        {
-            var x = bounds.Left;
-            var row = table.Rows[r];
+        // A hairline on screen at any zoom: the canvas is scaled to the slide, so the stroke is
+        // divided back out.
+        var hairline = (float)(1 / Math.Max(0.01, scale));
 
-            for (var c = 0; c < row.Count && c < columnWidths.Count; c++)
-            {
-                var cell = row[c];
-                var span = Math.Max(1, cell.ColumnSpan);
-                var cellWidth = 0f;
-                for (var i = c; i < Math.Min(c + span, columnWidths.Count); i++)
-                    cellWidth += (float)columnWidths[i];
+        this.stroke.Color = new SKColor(0x9A, 0x9A, 0x9A);
+        this.stroke.StrokeWidth = hairline;
+        this.stroke.PathEffect?.Dispose();
+        this.stroke.PathEffect = SKPathEffect.CreateDash([4 * hairline, 3 * hairline], 0);
+        canvas.DrawRect(bounds, this.stroke);
+        this.stroke.PathEffect.Dispose();
+        this.stroke.PathEffect = null;
 
-                var rect = new SKRect(x, y, x + cellWidth, y + (float)rowHeights[r]);
-
-                if (!cell.IsMerged)
-                {
-                    if (cell.Fill is { } cellFill)
-                    {
-                        this.fill.Color = ToSk(cellFill);
-                        this.fill.Shader = null;
-                        canvas.DrawRect(rect, this.fill);
-                    }
-
-                    if (cell.Text is { } text)
-                        ShapeTextPainter.Draw(canvas, this.fill, this.stroke, measurer, text, rect);
-
-                    this.stroke.Color = ToSk(theme.Border);
-                    this.stroke.StrokeWidth = 1;
-                    canvas.DrawRect(rect, this.stroke);
-                }
-
-                x += cellWidth;
-            }
-
-            y += (float)rowHeights[r];
-        }
+        ShapeTextPainter.Draw(canvas, this.fill, this.stroke, measurer, prompt, bounds);
     }
 
-    /// <summary>Scales stored track sizes to the destination, sharing evenly when none are recorded.</summary>
-    static List<double> Distribute(IReadOnlyList<double> sizes, double available)
+    void PaintTable(SKCanvas canvas, SlideTable table, SKRect bounds, SlideTheme theme)
     {
-        if (sizes.Count == 0)
-            return [];
+        for (var r = 0; r < table.Rows.Count; r++)
+        {
+            var row = table.Rows[r];
 
-        var total = sizes.Sum();
-        if (total <= 0)
-            return Enumerable.Repeat(available / sizes.Count, sizes.Count).ToList();
+            for (var c = 0; c < row.Count; c++)
+            {
+                var cell = row[c];
+                if (cell.IsMerged)
+                    continue;
 
-        var scale = available / total;
-        return sizes.Select(x => x * scale).ToList();
+                // The shared cell geometry, the same the editor lays its caret out in. Summing widths
+                // per cell here used to advance past a spanned column twice, shifting every cell after a
+                // merge to the right.
+                var (x, y, w, h) = table.CellBounds(r, c, bounds.Width, bounds.Height);
+                var rect = new SKRect(bounds.Left + (float)x, bounds.Top + (float)y, bounds.Left + (float)(x + w), bounds.Top + (float)(y + h));
+
+                if (cell.Fill is { } cellFill)
+                {
+                    this.fill.Color = ToSk(cellFill);
+                    this.fill.Shader = null;
+                    canvas.DrawRect(rect, this.fill);
+                }
+
+                if (cell.Text is { } text)
+                    ShapeTextPainter.Draw(canvas, this.fill, this.stroke, measurer, text, rect);
+
+                this.stroke.Color = ToSk(theme.Border);
+                this.stroke.StrokeWidth = 1;
+                canvas.DrawRect(rect, this.stroke);
+            }
+        }
     }
 
     void DrawImage(SKCanvas canvas, byte[] data, SKRect destination)
