@@ -795,12 +795,68 @@ public class DocumentEditorControllerTests
         var (document, controller) = await SetupAsync();
         using var _ = document;
 
+        // Offset 5 is the end of "Plain" - a word's edge, where there is no word to mean. Inside a word
+        // the change applies to the word instead; see BoldWithACaretInsideAWordBoldsTheWord.
         var block = BodyBlock(document);
-        controller.Selection.MoveTo(new DocumentPosition(block, 3));
+        controller.Selection.MoveTo(new DocumentPosition(block, 5));
         controller.ToggleBold();
 
         controller.CaretFormat.Bold.ShouldBeTrue();
         document.Undo.CanUndo.ShouldBeFalse("nothing should have been written to the document");
+    }
+
+    [Fact]
+    public async Task BoldWithACaretInsideAWordBoldsTheWord()
+    {
+        // What Word does, and what people expect: click into a word, press Bold, the word goes bold.
+        // Holding it as a pending format instead changed nothing on screen and read as a dead button.
+        var (document, controller) = await SetupAsync();
+        using var _ = document;
+
+        var block = BodyBlock(document);
+        controller.Selection.MoveTo(new DocumentPosition(block, 3));
+        controller.ToggleBold();
+
+        StyleAt(document, block, 0).Bold.ShouldBeTrue();
+        StyleAt(document, block, 4).Bold.ShouldBeTrue();
+        StyleAt(document, block, 6).Bold.ShouldBeFalse("the next word is outside the change");
+        controller.Selection.IsEmpty.ShouldBeTrue("the caret stays a caret");
+        controller.CaretFormat.Bold.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ColourWithACaretInsideAWordColoursTheWord()
+    {
+        var (document, controller) = await SetupAsync();
+        using var _ = document;
+
+        var red = new ArgbColor(255, 0xC0, 0x00, 0x00);
+        var block = BodyBlock(document);
+        controller.Selection.MoveTo(new DocumentPosition(block, 8));
+        controller.SetTextColor(red);
+
+        StyleAt(document, block, 6).Color.ShouldBe(red);
+        StyleAt(document, block, 9).Color.ShouldBe(red);
+        StyleAt(document, block, 0).Color.ShouldNotBe(red);
+    }
+
+    [Fact]
+    public async Task UnboldingAHeadingOverridesItsStyle()
+    {
+        // The heading is bold through Heading1, not through its own run properties. Removing the run's
+        // w:b left the style's bold in force, so the button toggled and the text never changed.
+        var (document, controller) = await SetupAsync();
+        using var _ = document;
+
+        var block = document.Blocks.ToList().FindIndex(x => x is DocumentParagraph p && p.PlainText == "Quarterly Report");
+        StyleAt(document, block, 0).Bold.ShouldBeTrue("precondition: the heading style is bold");
+
+        controller.Selection.Select(new DocumentPosition(block, 0), new DocumentPosition(block, 9));
+        controller.ToggleBold();
+
+        StyleAt(document, block, 0).Bold.ShouldBeFalse();
+        StyleAt(document, block, 8).Bold.ShouldBeFalse();
+        StyleAt(document, block, 10).Bold.ShouldBeTrue("outside the selection the style still applies");
     }
 
     [Fact]

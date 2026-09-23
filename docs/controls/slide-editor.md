@@ -69,6 +69,10 @@ c.CaretFormat.List;            // ListStyle.None / Bullet / Numbered
 c.CaretFormat.Level;           // 0-8
 ```
 
+**Formatting with nothing selected** follows PowerPoint. With the caret inside a word, Bold, colour and
+the other font commands format that word. Anywhere else the change goes on the paragraph's end mark and
+applies to what you type next.
+
 **Shapes, pictures and tables** come from the same galleries the document editor offers, placed in
 slide coordinates and selected on arrival so the next gesture is a drag of the new object:
 

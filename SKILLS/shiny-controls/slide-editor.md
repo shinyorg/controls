@@ -60,7 +60,7 @@ c.BeginTextEditing(x, y);         // caret into the selected shape's text
 c.InsertText("Hello");
 c.InsertParagraph();              // Enter — keeps level and bullet
 c.Backspace();
-c.ToggleBold();
+c.ToggleBold();                   // selection; a caret INSIDE a word = that word; else the end mark (next typed text)
 c.SetFontSize(24);                // POINTS, not pixels
 c.SetAlignment(TextAlignment.Center);
 c.ShiftLevel(+1);                 // indent the bullet; each paragraph moves relative to its own level

@@ -794,9 +794,23 @@ public sealed class DocumentEditorController : DocumentController
     /// change is held in <see cref="pending"/> and applied by the next <see cref="InsertText"/> — which
     /// is what Word does. The toolbar shows it in the meantime, so the choice is visible before there
     /// is any text carrying it.
+    /// <para>
+    /// The exception, also Word's: a bare caret <em>inside</em> a word formats that whole word. Without
+    /// it, clicking into a word and pressing Bold or picking a colour changed nothing on screen and
+    /// read as a broken button. At a word's edge — the end of a line, between words — there is no word
+    /// to mean, so the change is held for typing as before.
+    /// </para>
     /// </remarks>
     void ApplyRunFormat(RunFormatChange change)
     {
+        if (this.Selection.IsEmpty && this.WordAroundCaret() is { } word)
+        {
+            this.ClearPending();
+            this.document.Execute(new FormatRunsCommand(word, change));
+            this.AfterEdit();
+            return;
+        }
+
         if (this.Selection.IsEmpty)
         {
             this.RememberPending(change);
@@ -808,6 +822,22 @@ public sealed class DocumentEditorController : DocumentController
         this.ClearPending();
         this.document.Execute(new FormatRunsCommand(this.Selection.Range, change));
         this.AfterEdit();
+    }
+
+    /// <summary>The word the caret sits strictly inside, or null at a word's edge or in whitespace.</summary>
+    DocumentRange? WordAroundCaret()
+    {
+        var caret = this.Selection.Focus;
+        var word = this.WordRangeAt(caret);
+
+        if (word.IsEmpty || caret.Offset <= word.Start.Offset || caret.Offset >= word.End.Offset)
+            return null;
+
+        // WordBoundaries also groups runs of punctuation and spaces; only letters and digits are a word.
+        var text = this.TextOf(caret.Block);
+        return char.IsLetterOrDigit(text[caret.Offset - 1]) && char.IsLetterOrDigit(text[caret.Offset])
+            ? word
+            : null;
     }
 
     /// <summary>Queues a change for the next insertion, replacing any earlier one of the same kind.</summary>

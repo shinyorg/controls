@@ -445,6 +445,41 @@ public class SlideEditingTests
     }
 
     [Fact]
+    public async Task BoldWithACaretInsideAWordBoldsTheWord()
+    {
+        // Held on the end mark instead, the change showed nothing until the user typed at the end of
+        // the paragraph, and the button read as dead.
+        using var deck = await OpenAsync();
+        var controller = Controller(deck);
+        var body = BodyShape(deck);
+        var text = TextOf(deck, 1, body, 0);
+        var end = text.IndexOf(' ');
+        end.ShouldBeGreaterThan(1, "precondition: the first paragraph starts with a word");
+
+        controller.Select(body);
+        controller.BeginTextEditing(0, 0);
+        controller.MoveCaret(new SlidePosition(1, body, 0, 1));
+        controller.ToggleBold();
+
+        StyleAt(deck, body, 0).Bold.ShouldBeTrue();
+        StyleAt(deck, body, end - 1).Bold.ShouldBeTrue();
+        StyleAt(deck, body, end + 1).Bold.ShouldBeFalse("the next word is outside the change");
+    }
+
+    static TextStyle StyleAt(SlideDeck deck, int shape, int offset)
+    {
+        var cursor = 0;
+        foreach (var run in deck.Slides[1].Shapes[shape].Text!.Paragraphs[0].Runs)
+        {
+            if (offset < cursor + run.Text.Length)
+                return run.Style;
+            cursor += run.Text.Length;
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(offset));
+    }
+
+    [Fact]
     public async Task BackspaceAtTheStartOfAParagraphJoinsItToTheOneAbove()
     {
         using var deck = await OpenAsync();

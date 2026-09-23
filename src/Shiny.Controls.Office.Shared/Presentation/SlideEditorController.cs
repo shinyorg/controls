@@ -1005,12 +1005,38 @@ public sealed class SlideEditorController : SlideController
     /// </summary>
     public bool IsAutoFormatListEnabled { get; set; } = true;
 
+    /// <remarks>
+    /// A bare caret <em>inside</em> a word formats that word, as PowerPoint and Word do. Anywhere else
+    /// a bare caret formats the paragraph end mark, which only shows once something is typed. Without
+    /// the word case, clicking into a word and pressing Bold changed nothing on screen.
+    /// </remarks>
     void FormatRuns(Action<D.RunProperties> apply, string label)
     {
         if (!this.CanEditText())
             return;
 
-        this.Execute(new FormatSlideRunsCommand(this.TextSelection.Normalized(), apply, label));
+        var range = this.TextSelection.Normalized();
+        if (range.IsEmpty && this.WordAroundCaret() is { } word)
+            range = word;
+
+        this.Execute(new FormatSlideRunsCommand(range, apply, label));
+    }
+
+    /// <summary>The word the caret sits strictly inside, or null at a word's edge or in whitespace.</summary>
+    SlideTextRange? WordAroundCaret()
+    {
+        var at = this.caret;
+        if (this.ActiveText?.Paragraphs.ElementAtOrDefault(at.Paragraph)?.PlainText is not { } text
+            || at.Offset <= 0
+            || at.Offset >= text.Length)
+            return null;
+
+        // WordBoundaries also groups runs of punctuation and spaces; only letters and digits are a word.
+        if (!char.IsLetterOrDigit(text[at.Offset - 1]) || !char.IsLetterOrDigit(text[at.Offset]))
+            return null;
+
+        var (start, end) = WordBoundaries.RangeAt(text, at.Offset);
+        return new SlideTextRange(at with { Offset = start }, at with { Offset = end });
     }
 
     void FormatParagraphs(Action<D.ParagraphProperties> apply, string label)

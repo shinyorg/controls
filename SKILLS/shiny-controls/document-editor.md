@@ -114,6 +114,14 @@ what Word does. `CaretFormat` reflects it immediately so a toolbar can show it, 
 format land as **one** undo step, and moving the caret off the spot abandons the choice. There is no
 API for this — it is what the existing methods already do.
 
+Exception (Word's rule): a bare caret strictly **inside** a word (letters/digits on both sides) formats
+that whole word immediately — one undo step, the caret stays a caret. At a word edge or in whitespace
+the change is held for typing as above.
+
+Turning a toggle **off** writes an explicit `w:val="0"` (`w:u w:val="none"` for underline), so it
+overrides formatting inherited from a style — un-bolding a Heading works. Do not "fix" this by
+removing the element instead; that silently leaves style-bold text bold.
+
 ## Driving it
 
 Everything lives on the shared controller, identical on both hosts:

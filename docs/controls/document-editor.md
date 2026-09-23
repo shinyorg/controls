@@ -69,7 +69,9 @@ somewhere, pick a font, size, colour or weight, and the next text carries it. Th
 toolbar while it is pending, is spent by the first insertion, undoes together with the characters it
 formatted, and is abandoned if the caret moves off the spot where it was made — so a colour picked and
 thought better of cannot resurface in something typed later. Slides do the same thing through
-PowerPoint's own mechanism, the paragraph end mark.
+PowerPoint's own mechanism, the paragraph end mark. The one exception is also Word's: with the caret
+*inside* a word, the change formats that whole word straight away. Turning bold, italic, underline or
+strikethrough **off** also overrides a style that turns it on, so a heading can be un-bolded.
 
 **Bulleted and numbered lists, from the toolbar or by typing.** Two toggle buttons turn every
 paragraph the selection touches into a bulleted or numbered item, and pressing the lit one again takes

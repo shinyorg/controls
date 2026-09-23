@@ -398,32 +398,34 @@ static class WordParagraphEditor
     }
 
     /// <summary>Builds the run-property mutation for a formatting toggle.</summary>
+    /// <remarks>
+    /// Turning a toggle off writes an explicit <c>val="0"</c> rather than just removing the element.
+    /// Removing it only drops the run's own formatting, so text that is bold because its style is —
+    /// every heading — stayed bold and the button appeared to do nothing. The explicit off is what
+    /// Word writes, and on text with no inherited bold it is simply redundant.
+    /// </remarks>
     public static Action<RunProperties> ToggleBold(bool on) => properties =>
     {
         properties.RemoveAllChildren<Bold>();
-        if (on)
-            properties.InsertAt(new Bold(), 0);
+        properties.InsertAt(on ? new Bold() : new Bold { Val = OnOffValue.FromBoolean(false) }, 0);
     };
 
     public static Action<RunProperties> ToggleItalic(bool on) => properties =>
     {
         properties.RemoveAllChildren<Italic>();
-        if (on)
-            properties.InsertAt(new Italic(), 0);
+        properties.InsertAt(on ? new Italic() : new Italic { Val = OnOffValue.FromBoolean(false) }, 0);
     };
 
     public static Action<RunProperties> ToggleUnderline(bool on) => properties =>
     {
         properties.RemoveAllChildren<W.Underline>();
-        if (on)
-            properties.AppendChild(new W.Underline { Val = UnderlineValues.Single });
+        properties.AppendChild(new W.Underline { Val = on ? UnderlineValues.Single : UnderlineValues.None });
     };
 
     public static Action<RunProperties> ToggleStrike(bool on) => properties =>
     {
         properties.RemoveAllChildren<Strike>();
-        if (on)
-            properties.AppendChild(new Strike());
+        properties.AppendChild(on ? new Strike() : new Strike { Val = OnOffValue.FromBoolean(false) });
     };
 
     public static Action<RunProperties> SetFontFamily(string family) => properties =>
