@@ -1,0 +1,17 @@
+/*
+   Yoga's defaults for plain elements placed directly in a YogaLayout: they do not shrink, they measure
+   border-box, and they may shrink below their content. (A nested YogaLayout gets the same defaults from
+   its own inline style.)
+
+   The rule sits in a cascade layer on purpose. Unlayered styles beat layered ones whatever the
+   specificity, so any rule of the consumer's own (a plain `.card { flex-shrink: 1 }`) still wins. A
+   bare scoped rule would carry the scope attribute's specificity and quietly override it.
+*/
+@layer shiny-yoga {
+    .shiny-yoga > ::deep * {
+        flex-shrink: 0;
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0;
+    }
+}

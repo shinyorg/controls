@@ -30,6 +30,7 @@ public static class Catalog
         new("Layout & Collections", "#60A5FA",
         [
             new("layout", "Stacks & Grid", "▤", "VStack, HStack and a responsive 12-column grid"),
+            new("yoga", "Yoga Layout", "▥", "React Native's flexbox model: absolute insets, percentages, aspect ratio"),
             new("expander", "Expander", "▾", "Animated disclosure panels and accordion lists"),
             new("applayout", "App Layout", "◫", "Application shell with collapsible, resizable panels"),
             new("carousel", "Carousel Gallery", "◀", "Swipeable image gallery with indicators"),

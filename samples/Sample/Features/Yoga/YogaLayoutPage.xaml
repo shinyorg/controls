@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             x:Class="Sample.Features.Yoga.YogaLayoutPage"
+             Title="Yoga Layout"
+             AutomationId="YogaLayoutPage">
+
+    <ScrollView>
+        <!-- The page itself is a Yoga column: the default direction, children stretched across. -->
+        <shiny:YogaLayout Padding="24" Gap="18">
+
+            <Label Text="YogaLayout" FontSize="22" FontAttributes="Bold" />
+            <Label FontSize="13"
+                   Text="React Native's layout model (yogalayout.dev) in pure C#. Column by default, shrink 0, absolute insets, percentages, aspect ratio and auto margins. The Blazor sample builds the same four scenes." />
+
+            <!-- ============================================================ -->
+            <Label Text="Playground" FontAttributes="Bold" />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+                <Label Text="FlexDirection" VerticalTextAlignment="Center" />
+                <Picker x:Name="DirectionPicker" Grid.Column="1" AutomationId="YogaDirection" />
+                <Label Grid.Row="1" Text="JustifyContent" VerticalTextAlignment="Center" />
+                <Picker x:Name="JustifyPicker" Grid.Row="1" Grid.Column="1" AutomationId="YogaJustify" />
+                <Label Grid.Row="2" Text="AlignItems" VerticalTextAlignment="Center" />
+                <Picker x:Name="AlignItemsPicker" Grid.Row="2" Grid.Column="1" AutomationId="YogaAlignItems" />
+                <Label Grid.Row="3" Text="FlexWrap" VerticalTextAlignment="Center" />
+                <Picker x:Name="WrapPicker" Grid.Row="3" Grid.Column="1" AutomationId="YogaWrap" />
+                <Label Grid.Row="4" Text="Gap" VerticalTextAlignment="Center" />
+                <Slider x:Name="GapSlider" Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="24" Value="8" AutomationId="YogaGap" />
+            </Grid>
+
+            <shiny:YogaLayout x:Name="Playground"
+                              HeightRequest="240"
+                              Padding="8"
+                              Gap="8"
+                              BackgroundColor="#1A0284C7"
+                              AutomationId="YogaPlayground">
+                <BoxView Color="#0284C7" shiny:YogaLayout.NodeWidth="60" shiny:YogaLayout.NodeHeight="60" />
+                <BoxView Color="#7C3AED" shiny:YogaLayout.NodeWidth="90" shiny:YogaLayout.NodeHeight="40" />
+                <BoxView Color="#059669" shiny:YogaLayout.NodeWidth="40" shiny:YogaLayout.NodeHeight="80" />
+                <BoxView Color="#DC2626" shiny:YogaLayout.NodeWidth="70" shiny:YogaLayout.NodeHeight="50" />
+            </shiny:YogaLayout>
+
+            <!-- ============================================================ -->
+            <Label Text="App bar: grow and an auto margin" FontAttributes="Bold" />
+            <shiny:YogaLayout FlexDirection="Row" AlignItems="Center" Gap="8" Padding="12,8" BackgroundColor="#0F172A">
+                <Label Text="☰" TextColor="White" FontSize="18" />
+                <Label Text="Inbox" TextColor="White" FontAttributes="Bold" shiny:YogaLayout.FlexGrow="1" />
+                <Label Text="Search" TextColor="#93C5FD" />
+                <Label Text="Profile" TextColor="#93C5FD" />
+            </shiny:YogaLayout>
+            <!-- Nothing grows here: an auto start margin takes the free space and pushes Done to the end. -->
+            <shiny:YogaLayout FlexDirection="Row" AlignItems="Center" Gap="8" Padding="12,8" BackgroundColor="#0F172A">
+                <Label Text="Back" TextColor="#93C5FD" />
+                <Label Text="Done" TextColor="#93C5FD" shiny:YogaLayout.AutoMargins="Start" />
+            </shiny:YogaLayout>
+
+            <!-- ============================================================ -->
+            <Label Text="Card: aspect ratio and an absolute badge" FontAttributes="Bold" />
+            <shiny:YogaLayout FlexDirection="Row" Gap="12">
+                <shiny:YogaLayout shiny:YogaLayout.FlexGrow="1" shiny:YogaLayout.FlexBasis="0" BackgroundColor="#F1F5F9">
+                    <!-- Width comes from the column's stretch; AspectRatio derives the height. -->
+                    <BoxView Color="#7C3AED" shiny:YogaLayout.AspectRatio="1.5" />
+                    <Label Text="Aurora" Margin="8" FontAttributes="Bold" />
+                    <Border BackgroundColor="#DC2626" StrokeThickness="0" Padding="8,2"
+                            StrokeShape="RoundRectangle 10"
+                            shiny:YogaLayout.PositionType="Absolute"
+                            shiny:YogaLayout.Top="8"
+                            shiny:YogaLayout.Right="8">
+                        <Label Text="NEW" TextColor="White" FontSize="11" FontAttributes="Bold" />
+                    </Border>
+                </shiny:YogaLayout>
+                <shiny:YogaLayout shiny:YogaLayout.FlexGrow="1" shiny:YogaLayout.FlexBasis="0" BackgroundColor="#F1F5F9">
+                    <BoxView Color="#059669" shiny:YogaLayout.AspectRatio="1.5" />
+                    <Label Text="Ocean" Margin="8" FontAttributes="Bold" />
+                </shiny:YogaLayout>
+            </shiny:YogaLayout>
+
+            <!-- ============================================================ -->
+            <Label Text="Percentages" FontAttributes="Bold" />
+            <shiny:YogaLayout FlexDirection="Row" Gap="4" HeightRequest="40">
+                <BoxView Color="#0284C7" shiny:YogaLayout.NodeWidth="25%" />
+                <BoxView Color="#7C3AED" shiny:YogaLayout.NodeWidth="50%" />
+                <BoxView Color="#059669" shiny:YogaLayout.FlexGrow="1" />
+            </shiny:YogaLayout>
+
+            <!-- ============================================================ -->
+            <Label Text="Wrapping chips" FontAttributes="Bold" />
+            <shiny:YogaLayout x:Name="Chips" FlexDirection="Row" FlexWrap="Wrap" Gap="6" />
+
+        </shiny:YogaLayout>
+    </ScrollView>
+</ContentPage>

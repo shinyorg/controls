@@ -52,6 +52,8 @@
        xmlns:skeleton="clr-namespace:Sample.Features.Skeleton;assembly=Sample.Linux"
        xmlns:slider="clr-namespace:Sample.Features.Slider;assembly=Sample.Linux"
        xmlns:staggeredgrid="clr-namespace:Sample.Features.StaggeredGrid;assembly=Sample.Linux"
+       xmlns:flex="clr-namespace:Sample.Features.Flex;assembly=Sample.Linux"
+       xmlns:yoga="clr-namespace:Sample.Features.Yoga;assembly=Sample.Linux"
        xmlns:textentry="clr-namespace:Sample.Features.TextEntry;assembly=Sample.Linux"
        xmlns:toast="clr-namespace:Sample.Features.Toast;assembly=Sample.Linux"
        xmlns:trayicon="clr-namespace:Sample.Features.TrayIcon;assembly=Sample.Linux"
@@ -83,6 +85,12 @@
 
     <FlyoutItem Title="Carousel Gallery">
         <ShellContent ContentTemplate="{DataTemplate carouselgallery:CarouselGalleryPage}" Route="carouselgallery" />
+    </FlyoutItem>
+    <FlyoutItem Title="Flex Layout">
+        <ShellContent ContentTemplate="{DataTemplate flex:FlexLayoutPage}" Route="flexlayout" />
+    </FlyoutItem>
+    <FlyoutItem Title="Yoga Layout">
+        <ShellContent ContentTemplate="{DataTemplate yoga:YogaLayoutPage}" Route="yogalayout" />
     </FlyoutItem>
     <FlyoutItem Title="Staggered Grid">
         <ShellContent ContentTemplate="{DataTemplate staggeredgrid:StaggeredGridPage}" Route="staggeredgrid" />

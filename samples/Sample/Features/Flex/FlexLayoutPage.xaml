@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             x:Class="Sample.Features.Flex.FlexLayoutPage"
+             Title="Flex Layout"
+             AutomationId="FlexLayoutPage">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="18">
+
+            <Label Text="ShinyFlexLayout"
+                   FontSize="22"
+                   FontAttributes="Bold" />
+
+            <Label FontSize="13"
+                   Text="The same properties as MAUI's FlexLayout, plus RowSpacing/ColumnSpacing. Children are measured once and reused until they change, so a pass at the same size measures nothing." />
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <!-- ============================================================ -->
+            <Label Text="Playground" FontAttributes="Bold" />
+
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+                <Label Text="Direction" VerticalTextAlignment="Center" />
+                <Picker x:Name="DirectionPicker" Grid.Column="1" AutomationId="FlexDirection" />
+
+                <Label Grid.Row="1" Text="Wrap" VerticalTextAlignment="Center" />
+                <Picker x:Name="WrapPicker" Grid.Row="1" Grid.Column="1" AutomationId="FlexWrap" />
+
+                <Label Grid.Row="2" Text="JustifyContent" VerticalTextAlignment="Center" />
+                <Picker x:Name="JustifyPicker" Grid.Row="2" Grid.Column="1" AutomationId="FlexJustify" />
+
+                <Label Grid.Row="3" Text="AlignItems" VerticalTextAlignment="Center" />
+                <Picker x:Name="AlignItemsPicker" Grid.Row="3" Grid.Column="1" AutomationId="FlexAlignItems" />
+
+                <Label Grid.Row="4" Text="AlignContent" VerticalTextAlignment="Center" />
+                <Picker x:Name="AlignContentPicker" Grid.Row="4" Grid.Column="1" AutomationId="FlexAlignContent" />
+
+                <Label Grid.Row="5" Text="Spacing" VerticalTextAlignment="Center" />
+                <Slider x:Name="SpacingSlider" Grid.Row="5" Grid.Column="1" Minimum="0" Maximum="24" Value="8" AutomationId="FlexSpacing" />
+            </Grid>
+
+            <Border Stroke="LightGray" StrokeThickness="1" Padding="8" HeightRequest="280">
+                <shiny:ShinyFlexLayout x:Name="Playground"
+                                       Wrap="Wrap"
+                                       ColumnSpacing="8"
+                                       RowSpacing="8"
+                                       AutomationId="FlexPlayground">
+                    <Border BackgroundColor="#0284C7" Padding="12,8" StrokeThickness="0">
+                        <Label Text="One" TextColor="White" />
+                    </Border>
+                    <Border BackgroundColor="#7C3AED" Padding="12,8" StrokeThickness="0">
+                        <Label Text="Two, a little longer" TextColor="White" />
+                    </Border>
+                    <Border BackgroundColor="#059669" Padding="12,8" StrokeThickness="0" shiny:ShinyFlexLayout.Grow="1">
+                        <Label Text="Grow = 1" TextColor="White" />
+                    </Border>
+                    <Border BackgroundColor="#DC2626" Padding="12,8" StrokeThickness="0" shiny:ShinyFlexLayout.Order="-1">
+                        <Label Text="Order = -1" TextColor="White" />
+                    </Border>
+                    <Border BackgroundColor="#D97706" Padding="12,24" StrokeThickness="0">
+                        <Label Text="Tall" TextColor="White" />
+                    </Border>
+                    <Border BackgroundColor="#DB2777" Padding="12,8" StrokeThickness="0" shiny:ShinyFlexLayout.AlignSelf="Center">
+                        <Label Text="AlignSelf = Center" TextColor="White" />
+                    </Border>
+                    <Border BackgroundColor="#4B5563" Padding="12,8" StrokeThickness="0">
+                        <Label Text="Seven" TextColor="White" />
+                    </Border>
+                </shiny:ShinyFlexLayout>
+            </Border>
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <!-- ============================================================ -->
+            <Label Text="Tags — wrap with gaps" FontAttributes="Bold" />
+            <Label FontSize="12" Text="MAUI's FlexLayout has no gap, so tags there need a margin on every child. Here it is two properties." />
+
+            <shiny:ShinyFlexLayout x:Name="Tags"
+                                   Wrap="Wrap"
+                                   ColumnSpacing="6"
+                                   RowSpacing="6"
+                                   AutomationId="FlexTags" />
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <!-- ============================================================ -->
+            <Label Text="Basis and Grow — a sidebar layout" FontAttributes="Bold" />
+
+            <shiny:ShinyFlexLayout ColumnSpacing="8" HeightRequest="120" AutomationId="FlexSidebar">
+                <Border BackgroundColor="#E0F2FE" StrokeThickness="0" Padding="8"
+                        shiny:ShinyFlexLayout.Basis="30%"
+                        shiny:ShinyFlexLayout.Shrink="0">
+                    <Label Text="Basis 30%" />
+                </Border>
+                <Border BackgroundColor="#EDE9FE" StrokeThickness="0" Padding="8"
+                        shiny:ShinyFlexLayout.Grow="1">
+                    <Label Text="Grow 1 — takes the rest" />
+                </Border>
+                <Border BackgroundColor="#DCFCE7" StrokeThickness="0" Padding="8"
+                        shiny:ShinyFlexLayout.Basis="60">
+                    <Label Text="60" />
+                </Border>
+            </shiny:ShinyFlexLayout>
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <!-- ============================================================ -->
+            <Label Text="Speed — against MAUI's FlexLayout" FontAttributes="Bold" />
+            <Label FontSize="12"
+                   Text="Builds the same wrapped set of labels in both layouts, then times measure passes on the device: alternating widths (a rotation) and one label changing its text each pass." />
+
+            <HorizontalStackLayout Spacing="12">
+                <Label Text="Labels" VerticalTextAlignment="Center" />
+                <Stepper x:Name="CountStepper" Minimum="50" Maximum="1000" Increment="50" Value="300" AutomationId="FlexBenchCount" />
+                <Label Text="{Binding Value, Source={x:Reference CountStepper}, x:DataType=Stepper}" VerticalTextAlignment="Center" FontAttributes="Bold" />
+            </HorizontalStackLayout>
+
+            <Button Text="Run benchmark" Clicked="OnBenchmark" AutomationId="FlexBenchRun" />
+            <Label x:Name="BenchResult" FontSize="13" AutomationId="FlexBenchResult" />
+
+            <!-- Both layouts need real handlers to measure real text, so they live in the tree, invisible. -->
+            <Grid x:Name="BenchHost" HeightRequest="1" Opacity="0" InputTransparent="True" IsClippedToBounds="True" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

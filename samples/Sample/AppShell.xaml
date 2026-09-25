@@ -63,6 +63,8 @@
                   xmlns:expanders="clr-namespace:Sample.Features.Expanders"
                   xmlns:carouselgallery="clr-namespace:Sample.Features.CarouselGallery"
                   xmlns:staggeredgrid="clr-namespace:Sample.Features.StaggeredGrid"
+                  xmlns:flex="clr-namespace:Sample.Features.Flex"
+                  xmlns:yoga="clr-namespace:Sample.Features.Yoga"
                   xmlns:virtualizedgrid="clr-namespace:Sample.Features.VirtualizedGrid"
                   xmlns:parallax="clr-namespace:Sample.Features.ParallaxCollectionView"
                   xmlns:treeview="clr-namespace:Sample.Features.TreeView"
@@ -333,6 +335,22 @@
                              Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate carouselgallery:CarouselGalleryPage}" Route="carouselgallery" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Flex Layout">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25A4;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate flex:FlexLayoutPage}" Route="flexlayout" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Yoga Layout">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25A5;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate yoga:YogaLayoutPage}" Route="yogalayout" />
     </FlyoutItem>
 
     <FlyoutItem Title="Staggered Grid">

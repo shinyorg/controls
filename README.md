@@ -293,6 +293,8 @@ colour, and why appearance properties default to `-1` rather than a real value.
 | Control | |
 |---|---|
 | **[Layout & AppLayout](docs/controls/layout.md)** | VStack/HStack, a responsive 12-column grid, and an app shell with collapsible panels (Blazor) |
+| **[ShinyFlexLayout](docs/controls/flex-layout.md)** | A fast replacement for `FlexLayout` that caches measurements, with row/column gaps (MAUI) |
+| **[YogaLayout](docs/controls/yoga-layout.md)** | [Yoga](https://www.yogalayout.dev/)'s (React Native's) flexbox model: absolute insets, percentages, aspect ratio and auto margins. Pure C# on MAUI, CSS on Blazor |
 | **[FloatingPanel + OverlayHost](docs/controls/floating-panel.md)** | Draggable bottom/top panel with detents, header peek and backdrop management (MAUI) |
 | **[Flyout](docs/controls/flyout.md)** | Side panel that rests as an icon rail and pushes or floats over content (MAUI) |
 | **[TabbedPage & TabBar](docs/controls/tabbedpage.md)** | Tabs with motion icons, badges, transitions and a raised centre button (MAUI) |

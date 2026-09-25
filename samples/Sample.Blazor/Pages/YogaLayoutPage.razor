@@ -1,0 +1,116 @@
+@page "/yoga"
+
+<PageTitle>Yoga Layout</PageTitle>
+
+<h1>Yoga Layout</h1>
+<p>
+    React Native's layout model (<a href="https://www.yogalayout.dev/" target="_blank">yogalayout.dev</a>) as a
+    component: column by default, shrink 0, absolute insets, percentages, aspect ratio and auto margins. The MAUI
+    sample builds the same four scenes with the same property names.
+</p>
+
+<section class="demo-section">
+    <h2>Playground</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+        <label>FlexDirection
+            <select @bind="direction">
+                @foreach (var v in Enum.GetValues<YogaFlexDirection>()) { <option value="@v">@v</option> }
+            </select>
+        </label>
+        <label>JustifyContent
+            <select @bind="justify">
+                @foreach (var v in Enum.GetValues<YogaJustify>()) { <option value="@v">@v</option> }
+            </select>
+        </label>
+        <label>AlignItems
+            <select @bind="alignItems">
+                @foreach (var v in Enum.GetValues<YogaAlign>()) { <option value="@v">@v</option> }
+            </select>
+        </label>
+        <label>FlexWrap
+            <select @bind="wrap">
+                @foreach (var v in Enum.GetValues<YogaWrap>()) { <option value="@v">@v</option> }
+            </select>
+        </label>
+        <label>Gap: @gap px
+            <input type="range" min="0" max="24" @bind="gap" @bind:event="oninput" />
+        </label>
+    </div>
+
+    <YogaLayout FlexDirection="@direction" JustifyContent="@justify" AlignItems="@alignItems" FlexWrap="@wrap"
+                Gap="@gap" Padding="8" Height="240" style="background:rgba(2,132,199,.1);">
+        <YogaLayout Width="60" Height="60" style="background:#0284C7;" />
+        <YogaLayout Width="90" Height="40" style="background:#7C3AED;" />
+        <YogaLayout Width="40" Height="80" style="background:#059669;" />
+        <YogaLayout Width="70" Height="50" style="background:#DC2626;" />
+    </YogaLayout>
+</section>
+
+<section class="demo-section">
+    <h2>App bar: grow and an auto margin</h2>
+    <YogaLayout FlexDirection="YogaFlexDirection.Row" AlignItems="YogaAlign.Center" Gap="8" Padding="8 12"
+                style="background:#0F172A;color:white;">
+        <span style="font-size:18px;">☰</span>
+        <YogaLayout FlexGrow="1"><strong>Inbox</strong></YogaLayout>
+        <span style="color:#93C5FD;">Search</span>
+        <span style="color:#93C5FD;">Profile</span>
+    </YogaLayout>
+    @* Nothing grows here: an auto start margin takes the free space and pushes Done to the end. *@
+    <YogaLayout FlexDirection="YogaFlexDirection.Row" AlignItems="YogaAlign.Center" Gap="8" Padding="8 12"
+                style="background:#0F172A;margin-top:8px;">
+        <span style="color:#93C5FD;">Back</span>
+        <YogaLayout AutoMargins="YogaEdges.Start"><span style="color:#93C5FD;">Done</span></YogaLayout>
+    </YogaLayout>
+</section>
+
+<section class="demo-section">
+    <h2>Card: aspect ratio and an absolute badge</h2>
+    <YogaLayout FlexDirection="YogaFlexDirection.Row" Gap="12">
+        <YogaLayout FlexGrow="1" FlexBasis="0" style="background:var(--shiny-color-surface-container);">
+            @* Width comes from the column's stretch; AspectRatio derives the height. *@
+            <YogaLayout AspectRatio="1.5" style="background:#7C3AED;" />
+            <YogaLayout Margin="8"><strong>Aurora</strong></YogaLayout>
+            <YogaLayout PositionType="YogaPositionType.Absolute" Top="8" Right="8" Padding="2 8"
+                        style="background:#DC2626;color:white;border-radius:10px;font-size:11px;font-weight:bold;">
+                NEW
+            </YogaLayout>
+        </YogaLayout>
+        <YogaLayout FlexGrow="1" FlexBasis="0" style="background:var(--shiny-color-surface-container);">
+            <YogaLayout AspectRatio="1.5" style="background:#059669;" />
+            <YogaLayout Margin="8"><strong>Ocean</strong></YogaLayout>
+        </YogaLayout>
+    </YogaLayout>
+</section>
+
+<section class="demo-section">
+    <h2>Percentages</h2>
+    <YogaLayout FlexDirection="YogaFlexDirection.Row" Gap="4" Height="40">
+        <YogaLayout Width="25%" style="background:#0284C7;" />
+        <YogaLayout Width="50%" style="background:#7C3AED;" />
+        <YogaLayout FlexGrow="1" style="background:#059669;" />
+    </YogaLayout>
+</section>
+
+<section class="demo-section">
+    <h2>Wrapping chips</h2>
+    <YogaLayout FlexDirection="YogaFlexDirection.Row" FlexWrap="YogaWrap.Wrap" Gap="6">
+        @foreach (var word in Words)
+        {
+            <span style="background:#E0F2FE;color:#075985;border-radius:12px;padding:4px 10px;font-size:13px;">@word</span>
+        }
+    </YogaLayout>
+</section>
+
+@code {
+    static readonly string[] Words =
+    [
+        "yoga", "flexbox", "react native", "column", "row", "grow", "shrink", "basis",
+        "absolute", "percent", "aspect ratio", "auto margin", "gap", "wrap", "maui", "blazor"
+    ];
+
+    YogaFlexDirection direction = YogaFlexDirection.Column;
+    YogaJustify justify = YogaJustify.FlexStart;
+    YogaAlign alignItems = YogaAlign.Stretch;
+    YogaWrap wrap = YogaWrap.NoWrap;
+    double gap = 8;
+}
