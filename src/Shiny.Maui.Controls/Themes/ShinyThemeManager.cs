@@ -1,3 +1,5 @@
+using Microsoft.Maui.Handlers;
+
 namespace Shiny.Maui.Controls.Themes;
 
 /// <summary>
@@ -8,8 +10,11 @@ namespace Shiny.Maui.Controls.Themes;
 /// </summary>
 public static class ShinyThemeManager
 {
+    const string MapperKey = "ShinyThemeApply";
+
     static ResourceDictionary? applied;
     static bool hookedAppearance;
+    static bool hookedHandlers;
 
     /// <summary>The currently selected theme (may not yet be applied if the app has not started).</summary>
     public static IShinyTheme? CurrentTheme { get; private set; }
@@ -26,8 +31,33 @@ public static class ShinyThemeManager
     }
 
     /// <summary>
-    /// Applies the current theme if the application is available. Invoked at startup once the
-    /// first page is created (when <see cref="Application.Current"/> is guaranteed) and again
+    /// Applies the theme as the app and its windows get their handlers. Controls bind token resources
+    /// at construction; if the dictionary is merged after that, their brushes stay unresolved (which
+    /// crashes the Windows stroke mapper).
+    /// </summary>
+    /// <remarks>
+    /// On <see cref="ElementHandler.ElementMapper"/>, not <c>ApplicationHandler.Mapper</c>: that one
+    /// only serves MAUI's own backends. The maui-labs AppKit and GTK backends bring application and
+    /// window handlers of their own, which chain <see cref="ElementHandler.ElementMapper"/> but not
+    /// MAUI's, so a hook there never ran and every token-bound colour stayed unset - a quick entry
+    /// card with no fill, text floating on nothing.
+    /// </remarks>
+    internal static void HookHandlers()
+    {
+        if (hookedHandlers)
+            return;
+
+        hookedHandlers = true;
+        ElementHandler.ElementMapper.PrependToMapping(MapperKey, (_, element) =>
+        {
+            if (element is IApplication or IWindow)
+                EnsureApplied();
+        });
+    }
+
+    /// <summary>
+    /// Applies the current theme if the application is available. Invoked at startup once the app
+    /// or a window gets its handler (when <see cref="Application.Current"/> is guaranteed) and again
     /// whenever the theme or OS appearance changes.
     /// </summary>
     internal static void EnsureApplied()

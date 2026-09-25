@@ -73,14 +73,10 @@ public static class ControlsMauiAppBuilderExtensions
         // an icon used on six screens is parsed once no matter which of them is showing.
         builder.Services.TryAddSingleton(sp => new SvgCache(sp.GetRequiredService<ImageOptions>().SvgCacheEntryLimit));
 
-        // Application.Current is not available during builder configuration, so defer applying the
-        // theme until the app handler is created - the earliest point it exists, and crucially before
-        // any page realizes its visual tree. Controls bind token resources at construction; if the
-        // dictionary is merged after that, their brushes stay unresolved (which crashes the Windows
-        // stroke mapper). PageHandler is kept as a prepended safety net for hosts without an app
-        // handler pass; EnsureApplied is idempotent.
-        ApplicationHandler.Mapper.PrependToMapping("ShinyThemeApply", (_, _) => ShinyThemeManager.EnsureApplied());
-        PageHandler.Mapper.PrependToMapping("ShinyThemeApply", (_, _) => ShinyThemeManager.EnsureApplied());
+        // Application.Current is not available during builder configuration, so the theme is applied
+        // when the app or its first window gets a handler - the earliest point it exists, and before
+        // any page realizes its visual tree.
+        ShinyThemeManager.HookHandlers();
 
 #if ANDROID || IOS || MACCATALYST || WINDOWS
         builder.ConfigureMauiHandlers(handlers =>
