@@ -56,8 +56,10 @@ A floating panel overlay system for MAUI. Panels slide in from the bottom or top
 | ExpandOnInputFocus | bool | Auto-expand when input focused |
 | IsLocked | bool | Prevents drag dismiss; code-only control |
 | FitContent | bool | Auto-computes detent from content size |
-| IsContentScrollEnabled | bool | Wraps content in a ScrollView (default true). Set **false** when content scrolls itself (a `TableView`/`CollectionView`) — nested scroll-views collapse the inner one to near-zero height |
+| IsContentScrollEnabled | bool | Wraps content in a ScrollView (default true). Set **false** when content scrolls itself (a `TableView`/`CollectionView`) — nested scroll-views collapse the inner one to near-zero height. Works with `ShowHeaderWhenClosed`: closed, only the header is on screen either way |
 | UseFeedback | bool | Feedback on open, close, and detent snap (default: true) |
+
+**Touches when closed:** a closed panel is either gone (`IsVisible=false`) or only its peeking header — the body is hidden whichever `IsContentScrollEnabled` is, so a `ScrollView`/`CollectionView` on the page underneath scrolls normally. The shared backdrop stops taking touches the moment it starts fading out, not when the fade ends, and flipping `IsOpen` mid-animation reverses the panel rather than being ignored.
 
 **OverlayHost Properties:**
 

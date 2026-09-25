@@ -82,7 +82,7 @@ The sheet container is always viewport-tall and is translated down to the detent
 | `ExpandOnInputFocus` | `bool` | `true` | Auto-expands to highest detent when an input is focused |
 | `IsLocked` | `bool` | `false` | Prevents all user dismissal (drag, header tap close, backdrop tap); panel can only be closed via code. Header tap still opens the panel |
 | `FitContent` | `bool` | `false` | Measures content and auto-computes a single detent to fit it (ignores Detents when true) |
-| `IsContentScrollEnabled` | `bool` | `true` | Wraps the content in a `ScrollView`. Set **`False`** when the content already scrolls itself (a `TableView`, `CollectionView`, etc.) — nesting scroll-views collapses the inner one to near-zero height, so its rows render blank |
+| `IsContentScrollEnabled` | `bool` | `true` | Wraps the content in a `ScrollView`. Set **`False`** when the content already scrolls itself (a `TableView`, `CollectionView`, etc.) — nesting scroll-views collapses the inner one to near-zero height, so its rows render blank. Safe with `ShowHeaderWhenClosed` |
 | `UseFeedback` | `bool` | `true` | Feedback on open, close, and detent snap |
 
 ## OverlayHost Properties
@@ -142,6 +142,14 @@ This section captures patterns to watch for when a panel contains a text-input c
 5. **Watch the negative bottom `Margin` for safe-area extension.** `ApplyBottomSafeAreaExtension` sets `Margin = new Thickness(0, 0, 0, -bottomInset)` so the panel paints into the iOS home-indicator zone. UIKit hit-testing clips to parent bounds by default, so anything you place in that extended strip will not receive touches. Keep interactive controls above the safe-area inset.
 6. **`HookInputViews` walks Layout/ContentView/ScrollView/Border children.** Custom controls that are none of these will not have their inner Entry hooked, so `ExpandOnInputFocus` will not fire for them. If you add a new control that wraps inputs differently (e.g., a `View`-derived custom shell), extend the traversal.
 7. **Don't set `HeightRequest` on the panel's content larger than the panel viewport.** If a child control has a fixed height taller than the resolved detent, controls near the bottom of that content (e.g., an input bar) end up below the visible area. Either drop the explicit `HeightRequest` and let the layout fill, or raise the detent / use `FitContent="True"`.
+
+## Gotchas — a closed panel must not cover the page
+
+If a user reports "the panel covers the page when closed" or "I can't scroll the page behind the panel":
+
+1. **Show/hide the body with `SetContentVisible`, never `scrollView.IsVisible`.** With `IsContentScrollEnabled=false` the content row holds `contentHost` directly and `scrollView` is not in the tree — hiding only the ScrollView left the whole body on screen under a peeking header. `SetContentVisible` sets both.
+2. **Open/Close never early-return on `isAnimating`.** They call `StopAnimations()` and start from the current height; the `finished` callbacks bail out if `IsOpen` has flipped since. An early return dropped the change and left the panel open with `IsOpen=false`.
+3. **`OverlayHost.HideBackdrop` sets `InputTransparent=true` before the fade.** Animations stall on a page that is not being drawn, so waiting for the fade could leave an invisible full-page scrim eating touches.
 
 ## FloatingPanel Features
 

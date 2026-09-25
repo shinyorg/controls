@@ -168,6 +168,40 @@ public partial class FloatingPanel : ContentView
 
     View ContentRowView => IsContentScrollEnabled ? scrollView : contentHost;
 
+    /// <summary>
+    /// Shows or hides the panel body — whichever view is in the content row.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ Both are set, never just the ScrollView. With <see cref="IsContentScrollEnabled"/> off the row
+    /// holds <c>contentHost</c> directly and the ScrollView is not in the tree at all, so hiding only the
+    /// ScrollView left the whole body on screen under a closed panel's peeking header — covering the page
+    /// and swallowing every touch meant for it. Setting both also means toggling
+    /// <see cref="IsContentScrollEnabled"/> while closed swaps in a view that is already hidden.
+    /// </remarks>
+    void SetContentVisible(bool visible)
+    {
+        scrollView.IsVisible = visible;
+        contentHost.IsVisible = visible;
+    }
+
+    /// <summary>
+    /// Stops whatever height animation is running so a new one can start from where it left off.
+    /// </summary>
+    /// <remarks>
+    /// Open and close used to return early while another animation ran, so an <see cref="IsOpen"/> flipped
+    /// mid-animation (a quick tap on the header then the backdrop, or a command closing a panel that was
+    /// still opening) was simply dropped: <see cref="IsOpen"/> said closed while the panel sat open over
+    /// the page. The finished callbacks check <see cref="IsOpen"/> for the same reason — an aborted
+    /// animation must not apply its end state over the one that replaced it.
+    /// </remarks>
+    void StopAnimations()
+    {
+        this.AbortAnimation("OpenPanel");
+        this.AbortAnimation("ClosePanel");
+        this.AbortAnimation("SnapPanel");
+        isAnimating = false;
+    }
+
     void UpdateScrollEnabled(bool enabled)
     {
         var oldView = enabled ? (View)contentHost : scrollView;
@@ -296,7 +330,7 @@ public partial class FloatingPanel : ContentView
         {
             // Show just the header at the edge
             IsVisible = true;
-            scrollView.IsVisible = false;
+            SetContentVisible(false);
             dragHandleContainer.IsVisible = false;
             HeightRequest = -1; // auto-size to header
             ApplyBottomSafeAreaExtension();
@@ -304,6 +338,7 @@ public partial class FloatingPanel : ContentView
         else
         {
             IsVisible = false;
+            SetContentVisible(false);
             Margin = new Thickness(0);
             sheetContainer.Padding = new Thickness(0);
         }
@@ -334,18 +369,17 @@ public partial class FloatingPanel : ContentView
 
     async Task OpenAsync()
     {
-        if (isAnimating) return;
-
         var overlayHost = GetOverlayHost()
             ?? throw new InvalidOperationException(
                 "FloatingPanel must be placed inside an OverlayHost or ShinyContentPage. " +
                 "Wrap your page content and panels in an OverlayHost, or use ShinyContentPage as your page base class.");
 
+        StopAnimations();
         isAnimating = true;
 
         IsVisible = true;
         ApplyBottomSafeAreaExtension();
-        scrollView.IsVisible = true;
+        SetContentVisible(true);
         dragHandleContainer.IsVisible = ShowHandle;
 
         var available = GetAvailableHeight();
@@ -381,6 +415,10 @@ public partial class FloatingPanel : ContentView
         animation.Commit(this, "OpenPanel", length: (uint)AnimationDuration, easing: Easing.CubicOut,
             finished: (_, _) =>
             {
+                // Closed again before this finished: the close owns the panel now.
+                if (!IsOpen)
+                    return;
+
                 isAnimating = false;
 
                 if (UseFeedback)
@@ -392,7 +430,7 @@ public partial class FloatingPanel : ContentView
 
     async Task CloseAsync()
     {
-        if (isAnimating) return;
+        StopAnimations();
         isAnimating = true;
 
         detentIndexBeforeKeyboard = -1;
@@ -423,11 +461,15 @@ public partial class FloatingPanel : ContentView
         animation.Commit(this, "ClosePanel", length: (uint)AnimationDuration, easing: Easing.CubicIn,
             finished: (_, _) =>
             {
+                // Opened again before this finished: the open owns the panel now.
+                if (IsOpen)
+                    return;
+
                 isAnimating = false;
 
                 if (showHeader)
                 {
-                    scrollView.IsVisible = false;
+                    SetContentVisible(false);
                     dragHandleContainer.IsVisible = false;
                     HeightRequest = -1; // auto-size to header
                     ApplyBottomSafeAreaExtension();
@@ -435,6 +477,7 @@ public partial class FloatingPanel : ContentView
                 else
                 {
                     IsVisible = false;
+                    SetContentVisible(false);
                     HeightRequest = -1;
                     Margin = new Thickness(0);
                     sheetContainer.Padding = new Thickness(0);

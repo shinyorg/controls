@@ -79,9 +79,18 @@ public class OverlayHost : Grid
         if (activeClients.Count > 0)
             return;
 
-        await backdrop.FadeToAsync(0, animationDuration);
-        backdrop.IsVisible = false;
+        // ⚠️ Stop taking touches now, not when the fade ends. A fading scrim is still a full-page view
+        // above the content, and if the fade never completes — the page leaves the screen mid-animation,
+        // and animations only advance on a page that is being drawn — it would sit over the page for good,
+        // invisible, eating every tap and scroll meant for what is underneath.
         backdrop.InputTransparent = true;
+        await backdrop.FadeToAsync(0, animationDuration);
+
+        // Another client may have asked for the backdrop while it faded; that one owns it now.
+        if (activeClients.Count > 0)
+            return;
+
+        backdrop.IsVisible = false;
     }
 
     void OnBackdropTapped(object? sender, TappedEventArgs e)
