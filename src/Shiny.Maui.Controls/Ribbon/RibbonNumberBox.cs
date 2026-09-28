@@ -59,6 +59,10 @@ public class RibbonNumberBox : RibbonContentItem
         {
             WidthRequest = this.FieldWidth - 16,
             VerticalOptions = LayoutOptions.Center,
+
+            // Local, so the MAUI template's implicit Entry style (MinimumHeightRequest 44) cannot
+            // stretch the entry past its 24pt field.
+            MinimumHeightRequest = 0,
             Keyboard = Keyboard.Numeric
         }.WithFontSize(ShinyThemeKeys.Type.LabelMediumSize);
         this.entry.SetDynamicResource(Entry.TextColorProperty, ShinyThemeKeys.Color.OnSurface);

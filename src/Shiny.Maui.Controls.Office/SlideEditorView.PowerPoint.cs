@@ -305,6 +305,10 @@ public partial class SlideEditorView
         entry.FontSize = 12;
         entry.HeightRequest = OfficeToolbarButton.ItemHeight;
 
+        // The MAUI template's implicit Entry style sets MinimumHeightRequest 44, which beat the 32pt
+        // request: the field overflowed its ribbon row and its box sat skewed over the next one.
+        entry.MinimumHeightRequest = 0;
+
         void Commit()
         {
             if (this.refreshingFields)
@@ -473,7 +477,7 @@ public partial class SlideEditorView
         var editing = new RibbonGroup { Title = "Editing", Priority = 60 };
         editing.Items.Add(OfficeRibbonItems.HostLarge(this.findBar));
 
-        this.replaceEntry = new Entry { Placeholder = "Replace with", WidthRequest = 120, FontSize = 12, HeightRequest = OfficeToolbarButton.ItemHeight };
+        this.replaceEntry = new Entry { Placeholder = "Replace with", WidthRequest = 120, FontSize = 12, HeightRequest = OfficeToolbarButton.ItemHeight, MinimumHeightRequest = 0 };
         var replaceHost = OfficeRibbonItems.Host(this.replaceEntry);
         this.gated.Add((replaceHost, () => this.Editable));
         editing.Items.Add(OfficeRibbonItems.Row(
