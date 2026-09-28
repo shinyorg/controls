@@ -382,6 +382,7 @@ public sealed partial class Worksheet
     {
         this.editor.InsertRows(at, count);
         this.ShiftMerges(at, count, rows: true);
+        this.ShiftSheetRanges(at, count, rows: true);
         this.workbook.OnContentChanged();
     }
 
@@ -390,6 +391,7 @@ public sealed partial class Worksheet
     {
         this.editor.RemoveRows(at, count);
         this.ShiftMerges(at, -count, rows: true);
+        this.ShiftSheetRanges(at, -count, rows: true);
         this.workbook.OnContentChanged();
     }
 
@@ -399,6 +401,7 @@ public sealed partial class Worksheet
         this.editor.InsertColumns(at, count);
         ColumnSpans.Shift(this.SheetElement(), at, count);
         this.ShiftMerges(at, count, rows: false);
+        this.ShiftSheetRanges(at, count, rows: false);
         this.workbook.OnContentChanged();
     }
 
@@ -408,6 +411,7 @@ public sealed partial class Worksheet
         this.editor.RemoveColumns(at, count);
         ColumnSpans.Shift(this.SheetElement(), at, -count);
         this.ShiftMerges(at, -count, rows: false);
+        this.ShiftSheetRanges(at, -count, rows: false);
         this.workbook.OnContentChanged();
     }
 

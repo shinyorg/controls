@@ -366,6 +366,7 @@ public sealed partial class Workbook : OfficeDocument
         {
             var host = sheet.Name;
             sheet.RewriteFormulas(text => Shift(text, host));
+            sheet.RewriteChartFormulas(text => Shift(text, host));
         }
 
         foreach (var defined in this.workbookElement.DefinedNames?.Elements<DefinedName>() ?? Enumerable.Empty<DefinedName>())

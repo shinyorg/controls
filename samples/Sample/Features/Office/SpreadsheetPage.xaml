@@ -23,9 +23,13 @@
             <office:SpreadsheetView x:Name="Sheet" ShowToolbar="True" CellChanged="OnCellChanged" />
         </Border>
 
-        <Label Grid.Row="3"
-               FontSize="12"
-               Text="Tap to select, drag to extend, double-tap a cell to edit. The ribbon has two tabs: Home formats the selection, Data changes the sheet - rows and columns in and out, column width, hide and unhide, and the five aggregates. Drag a column header edge to resize. The tabs below switch sheets; tap the one you are on for rename, duplicate, reorder, hide and delete."
-               Opacity="0.7" />
+        <!-- A status bar in the app's own chrome: the view reports the selection's statistics and its
+             zoom, and the app decides where to show them - as Excel's own status bar does. -->
+        <VerticalStackLayout Grid.Row="3" Spacing="2">
+            <Label x:Name="StatusBar" FontSize="12" />
+            <Label FontSize="12"
+                   Opacity="0.7"
+                   Text="The ribbon is Excel's: Home (merge, borders, conditional formatting, tables, cell styles, sort and filter, fill), Insert (tables, charts, links, notes), Formulas (function library, name manager), Data, Review and View (gridlines, headings, zoom, freeze panes). Right-click or long-press for the context menu; pinch to zoom; drag the selection corner to fill." />
+        </VerticalStackLayout>
     </Grid>
 </ContentPage>

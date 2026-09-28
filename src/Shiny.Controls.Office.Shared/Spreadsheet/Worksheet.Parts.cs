@@ -313,8 +313,14 @@ public sealed partial class Worksheet
         if (note is not null)
             notes.Add(note with { Cell = cell });
 
-        notes = notes.OrderBy(x => x.Cell.Row).ThenBy(x => x.Cell.Column).ToList();
+        this.WriteNotes(notes);
+        return previous;
+    }
 
+    /// <summary>Rewrites the comments part and its VML from a note list; an empty list removes both.</summary>
+    internal void WriteNotes(IReadOnlyList<CellNote> list)
+    {
+        var notes = list.OrderBy(x => x.Cell.Row).ThenBy(x => x.Cell.Column).ToList();
         var root = this.SheetElement();
 
         if (notes.Count == 0)
@@ -331,7 +337,7 @@ public sealed partial class Worksheet
             }
 
             this.workbook.OnContentChanged();
-            return previous;
+            return;
         }
 
         var authors = notes.Select(x => x.Author).Distinct(StringComparer.Ordinal).ToList();
@@ -367,7 +373,6 @@ public sealed partial class Worksheet
         }
 
         this.workbook.OnContentChanged();
-        return previous;
     }
 
     /// <summary>The VML Excel needs to show each note: one hidden text-box shape per note.</summary>

@@ -57,6 +57,11 @@ public class FormulaBar : ContentView
         };
 
         this.field.Focused += this.OnFieldFocused;
+        this.field.TextChanged += (_, _) =>
+        {
+            if (!this.suppress && this.editingCell is not null)
+                this.FormulaTextChanged?.Invoke(this, this.field);
+        };
         this.field.Completed += this.OnFieldCompleted;
         this.field.Unfocused += this.OnFieldUnfocused;
 
@@ -133,6 +138,15 @@ public class FormulaBar : ContentView
 
     /// <summary>Raised after a commit, so a host can repaint and track the dirty state.</summary>
     public event EventHandler? Changed;
+
+    /// <summary>
+    /// Raised as a formula is typed into the field, with the field itself, so the hosting view can drop
+    /// formula autocomplete under it — the same list the in-cell editor gets.
+    /// </summary>
+    public event EventHandler<Entry>? FormulaTextChanged;
+
+    /// <summary>Raised when an edit in the field ends, committed or not.</summary>
+    public event EventHandler? FormulaEditingEnded;
 
     void OnControllerChanged(object? sender, EventArgs e)
     {
@@ -211,6 +225,7 @@ public class FormulaBar : ContentView
             return;
 
         this.editingCell = null;
+        this.FormulaEditingEnded?.Invoke(this, EventArgs.Empty);
 
         var text = this.field.Text ?? string.Empty;
         if (this.IsReadOnly || text == current.CellText(cell))
@@ -236,8 +251,11 @@ public class FormulaBar : ContentView
         if (this.suppress || this.controller is not { } current)
             return;
 
-        if (CellRef.TryParse(this.nameBox.Text?.Trim() ?? string.Empty, out var cell))
-            current.GoTo(cell);
+        // A reference, a range, a sheet-qualified address or a defined name - and a new name typed over a
+        // selected range defines it, which is the name box's other job in Excel.
+        var text = this.nameBox.Text?.Trim() ?? string.Empty;
+        if (text.Length > 0 && !string.Equals(text, current.ActiveCellAddress, StringComparison.OrdinalIgnoreCase))
+            current.GoTo(text);
 
         // Redraw either way: a name that did not parse has to snap back to the real address rather
         // than sitting there looking like it was accepted.

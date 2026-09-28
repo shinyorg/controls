@@ -1,0 +1,225 @@
+.sheet-dialog__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.32);
+}
+
+.sheet-dialog {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 32px);
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 8px;
+    background: var(--shiny-color-surface-container-high, #FFFFFF);
+    color: var(--shiny-color-on-surface, #161C23);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+    font-size: 13px;
+    outline: none;
+}
+
+.sheet-dialog__title {
+    padding: 14px 18px 8px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.sheet-dialog__tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    overflow-x: auto;
+}
+
+.sheet-dialog__tab {
+    padding: 6px 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.sheet-dialog__tab.is-active {
+    border-bottom-color: var(--shiny-spreadsheet-selection, #217a3c);
+    font-weight: 600;
+}
+
+.sheet-dialog__body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 18px;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.sheet-dialog__field {
+    display: grid;
+    grid-template-columns: minmax(90px, 38%) 1fr;
+    align-items: center;
+    gap: 8px;
+}
+
+.sheet-dialog__field.is-stacked {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 4px;
+}
+
+.sheet-dialog__caption {
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+.sheet-dialog__label {
+    white-space: pre-line;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+.sheet-dialog__input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--shiny-color-outline, #6C788D);
+    border-radius: 4px;
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: inherit;
+    font: inherit;
+}
+
+.sheet-dialog__input.is-multiline {
+    height: auto;
+    padding: 6px 8px;
+    resize: vertical;
+}
+
+.sheet-dialog__input:focus {
+    outline: none;
+    border-color: var(--shiny-spreadsheet-selection, #217a3c);
+}
+
+.sheet-dialog__check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.sheet-dialog__checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 200px;
+    padding: 6px 8px;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 4px;
+    overflow-y: auto;
+}
+
+.sheet-dialog__list {
+    max-height: 220px;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 4px;
+    overflow-y: auto;
+}
+
+.sheet-dialog__row {
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.sheet-dialog__row.is-active {
+    background: var(--shiny-color-secondary-container, #D6E9D8);
+    color: var(--shiny-color-on-secondary-container, #0E2A15);
+}
+
+.sheet-dialog__row-title {
+    font-weight: 600;
+}
+
+.sheet-dialog__row-detail {
+    font-size: 11px;
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sheet-dialog__swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.sheet-dialog__swatch {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.sheet-dialog__none {
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.sheet-dialog__swatch.is-active,
+.sheet-dialog__none.is-active {
+    outline: 2px solid var(--shiny-spreadsheet-selection, #217a3c);
+    outline-offset: 1px;
+}
+
+.sheet-dialog__error {
+    margin: 0 18px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: var(--shiny-color-error-container, #FFDAD6);
+    color: var(--shiny-color-on-error-container, #410002);
+}
+
+.sheet-dialog__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px 16px;
+}
+
+.sheet-dialog__button {
+    min-width: 72px;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--shiny-color-outline, #6C788D);
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.sheet-dialog__button.is-primary {
+    border-color: #107C41;
+    background: #107C41;
+    color: #FFFFFF;
+}
+
+.sheet-dialog__button:hover {
+    filter: brightness(0.95);
+}

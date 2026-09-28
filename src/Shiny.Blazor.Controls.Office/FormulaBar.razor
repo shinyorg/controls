@@ -1,6 +1,8 @@
 @namespace Shiny.Blazor.Controls.Office
 @using Shiny.Controls.Office.Spreadsheet
 @using Shiny.Controls.Office.Spreadsheet.View
+@implements IAsyncDisposable
+@inject IJSRuntime Js
 
 @*
     The name box and formula field above a workbook grid.
@@ -10,34 +12,49 @@
     A grid without one can display 84 and give you no way to find out that it is =B1*2.
 
     It edits the same cell the grid does, through the controller, so a commit here is the same undoable
-    command as typing into the cell - not a second path into the workbook.
+    command as typing into the cell - not a second path into the workbook. Typing a function name here
+    drops the same autocomplete list the in-cell editor has, from the same FormulaAssist.
 *@
 
 <div class="shiny-formula-bar @Class">
     <input class="shiny-formula-name"
-           title="Cell address"
-           aria-label="Cell address"
+           title="Name box: a cell, a range or a name"
+           aria-label="Name box"
            value="@this.NameText"
            @onchange="this.OnAddressCommitted"
            @onkeydown="this.OnAddressKeyDown" />
 
     <span class="shiny-formula-fx" aria-hidden="true">fx</span>
 
-    <input class="shiny-formula-input"
-           title="Formula"
-           aria-label="Formula"
-           spellcheck="false"
-           readonly="@this.ReadOnly"
-           value="@this.Text"
-           @ref="this.field"
-           @oninput="this.OnInput"
-           @onkeydown="this.OnKeyDown"
-           @onfocus="this.OnFocus"
-           @onblur="this.OnBlur" />
+    <div class="shiny-formula-field">
+        <input class="shiny-formula-input"
+               title="Formula"
+               aria-label="Formula"
+               spellcheck="false"
+               readonly="@this.ReadOnly"
+               value="@this.Text"
+               data-assist-open="@(this.assist.IsOpen ? "true" : "false")"
+               @ref="this.field"
+               @oninput="this.OnInput"
+               @onkeydown="this.OnKeyDown"
+               @onfocus="this.OnFocus"
+               @onblur="this.OnBlur" />
+
+        @if (this.draft is not null)
+        {
+            <FormulaAssistPopup State="this.assist.State"
+                                IsOpen="this.assist.IsOpen"
+                                Index="this.assist.Index"
+                                OnPick="this.OnPickAsync"
+                                Style="left:0;top:100%;margin-top:2px" />
+        }
+    </div>
 </div>
 
 @code {
     ElementReference field;
+    SpreadsheetScript? script;
+    readonly FormulaAssistSession assist = new();
 
     /// <summary>
     /// What is being typed, while it is being typed. Null when the bar is only reflecting the grid.
@@ -74,16 +91,57 @@
 
     string Text => this.draft ?? this.Controller?.ActiveCellText ?? string.Empty;
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        this.script = new SpreadsheetScript(this.Js);
+        await this.script.InvokeAsync("attachAssist", this.field);
+    }
+
     void OnFocus()
     {
         this.draft = this.Controller?.ActiveCellText ?? string.Empty;
         this.editingCell = this.Controller?.Selection.Active;
+        this.assist.Reset();
     }
 
-    void OnInput(ChangeEventArgs e) => this.draft = e.Value?.ToString() ?? string.Empty;
+    async Task OnInput(ChangeEventArgs e)
+    {
+        this.draft = e.Value?.ToString() ?? string.Empty;
+
+        var caret = this.script is null ? this.draft.Length : await this.script.CaretAsync(this.field, this.draft.Length);
+        this.assist.Update(this.draft, caret, this.Names());
+    }
+
+    IEnumerable<string> Names() => this.Controller?.Workbook.VisibleNames.Select(x => x.Name) ?? [];
 
     async Task OnKeyDown(KeyboardEventArgs e)
     {
+        if (this.assist.IsOpen)
+        {
+            switch (e.Key)
+            {
+                case "ArrowDown":
+                    this.assist.Move(1);
+                    return;
+
+                case "ArrowUp":
+                    this.assist.Move(-1);
+                    return;
+
+                case "Tab":
+                case "Enter":
+                    await this.AcceptAsync(null);
+                    return;
+
+                case "Escape":
+                    this.assist.Dismiss();
+                    return;
+            }
+        }
+
         switch (e.Key)
         {
             case "Enter":
@@ -97,12 +155,32 @@
             case "Escape":
                 // Back to what the cell holds, without writing anything.
                 this.draft = null;
+                this.assist.Reset();
                 this.StateHasChanged();
                 break;
         }
     }
 
-    Task OnBlur() => this.CommitAsync(advance: false);
+    Task OnPickAsync(int index) => this.AcceptAsync(index);
+
+    async Task AcceptAsync(int? index)
+    {
+        if (this.draft is null || this.assist.Accept(this.draft, index) is not { } result)
+            return;
+
+        this.draft = result.Text;
+
+        if (this.script is not null)
+            await this.script.InvokeAsync("setValue", this.field, result.Text, result.Caret);
+
+        this.assist.Update(result.Text, result.Caret, this.Names());
+    }
+
+    Task OnBlur()
+    {
+        this.assist.Reset();
+        return this.CommitAsync(advance: false);
+    }
 
     async Task CommitAsync(bool advance)
     {
@@ -112,6 +190,7 @@
         var wrote = false;
         this.draft = null;
         this.editingCell = null;
+        this.assist.Reset();
 
         if (!this.ReadOnly && text != controller.CellText(cell))
         {
@@ -131,16 +210,20 @@
             await this.Changed.InvokeAsync();
     }
 
-    /// <summary>Typing an address into the name box goes there — the box's only real purpose.</summary>
-    void OnAddressCommitted(ChangeEventArgs e)
+    /// <summary>
+    /// Typing into the name box goes there: a cell, a range, another sheet's cell or a defined name.
+    /// A new name typed with a range selected defines it, as Excel's name box does.
+    /// </summary>
+    async Task OnAddressCommitted(ChangeEventArgs e)
     {
         if (this.Controller is not { } controller)
             return;
 
-        if (CellRef.TryParse(e.Value?.ToString()?.Trim() ?? string.Empty, out var cell))
-            controller.GoTo(cell);
+        var text = e.Value?.ToString()?.Trim() ?? string.Empty;
+        if (text.Length > 0 && controller.GoTo(text) && this.Changed.HasDelegate)
+            await this.Changed.InvokeAsync();
 
-        // Redraw either way: a name that did not parse has to snap back to the real address rather
+        // Redraw either way: a name that did not resolve has to snap back to the real address rather
         // than sitting there looking like it was accepted.
         this.StateHasChanged();
     }
@@ -149,5 +232,11 @@
     {
         if (e.Key == "Escape")
             this.StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (this.script is not null)
+            await this.script.DisposeAsync();
     }
 }

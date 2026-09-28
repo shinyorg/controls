@@ -58,18 +58,16 @@ bar tracks the selection through the same flag that stops a stray controller cha
 half-typed formula, so a field left focused froze it — the grid moved, the address and contents did
 not. In a browser the click blurs the input and this happens on its own.
 
-**Formatting toolbar.** `ShowToolbar="true"` puts a `SpreadsheetToolbar` above the formula bar. It is a
-ribbon with two tabs. **Home** is the usual half — clipboard, font, size, bold, italic, underline,
-strikethrough, text colour, **cell fill**, alignment on both axes, indent, wrap text, number formats
-(general, number, currency in the reader's own culture, percent, scientific, date, time, text),
-increase and decrease decimal places, AutoSum, clear contents and clear formatting. **Data** is the
-half only a spreadsheet needs: rows and columns in and out, column width — fit-to-contents on the
-button, four presets behind its chevron — hide and unhide columns, and the function library, where
-SUM, AVERAGE, COUNT, MIN and MAX each have a button of their own. Every button is one undoable command
-through the same `SpreadsheetController` a keyboard shortcut would reach, so a toolbar action and a
-typed edit share one undo stack. The toolbar is off by default — the
-formula bar and tab strip are how a workbook is *read*, and a viewer should not grow a formatting bar
-it never asked for.
+**The ribbon.** A `SpreadsheetToolbar` sits above the formula bar, laid out the way Excel's is:
+**File** (a hook — the control raises `FileMenuRequested` for the host's own backstage), **Home**,
+**Insert**, **Formulas**, **Data**, **Review** and **View**. Every button is one undoable command
+through the same `SpreadsheetController` a keyboard shortcut would reach, so a ribbon action and a typed
+edit share one undo stack.
+
+> **Behaviour change:** `ShowToolbar` now defaults to **true**. It used to be off, on the grounds that a
+> viewer should not grow a formatting bar it never asked for; with the ribbon now carrying most of what
+> Excel does, a spreadsheet control without it undersells what it is. A read-only viewer sets
+> `ShowToolbar="false"`.
 
 Formatting is applied as a **delta**, not as a format assigned wholesale: bolding a range that mixes a
 red heading with black body text leaves both colours where they are. Styles are interned, so bolding a
@@ -117,16 +115,20 @@ workbook.Execute(new DeleteSheetCommand("Forecast"));            // undo restore
 
 | Capability | Notes |
 |---|---|
-| Rendering | Virtualized over all 1,048,576 rows; frozen panes, merged cells, number formats, fonts, fills, alignment, theme colours with tint |
-| Editing | Cell values and formulas, range clear, column/row resize, range selection, in-cell editing through a native `Entry` / `<input>` |
-| Formula bar | Name box and formula field on both hosts, `ShowFormulaBar` to hide; shows the formula, not the result |
-| Formatting | `ShowToolbar` on both hosts: font, bold/italic/underline/strike, text colour, cell fill, alignment on both axes, indent, wrap; applied as a delta so a mixed selection keeps what each cell had |
-| Number formats | Currency (culture-aware), percent, scientific, date, time, text, plus increase/decrease decimals |
-| Auto functions | Σ writes SUM, AVERAGE, COUNT, MIN or MAX over the range the selection implies — the run above, the run to the left, or one total per column of a block |
+| Rendering | Virtualized over all 1,048,576 rows; frozen panes, merged cells, borders, number formats, fonts, fills, alignment, wrapped text, text overflow into empty neighbours, `####` for numbers that don't fit, theme colours with tint |
+| Editing | Cell values and formulas, range clear, column/row resize, range selection, in-cell editing through a native `Entry` / `<input>` with formula autocomplete |
+| Formula bar | Name box (cells, ranges, defined names — typing a new name defines it) and formula field, `ShowFormulaBar` to hide |
+| Formatting | Font, bold/italic/underline/strike, text colour, fill, **borders**, alignment on both axes, indent, wrap, **merge**, **cell styles**, **Format Cells** (Ctrl+1); applied as a delta so a mixed selection keeps what each cell had |
+| Number formats | Currency (culture-aware), percent, scientific, date, time, text, fraction, custom codes, decimals |
+| Data | **Sort** (A→Z, Z→A, multi-level), **AutoFilter** (value lists, text and number conditions), **data validation** with in-cell dropdown lists, **fill handle** and Fill Down/Right |
+| Styles | **Conditional formatting** (highlight rules, top/bottom, above/below average, duplicates, data bars, colour scales), **Format as Table** (table parts, banded rows, filter arrows) |
+| Insert | **Charts** (column, bar, line, pie, area — moved, resized and deleted on the grid), **hyperlinks**, **notes** |
+| Formulas | ~140 functions incl. XLOOKUP, XMATCH, SUBTOTAL, AGGREGATE and the financial set; **defined names** and a Name Manager; Insert Function; autocomplete with signature help; dependency-ordered recalculation, circular-reference detection |
+| View | Gridlines, headings, formula bar, Show Formulas (Ctrl+`), freeze panes, **zoom 10–400%** (Ctrl+wheel / pinch) |
+| Status bar | `SelectionStatistics` — Average, Count, Numerical Count, Min, Max, Sum — for a host's status bar |
 | Columns | Header selections format the whole column via a `<col>` style; widths, row heights, auto-fit and hide/show are recorded in the file |
 | Worksheets | Tab strip on both hosts: switch, add, rename, duplicate, reorder, hide/unhide, delete — all undoable, with per-sheet selection and scroll |
-| Undo | Transactional, with typing-run coalescing; a range clear is one step |
-| Formulas | ~80 functions, dependency-ordered incremental recalculation, circular-reference detection |
+| Undo | Transactional, with typing-run coalescing; every ribbon command is one step |
 | Round-trip | Edits are surgical. An unmodified workbook saves byte-identical; macros, tracked changes, pivot caches and custom XML survive untouched |
 | Reporting | `UnsupportedFeatureCollector` names anything in a document the editor cannot show or edit |
 
@@ -160,10 +162,12 @@ indistinguishable from one that has lost its data.
 SkiaSharp on WASM needs the `wasm-tools` workload — without it `libSkiaSharp` is never linked into the
 runtime and the app fails in the browser, so `Shiny.Blazor.Controls.Office` fails the build up front
 with `SHINY0001` instead; bypass with `ShinySkipWasmToolsCheck=true`). MAUI requires `UseShinyOffice()` (which registers SkiaSharp, plus the AppKit canvas on `net10.0-macos`). Inserting and
-deleting rows and columns is deliberately not implemented — it requires rewriting references across
-formulas, merged cells, conditional formatting, defined names, data validation, charts and tables.
+deleting rows and columns rewrites references across formulas, defined names, merged cells, conditional
+formatting, data validation, hyperlinks, notes, the AutoFilter, tables and charts (anchors and series).
 Chart, dialog and macro sheets are preserved on save but have no tab: the grid has nothing to draw for
-them. Deleting a worksheet drops any defined name scoped to it, which is what Excel does.
+them. Deleting a worksheet drops any defined name scoped to it, which is what Excel does. **Dynamic
+arrays are not supported** — UNIQUE, SORT, FILTER and spilled ranges need a grid that holds values it
+was not asked to store; the engine computes one value per formula cell.
 
 ## Dark mode
 
@@ -212,20 +216,22 @@ like.
 
 ## The toolbar is a Ribbon
 
-The formatting bar is a [Ribbon](ribbon.md) on both hosts, replacing the single scrolling strip of
-icons it used to be.
+The formatting bar is a [Ribbon](ribbon.md) on both hosts, organised the way Excel's is:
 
-**Two tabs, split by what a command changes rather than by how often it is reached.** *Home* changes
-how a cell looks — Clipboard, Font, Alignment, Number, Editing — and clipboard leads, as it does in
-Excel, because cut/copy/paste apply to whatever is selected and are reached far more often than any
-formatting command. *Data* changes the shape of the sheet under it — Cells, Columns, Functions.
+| Tab | Groups |
+|---|---|
+| **File** | The application button. The control raises `FileMenuRequested`; the host draws the backstage. |
+| **Home** | Clipboard · Font (with the **Borders** dropdown — edges, line style, line colour) · Alignment (with **Merge & Center**) · Number (with More Number Formats…) · **Styles** (Conditional Formatting, Format as Table, Cell Styles) · **Cells** (Insert, Delete, Format — row height, column width, hide/unhide, Format Cells…) · Editing (AutoSum, Fill, Clear, Sort & Filter, Go To) · Find |
+| **Insert** | Table · Charts (column, bar, line, pie, area) · Link · Note · Watermark |
+| **Formulas** | Function Library (Insert Function, AutoSum, one menu per category) · Defined Names (Name Manager, Define Name, Use in Formula) · Calculation (Calculate Now, Show Formulas) |
+| **Data** | Sort & Filter (A→Z, Z→A, Sort…, Filter, Clear, Reapply) · Data Tools (Data Validation) |
+| **Review** | Notes (New/Edit, Delete, Previous, Next, Show All Notes) |
+| **View** | Show (Gridlines, Headings, Formula Bar, Show Formulas) · Zoom (Zoom…, 100%, Zoom to Selection) · Window (Freeze Panes) |
 
-The second tab is what let the structural half grow. On one tab there was room for insert-row and
-insert-column between clear-formatting and a colour picker, and that was the ceiling; deleting rows,
-column widths, hiding columns and the individual aggregates all existed on the controller with no
-affordance on the bar. AutoSum is on both tabs, as it is in Excel — the face of Home's *Editing* group
-and the head of Data's *Functions* — because it is the one command here reached often enough that a
-tab switch in front of it would be felt.
+Clipboard leads Home, as it does in Excel, because cut/copy/paste apply to whatever is selected and
+are reached far more often than any formatting command. AutoSum is on both Home and Formulas, as it is
+in Excel, because it is the one command reached often enough that a tab switch in front of it would be
+felt.
 
 Two things the strip could not do:
 
@@ -237,12 +243,11 @@ Two things the strip could not do:
 
 Undo and redo sit in the ribbon's quick access row, outside the tabs, so they never move or disappear.
 
-**The tab strip is on** — a change on Blazor, where `ShowTabs` used to default to false because a strip
-carrying a single "Home" is noise. There are two tabs now, and the strip is the only way to reach the
-second. Setting `ShowTabs="false"` does not hide the Data tab's commands: it folds those groups back
-onto the one tab, where the ribbon's own collapsing deals with the width. A setting that quietly
-removed a third of the bar would be a worse bargain than a crowded one. MAUI shows the strip either
-way; `Ribbon.ShowTabStrip` is the equivalent switch there.
+**The tab strip is on** — the strip is the only way to reach anything past Home. Setting
+`ShowTabs="false"` on Blazor does not hide the other tabs' commands: it folds those groups back onto the
+one tab, where the ribbon's own collapsing deals with the width. A setting that quietly removed most of
+the bar would be a worse bargain than a crowded one. MAUI shows the strip either way;
+`Ribbon.ShowTabStrip` is the equivalent switch there.
 
 **Below 600px wide the bar runs in `Simplified` mode** — one dense row, every item small, group titles
 dropped. Group collapsing is the wrong answer at phone width: it folds groups into dropdowns
@@ -325,6 +330,89 @@ The **Functions** group gives SUM, AVERAGE, COUNT, MIN and MAX a button each, la
 name rather than a friendly one: the button writes `=AVERAGE(…)` into a cell, and that is the thing
 worth naming. Each picks its own range the way AutoSum does — the run above, the run to the left, or
 one total per column of a block.
+
+## Excel features
+
+Every ribbon command is also a controller method, one undo step each, written into the file where
+Excel expects it — worksheet children are inserted in `CT_Worksheet` schema order (`SheetXml`), since a
+`mergeCells` after `conditionalFormatting` saves fine and then opens in Excel as a repair.
+
+```csharp
+controller.MergeCells(MergeMode.MergeAndCenter);      // MergeAcross, MergeCells; UnmergeCells()
+controller.FreezeTopRow();                            // FreezePanes(), FreezeFirstColumn(), UnfreezePanes()
+controller.ApplyBorders(BorderPreset.ThickOutside);   // with controller.BorderLine for style and colour
+controller.SortAscending();                           // current region, header detected
+controller.Sort([new SortKey(2, Descending: true), new SortKey(0)], hasHeader: true);
+controller.ToggleAutoFilter();                        // Ctrl+Shift+L
+controller.ApplyColumnFilter(sheet.AutoFilter!, 1, ColumnFilter.ForValues(1, ["North"]));
+controller.FillDown();                                // Ctrl+D; FillRight(), AutoFillTo(range)
+controller.AddConditionalFormat(ConditionalFormatRule.CellIs(ConditionalOperator.GreaterThan, DxfFormat.LightRedFill, "100"));
+controller.SetValidation(DataValidationRule.ForList(["Red", "Green", "Blue"]));
+controller.ApplyCellStyle(CellStylePresets.Find("Good")!);
+controller.FormatAsTable("TableStyleMedium2");
+controller.InsertChart(ChartKind.Column, "Units");
+controller.SetNote("Check this");
+controller.SetHyperlink(new CellHyperlink(cell) { Address = "https://shinylib.net" });
+controller.DefineName("Sales", "Data!$B$2:$B$13");    // =SUM(Sales) works and recalculates
+```
+
+**Filters write both halves.** An AutoFilter is the `<autoFilter>` element *and* `hidden="1"` on each
+rejected row. Excel does not re-run a filter on open — it trusts the hidden rows — so the two are one
+command, and undo restores both.
+
+**Notes need their VML.** A note is text in the comments part plus a hidden shape in a VML drawing;
+without the shape Excel keeps the note and never shows it. Both are rewritten together.
+
+**Charts** are real DrawingML (`c:chartSpace` in a drawing, anchored to cells), drawn by a Skia
+`ChartPainter` over the grid. Click selects, drag moves, the corner handles resize, Delete removes —
+each one undo step. Charts from Excel files render with default styling; only type, series and title
+are read. Series references follow inserted and deleted rows.
+
+**Format as Table** writes a table part. A table's header cells *are* its column names — Excel refuses
+a file where they differ or repeat — so blank or duplicate headers become `Column1`, `Column2`… in the
+same step. The 60 built-in table styles are not in the file; the painter derives each from its family
+(Light/Medium/Dark) and accent, close enough to read as the style chosen.
+
+**Cell Styles** apply the style's formatting directly rather than as a named `cellStyles` entry, so the
+cell looks right in Excel but does not remember it was "Good".
+
+**Dialogs are data.** Format Cells (Ctrl+1), Data Validation, the Highlight Cells prompts, Insert
+Function, Name Manager, Hyperlink, Note, Sort, Filter, Create Table, Go To, Zoom, Row Height and Column
+Width are each a `SheetDialog` built once in the kernel (`SpreadsheetDialogs`), with its validation and
+the command it runs. Each host has one generic renderer, so the two cannot disagree about what a field
+means. The right-click menu and a validated cell's dropdown work the same way (`SheetMenuRequest`).
+
+**Keyboard.** `controller.HandleKey(key, modifiers)` is Excel's shortcut table for both hosts — Ctrl+arrow
+to the region edge, Ctrl+Shift+arrow to extend, Ctrl/Shift+Space, Ctrl+A, F2, Ctrl+; and Ctrl+Shift+:,
+Alt+=, Ctrl+1, Ctrl+B/I/U, Ctrl+D/R, Ctrl+K, Ctrl+` and the rest. Blazor wires it; on MAUI call
+`SpreadsheetView.HandleKey` from a platform key hook.
+
+**Formula autocomplete.** Typing `=SU` in a cell or the formula bar drops a list of matching functions
+and defined names; inside a call, a tip shows its signature. It is `FormulaAssist`, shared by both hosts.
+
+### Zoom and the status bar
+
+`Zoom` (0.1–4) scales everything, headings included. Ctrl+wheel zooms on Blazor, pinch on MAUI.
+`SelectionStatistics` is what Excel's status bar shows — Average, Count, Numerical Count, Min, Max,
+Sum — computed over the visible cells of the selection, so a filtered column sums what is on screen.
+
+```csharp
+// MAUI: Zoom is a two-way bindable property; the rest are events
+view.Zoom = 1.5;
+view.ZoomChanged += (_, zoom) => { };
+view.SelectionStatisticsChanged += (_, _) => status.Text = $"Sum: {view.SelectionStatistics.Sum}";
+view.FileMenuRequested += (_, _) => ShowBackstage();
+```
+
+```razor
+<SpreadsheetView Workbook="workbook"
+                 @bind-Zoom="zoom"
+                 SelectionStatisticsChanged="stats => this.stats = stats"
+                 FileMenuRequested="ShowBackstage" />
+```
+
+A host passes pointer positions in its own units; the controller divides by the zoom. Position an
+overlay on a cell with `controller.EditorBounds` / `controller.ToScreen(...)`, which are already zoomed.
 
 ## Accent
 

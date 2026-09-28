@@ -78,12 +78,14 @@ public sealed class DeleteRowsCommand(string sheetName, int at, int count = 1) :
             new CellRange(new CellRef(0, this.At), new CellRef(CellRef.MaxColumn, this.At + this.Count - 1)),
             SpreadsheetClipboardOperation.Copy);
 
+        var ranges = StructureUndo.Snapshot(sheet, rows: true, this.At, this.Count);
         var displaced = context.DeleteBand(this.SheetName, rows: true, this.At, this.Count);
 
         return new CompositeCommand<Workbook>(this.Name, StructureUndo.Build(
             new InsertRowsCommand(this.SheetName, this.At, this.Count),
             new PasteClipboardCommand(snapshot, this.SheetName, new CellRef(0, this.At)),
-            displaced));
+            displaced,
+            ranges));
     }
 }
 
@@ -106,12 +108,14 @@ public sealed class DeleteColumnsCommand(string sheetName, int at, int count = 1
             new CellRange(new CellRef(this.At, 0), new CellRef(this.At + this.Count - 1, CellRef.MaxRow)),
             SpreadsheetClipboardOperation.Copy);
 
+        var ranges = StructureUndo.Snapshot(sheet, rows: false, this.At, this.Count);
         var displaced = context.DeleteBand(this.SheetName, rows: false, this.At, this.Count);
 
         return new CompositeCommand<Workbook>(this.Name, StructureUndo.Build(
             new InsertColumnsCommand(this.SheetName, this.At, this.Count),
             new PasteClipboardCommand(snapshot, this.SheetName, new CellRef(this.At, 0)),
-            displaced));
+            displaced,
+            ranges));
     }
 }
 
@@ -121,12 +125,39 @@ static class StructureUndo
     public static IReadOnlyList<IEditCommand<Workbook>> Build(
         IEditCommand<Workbook> reopen,
         IEditCommand<Workbook> refill,
-        IReadOnlyList<(string Sheet, CellRef Cell, string Formula)> displaced)
+        IReadOnlyList<(string Sheet, CellRef Cell, string Formula)> displaced,
+        IReadOnlyList<IEditCommand<Workbook>>? ranges = null)
     {
         var commands = new List<IEditCommand<Workbook>> { reopen, refill };
 
         foreach (var (sheet, cell, formula) in displaced)
             commands.Add(new SetCellFormulaCommand(sheet, cell, formula));
+
+        // Last: re-inserting the band has just grown every range that straddled it, which is right for
+        // most of them but not for one the delete swallowed whole. Putting the lists back verbatim is
+        // what makes the undo exact.
+        if (ranges is not null)
+            commands.AddRange(ranges);
+
+        return commands;
+    }
+
+    /// <summary>
+    /// What a delete is about to lose from the sheet's range lists — as commands that put it back.
+    /// </summary>
+    public static IReadOnlyList<IEditCommand<Workbook>> Snapshot(Worksheet sheet, bool rows, int at, int count)
+    {
+        var commands = new List<IEditCommand<Workbook>>();
+
+        foreach (var name in Worksheet.BandSensitiveElements)
+            commands.Add(new ReplaceSheetElementsCommand(sheet.Name, name, sheet.ReadElements(name)));
+
+        foreach (var note in sheet.Notes)
+        {
+            var index = rows ? note.Cell.Row : note.Cell.Column;
+            if (index >= at && index < at + count)
+                commands.Add(new SetNoteCommand(sheet.Name, note.Cell, note));
+        }
 
         return commands;
     }
