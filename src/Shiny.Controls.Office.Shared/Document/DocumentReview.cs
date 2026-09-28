@@ -155,20 +155,6 @@ public sealed record DocumentStyleInfo(string Id, string Name)
 }
 
 
-/// <summary>What changing case does to the selection.</summary>
-public enum TextCase
-{
-    /// <summary>First letter of each sentence capitalised.</summary>
-    Sentence,
-    Lower,
-    Upper,
-
-    /// <summary>First letter of Each Word.</summary>
-    Capitalize,
-
-    /// <summary>tOGGLE: every letter flipped.</summary>
-    Toggle
-}
 
 
 /// <summary>The kinds of section break Insert and Layout offer.</summary>

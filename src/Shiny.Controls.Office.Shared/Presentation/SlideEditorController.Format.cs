@@ -421,20 +421,6 @@ public sealed partial class SlideEditorController
     }
 }
 
-/// <summary>The Change Case menu.</summary>
-public enum TextCase
-{
-    /// <summary>Capital at the start of each sentence.</summary>
-    Sentence,
-    Lower,
-    Upper,
-
-    /// <summary>Capital at the start of each word.</summary>
-    Capitalize,
-
-    /// <summary>Every letter's case flipped.</summary>
-    Toggle
-}
 
 /// <summary>Inserts a soft line break (<c>a:br</c>) at a position.</summary>
 public sealed record InsertSlideLineBreakCommand(SlidePosition At) : SlideCommand

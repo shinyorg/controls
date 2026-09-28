@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Shiny.Controls.Office.Editing;
 using Shiny.Controls.Office.Spreadsheet;
+using Shiny.Controls.Office.Text;
 using W = DocumentFormat.OpenXml.Wordprocessing;
 
 namespace Shiny.Controls.Office.Document;
