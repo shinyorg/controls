@@ -61,7 +61,7 @@
     border: 0;
     border-radius: var(--shiny-shape-corner-small, 8px);
     background: var(--shiny-ribbon-accent);
-    color: var(--shiny-color-on-primary, #FFFFFF);
+    color: var(--shiny-ribbon-accent-ink, var(--shiny-color-on-primary, #FFFFFF));
     font: inherit;
     font-size: var(--shiny-type-label-large-size, 14px);
     cursor: pointer;

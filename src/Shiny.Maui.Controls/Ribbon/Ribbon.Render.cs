@@ -171,7 +171,13 @@ public partial class Ribbon
             VerticalTextAlignment = TextAlignment.Center,
             HorizontalTextAlignment = TextAlignment.Center
         }.WithFontSize(ShinyThemeKeys.Type.LabelLargeSize);
-        label.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
+
+        // On-primary only matches the theme's own primary. With an explicit accent (Word's blue) it
+        // is the dark theme's dark ink on that blue, which cannot be read - so choose against the fill.
+        if (this.AccentColor is { } accent)
+            label.TextColor = ContrastInk(accent);
+        else
+            label.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
 
         var border = new Border
         {
@@ -191,6 +197,20 @@ public partial class Ribbon
 
         this.appButtonHost.Content = border;
         this.appButtonHost.IsVisible = true;
+    }
+
+
+    /// <summary>White or near-black, whichever reads on <paramref name="ground"/> (sRGB luminance cut at 0.179).</summary>
+    internal static Color ContrastInk(Color ground)
+    {
+        static double Channel(float v) => v <= 0.03928f ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
+
+        var luminance =
+            (0.2126 * Channel(ground.Red)) +
+            (0.7152 * Channel(ground.Green)) +
+            (0.0722 * Channel(ground.Blue));
+
+        return luminance > 0.179 ? Color.FromRgb(0x1A, 0x1A, 0x1A) : Colors.White;
     }
 
 
