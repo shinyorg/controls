@@ -383,6 +383,13 @@ public partial class Ribbon : ContentView
             this.peeking = true;
 
         this.ApplyDisplayMode();
+
+        // Only the tab showing when the width last changed was fitted, so every other tab kept all its
+        // groups open and ran off the edge (PowerPoint's Animations › Timing on a portrait iPad).
+        // Fit the newly shown one now.
+        this.lastRelayoutWidth = -1;
+        this.RelayoutGroups();
+
         this.TabChanged?.Invoke(this, new RibbonTabEventArgs(tab, resolved, reason));
     }
 
