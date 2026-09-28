@@ -167,7 +167,11 @@ public class OfficeStatusBar : ContentView
         right.Children.Add(this.zoomGroup);
 
         var grid = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) } };
-        grid.Add(this.left, 0);
+        // Clipped: the segments are a stack, which lays out at its full width whatever its column is
+        // given, so on a phone "English (United States)" ran on underneath the zoom buttons.
+        var leftClip = new Grid { IsClippedToBounds = true, VerticalOptions = LayoutOptions.Fill };
+        leftClip.Add(this.left);
+        grid.Add(leftClip, 0);
         grid.Add(right, 1);
 
         var root = new Grid { RowDefinitions = { new(GridLength.Auto), new(GridLength.Star) } };

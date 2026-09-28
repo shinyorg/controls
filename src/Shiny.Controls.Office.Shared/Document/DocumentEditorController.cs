@@ -2120,6 +2120,20 @@ public sealed partial class DocumentEditorController : DocumentController
         }
     }
 
+    /// <summary>
+    /// Scrolls just far enough to bring the caret into view.
+    /// </summary>
+    /// <remarks>
+    /// For a host whose viewport shrank under the caret without anything being edited - the soft
+    /// keyboard opening over the bottom of the editor is the case: the caret the user just tapped is
+    /// now behind the keyboard, and nothing else would move it.
+    /// </remarks>
+    public void RevealCaret()
+    {
+        this.ScrollCaretIntoView();
+        this.RaiseChanged();
+    }
+
     void ScrollCaretIntoView()
     {
         var caret = this.CaretRect(this.Selection.Focus);

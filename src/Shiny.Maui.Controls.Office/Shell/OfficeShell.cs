@@ -58,6 +58,7 @@ public class OfficeShell : ContentView
     readonly Grid overlay;
     readonly Border focusExit;
     readonly OfficeZoomDialog zoomDialog = new();
+    readonly Shiny.Maui.Controls.Infrastructure.AndroidBackButton back;
     bool shellSimplifiedRibbon;
     bool syncingBackstage;
 
@@ -107,6 +108,11 @@ public class OfficeShell : ContentView
     public OfficeShell()
     {
         this.SetDynamicResource(BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerLow);
+
+        // Android's back button leaves the backstage, then focus mode, before it leaves the page.
+        this.back = new Shiny.Maui.Controls.Infrastructure.AndroidBackButton(this.OnBackButton);
+        this.Loaded += (_, _) => this.UpdateBackButton();
+        this.Unloaded += (_, _) => this.back.SetActive(false);
 
         this.leftHost.WidthRequest = this.LeftPaneWidth;
         this.rightHost.WidthRequest = this.RightPaneWidth;
@@ -327,6 +333,27 @@ public class OfficeShell : ContentView
 
     void OnApplicationButton(object? sender, EventArgs e) => this.IsBackstageOpen = true;
 
+    /// <summary>The Comments / mode / Share buttons at the end of the ribbon, wherever the ribbon is - Excel's sits inside its toolbar.</summary>
+    OfficeRibbonActions? RibbonActions => this.Ribbon switch
+    {
+        Ribbon { HeaderEndContent: OfficeRibbonActions actions } => actions,
+        SpreadsheetToolbar { Ribbon.HeaderEndContent: OfficeRibbonActions actions } => actions,
+        _ => null
+    };
+
+    void OnBackButton()
+    {
+        if (this.IsBackstageOpen)
+            this.IsBackstageOpen = false;
+        else if (this.IsFocusMode)
+            this.IsFocusMode = false;
+
+        this.UpdateBackButton();
+    }
+
+    void UpdateBackButton()
+        => this.back?.SetActive(this.IsLoaded && (this.IsBackstageOpen || this.IsFocusMode));
+
     void OnFocusRequested(object? sender, EventArgs e) => this.ToggleFocusMode();
 
 
@@ -352,6 +379,8 @@ public class OfficeShell : ContentView
 
     void PushApp()
     {
+        this.RibbonActions?.InheritShell(this.ShellLayout.IsCompact, this.App);
+
         if (this.TitleBar is OfficeTitleBar title)
             title.InheritApp(this.App);
 
@@ -409,6 +438,7 @@ public class OfficeShell : ContentView
         this.rightHost.IsVisible = !focus && layout.ShowSidePanes && this.IsRightPaneOpen && this.RightPane is not null;
         this.backstageHost.IsVisible = this.IsBackstageOpen && this.Backstage is not null;
         this.focusExit.IsVisible = focus;
+        this.UpdateBackButton();
 
         if (this.TitleBar is OfficeTitleBar title)
             title.IsCompact = layout.IsCompact;
@@ -416,15 +446,11 @@ public class OfficeShell : ContentView
         if (this.StatusBar is OfficeStatusBar status)
             status.IsCompact = layout.IsCompact;
 
-        // Wherever it sits in the ribbon slot - a Ribbon's header end, or inside a toolbar wrapping one.
-        if (this.Ribbon is IVisualTreeElement ribbonSlot)
-        {
-            foreach (var actions in ribbonSlot.GetVisualTreeDescendants().OfType<OfficeRibbonActions>())
-                actions.IsCompact = layout.IsCompact;
-        }
+        this.RibbonActions?.InheritShell(layout.IsCompact, this.App);
 
         if (this.Ribbon is Ribbon ribbon)
         {
+
             if (layout.SimplifiedRibbon && ribbon.DisplayMode == RibbonDisplayMode.Expanded)
             {
                 ribbon.DisplayMode = RibbonDisplayMode.Simplified;

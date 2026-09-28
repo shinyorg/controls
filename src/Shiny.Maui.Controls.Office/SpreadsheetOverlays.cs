@@ -46,6 +46,7 @@ sealed class SheetDialogHost : ContentView
     SheetDialog? dialog;
     OverlayPalette palette;
     int tab;
+    readonly Shiny.Maui.Controls.Infrastructure.AndroidBackButton back;
     bool suppress;
     Label? error;
 
@@ -68,6 +69,18 @@ sealed class SheetDialogHost : ContentView
         this.scrim.Add(this.card);
         this.Content = this.scrim;
         this.IsVisible = false;
+
+        // Android's back button is the dialog's Cancel, not a way off the page with it still open.
+        this.back = new Shiny.Maui.Controls.Infrastructure.AndroidBackButton(this.PressCancel);
+        this.Unloaded += (_, _) => this.back.SetActive(false);
+    }
+
+    void PressCancel()
+    {
+        if (this.dialog?.Buttons.FirstOrDefault(x => x.IsCancel) is { } cancel)
+            this.Press(cancel);
+        else
+            this.Close();
     }
 
     /// <summary>Raised when the last dialog in a chain closes.</summary>
@@ -88,6 +101,7 @@ sealed class SheetDialogHost : ContentView
 
         this.Build();
         this.IsVisible = true;
+        this.back.SetActive(true);
     }
 
     public void Close()
@@ -99,6 +113,7 @@ sealed class SheetDialogHost : ContentView
         this.views.Clear();
         this.card.Content = null;
         this.IsVisible = false;
+        this.back.SetActive(false);
         this.Closed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -157,7 +172,17 @@ sealed class SheetDialogHost : ContentView
             body.Add(view.Row);
         }
 
-        stack.Add(new ScrollView { Content = body, MaximumHeightRequest = 420 });
+        // The fields scroll, the title and buttons do not - so the scroller gets what the host has left
+        // after them. A fixed 420 overflowed any editor shorter than the dialog (a tablet's sample page,
+        // every phone in landscape) and cut OK / Cancel off below the card with no way to reach them.
+        var reserve = (dialog.Tabs.Count > 1 ? 60 : 20) + 170;
+        // The host is hidden until Show makes it visible - after this runs - and a hidden view has no
+        // size, so its parent (which it fills) is the measure on the first open.
+        var available = this.Height > 0 ? this.Height : (this.Parent as VisualElement)?.Height ?? 0;
+        if (available <= 0)
+            available = 800;
+
+        stack.Add(new ScrollView { Content = body, MaximumHeightRequest = Math.Clamp(available - reserve, 100, 420) });
 
         this.error = new Label { TextColor = Colors.Firebrick, FontSize = 12, IsVisible = false };
         stack.Add(this.error);
@@ -597,6 +622,7 @@ sealed class SheetMenuHost : ContentView
 
     OverlayPalette palette;
     Point origin;
+    readonly Shiny.Maui.Controls.Infrastructure.AndroidBackButton back;
 
     public SheetMenuHost()
     {
@@ -620,6 +646,9 @@ sealed class SheetMenuHost : ContentView
         this.Content = this.surface;
         this.IsVisible = false;
 
+        this.back = new Shiny.Maui.Controls.Infrastructure.AndroidBackButton(this.Close);
+        this.Unloaded += (_, _) => this.back.SetActive(false);
+
         // The first show happens before the host has a size, so the clamp to its edges is redone once it
         // has one.
         this.SizeChanged += (_, _) =>
@@ -638,11 +667,13 @@ sealed class SheetMenuHost : ContentView
         this.path.Clear();
         this.path.Push(request.Items);
         this.IsVisible = true;
+        this.back.SetActive(true);
         this.Render();
     }
 
     public void Close()
     {
+        this.back.SetActive(false);
         this.IsVisible = false;
         this.lines.Clear();
         this.path.Clear();

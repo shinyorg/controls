@@ -230,6 +230,37 @@ class RibbonGroupView : Grid
 
             switch (item)
             {
+                case RibbonRow row when this.simplified:
+                    // Simplified is a single line of small items, and a row is only a run of them - so
+                    // its items join the line. Skipping it (as the expanded column flow does) dropped
+                    // every row-built group from the simplified ribbon: on a phone, Word's Font and
+                    // Paragraph groups were two empty dividers and Bold could not be reached. Blazor's
+                    // rows are plain flex runs and always showed them.
+                    foreach (var inner in row.VisibleItems)
+                    {
+                        switch (inner)
+                        {
+                            case RibbonSeparator:
+                                Flush();
+                                host.Children.Add(this.BuildRule());
+                                break;
+
+                            case RibbonContentItem { Content: { } innerContent }:
+                                this.Adopt(innerContent);
+                                AddRow(innerContent);
+                                break;
+
+                            case RibbonContentItem:
+                            case RibbonRow:
+                                break;
+
+                            default:
+                                AddRow(this.BuildItemView(inner, RibbonItemSize.Small));
+                                break;
+                        }
+                    }
+                    continue;
+
                 case RibbonRow:
                     // A group that mixes rows and loose items draws the rows (BuildItemsHost picks
                     // that path); a stray row reaching the column flow has nothing to contribute.

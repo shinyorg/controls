@@ -73,6 +73,7 @@ public partial class DocumentEditor : ContentView, IDisposable
 
         this.input.TextChanged += this.OnInputTextChanged;
         this.input.EmptyBackspace += (_, _) => this.HandleKey(EditorKey.Backspace);
+        HiddenInputKeys.Attach(this.input, this.HandleKey);
         this.input.Completed += this.OnInputCompleted;
         this.input.Focused += this.OnInputFocused;
         this.input.Unfocused += this.OnInputUnfocused;
@@ -225,6 +226,24 @@ public partial class DocumentEditor : ContentView, IDisposable
     /// <summary>Gives the editor keyboard focus, so the platform starts sending it text.</summary>
     public void FocusEditor() => this.input.FocusForEditing();
 
+    /// <summary>
+    /// Hands focus back after a toolbar action or a jump from a pane.
+    /// </summary>
+    /// <remarks>
+    /// On a touch screen, only when the editor still has it: focusing the hidden entry raises the soft
+    /// keyboard, so every ribbon button (Navigation Pane, Bold with nothing typed yet) popped a keyboard
+    /// over half the page. A tap on the ribbon does not take focus from the entry, so a keyboard that was
+    /// up stays up and one that was down stays down - Word's own behaviour on a tablet.
+    /// </remarks>
+    internal void RestoreFocus()
+    {
+#if ANDROID || (IOS && !MACCATALYST)
+        if (!this.input.IsFocused)
+            return;
+#endif
+        this.FocusEditor();
+    }
+
     void Rebuild()
     {
         this.Detach();
@@ -246,7 +265,7 @@ public partial class DocumentEditor : ContentView, IDisposable
         this.controller.LinkActivated += this.OnLinkActivated;
 
         if (this.Width > 0 && this.Height > 0)
-            this.controller.Resize(this.Width, this.Height);
+            this.controller.Resize(this.Width, this.ViewportHeight(this.Height));
 
         // Resize only schedules a check when there is already a size; a document opened before layout
         // would otherwise sit unchecked until the first scroll.
@@ -259,8 +278,15 @@ public partial class DocumentEditor : ContentView, IDisposable
     {
         base.OnSizeAllocated(width, height);
         if (width > 0 && height > 0)
-            this.controller?.Resize(width, height);
+            this.controller?.Resize(width, this.ViewportHeight(height));
     }
+
+    /// <summary>
+    /// The height the canvas actually gets: the soft-keyboard inset is bottom padding, which shrinks the
+    /// canvas but not this view, so a viewport sized from this view's height kept counting the covered
+    /// lines as visible and never scrolled the caret out from under the keyboard.
+    /// </summary>
+    double ViewportHeight(double height) => Math.Max(1, height - this.Padding.VerticalThickness);
 
     /// <summary>
     /// A picture drawn behind the content — a logo, a DRAFT stamp, a company mark.
@@ -408,6 +434,8 @@ public partial class DocumentEditor : ContentView, IDisposable
         {
             case SKTouchAction.Pressed:
                 this.lastPanY = y;
+                this.longPressSelected = false;
+                this.pressOrigin = new Point(x, y);
                 this.CloseSpellingMenu();
 
                 if (touch)
@@ -441,7 +469,7 @@ public partial class DocumentEditor : ContentView, IDisposable
                     this.tapCandidate = this.controller.PositionAt(x, y);
 
                     if (this.tapCandidate is { } pending)
-                        this.ArmLongPress(pending, x, y);
+                        this.ArmLongPress(pending, x, y, selectWord: true);
 
                     break;
                 }
@@ -471,7 +499,12 @@ public partial class DocumentEditor : ContentView, IDisposable
             case SKTouchAction.Moved when e.InContact:
                 // A drag inside the text extends the selection; the caret has to already be down for
                 // that to be what the user meant, which is why this only runs while in contact.
-                this.CancelLongPress();
+                //
+                // Only a real move cancels the long press: a finger held still still reports moves
+                // (Android sends them at the same point), and cancelling on every one meant the long
+                // press - the spelling menu, the word selection - could never fire on a device.
+                if (Math.Abs(x - this.pressOrigin.X) > TapSlop || Math.Abs(y - this.pressOrigin.Y) > TapSlop)
+                    this.CancelLongPress();
 
                 if (this.controller.IsDraggingObject)
                 {
@@ -522,7 +555,7 @@ public partial class DocumentEditor : ContentView, IDisposable
                 // A press that went nowhere was a tap, and a tap places the caret. Deferred to here
                 // rather than done on the way down because until the finger lifts there is no telling
                 // a tap from the start of a pan.
-                if (this.panning && !this.panMoved && this.tapCandidate is { } tapped)
+                if (this.panning && !this.panMoved && !this.longPressSelected && this.tapCandidate is { } tapped)
                 {
                     this.controller.Selection.MoveTo(tapped);
                     this.FocusEditor();
@@ -549,6 +582,12 @@ public partial class DocumentEditor : ContentView, IDisposable
     // ---- spelling menu ----
 
     CancellationTokenSource? longPress;
+
+    /// <summary>The press in progress turned into a word selection; its lift must not place a caret.</summary>
+    bool longPressSelected;
+
+    /// <summary>Where the press in progress went down, for telling a held finger from a moving one.</summary>
+    Point pressOrigin;
     Border? spellingMenu;
 
     /// <summary>
@@ -558,7 +597,7 @@ public partial class DocumentEditor : ContentView, IDisposable
     /// Timed from the touch-down rather than from a gesture recogniser: a pan only begins once the
     /// finger moves, so it can never tell a long press from a slow one.
     /// </remarks>
-    void ArmLongPress(DocumentPosition position, double x, double y)
+    void ArmLongPress(DocumentPosition position, double x, double y, bool selectWord = false)
     {
         this.CancelLongPress();
 
@@ -575,6 +614,18 @@ public partial class DocumentEditor : ContentView, IDisposable
             try
             {
                 await Task.Delay(500, cancellationToken);
+
+                // A misspelt word gets its suggestions; any other word is selected, handles and all -
+                // the long press every touch text field answers with. Before, it did nothing and the
+                // lift then collapsed everything to a caret, so on a phone a single word could only
+                // be selected with a double tap.
+                if (selectWord && this.controller is { } controller && controller.SpellingErrorAt(position) is null)
+                {
+                    controller.SelectWordAt(position);
+                    this.longPressSelected = true;
+                    return;
+                }
+
                 await this.ShowSpellingMenuAsync(position, x, y);
             }
             catch (OperationCanceledException)
@@ -777,6 +828,16 @@ public partial class DocumentEditor : ContentView, IDisposable
     /// </remarks>
     void OnInputTextChanged(object? sender, TextChangedEventArgs e)
     {
+#if !MACOS
+        if (this.clearPending && string.IsNullOrEmpty(e.NewTextValue))
+        {
+            // Our own clear landing (see ClearInput), not a deletion.
+            this.clearPending = false;
+            this.consumedInput = string.Empty;
+            return;
+        }
+#endif
+
         if (this.suppressInputEvents || this.controller is null || this.IsReadOnly)
             return;
 
@@ -820,6 +881,11 @@ public partial class DocumentEditor : ContentView, IDisposable
     /// <summary>What the hidden entry held the last time characters were taken from it.</summary>
     string consumedInput = string.Empty;
 
+#if !MACOS
+    /// <summary>Set while a clear of the hidden entry is still to arrive through TextChanged.</summary>
+    bool clearPending;
+#endif
+
 #if MACOS
     /// <summary>
     /// Whether anything has been typed since the hidden entry was focused. Only the macOS AppKit head
@@ -850,6 +916,13 @@ public partial class DocumentEditor : ContentView, IDisposable
 
     void ClearInput()
     {
+#if !MACOS
+        // Usually called from inside TextChanged, where MAUI queues the write and applies it after the
+        // handler returns - past the suppress flag. The flag below recognises that late empty text as
+        // ours; without it the "shrink" branch read it as Backspace and deleted every character the
+        // moment it was typed (nothing could be typed on Android).
+        this.clearPending = !string.IsNullOrEmpty(this.input.Text);
+#endif
         this.suppressInputEvents = true;
         this.input.Text = string.Empty;
         this.suppressInputEvents = false;

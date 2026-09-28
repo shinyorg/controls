@@ -642,7 +642,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
     {
         // Focus returns to the editor after every toolbar action; leaving it on the button means the
         // next keystroke goes nowhere, which reads as the editor having stopped working.
-        this.editor.FocusEditor();
+        this.editor.RestoreFocus();
         this.RefreshBar();
         this.RefreshShell();
         this.DocumentChanged?.Invoke(this, EventArgs.Empty);
@@ -840,6 +840,18 @@ public partial class DocumentEditorView : ContentView, IDisposable
         // A propertyChanged can arrive from a Style before this constructor has built the ribbon.
         if (this.ribbon is null)
             return;
+
+        // In the shell the title bar carries the accent, so the tab strip sits on the theme's surface
+        // and the accent is the File button and the underline - Word on the web, and what the Blazor
+        // host does. Painting the band as well puts the ink (white) behind a File button whose label is
+        // also white, which leaves an empty white pill where "File" should be.
+        if (this.ShowShell && this.shellBuilt)
+        {
+            this.ribbon.HeaderBackgroundColor = null;
+            this.ribbon.HeaderForegroundColor = null;
+            this.ribbon.AccentColor = this.Accent is { } a ? ToColor(a.Color) : null;
+            return;
+        }
 
         if (this.Accent is not { } accent)
         {

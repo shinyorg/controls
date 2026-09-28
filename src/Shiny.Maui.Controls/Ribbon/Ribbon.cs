@@ -258,6 +258,14 @@ public partial class Ribbon : ContentView
         this.onSurfaceProbe.PropertyChanged += this.OnInkSourceChanged;
         this.headerFrame.PropertyChanged += this.OnInkSourceChanged;
 
+        // The edge fades carry the body's resolved colour (a token cannot reach a gradient stop), so a
+        // theme flip has to repaint them - otherwise a light-theme white fade sits on a dark ribbon.
+        this.bodyFrame.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == VisualElement.BackgroundColorProperty.PropertyName)
+                this.UpdateScrollHints();
+        };
+
         // Last line: replays any styled property applied before the children existed. See StyleGuard.
         StyleGuard.MarkReady(this, typeof(Ribbon));
     }

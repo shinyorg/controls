@@ -627,9 +627,10 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
             {
                 css += $"--shiny-ribbon-accent:{this.AccentColor};";
 
-                // The File button's text: on-primary only suits the theme's own primary, and on an
-                // explicit accent in the dark theme it is dark ink on (say) Word blue.
-                if (ContrastInk(this.AccentColor) is { } ink)
+                // The File button's label. on-primary only pairs with the theme's own primary; on a
+                // host accent in a dark theme it is dark ink on Word's blue. A colour we cannot measure
+                // (a var(), a name) keeps on-primary.
+                if (ContrastInk.For(this.AccentColor, fallback: string.Empty) is { Length: > 0 } ink)
                     css += $"--shiny-ribbon-accent-ink:{ink};";
             }
 

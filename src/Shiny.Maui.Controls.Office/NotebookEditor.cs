@@ -62,6 +62,7 @@ public class NotebookEditor : ContentView, IDisposable
 
         this.input.TextChanged += this.OnInputTextChanged;
         this.input.EmptyBackspace += (_, _) => this.HandleKey(EditorKey.Backspace);
+        HiddenInputKeys.Attach(this.input, this.HandleKey);
         this.input.Completed += this.OnInputCompleted;
         this.input.Focused += this.OnInputFocused;
         this.input.Unfocused += this.OnInputUnfocused;
@@ -387,6 +388,11 @@ public class NotebookEditor : ContentView, IDisposable
     /// <summary>What the hidden entry held the last time characters were taken from it.</summary>
     string consumedInput = string.Empty;
 
+#if !MACOS
+    /// <summary>Set while a clear of the hidden entry is still to arrive through TextChanged.</summary>
+    bool clearPending;
+#endif
+
 #if MACOS
     /// <summary>
     /// Whether anything has been typed since the hidden entry was focused. Only the macOS AppKit head
@@ -408,6 +414,16 @@ public class NotebookEditor : ContentView, IDisposable
     /// </remarks>
     void OnInputTextChanged(object? sender, TextChangedEventArgs e)
     {
+#if !MACOS
+        if (this.clearPending && string.IsNullOrEmpty(e.NewTextValue))
+        {
+            // Our own clear landing (see ClearInput), not a deletion.
+            this.clearPending = false;
+            this.consumedInput = string.Empty;
+            return;
+        }
+#endif
+
         if (this.suppressInputEvents || this.controller is not { } controller || this.IsReadOnly)
             return;
 
@@ -467,6 +483,13 @@ public class NotebookEditor : ContentView, IDisposable
 
     void ClearInput()
     {
+#if !MACOS
+        // Usually called from inside TextChanged, where MAUI queues the write and applies it after the
+        // handler returns - past the suppress flag. The flag below recognises that late empty text as
+        // ours; without it the "shrink" branch read it as Backspace and deleted every character the
+        // moment it was typed (nothing could be typed on Android).
+        this.clearPending = !string.IsNullOrEmpty(this.input.Text);
+#endif
         this.suppressInputEvents = true;
         this.input.Text = string.Empty;
         this.suppressInputEvents = false;

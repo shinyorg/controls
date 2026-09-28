@@ -471,7 +471,7 @@ public partial class DocumentEditorView
 
         this.overlay.Remove(this.replacePanel);
         this.replacePanel = null;
-        this.editor.FocusEditor();
+        this.editor.RestoreFocus();
     }
 
     /// <summary>A panel floating over the page, in the theme's surface colours.</summary>
@@ -546,7 +546,7 @@ public partial class DocumentEditorView
                 this.overlay.Remove(this.symbolPanel);
 
             this.symbolPanel = null;
-            this.editor.FocusEditor();
+            this.editor.RestoreFocus();
         });
 
         this.symbolPanel = this.Float(new VerticalStackLayout { Children = { grid, close } }, LayoutOptions.End, LayoutOptions.Start, "DocSymbolPanel");
@@ -659,7 +659,7 @@ public partial class DocumentEditorView
                 Command = new Command(() =>
                 {
                     this.editor.Controller?.GoToParagraph(target);
-                    this.editor.FocusEditor();
+                    this.editor.RestoreFocus();
                 })
             });
 

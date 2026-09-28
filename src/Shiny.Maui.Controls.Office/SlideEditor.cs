@@ -57,6 +57,7 @@ public partial class SlideEditor : ContentView, IDisposable
 
         this.input.TextChanged += this.OnInputTextChanged;
         this.input.EmptyBackspace += (_, _) => this.HandleKey(EditorKey.Backspace);
+        HiddenInputKeys.Attach(this.input, this.HandleKey);
         this.input.Completed += this.OnInputCompleted;
         this.input.Focused += this.OnInputFocused;
         this.input.Unfocused += this.OnInputUnfocused;
@@ -153,7 +154,22 @@ public partial class SlideEditor : ContentView, IDisposable
     public event EventHandler<int>? SlideChanged;
 
     /// <summary>Gives the editor keyboard focus, so the platform starts sending it text.</summary>
-    public void FocusEditor() => this.input.FocusForEditing();
+    public void FocusEditor()
+    {
+#if ANDROID || (IOS && !MACCATALYST)
+        // On a touch screen focusing the hidden entry raises the soft keyboard, and there is nothing to
+        // type into until a text box is being edited: tapping a slide in the rail, selecting a shape or
+        // pressing any ribbon button popped a keyboard over half the slide. Put it away instead.
+        if (this.controller?.IsEditingText != true)
+        {
+            if (this.input.IsFocused)
+                this.input.Unfocus();
+
+            return;
+        }
+#endif
+        this.input.FocusForEditing();
+    }
 
     void Rebuild()
     {
@@ -480,6 +496,16 @@ public partial class SlideEditor : ContentView, IDisposable
     /// </remarks>
     void OnInputTextChanged(object? sender, TextChangedEventArgs e)
     {
+#if !MACOS
+        if (this.clearPending && string.IsNullOrEmpty(e.NewTextValue))
+        {
+            // Our own clear landing (see ClearInput), not a deletion.
+            this.clearPending = false;
+            this.consumedInput = string.Empty;
+            return;
+        }
+#endif
+
         if (this.suppressInputEvents || this.controller is null || this.IsReadOnly)
             return;
 
@@ -529,6 +555,11 @@ public partial class SlideEditor : ContentView, IDisposable
     /// <summary>What the hidden entry held the last time characters were taken from it.</summary>
     string consumedInput = string.Empty;
 
+#if !MACOS
+    /// <summary>Set while a clear of the hidden entry is still to arrive through TextChanged.</summary>
+    bool clearPending;
+#endif
+
 #if MACOS
     /// <summary>
     /// Whether anything has been typed since the hidden entry was focused. Only the macOS AppKit head
@@ -558,6 +589,13 @@ public partial class SlideEditor : ContentView, IDisposable
 
     void ClearInput()
     {
+#if !MACOS
+        // Usually called from inside TextChanged, where MAUI queues the write and applies it after the
+        // handler returns - past the suppress flag. The flag below recognises that late empty text as
+        // ours; without it the "shrink" branch read it as Backspace and deleted every character the
+        // moment it was typed (nothing could be typed on Android).
+        this.clearPending = !string.IsNullOrEmpty(this.input.Text);
+#endif
         this.suppressInputEvents = true;
         this.input.Text = string.Empty;
         this.suppressInputEvents = false;

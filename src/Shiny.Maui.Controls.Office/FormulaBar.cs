@@ -42,7 +42,11 @@ public class FormulaBar : ContentView
             FontSize = 12,
             HorizontalTextAlignment = TextAlignment.Center,
             ReturnType = ReturnType.Go,
-            Placeholder = "A1"
+            Placeholder = "A1",
+
+            // An address or a name, never a word: Android's spell checker underlined "C3" in red.
+            IsSpellCheckEnabled = false,
+            IsTextPredictionEnabled = false
         };
 
         this.nameBox.Completed += this.OnAddressCompleted;
@@ -53,7 +57,11 @@ public class FormulaBar : ContentView
             FontSize = 12,
             FontFamily = "Monospace",
             ReturnType = ReturnType.Done,
-            Placeholder = "fx"
+            Placeholder = "fx",
+
+            // Formulas are not prose: no squiggles under function names, no autocorrect rewriting them.
+            IsSpellCheckEnabled = false,
+            IsTextPredictionEnabled = false
         };
 
         this.field.Focused += this.OnFieldFocused;

@@ -22,6 +22,7 @@ public partial class Ribbon
     BoxView? menuBackdrop;
     Border? menuCard;
     RibbonMenuLayer? menuLayer;
+    AndroidBackButton? menuBack;
 
 
     /// <summary>Whether a dropdown or a collapsed group's popup is open.</summary>
@@ -36,6 +37,7 @@ public partial class Ribbon
 
         this.menuCard = null;
         this.menuBackdrop = null;
+        this.menuBack?.SetActive(false);
 
         if (card is not null)
         {
@@ -141,6 +143,17 @@ public partial class Ribbon
 
         this.menuBackdrop = backdrop;
         this.menuCard = card;
+
+        // Android's back button puts the dropdown away rather than leaving the page under it.
+        if (this.menuBack is null)
+        {
+            this.menuBack = new AndroidBackButton(this.CloseMenu);
+
+            // Leaving the page with a dropdown open must not leave it holding the back button.
+            this.Unloaded += (_, _) => this.CloseMenu();
+        }
+
+        this.menuBack.SetActive(true);
 
         this.PlaceCard(card, anchorRect ?? (anchor is null ? null : ViewGeometry.BoundsIn(anchor, root)), root);
     }
