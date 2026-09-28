@@ -243,6 +243,11 @@ public partial class DocumentEditorView
         this.shell.StatusBar = this.statusBar;
         this.shell.Backstage = this.backstage;
         this.ribbon.HeaderEndContent = this.ribbonActions;
+        this.ribbon.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Ribbon.DisplayMode))
+                this.ApplyStylesPicker();
+        };
 
         // Title bar
         this.titleBar.CommandIndex = this.CommandIndex;
@@ -410,9 +415,7 @@ public partial class DocumentEditorView
         // The title bar owns undo and redo while it shows; otherwise they are the ribbon's quick access.
         this.ribbon.ShowQuickAccess = !(on && this.ShowTitleBar);
 
-        this.styleGallery.IsVisible = on;
-        if (this.stylesMenu is not null)
-            this.stylesMenu.IsVisible = !on;
+        this.ApplyStylesPicker();
 
         this.syncingShell = true;
         this.ribbonActions.IsCommentsOpen = this.ShowCommentsPane;
@@ -421,7 +424,19 @@ public partial class DocumentEditorView
         this.RefreshRuler();
     }
 
-    void ApplyEditorReadOnly()
+    /// <summary>
+    /// The gallery in the shell, the plain dropdown otherwise - and in the simplified (phone) ribbon,
+    /// whose one-line rows are ~32pt: the 60pt gallery was cut down to a strip of clipped previews.
+    /// </summary>
+    void ApplyStylesPicker()
+    {
+        var gallery = this.ShowShell && this.ribbon.DisplayMode != RibbonDisplayMode.Simplified;
+        this.styleGallery.IsVisible = gallery;
+        if (this.stylesMenu is not null)
+            this.stylesMenu.IsVisible = !gallery;
+    }
+
+        void ApplyEditorReadOnly()
         => this.editor.IsReadOnly = this.IsReadOnly || this.ReadMode || this.EditMode == OfficeEditMode.Viewing;
 
     void ApplyEditMode()

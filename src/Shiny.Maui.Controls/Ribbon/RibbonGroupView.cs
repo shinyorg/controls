@@ -217,7 +217,14 @@ class RibbonGroupView : Grid
             Column().Children.Add(child);
         }
 
-        foreach (var item in this.group.VisibleItems)
+        // The simplified bar is one line, so a group built out of rows (Word's Font and Paragraph) is
+        // laid out as the items of its rows in order. Skipping the rows here drew those groups empty -
+        // two bare separators side by side on a phone.
+        var items = this.simplified
+            ? this.group.VisibleItems.SelectMany(x => x is RibbonRow row ? row.VisibleItems : [x])
+            : this.group.VisibleItems;
+
+        foreach (var item in items)
         {
             var size = this.simplified ? RibbonItemSize.Small : item.Size;
 

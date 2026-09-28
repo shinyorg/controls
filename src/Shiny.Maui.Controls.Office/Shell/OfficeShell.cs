@@ -416,6 +416,13 @@ public class OfficeShell : ContentView
         if (this.StatusBar is OfficeStatusBar status)
             status.IsCompact = layout.IsCompact;
 
+        // Wherever it sits in the ribbon slot - a Ribbon's header end, or inside a toolbar wrapping one.
+        if (this.Ribbon is IVisualTreeElement ribbonSlot)
+        {
+            foreach (var actions in ribbonSlot.GetVisualTreeDescendants().OfType<OfficeRibbonActions>())
+                actions.IsCompact = layout.IsCompact;
+        }
+
         if (this.Ribbon is Ribbon ribbon)
         {
             if (layout.SimplifiedRibbon && ribbon.DisplayMode == RibbonDisplayMode.Expanded)
