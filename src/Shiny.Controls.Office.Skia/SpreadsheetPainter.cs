@@ -722,6 +722,11 @@ public sealed class SpreadsheetPainter : IDisposable
             if (note.Cell.Column < columnStart || note.Cell.Column > columnEnd || note.Cell.Row < rowStart || note.Cell.Row > rowEnd)
                 continue;
 
+            // A hidden (filtered-out) row or column has no height or width, and its marker would land
+            // on the corner of the next visible cell - flagging a note that cell does not have.
+            if (request.Viewport.Metrics.Rows.IsHidden(note.Cell.Row) || request.Viewport.Metrics.Columns.IsHidden(note.Cell.Column))
+                continue;
+
             var rect = ToSk(request.Viewport.CellRect(note.Cell));
             using var path = new SKPath();
             path.MoveTo(rect.Right - 6, rect.Top + 1);
@@ -1003,6 +1008,22 @@ public sealed class SpreadsheetPainter : IDisposable
         return new SKRect((float)metrics.RowHeaderWidth, (float)metrics.ColumnHeaderHeight, (float)request.Viewport.Width, (float)request.Viewport.Height);
     }
 
+    /// <summary>The content area less the frozen band for anything anchored past the freeze.</summary>
+    static SKRect ScrollingClip(SpreadsheetPaintRequest request, SKRect content, CellRef from)
+    {
+        var viewport = request.Viewport;
+        var frozen = viewport.Metrics.FrozenPane;
+        var clip = content;
+
+        if (frozen.Row > 0 && from.Row >= frozen.Row)
+            clip.Top = Math.Max(clip.Top, (float)viewport.ContentOriginY);
+
+        if (frozen.Column > 0 && from.Column >= frozen.Column)
+            clip.Left = Math.Max(clip.Left, (float)viewport.ContentOriginX);
+
+        return clip;
+    }
+
     static SKRect ChartRect(GridViewport viewport, ChartAnchor anchor)
     {
         var from = viewport.CellRect(anchor.From);
@@ -1027,13 +1048,21 @@ public sealed class SpreadsheetPainter : IDisposable
             var anchor = request.ChartPreview is { } preview && preview.Id == chart.Id ? preview.Anchor : chart.Anchor;
             var rect = ChartRect(request.Viewport, anchor);
 
-            if (!rect.IntersectsWith(content))
+            // A chart anchored in the scrolling pane scrolls under the frozen rows and columns, as in
+            // Excel; unclipped, one scrolled out of view left a sliver across the frozen band.
+            var clip = ScrollingClip(request, content, anchor.From);
+            if (!rect.IntersectsWith(clip))
                 continue;
+
+            canvas.Save();
+            canvas.ClipRect(clip);
 
             this.charts.Paint(canvas, rect, chart, SheetCharts.Evaluate(request.Sheet, chart));
 
             if (chart.Id == request.SelectedChartId)
                 this.ChartHandles(canvas, request.Theme, rect);
+
+            canvas.Restore();
         }
 
         canvas.Restore();
@@ -1158,6 +1187,14 @@ public sealed class SpreadsheetPainter : IDisposable
             var bounds = viewport.CellRect(new CellRef(column, firstRow));
             var rect = new SKRect((float)bounds.X, 0, (float)bounds.Right, (float)metrics.ColumnHeaderHeight);
 
+            // A scrolled column half under the frozen ones must not paint over their headers.
+            var scrolledColumn = frozen.Column > 0 && column >= frozen.Column;
+            if (scrolledColumn)
+            {
+                canvas.Save();
+                canvas.ClipRect(new SKRect((float)viewport.ContentOriginX, 0, (float)viewport.Width, (float)metrics.ColumnHeaderHeight));
+            }
+
             if (column >= selection.Left && column <= selection.Right)
             {
                 this.fill.Color = ToSk(theme.HeaderSelectedBackground);
@@ -1170,6 +1207,9 @@ public sealed class SpreadsheetPainter : IDisposable
 
             this.fill.Color = ToSk(theme.HeaderText);
             DrawCentred(canvas, CellRef.ColumnName(column), rect, font, this.fill);
+
+            if (scrolledColumn)
+                canvas.Restore();
         }
 
         this.stroke.Color = ToSk(theme.HeaderBorder);
@@ -1190,6 +1230,15 @@ public sealed class SpreadsheetPainter : IDisposable
             var bounds = viewport.CellRect(new CellRef(firstColumn, row));
             var rect = new SKRect(0, (float)bounds.Y, (float)metrics.RowHeaderWidth, (float)bounds.Bottom);
 
+            // A scrolled row half under the frozen ones must not paint over their numbers ("1" read
+            // as a garbled "22" with the top row frozen).
+            var scrolledRow = frozen.Row > 0 && row >= frozen.Row;
+            if (scrolledRow)
+            {
+                canvas.Save();
+                canvas.ClipRect(new SKRect(0, (float)viewport.ContentOriginY, (float)metrics.RowHeaderWidth, (float)viewport.Height));
+            }
+
             if (row >= selection.Top && row <= selection.Bottom)
             {
                 this.fill.Color = ToSk(theme.HeaderSelectedBackground);
@@ -1202,6 +1251,9 @@ public sealed class SpreadsheetPainter : IDisposable
 
             this.fill.Color = ToSk(theme.HeaderText);
             DrawCentred(canvas, (row + 1).ToString(), rect, font, this.fill);
+
+            if (scrolledRow)
+                canvas.Restore();
         }
 
         this.stroke.Color = ToSk(theme.HeaderBorder);
