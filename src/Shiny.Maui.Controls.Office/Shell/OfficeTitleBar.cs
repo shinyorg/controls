@@ -167,7 +167,10 @@ public class OfficeTitleBar : ContentView
         // -- search ----------------------------------------------------------------------------------
         this.searchGlyph = new OfficeShellIconView { Icon = OfficeShellIcon.Search, WidthRequest = 14, HeightRequest = 14, VerticalOptions = LayoutOptions.Center };
         this.searchGlyph.SetDynamicResource(OfficeShellIconView.ColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
-        this.searchEntry = new Entry { FontSize = 13, VerticalOptions = LayoutOptions.Center, BackgroundColor = Colors.Transparent };
+        this.searchEntry = ShellChrome.FlatEntry();
+        this.searchEntry.FontSize = 13;
+        this.searchEntry.VerticalOptions = LayoutOptions.Center;
+        this.searchEntry.BackgroundColor = Colors.Transparent;
         this.searchEntry.SetDynamicResource(Entry.TextColorProperty, ShinyThemeKeys.Color.OnSurface);
         this.searchEntry.SetDynamicResource(Entry.PlaceholderColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
         this.searchEntry.TextChanged += (_, _) => this.RefreshResults();

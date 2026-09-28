@@ -50,15 +50,28 @@ public class OfficeDialog : ContentView
 
     public static readonly BindableProperty IsOpenProperty = BindableProperty.Create(
         nameof(IsOpen), typeof(bool), typeof(OfficeDialog), false, BindingMode.TwoWay,
-        propertyChanged: (b, _, n) => ((OfficeDialog)b).IsVisible = (bool)n);
+        propertyChanged: (b, _, n) =>
+        {
+            var dialog = (OfficeDialog)b;
+            dialog.IsVisible = (bool)n;
+            dialog.back.SetActive((bool)n && dialog.IsLoaded);
+        });
 
     public static readonly BindableProperty DialogWidthProperty = BindableProperty.Create(
         nameof(DialogWidth), typeof(double), typeof(OfficeDialog), 360d);
 
 
+    readonly ShellBackButton back;
+
+
     public OfficeDialog()
     {
         this.IsVisible = false;
+
+        // Android's back button cancels the dialog, as it would a native one.
+        this.back = new ShellBackButton(this.Cancel);
+        this.Loaded += (_, _) => this.back.SetActive(this.IsOpen);
+        this.Unloaded += (_, _) => this.back.SetActive(false);
 
         var scrim = new BoxView { Color = Color.FromRgba(0f, 0f, 0f, 0.4f) };
         ShellChrome.OnTap(scrim, this.Cancel);

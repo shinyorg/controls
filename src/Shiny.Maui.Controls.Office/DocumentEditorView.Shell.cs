@@ -89,6 +89,7 @@ public partial class DocumentEditorView
             view.ApplyShell();
             view.ApplyNavigationPane();
             view.ApplyFileButton(view.ShowFileButton);
+            view.ApplyAccent();
         });
 
     public static readonly BindableProperty ShowTitleBarProperty = ShellFlag(nameof(ShowTitleBar), true);
@@ -310,6 +311,7 @@ public partial class DocumentEditorView
 
         this.shellBuilt = true;
         this.ApplyFileButton(this.ShowFileButton);
+        this.ApplyAccent();
         this.ApplyShell();
         this.ApplyNavigationPane();
         this.RefreshShell();

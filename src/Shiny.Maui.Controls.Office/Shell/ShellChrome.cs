@@ -17,6 +17,26 @@ internal static class ShellChrome
 
 
     /// <summary>
+    /// An entry with no platform chrome and no platform padding, for a box that draws its own frame at a
+    /// fixed height (the title bar's search). Android's EditText keeps the padding of the underline
+    /// drawable after the background is cleared, which puts ~26dp of padding in a 30dp box and crops the
+    /// text to its top half.
+    /// </summary>
+    public static Entry FlatEntry()
+    {
+        var entry = new BorderlessEntry();
+#if ANDROID
+        entry.HandlerChanged += (_, _) =>
+        {
+            if (entry.Handler?.PlatformView is Android.Widget.EditText native)
+                native.SetPadding(0, 0, 0, 0);
+        };
+#endif
+        return entry;
+    }
+
+
+    /// <summary>
     /// An icon-only button: a <see cref="Border"/> with a tap on its <c>Command</c> (a MAUI Button ignores
     /// gesture recognizers, and a Command is the seam a test can press).
     /// </summary>

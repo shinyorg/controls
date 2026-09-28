@@ -23,6 +23,9 @@ public class OfficeRibbonActions : ContentView
     readonly OfficeShellIconView modeIcon;
     readonly Label modeLabel;
     readonly Border share;
+    readonly Label commentsLabel;
+    readonly Label shareLabel;
+    bool shellCompact;
 
     public static readonly BindableProperty ShowCommentsProperty = BindableProperty.Create(
         nameof(ShowComments), typeof(bool), typeof(OfficeRibbonActions), true, propertyChanged: (b, _, _) => ((OfficeRibbonActions)b).Apply());
@@ -43,13 +46,16 @@ public class OfficeRibbonActions : ContentView
     public static readonly BindableProperty ShareCommandProperty = BindableProperty.Create(
         nameof(ShareCommand), typeof(ICommand), typeof(OfficeRibbonActions));
 
+    public static readonly BindableProperty CompactProperty = BindableProperty.Create(
+        nameof(Compact), typeof(bool?), typeof(OfficeRibbonActions), null, propertyChanged: (b, _, _) => ((OfficeRibbonActions)b).Apply());
+
     public static readonly BindableProperty ShareAccentProperty = BindableProperty.Create(
         nameof(ShareAccent), typeof(Color), typeof(OfficeRibbonActions), null, propertyChanged: (b, _, _) => ((OfficeRibbonActions)b).Apply());
 
 
     public OfficeRibbonActions()
     {
-        this.comments = ShellChrome.TextButton("Comments", this.ToggleComments, OfficeShellIcon.Comments, null, out _);
+        this.comments = ShellChrome.TextButton("Comments", this.ToggleComments, OfficeShellIcon.Comments, null, out this.commentsLabel);
 
         this.modeIcon = new OfficeShellIconView { Icon = OfficeShellIcon.Editing, VerticalOptions = LayoutOptions.Center };
         this.modeLabel = ShellChrome.Text("Editing");
@@ -71,7 +77,7 @@ public class OfficeRibbonActions : ContentView
         ShellChrome.Hint(this.mode, "Editing mode");
         ShellChrome.OnTap(this.mode, this.OpenModeMenu);
 
-        this.share = ShellChrome.TextButton("Share", this.Share, OfficeShellIcon.Share, Colors.White, out _);
+        this.share = ShellChrome.TextButton("Share", this.Share, OfficeShellIcon.Share, Colors.White, out this.shareLabel);
 
         var row = new HorizontalStackLayout { Spacing = 6, VerticalOptions = LayoutOptions.Center };
         row.Children.Add(this.comments);
@@ -94,6 +100,24 @@ public class OfficeRibbonActions : ContentView
     public OfficeEditMode EditMode { get => (OfficeEditMode)this.GetValue(EditModeProperty); set => this.SetValue(EditModeProperty, value); }
 
     public bool ShowShare { get => (bool)this.GetValue(ShowShareProperty); set => this.SetValue(ShowShareProperty, value); }
+
+    /// <summary>
+    /// Draws the three as icons only. Null follows the enclosing shell's compact layout - on a phone
+    /// the labelled buttons are wider than the tab strip they share a row with, and the tabs get none.
+    /// </summary>
+    public bool? Compact { get => (bool?)this.GetValue(CompactProperty); set => this.SetValue(CompactProperty, value); }
+
+    /// <summary>The shell's compact layout, pushed by <see cref="OfficeShell"/>; <see cref="Compact"/> overrides it.</summary>
+    internal void InheritCompact(bool compact)
+    {
+        if (this.shellCompact == compact)
+            return;
+
+        this.shellCompact = compact;
+        this.Apply();
+    }
+
+    bool IconsOnly => this.Compact ?? this.shellCompact;
 
     public ICommand? ShareCommand { get => (ICommand?)this.GetValue(ShareCommandProperty); set => this.SetValue(ShareCommandProperty, value); }
 
@@ -182,6 +206,11 @@ public class OfficeRibbonActions : ContentView
     {
         if (this.share is null)
             return;
+
+        var iconsOnly = this.IconsOnly;
+        this.commentsLabel.IsVisible = !iconsOnly;
+        this.modeLabel.IsVisible = !iconsOnly;
+        this.shareLabel.IsVisible = !iconsOnly;
 
         this.comments.IsVisible = this.ShowComments;
         if (this.IsCommentsOpen)

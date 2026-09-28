@@ -72,6 +72,7 @@ public partial class DocumentEditor : ContentView, IDisposable
         this.canvas.GestureRecognizers.Add(pinch);
 
         this.input.TextChanged += this.OnInputTextChanged;
+        HiddenInputKeys.Attach(this.input, this.HandleKey);
         this.input.Completed += this.OnInputCompleted;
         this.input.Focused += this.OnInputFocused;
         this.input.Unfocused += this.OnInputUnfocused;
@@ -245,7 +246,7 @@ public partial class DocumentEditor : ContentView, IDisposable
         this.controller.LinkActivated += this.OnLinkActivated;
 
         if (this.Width > 0 && this.Height > 0)
-            this.controller.Resize(this.Width, this.Height);
+            this.controller.Resize(this.Width, this.ViewportHeight(this.Height));
 
         // Resize only schedules a check when there is already a size; a document opened before layout
         // would otherwise sit unchecked until the first scroll.
@@ -258,8 +259,15 @@ public partial class DocumentEditor : ContentView, IDisposable
     {
         base.OnSizeAllocated(width, height);
         if (width > 0 && height > 0)
-            this.controller?.Resize(width, height);
+            this.controller?.Resize(width, this.ViewportHeight(height));
     }
+
+    /// <summary>
+    /// The height the canvas actually gets: the soft-keyboard inset is bottom padding, which shrinks the
+    /// canvas but not this view, so a viewport sized from this view's height kept counting the covered
+    /// lines as visible and never scrolled the caret out from under the keyboard.
+    /// </summary>
+    double ViewportHeight(double height) => Math.Max(1, height - this.Padding.VerticalThickness);
 
     /// <summary>
     /// A picture drawn behind the content — a logo, a DRAFT stamp, a company mark.
@@ -776,6 +784,16 @@ public partial class DocumentEditor : ContentView, IDisposable
     /// </remarks>
     void OnInputTextChanged(object? sender, TextChangedEventArgs e)
     {
+#if !MACOS
+        if (this.clearPending && string.IsNullOrEmpty(e.NewTextValue))
+        {
+            // Our own clear landing (see ClearInput), not a deletion.
+            this.clearPending = false;
+            this.consumedInput = string.Empty;
+            return;
+        }
+#endif
+
         if (this.suppressInputEvents || this.controller is null || this.IsReadOnly)
             return;
 
@@ -816,6 +834,11 @@ public partial class DocumentEditor : ContentView, IDisposable
     /// <summary>What the hidden entry held the last time characters were taken from it.</summary>
     string consumedInput = string.Empty;
 
+#if !MACOS
+    /// <summary>Set while a clear of the hidden entry is still to arrive through TextChanged.</summary>
+    bool clearPending;
+#endif
+
 #if MACOS
     /// <summary>
     /// Whether anything has been typed since the hidden entry was focused. Only the macOS AppKit head
@@ -846,6 +869,13 @@ public partial class DocumentEditor : ContentView, IDisposable
 
     void ClearInput()
     {
+#if !MACOS
+        // Usually called from inside TextChanged, where MAUI queues the write and applies it after the
+        // handler returns - past the suppress flag. The flag below recognises that late empty text as
+        // ours; without it the "shrink" branch read it as Backspace and deleted every character the
+        // moment it was typed (nothing could be typed on Android).
+        this.clearPending = !string.IsNullOrEmpty(this.input.Text);
+#endif
         this.suppressInputEvents = true;
         this.input.Text = string.Empty;
         this.suppressInputEvents = false;

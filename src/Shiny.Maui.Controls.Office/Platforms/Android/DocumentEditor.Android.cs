@@ -59,17 +59,30 @@ public partial class DocumentEditor
             if (density <= 0)
                 density = 1f;
 
-            var ime = ViewCompat.GetRootWindowInsets(root)?.GetInsets(WindowInsetsCompat.Type.Ime()).Bottom ?? 0;
+            // The root now, not the one captured at hook time: the handler is created before the view is
+            // attached, when RootView is the editor itself - its height stood in for the window's, the
+            // keyboard's top came out negative, and the "overlap" was the whole editor, so the canvas
+            // was padded down to nothing the moment the keyboard opened.
+            var window = platform.RootView ?? root;
+            var ime = ViewCompat.GetRootWindowInsets(window)?.GetInsets(WindowInsetsCompat.Type.Ime()).Bottom ?? 0;
+            if (ime <= 0 || !platform.IsAttachedToWindow)
+            {
+                owner.ApplyKeyboardInset(0);
+                return;
+            }
+
+            // Screen coordinates on both sides. The visible frame stops at the keyboard whether the
+            // window resizes or pans, and a pan moves this view's on-screen position with it, so what
+            // is left is only the part of the editor the keyboard really covers.
+            var visible = new Android.Graphics.Rect();
+            window.GetWindowVisibleDisplayFrame(visible);
 
             var location = new int[2];
-            platform.GetLocationInWindow(location);
+            platform.GetLocationOnScreen(location);
 
+            // The padding already applied shrinks the canvas, not this view, so the bottom is stable.
             var bottom = location[1] + platform.Height;
-            var keyboardTop = root.Height - ime;
-
-            // Only the part that actually covers this control: an editor with a status line under it
-            // is overlapped by less than the keyboard's whole height, and one above the fold not at all.
-            owner.ApplyKeyboardInset(ime <= 0 ? 0 : Math.Max(0, (bottom - keyboardTop) / density));
+            owner.ApplyKeyboardInset(Math.Max(0, (bottom - visible.Bottom) / density));
         }
     }
 }

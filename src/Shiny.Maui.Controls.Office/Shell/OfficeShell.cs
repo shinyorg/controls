@@ -58,6 +58,7 @@ public class OfficeShell : ContentView
     readonly Grid overlay;
     readonly Border focusExit;
     readonly OfficeZoomDialog zoomDialog = new();
+    readonly ShellBackButton back;
     bool shellSimplifiedRibbon;
     bool syncingBackstage;
 
@@ -107,6 +108,11 @@ public class OfficeShell : ContentView
     public OfficeShell()
     {
         this.SetDynamicResource(BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerLow);
+
+        // Android's back button leaves the backstage, then focus mode, before it leaves the page.
+        this.back = new ShellBackButton(this.OnBackButton);
+        this.Loaded += (_, _) => this.UpdateBackButton();
+        this.Unloaded += (_, _) => this.back.SetActive(false);
 
         this.leftHost.WidthRequest = this.LeftPaneWidth;
         this.rightHost.WidthRequest = this.RightPaneWidth;
@@ -327,6 +333,19 @@ public class OfficeShell : ContentView
 
     void OnApplicationButton(object? sender, EventArgs e) => this.IsBackstageOpen = true;
 
+    void OnBackButton()
+    {
+        if (this.IsBackstageOpen)
+            this.IsBackstageOpen = false;
+        else if (this.IsFocusMode)
+            this.IsFocusMode = false;
+
+        this.UpdateBackButton();
+    }
+
+    void UpdateBackButton()
+        => this.back?.SetActive(this.IsLoaded && (this.IsBackstageOpen || this.IsFocusMode));
+
     void OnFocusRequested(object? sender, EventArgs e) => this.ToggleFocusMode();
 
 
@@ -409,6 +428,7 @@ public class OfficeShell : ContentView
         this.rightHost.IsVisible = !focus && layout.ShowSidePanes && this.IsRightPaneOpen && this.RightPane is not null;
         this.backstageHost.IsVisible = this.IsBackstageOpen && this.Backstage is not null;
         this.focusExit.IsVisible = focus;
+        this.UpdateBackButton();
 
         if (this.TitleBar is OfficeTitleBar title)
             title.IsCompact = layout.IsCompact;
@@ -418,6 +438,9 @@ public class OfficeShell : ContentView
 
         if (this.Ribbon is Ribbon ribbon)
         {
+            if (ribbon.HeaderEndContent is OfficeRibbonActions actions)
+                actions.InheritCompact(layout.IsCompact);
+
             if (layout.SimplifiedRibbon && ribbon.DisplayMode == RibbonDisplayMode.Expanded)
             {
                 ribbon.DisplayMode = RibbonDisplayMode.Simplified;

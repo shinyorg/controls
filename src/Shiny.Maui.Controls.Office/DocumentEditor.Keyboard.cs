@@ -59,5 +59,15 @@ public partial class DocumentEditor
             return;
 
         this.Padding = new Thickness(this.Padding.Left, this.Padding.Top, this.Padding.Right, target);
+
+        // This view has not changed size, so nothing else tells the controller its viewport did.
+        if (this.controller is { } controller && this.Width > 0 && this.Height > 0)
+        {
+            controller.Resize(this.Width, this.ViewportHeight(this.Height));
+            if (target > 0 && this.focused)
+                controller.RevealCaret();
+
+            this.Invalidate();
+        }
     }
 }
