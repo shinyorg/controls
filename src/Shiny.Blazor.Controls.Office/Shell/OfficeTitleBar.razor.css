@@ -24,19 +24,6 @@
 
 .office-titlebar__end { justify-content: flex-end; }
 
-.office-titlebar__app {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    background: var(--office-accent-dark, #134A9B);
-    font-weight: 700;
-    font-size: 15px;
-}
-
 .office-titlebar__btn {
     display: inline-flex;
     align-items: center;

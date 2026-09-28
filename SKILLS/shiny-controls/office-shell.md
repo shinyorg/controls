@@ -1,7 +1,7 @@
 # Office Shell (MAUI + Blazor)
 
-The Word / Excel / PowerPoint application window around the Office editors: accent title bar (app
-tile, AutoSave, quick access, document name + rename, save status, command search, help, avatar),
+The Word / Excel / PowerPoint application window around the Office editors: accent title bar
+(AutoSave, quick access, document name + rename, save status, command search, help, avatar),
 ribbon header-end actions (Comments / Editing-Reviewing-Viewing / Share), File backstage, status bar
 (segments, Focus, view modes, zoom), zoom dialog, ruler, Styles gallery, navigation pane, side pane.
 

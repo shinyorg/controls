@@ -10,7 +10,7 @@ using Shiny.Maui.Controls.Themes;
 namespace Shiny.Maui.Controls.Office;
 
 /// <summary>
-/// The Office window's title bar: app tile, AutoSave, Save / Undo / Redo, the document name with its
+/// The Office window's title bar: AutoSave, Save / Undo / Redo, the document name with its
 /// rename flyout, the save state, the "Search for tools, help, and more" box, help and the user's avatar.
 /// </summary>
 /// <remarks>
@@ -30,8 +30,6 @@ public class OfficeTitleBar : ContentView
 
     readonly ObservableCollection<OfficeQuickAccessItem> quickAccessItems = new();
     readonly Grid root;
-    readonly Border tile;
-    readonly Label tileLetter;
     readonly HorizontalStackLayout autoSaveGroup;
     readonly Switch autoSaveSwitch;
     readonly Label autoSaveLabel;
@@ -100,25 +98,7 @@ public class OfficeTitleBar : ContentView
     {
         this.HeightRequest = 44;
 
-        // -- left: tile, AutoSave, quick access ----------------------------------------------------
-        this.tileLetter = new Label
-        {
-            FontSize = 15,
-            FontAttributes = FontAttributes.Bold,
-            TextColor = Colors.White,
-            HorizontalTextAlignment = TextAlignment.Center,
-            VerticalTextAlignment = TextAlignment.Center
-        };
-        this.tile = new Border
-        {
-            Content = this.tileLetter,
-            WidthRequest = 28,
-            HeightRequest = 28,
-            StrokeThickness = 0,
-            VerticalOptions = LayoutOptions.Center,
-            StrokeShape = new RoundRectangle { CornerRadius = 5 }
-        };
-
+        // -- left: AutoSave, quick access ----------------------------------------------------
         this.autoSaveLabel = new Label { Text = "AutoSave", FontSize = 12, VerticalTextAlignment = TextAlignment.Center };
         this.autoSaveSwitch = new Switch { VerticalOptions = LayoutOptions.Center, Scale = 0.75 };
         this.autoSaveSwitch.Toggled += (_, e) => this.AutoSave = e.Value;
@@ -132,7 +112,6 @@ public class OfficeTitleBar : ContentView
         this.extraQuickAccess = new HorizontalStackLayout { Spacing = 0, VerticalOptions = LayoutOptions.Center };
 
         var leftStack = new HorizontalStackLayout { Spacing = 6, VerticalOptions = LayoutOptions.Center, Padding = new Thickness(8, 0, 0, 0) };
-        leftStack.Children.Add(this.tile);
         leftStack.Children.Add(this.autoSaveGroup);
         leftStack.Children.Add(this.save);
         leftStack.Children.Add(this.undo);
@@ -225,7 +204,7 @@ public class OfficeTitleBar : ContentView
         {
             ColumnDefinitions =
             {
-                new(GridLength.Auto),   // tile, AutoSave, quick access
+                new(GridLength.Auto),   // AutoSave, quick access
                 new(GridLength.Auto),   // document name
                 new(GridLength.Star),   // search
                 new(GridLength.Auto)    // help, avatar
@@ -553,8 +532,6 @@ public class OfficeTitleBar : ContentView
             : info.Accent.Ink.ToColor();
 
         this.BackgroundColor = accent;
-        this.tile.BackgroundColor = this.AccentColor is null ? info.AccentDark.ToColor() : accent.WithLuminosity(Math.Max(0, accent.GetLuminosity() - 0.12f));
-        this.tileLetter.Text = info.Letter;
 
         foreach (var icon in this.inkIcons)
             icon.Color = ink;

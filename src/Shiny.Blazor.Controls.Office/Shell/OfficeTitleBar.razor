@@ -2,7 +2,7 @@
 @implements IDisposable
 
 @*
-    The accent-coloured strip across the top of an Office window: app tile, AutoSave, quick access,
+    The accent-coloured strip across the top of an Office window: AutoSave, quick access,
     the document's name and save state, the command search, help and the account.
 
     The search box is the one piece with real behaviour. It searches an OfficeCommandIndex - the
@@ -12,7 +12,6 @@
 <header class="@this.RootCss" style="@this.RootStyle" @attributes="this.AdditionalAttributes">
 
     <div class="office-titlebar__start">
-        <span class="office-titlebar__app" title="@this.Info.Name" aria-label="@this.Info.Name">@this.Info.Letter</span>
 
         @if (this.ShowAutoSave)
         {

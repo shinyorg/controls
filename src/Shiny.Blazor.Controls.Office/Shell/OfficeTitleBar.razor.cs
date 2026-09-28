@@ -8,7 +8,7 @@ using Microsoft.JSInterop;
 namespace Shiny.Blazor.Controls.Office;
 
 /// <summary>
-/// The Office title bar: app tile, AutoSave, quick access (Save / Undo / Redo and extras), document
+/// The Office title bar: AutoSave, quick access (Save / Undo / Redo and extras), document
 /// name with a rename dropdown, save status, the "Search for tools, help, and more" command search,
 /// help and the account avatar.
 /// </summary>

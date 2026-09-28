@@ -28,7 +28,7 @@ Namespaces: `Shiny.Maui.Controls.Office` / `Shiny.Blazor.Controls.Office` for th
 | Part | What it is |
 |---|---|
 | `OfficeShell` | The container: slots for title bar, ribbon, ruler, vertical ruler, left pane, content, right pane, status bar, backstage. Owns focus mode, the backstage overlay and the responsive layout |
-| `OfficeTitleBar` | App tile (W / X / P), AutoSave switch, Save / Undo / Redo + extra quick access, document name with a rename dropdown, save status ("Saved locally" / "Saving…" / "Unsaved changes"), the "Search for tools, help, and more" command search, Help, account avatar |
+| `OfficeTitleBar` | AutoSave switch, Save / Undo / Redo + extra quick access, document name with a rename dropdown, save status ("Saved locally" / "Saving…" / "Unsaved changes"), the "Search for tools, help, and more" command search, Help, account avatar |
 | `OfficeRibbonActions` | Comments toggle (`IsCommentsOpen`, two-way — pressed while the pane is open), Editing / Reviewing / Viewing dropdown, Share — for the ribbon's header-end slot. Icons only in the shell's compact layout (`Compact` — null follows the shell; the same name on both hosts) |
 | `OfficeBackstage` | The File page: accent rail with Back, Home, New, Open, Info, Save, Save As, Print, Export, History (optional), Options |
 | `OfficeStatusBar` | Editor-fed segments on the left; Focus, three view-mode buttons, zoom − / slider / + / percentage on the right. The icon buttons draw small but hit at least 32×28 (MAUI always; Blazor on a coarse pointer) |
@@ -40,7 +40,7 @@ Namespaces: `Shiny.Maui.Controls.Office` / `Shiny.Blazor.Controls.Office` for th
 | `OfficeShellIconView` (MAUI) / `OfficeShellGlyph` + `OfficeShellIcons.Svg()` (Blazor) | The shell's icon set |
 
 The app (`OfficeApp.Word` / `Excel` / `PowerPoint` / `OneNote`) sets the accent (Word blue `#185ABD`,
-Excel green `#107C41`, PowerPoint red `#C43E1C`), the tile letter, the default name ("Document1",
+Excel green `#107C41`, PowerPoint red `#C43E1C`), the default name ("Document1",
 "Book1", "Presentation1"), the Save As / Export formats and the status bar's view modes (Read / Print /
 Web, Normal / Page Layout / Page Break Preview, Normal / Slide Sorter / Reading View). Set it on the
 shell; the parts inside inherit it.
