@@ -209,7 +209,7 @@ Rules:
 - Everything on a row is drawn small whatever it asked for; a large item is two rows tall by
   construction. Put a large item in the group *outside* the rows if the group needs a head.
 - A `RibbonSeparator` inside a row is a rule between the items either side of it, not a column break.
-- Rows are dropped in the simplified (one dense line) layout.
+- In the simplified (one dense line) layout rows are flattened: their items run along the line in order.
 
 **When to reach for which**: rows for formatting runs and steppers (`−  100%  +`); columns for a set of
 unrelated commands, and for a group with a large head plus two or three smalls beside it.

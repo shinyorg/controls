@@ -29,7 +29,7 @@ Namespaces: `Shiny.Maui.Controls.Office` / `Shiny.Blazor.Controls.Office` for th
 |---|---|
 | `OfficeShell` | The container: slots for title bar, ribbon, ruler, vertical ruler, left pane, content, right pane, status bar, backstage. Owns focus mode, the backstage overlay and the responsive layout |
 | `OfficeTitleBar` | App tile (W / X / P), AutoSave switch, Save / Undo / Redo + extra quick access, document name with a rename dropdown, save status ("Saved locally" / "Saving…" / "Unsaved changes"), the "Search for tools, help, and more" command search, Help, account avatar |
-| `OfficeRibbonActions` | Comments toggle, Editing / Reviewing / Viewing dropdown, Share — for the ribbon's header-end slot |
+| `OfficeRibbonActions` | Comments toggle, Editing / Reviewing / Viewing dropdown, Share — for the ribbon's header-end slot. Icons only in the shell's compact layout (`Compact` on Blazor, `IsCompact` on MAUI; both follow the shell) |
 | `OfficeBackstage` | The File page: accent rail with Back, Home, New, Open, Info, Save, Save As, Print, Export, History (optional), Options |
 | `OfficeStatusBar` | Editor-fed segments on the left; Focus, three view-mode buttons, zoom − / slider / + / percentage on the right |
 | `OfficeZoomDialog` / `OfficeDialog` | Word's Zoom dialog (200 / 100 / 75 / page width / text width / whole page / custom), and the plain OK/Cancel dialog it is built on. On Blazor `OfficeDialog` wraps the core `ModalView` |

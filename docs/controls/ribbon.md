@@ -228,7 +228,7 @@ on. A `RibbonSeparator` inside a row is a rule between the items either side of 
 column break, and everything on a row is drawn small — a large item is icon-over-label and two rows tall
 by construction, so one on a row would break the row height every other group is lined up to.
 
-Rows are dropped in the simplified layout, which is one dense line by definition.
+In the simplified layout, which is one dense line by definition, the rows are flattened: their items run along that line in order.
 
 That is the whole of a ribbon's layout language, and it is why reordering a group's items re-flows it
 with nothing else touched.
