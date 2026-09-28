@@ -37,7 +37,10 @@ using var workbook = await Workbook.OpenAsync(stream);
 using var workbook = Workbook.Create("Sheet1");
 ```
 
-`Workbook` is `IDisposable` and holds the package open. Dispose it when the page goes away.
+`Workbook` is `IDisposable` and holds the package open. Dispose it when the page goes away for good —
+on MAUI **not** in `OnHandlerChanged` with a null handler: Shell drops the handler on every flyout
+switch but keeps the page, and the view would come back holding a disposed workbook (see the
+lifetime note in `document-editor.md`).
 
 ### MAUI
 

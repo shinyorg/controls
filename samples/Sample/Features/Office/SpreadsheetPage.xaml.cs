@@ -110,10 +110,7 @@ public partial class SpreadsheetPage : ContentPage
 
     void OnCellChanged(object? sender, CellRef cell) { }
 
-    protected override void OnHandlerChanged()
-    {
-        base.OnHandlerChanged();
-        if (this.Handler is null)
-            this.workbook.Dispose();
-    }
+    // No disposal in OnHandlerChanged: Shell drops the handler on every flyout switch but keeps this
+    // page, so the view came back holding a disposed workbook it was never given again. See
+    // DocumentEditorPage for the iOS hang that caused.
 }
