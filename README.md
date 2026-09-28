@@ -269,6 +269,7 @@ colour, and why appearance properties default to `-1` rather than a real value.
 | **[Document & Slide Viewers](docs/controls/document-viewer.md)** | Read-only `.docx` reflowed to the control's width, and `.pptx` as fitted artboards |
 | **[Document Editor](docs/controls/document-editor.md)** | A `.docx` editor — typing, styles, inline objects, page margins, platform spell check |
 | **[Slide Editor](docs/controls/slide-editor.md)** | A `.pptx` editor — click a shape to move or resize it, double-click for a caret in its text |
+| **[Office Shell](docs/controls/office-shell.md)** | The Word / Excel / PowerPoint window around the editors — title bar, command search, File backstage, ruler, panes, status bar with zoom |
 | **[Notebook](docs/controls/notebook.md)** | A OneNote-style free-form canvas — write anywhere, draw over it, shapes and pictures, sections and pages |
 
 ### Collections & grids
