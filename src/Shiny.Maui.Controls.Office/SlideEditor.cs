@@ -153,7 +153,22 @@ public partial class SlideEditor : ContentView, IDisposable
     public event EventHandler<int>? SlideChanged;
 
     /// <summary>Gives the editor keyboard focus, so the platform starts sending it text.</summary>
-    public void FocusEditor() => this.input.FocusForEditing();
+    public void FocusEditor()
+    {
+#if ANDROID || (IOS && !MACCATALYST)
+        // On a touch screen focusing the hidden entry raises the soft keyboard, and there is nothing to
+        // type into until a text box is being edited: tapping a slide in the rail, selecting a shape or
+        // pressing any ribbon button popped a keyboard over half the slide. Put it away instead.
+        if (this.controller?.IsEditingText != true)
+        {
+            if (this.input.IsFocused)
+                this.input.Unfocus();
+
+            return;
+        }
+#endif
+        this.input.FocusForEditing();
+    }
 
     void Rebuild()
     {

@@ -196,7 +196,7 @@ half an inch. Blazor reports on release (`LiveUpdate="true"` for every step); MA
 
 ## Backstage
 
-`Templates` (`OfficeTemplate`: `Id`, `Name`, `Description`, `Thumbnail` URL/path, `Category`,
+`Templates` (`OfficeTemplate`: `Id`, `Name`, `Description`, `Thumbnail` URL, local path or `data:` URI, `Category`,
 `IsBlank`, `Open` stream factory, `Tag`) — the blank one is added when missing. `RecentFiles`
 (`OfficeRecentFile`: `Name`, `Location`, `LastOpened`, `IsPinned`, `App`, `Tag`) — pinned first, then
 newest. `DocumentInfo` (`OfficeDocumentInfo`: title, author, location, created, modified, size and
@@ -210,8 +210,12 @@ app `Statistics` like Words / Pages / Slides). Save As and Export default to the
 
 Below 600px (`OfficeShellLayout.CompactWidth`) the title bar's search collapses to an icon and the save
 status hides, rulers and side panes step away (their open state is kept), the ribbon should go
-Simplified, and the status bar drops Focus, the view modes and the slider. Below 900px the zoom slider
-goes on its own.
+Simplified, `OfficeRibbonActions` draws Comments / mode / Share as icons only (so the tab strip keeps
+room on a phone; `Compact` overrides it), and the status bar drops Focus, the view modes and the slider.
+Below 900px the zoom slider goes on its own.
+
+On Android the back button closes what is open before it leaves the page: a ribbon dropdown, an
+`OfficeDialog` (as Cancel), the backstage, then focus mode. `UseShinyControls()` registers the hook.
 
 ## Focus mode
 

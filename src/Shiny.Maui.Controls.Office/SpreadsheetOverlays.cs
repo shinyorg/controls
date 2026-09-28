@@ -46,6 +46,7 @@ sealed class SheetDialogHost : ContentView
     SheetDialog? dialog;
     OverlayPalette palette;
     int tab;
+    readonly Shiny.Maui.Controls.Infrastructure.AndroidBackButton back;
     bool suppress;
     Label? error;
 
@@ -68,6 +69,18 @@ sealed class SheetDialogHost : ContentView
         this.scrim.Add(this.card);
         this.Content = this.scrim;
         this.IsVisible = false;
+
+        // Android's back button is the dialog's Cancel, not a way off the page with it still open.
+        this.back = new Shiny.Maui.Controls.Infrastructure.AndroidBackButton(this.PressCancel);
+        this.Unloaded += (_, _) => this.back.SetActive(false);
+    }
+
+    void PressCancel()
+    {
+        if (this.dialog?.Buttons.FirstOrDefault(x => x.IsCancel) is { } cancel)
+            this.Press(cancel);
+        else
+            this.Close();
     }
 
     /// <summary>Raised when the last dialog in a chain closes.</summary>
@@ -88,6 +101,7 @@ sealed class SheetDialogHost : ContentView
 
         this.Build();
         this.IsVisible = true;
+        this.back.SetActive(true);
     }
 
     public void Close()
@@ -99,6 +113,7 @@ sealed class SheetDialogHost : ContentView
         this.views.Clear();
         this.card.Content = null;
         this.IsVisible = false;
+        this.back.SetActive(false);
         this.Closed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -597,6 +612,7 @@ sealed class SheetMenuHost : ContentView
 
     OverlayPalette palette;
     Point origin;
+    readonly Shiny.Maui.Controls.Infrastructure.AndroidBackButton back;
 
     public SheetMenuHost()
     {
@@ -620,6 +636,9 @@ sealed class SheetMenuHost : ContentView
         this.Content = this.surface;
         this.IsVisible = false;
 
+        this.back = new Shiny.Maui.Controls.Infrastructure.AndroidBackButton(this.Close);
+        this.Unloaded += (_, _) => this.back.SetActive(false);
+
         // The first show happens before the host has a size, so the clamp to its edges is redone once it
         // has one.
         this.SizeChanged += (_, _) =>
@@ -638,11 +657,13 @@ sealed class SheetMenuHost : ContentView
         this.path.Clear();
         this.path.Push(request.Items);
         this.IsVisible = true;
+        this.back.SetActive(true);
         this.Render();
     }
 
     public void Close()
     {
+        this.back.SetActive(false);
         this.IsVisible = false;
         this.lines.Clear();
         this.path.Clear();

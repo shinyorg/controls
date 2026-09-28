@@ -430,6 +430,28 @@ public class OfficeBackstage : ContentView
     }
 
 
+    /// <summary>
+    /// A template picture from a URL, a local path, or a <c>data:</c> URI - the last is what the editors
+    /// render their built-in thumbnails to, and the form the Blazor host takes as-is. A file path went
+    /// through <c>UriImageSource</c> as <c>file://</c>, which downloads over HTTP and shows nothing.
+    /// </summary>
+    static ImageSource ThumbnailSource(string thumbnail)
+    {
+        const string Base64 = ";base64,";
+        if (thumbnail.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+            && thumbnail.IndexOf(Base64, StringComparison.OrdinalIgnoreCase) is var at and > 0)
+        {
+            var bytes = Convert.FromBase64String(thumbnail[(at + Base64.Length)..]);
+            return ImageSource.FromStream(() => new MemoryStream(bytes));
+        }
+
+        if (Uri.TryCreate(thumbnail, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            return ImageSource.FromUri(uri);
+
+        return ImageSource.FromFile(uri?.IsFile == true ? uri.LocalPath : thumbnail);
+    }
+
+
     View Tile(OfficeTemplate template)
     {
         var app = this.EffectiveApp;
@@ -438,7 +460,7 @@ public class OfficeBackstage : ContentView
         View picture;
         if (!template.IsBlank && !string.IsNullOrWhiteSpace(template.Thumbnail))
         {
-            picture = new Image { Source = ImageSource.FromUri(Uri.TryCreate(template.Thumbnail, UriKind.Absolute, out var uri) ? uri : new Uri("file://" + template.Thumbnail)), Aspect = Aspect.AspectFill, WidthRequest = w, HeightRequest = h };
+            picture = new Image { Source = ThumbnailSource(template.Thumbnail!), Aspect = Aspect.AspectFill, WidthRequest = w, HeightRequest = h };
         }
         else
         {

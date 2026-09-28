@@ -26,6 +26,7 @@ public class OfficeRibbonActions : ContentView
     readonly Label commentsLabel;
     readonly Label shareLabel;
     bool shellCompact;
+    OfficeApp? shellApp;
 
     public static readonly BindableProperty ShowCommentsProperty = BindableProperty.Create(
         nameof(ShowComments), typeof(bool), typeof(OfficeRibbonActions), true, propertyChanged: (b, _, _) => ((OfficeRibbonActions)b).Apply());
@@ -107,13 +108,18 @@ public class OfficeRibbonActions : ContentView
     /// </summary>
     public bool? Compact { get => (bool?)this.GetValue(CompactProperty); set => this.SetValue(CompactProperty, value); }
 
-    /// <summary>The shell's compact layout, pushed by <see cref="OfficeShell"/>; <see cref="Compact"/> overrides it.</summary>
-    internal void InheritCompact(bool compact)
+    /// <summary>
+    /// The shell's compact layout and app, pushed by <see cref="OfficeShell"/>; <see cref="Compact"/>
+    /// overrides the first. Pushed rather than looked up: when this is parented the ribbon is not in
+    /// the shell yet, so Share took Word's blue in Excel and PowerPoint.
+    /// </summary>
+    internal void InheritShell(bool compact, OfficeApp app)
     {
-        if (this.shellCompact == compact)
+        if (this.shellCompact == compact && this.shellApp == app)
             return;
 
         this.shellCompact = compact;
+        this.shellApp = app;
         this.Apply();
     }
 
@@ -226,7 +232,7 @@ public class OfficeRibbonActions : ContentView
         this.modeLabel.Text = OfficeEditModes.Title(this.EditMode);
 
         this.share.IsVisible = this.ShowShare;
-        var app = ShellChrome.Ancestor<OfficeShell>(this)?.App ?? OfficeApp.Word;
+        var app = this.shellApp ?? ShellChrome.Ancestor<OfficeShell>(this)?.App ?? OfficeApp.Word;
         this.share.BackgroundColor = this.ShareAccent ?? OfficeAppInfo.For(app).Accent.Color.ToColor();
     }
 }

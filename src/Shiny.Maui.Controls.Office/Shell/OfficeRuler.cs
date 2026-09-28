@@ -68,6 +68,15 @@ public class OfficeRuler : GraphicsView, IDrawable
         this.HeightRequest = Thickness;
         this.BackgroundColor = Colors.Transparent;
 
+        // The colours are resolved values, not bindings, so an appearance flip has to re-read them;
+        // otherwise a ruler built in dark mode stayed a dark band on a light window. Dispatched so the
+        // theme manager has swapped the tokens first.
+        this.FollowAppTheme(static ruler => ruler.Dispatcher.Dispatch(() =>
+        {
+            ruler.ResolveColors();
+            ruler.Invalidate();
+        }));
+
         var pointer = new PointerGestureRecognizer();
         pointer.PointerMoved += (_, e) => this.RememberPointer(e.GetPosition(this));
         pointer.PointerPressed += (_, e) => this.RememberPointer(e.GetPosition(this));

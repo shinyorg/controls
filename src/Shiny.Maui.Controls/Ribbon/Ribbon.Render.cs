@@ -171,7 +171,14 @@ public partial class Ribbon
             VerticalTextAlignment = TextAlignment.Center,
             HorizontalTextAlignment = TextAlignment.Center
         }.WithFontSize(ShinyThemeKeys.Type.LabelLargeSize);
-        label.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
+
+        // OnPrimary only pairs with the theme's own Primary. Against a host's accent it is a guess, and
+        // in a dark theme a bad one - dark ink on Word's blue, which left "File" unreadable - so a set
+        // accent gets whichever of black or white reads on it.
+        if (this.AccentColor is { } accent)
+            label.TextColor = RelativeLuminance(accent) > 0.45 ? Color.FromArgb("#1A1A1A") : Colors.White;
+        else
+            label.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
 
         var border = new Border
         {
@@ -191,6 +198,14 @@ public partial class Ribbon
 
         this.appButtonHost.Content = border;
         this.appButtonHost.IsVisible = true;
+    }
+
+
+    /// <summary>WCAG relative luminance - the same split the Blazor host's ContrastInk uses.</summary>
+    static double RelativeLuminance(Color color)
+    {
+        static double Channel(float c) => c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        return (0.2126 * Channel(color.Red)) + (0.7152 * Channel(color.Green)) + (0.0722 * Channel(color.Blue));
     }
 
 

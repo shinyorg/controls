@@ -58,7 +58,7 @@ public class OfficeShell : ContentView
     readonly Grid overlay;
     readonly Border focusExit;
     readonly OfficeZoomDialog zoomDialog = new();
-    readonly ShellBackButton back;
+    readonly Shiny.Maui.Controls.Infrastructure.AndroidBackButton back;
     bool shellSimplifiedRibbon;
     bool syncingBackstage;
 
@@ -110,7 +110,7 @@ public class OfficeShell : ContentView
         this.SetDynamicResource(BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerLow);
 
         // Android's back button leaves the backstage, then focus mode, before it leaves the page.
-        this.back = new ShellBackButton(this.OnBackButton);
+        this.back = new Shiny.Maui.Controls.Infrastructure.AndroidBackButton(this.OnBackButton);
         this.Loaded += (_, _) => this.UpdateBackButton();
         this.Unloaded += (_, _) => this.back.SetActive(false);
 
@@ -333,6 +333,14 @@ public class OfficeShell : ContentView
 
     void OnApplicationButton(object? sender, EventArgs e) => this.IsBackstageOpen = true;
 
+    /// <summary>The Comments / mode / Share buttons at the end of the ribbon, wherever the ribbon is - Excel's sits inside its toolbar.</summary>
+    OfficeRibbonActions? RibbonActions => this.Ribbon switch
+    {
+        Ribbon { HeaderEndContent: OfficeRibbonActions actions } => actions,
+        SpreadsheetToolbar { Ribbon.HeaderEndContent: OfficeRibbonActions actions } => actions,
+        _ => null
+    };
+
     void OnBackButton()
     {
         if (this.IsBackstageOpen)
@@ -371,6 +379,8 @@ public class OfficeShell : ContentView
 
     void PushApp()
     {
+        this.RibbonActions?.InheritShell(this.ShellLayout.IsCompact, this.App);
+
         if (this.TitleBar is OfficeTitleBar title)
             title.InheritApp(this.App);
 
@@ -436,10 +446,10 @@ public class OfficeShell : ContentView
         if (this.StatusBar is OfficeStatusBar status)
             status.IsCompact = layout.IsCompact;
 
+        this.RibbonActions?.InheritShell(layout.IsCompact, this.App);
+
         if (this.Ribbon is Ribbon ribbon)
         {
-            if (ribbon.HeaderEndContent is OfficeRibbonActions actions)
-                actions.InheritCompact(layout.IsCompact);
 
             if (layout.SimplifiedRibbon && ribbon.DisplayMode == RibbonDisplayMode.Expanded)
             {

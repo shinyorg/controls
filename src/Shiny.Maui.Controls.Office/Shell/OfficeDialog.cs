@@ -61,7 +61,7 @@ public class OfficeDialog : ContentView
         nameof(DialogWidth), typeof(double), typeof(OfficeDialog), 360d);
 
 
-    readonly ShellBackButton back;
+    readonly Shiny.Maui.Controls.Infrastructure.AndroidBackButton back;
 
 
     public OfficeDialog()
@@ -69,7 +69,7 @@ public class OfficeDialog : ContentView
         this.IsVisible = false;
 
         // Android's back button cancels the dialog, as it would a native one.
-        this.back = new ShellBackButton(this.Cancel);
+        this.back = new Shiny.Maui.Controls.Infrastructure.AndroidBackButton(this.Cancel);
         this.Loaded += (_, _) => this.back.SetActive(this.IsOpen);
         this.Unloaded += (_, _) => this.back.SetActive(false);
 

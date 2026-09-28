@@ -1,3 +1,4 @@
+using Microsoft.Maui.LifecycleEvents;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Maui.Handlers;
@@ -85,6 +86,13 @@ public static class ControlsMauiAppBuilderExtensions
             handlers.AddHandler<Shiny.Maui.Controls.StaggeredGrid.StaggeredGrid, StaggeredGridHandler>();
             handlers.AddHandler<Shiny.Maui.Controls.VirtualizedGrid.VirtualizedGrid, VirtualizedGridHandler>();
         });
+#endif
+
+#if ANDROID
+        // In-page overlays (ribbon dropdowns, the Office backstage and dialogs) take the back button
+        // while they are open - see AndroidBackButton.
+        builder.ConfigureLifecycleEvents(events => events.AddAndroid(android =>
+            android.OnBackPressed(_ => AndroidBackButton.HandleBack())));
 #endif
 
         EntryHandler.Mapper.AppendToMapping("ShinyBorderless", (handler, view) =>

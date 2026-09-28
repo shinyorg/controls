@@ -505,6 +505,9 @@ public partial class SlideEditorView
 
     void OnBackstagePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(OfficeBackstage.IsOpen) && this.backstage.IsOpen)
+            _ = this.LoadTemplateThumbnailsAsync();
+
         if (e.PropertyName != nameof(OfficeBackstage.SelectedPage))
             return;
 
@@ -513,6 +516,67 @@ public partial class SlideEditorView
 
         if (this.backstage.SelectedPage == OfficeBackstagePage.Print)
             this.RefreshPrintPreview();
+    }
+
+    static IReadOnlyList<OfficeTemplate>? builtInTemplates;
+    bool loadingThumbnails;
+
+    /// <summary>
+    /// Gives the built-in templates a picture of their first slide, as the Blazor host does. Rendered
+    /// once per process, off the UI thread, the first time a backstage opens; the tiles stay plain
+    /// until it lands, and stay plain for good if it fails.
+    /// </summary>
+    async Task LoadTemplateThumbnailsAsync()
+    {
+        if (this.Templates is not null || this.loadingThumbnails)
+            return;
+
+        if (builtInTemplates is null)
+        {
+            this.loadingThumbnails = true;
+            try
+            {
+                builtInTemplates = await Task.Run(() =>
+                {
+                    var list = new List<OfficeTemplate>();
+                    foreach (var template in SlideTemplates.All)
+                    {
+                        if (template.IsBlank)
+                        {
+                            list.Add(template);
+                            continue;
+                        }
+
+                        using var stream = SlideTemplates.Create(template.Id);
+                        using var deck = SlideDeck.OpenAsync(stream).GetAwaiter().GetResult();
+                        var png = SlideExporter.ToPng(deck, 0, 320);
+
+                        list.Add(new OfficeTemplate(template.Id, template.Name)
+                        {
+                            Description = template.Description,
+                            Category = template.Category,
+                            Open = template.Open,
+                            Tag = template.Tag,
+                            Thumbnail = "data:image/png;base64," + Convert.ToBase64String(png)
+                        });
+                    }
+
+                    return (IReadOnlyList<OfficeTemplate>)list;
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Shiny.Office] Template thumbnails failed: {ex.Message}");
+                builtInTemplates = SlideTemplates.All;
+            }
+            finally
+            {
+                this.loadingThumbnails = false;
+            }
+        }
+
+        if (this.Templates is null)
+            this.backstage.Templates = builtInTemplates;
     }
 
     void RefreshPrintPreview()
