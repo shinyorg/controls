@@ -167,11 +167,17 @@ public sealed class DocumentLayoutEngine(ITextMeasurer measurer)
         if (this.text.TrailingPageBreak)
             this.pendingPageBreak = true;
 
+        // A section that starts on a new page puts a page break after the paragraph ending the one
+        // before it; a continuous section flows straight on.
+        if (format.SectionBreak is SectionBreakKind.NextPage or SectionBreakKind.EvenPage or SectionBreakKind.OddPage)
+            this.pendingPageBreak = true;
+
         output.Add(new LaidOutParagraph(y, height, lines, format, originX + indentLeft, contentWidth)
         {
             LabelX = labelX,
             LabelText = labelText,
-            LabelStyle = labelStyle
+            LabelStyle = labelStyle,
+            StartsPage = format.PageBreakBefore
         });
 
         return y + height + format.SpaceAfter;

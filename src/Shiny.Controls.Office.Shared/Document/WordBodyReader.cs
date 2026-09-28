@@ -31,6 +31,9 @@ sealed class WordBodyReader(
     /// </remarks>
     readonly DrawingReader drawing = new(ThemeColors.From(main.ThemePart));
 
+    /// <summary>The leader of the paragraph being read's right tab stop, while it is being read.</summary>
+    char? rightTabLeader;
+
     /// <summary>Re-projects one paragraph after its XML has been edited.</summary>
     public DocumentParagraph Reread(Paragraph paragraph) => this.ReadParagraph(paragraph);
 
@@ -111,7 +114,32 @@ sealed class WordBodyReader(
         }
 
         var label = this.ReadListLabel(paragraph, properties, styleId, runStyle, ref format);
-        var runs = this.ReadInlines(paragraph, runStyle).ToList();
+
+        // A right tab stop turns the paragraph's tabs into ones that push what follows them to the
+        // right margin — the shape of every table-of-contents line.
+        var rightTab = properties?.Tabs?.Elements<TabStop>()
+            .FirstOrDefault(x => OoxmlUnits.EnumAttribute(x, "val") == "right");
+
+        this.rightTabLeader = rightTab is null
+            ? null
+            : OoxmlUnits.EnumAttribute(rightTab, "leader") switch
+            {
+                "dot" => '.',
+                "hyphen" => '-',
+                "underscore" => '_',
+                "middleDot" => '\u00B7',
+                _ => ' '
+            };
+
+        List<StyledRun> runs;
+        try
+        {
+            runs = this.ReadInlines(paragraph, runStyle).ToList();
+        }
+        finally
+        {
+            this.rightTabLeader = null;
+        }
 
         return new DocumentParagraph(runs, format)
         {
@@ -150,7 +178,20 @@ sealed class WordBodyReader(
         return label;
     }
 
+    /// <summary>Footnote id to the number it is drawn with, in order of first reference.</summary>
+    /// <remarks>
+    /// Supplied by the document rather than worked out here: the number is a function of every
+    /// reference before this one, and a paragraph re-read on its own after an edit cannot see them.
+    /// </remarks>
+    public IReadOnlyDictionary<int, int> FootnoteNumbers { get; set; } = new Dictionary<int, int>();
+
+    /// <summary>Endnote id to its number, the same way.</summary>
+    public IReadOnlyDictionary<int, int> EndnoteNumbers { get; set; } = new Dictionary<int, int>();
+
     IEnumerable<StyledRun> ReadInlines(OpenXmlElement container, TextStyle inherited)
+        => this.ReadInlines(container, inherited, null, TextRevision.None);
+
+    IEnumerable<StyledRun> ReadInlines(OpenXmlElement container, TextStyle inherited, string? link, TextRevision revision)
     {
         // A complex field is spread across sibling runs — begin, the instruction, separate, the
         // cached result, end — so reading one means carrying state across the loop rather than
@@ -200,7 +241,7 @@ sealed class WordBodyReader(
                             {
                                 emittedField = true;
                                 var cached = String.Concat(run.Descendants<DocumentFormat.OpenXml.Wordprocessing.Text>().Select(x => x.Text));
-                                var style = this.ReadRun(run, inherited, null).FirstOrDefault()?.Style ?? inherited;
+                                var style = this.ReadRun(run, inherited, link, revision).FirstOrDefault()?.Style ?? inherited;
                                 yield return new StyledRun(cached, style) { Field = kind };
                             }
 
@@ -211,37 +252,43 @@ sealed class WordBodyReader(
                         // which is what a reader would have seen anyway.
                     }
 
-                    foreach (var piece in this.ReadRun(run, inherited, null))
+                    foreach (var piece in this.ReadRun(run, inherited, link, revision))
                         yield return piece;
 
                     break;
 
                 case Hyperlink hyperlink:
-                    var target = this.ResolveHyperlink(hyperlink);
-                    foreach (var run in hyperlink.Descendants<Run>())
-                    {
-                        foreach (var piece in this.ReadRun(run, inherited, target))
-                            yield return piece;
-                    }
-
-                    break;
-
-                case SdtRun structured:
-                    foreach (var run in structured.Descendants<Run>())
-                    {
-                        foreach (var piece in this.ReadRun(run, inherited, null))
-                            yield return piece;
-                    }
+                    foreach (var piece in this.ReadInlines(hyperlink, inherited, this.ResolveHyperlink(hyperlink) ?? link, revision))
+                        yield return piece;
 
                     break;
 
                 case InsertedRun inserted:
-                    // A tracked insertion is part of the text as it stands; a deletion is not.
-                    foreach (var run in inserted.Elements<Run>())
+                    foreach (var piece in this.ReadInlines(inserted, inherited, link, TextRevision.Inserted))
+                        yield return piece;
+
+                    break;
+
+                case DeletedRun deleted:
+                    // Shown struck through rather than hidden: a reviewer has to be able to see what was
+                    // taken out before they can accept or reject it.
+                    foreach (var piece in this.ReadInlines(deleted, inherited, link, TextRevision.Deleted))
+                        yield return piece;
+
+                    break;
+
+                case SdtRun structured:
+                    if (structured.SdtContentRun is { } content)
                     {
-                        foreach (var piece in this.ReadRun(run, inherited, null))
+                        foreach (var piece in this.ReadInlines(content, inherited, link, revision))
                             yield return piece;
                     }
+
+                    break;
+
+                case CustomXmlRun:
+                    foreach (var piece in this.ReadInlines(child, inherited, link, revision))
+                        yield return piece;
 
                     break;
 
@@ -253,18 +300,15 @@ sealed class WordBodyReader(
                         // showed, so a field nothing resolves still measures and draws sensibly.
                         var cached = String.Concat(field.Descendants<DocumentFormat.OpenXml.Wordprocessing.Text>().Select(x => x.Text));
                         var fieldStyle = field.Descendants<Run>().FirstOrDefault() is { } styled
-                            ? this.ReadRun(styled, inherited, null).FirstOrDefault()?.Style ?? inherited
+                            ? this.ReadRun(styled, inherited, link, revision).FirstOrDefault()?.Style ?? inherited
                             : inherited;
 
                         yield return new StyledRun(cached, fieldStyle) { Field = simpleKind };
                         break;
                     }
 
-                    foreach (var run in field.Descendants<Run>())
-                    {
-                        foreach (var piece in this.ReadRun(run, inherited, null))
-                            yield return piece;
-                    }
+                    foreach (var piece in this.ReadInlines(field, inherited, link, revision))
+                        yield return piece;
 
                     break;
             }
@@ -307,7 +351,7 @@ sealed class WordBodyReader(
         };
     }
 
-    IEnumerable<StyledRun> ReadRun(Run run, TextStyle inherited, string? link)
+    IEnumerable<StyledRun> ReadRun(Run run, TextStyle inherited, string? link, TextRevision revision = TextRevision.None)
     {
         var style = inherited;
 
@@ -320,6 +364,9 @@ sealed class WordBodyReader(
         if (link is not null)
             style = style with { Link = link };
 
+        if (revision != TextRevision.None)
+            style = style with { Revision = revision };
+
         foreach (var child in run.ChildElements)
         {
             switch (child)
@@ -328,10 +375,37 @@ sealed class WordBodyReader(
                     yield return new StyledRun(text.Text ?? string.Empty, style);
                     break;
 
+                case DeletedText deleted:
+                    yield return new StyledRun(deleted.Text ?? string.Empty, style with { Revision = TextRevision.Deleted });
+                    break;
+
+                case FootnoteReference footnote:
+                    // Drawn as its number but one character to the caret: the number is computed from
+                    // the footnote's place in the document, and it is one mark however many digits.
+                    var footnoteId = (int)(footnote.Id?.Value ?? 0);
+                    var footnoteNumber = this.FootnoteNumbers.TryGetValue(footnoteId, out var fn) ? fn : footnoteId;
+                    yield return new StyledRun(footnoteNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), Superscript(style))
+                    {
+                        SourceLength = 1,
+                        FootnoteId = footnoteId
+                    };
+
+                    break;
+
+                case EndnoteReference endnote:
+                    var endnoteId = (int)(endnote.Id?.Value ?? 0);
+                    var endnoteNumber = this.EndnoteNumbers.TryGetValue(endnoteId, out var en) ? en : endnoteId;
+                    yield return new StyledRun(ToRoman(endnoteNumber), Superscript(style)) { SourceLength = 1 };
+                    break;
+
                 case TabChar:
                     // A real tab needs tab stops the reflow view does not model; four spaces is the
-                    // honest approximation and keeps indented text from collapsing.
-                    yield return new StyledRun("    ", style);
+                    // honest approximation and keeps indented text from collapsing. A right-aligned
+                    // stop is the exception, and the one that matters: it is how a TOC line ends.
+                    yield return this.rightTabLeader is { } leader
+                        ? new StyledRun("    ", style) { SourceLength = 4, RightTabLeader = leader }
+                        : new StyledRun("    ", style);
+
                     break;
 
                 case Break br:
@@ -355,17 +429,54 @@ sealed class WordBodyReader(
 
                     break;
 
-                case Picture:
-                    unsupported.Report(new UnsupportedFeature("document", "VML picture", UnsupportedSeverity.NotRendered));
+                case Picture picture:
+                    // A header's VML WordArt is a watermark, which the painter draws from the document's
+                    // WatermarkText; anything else in VML is not drawn and is said so.
+                    if (!picture.Descendants().Any(x => x.LocalName == "textpath"))
+                        unsupported.Report(new UnsupportedFeature("document", "VML picture", UnsupportedSeverity.NotRendered));
+
                     break;
 
-                case SymbolChar symbol when symbol.Char?.Value is { } code:
-                    if (int.TryParse(code, System.Globalization.NumberStyles.HexNumber, null, out var value))
-                        yield return new StyledRun(char.ConvertFromUtf32(value & 0xFF), style);
+                case SymbolChar symbol:
+                    // Always exactly one character, matching the editor's offset space: a symbol whose
+                    // code does not parse still occupies its position.
+                    var glyph = symbol.Char?.Value is { } code &&
+                                int.TryParse(code, System.Globalization.NumberStyles.HexNumber, null, out var value)
+                        ? (char)(value & 0xFF)
+                        : '\u25A1';
 
+                    yield return new StyledRun(glyph.ToString(), style) { SourceLength = 1 };
                     break;
             }
         }
+    }
+
+    /// <summary>The raised, smaller form Word draws a note reference in.</summary>
+    static TextStyle Superscript(TextStyle style)
+        => style.BaselineShift > 0 ? style : style with { BaselineShift = 0.33, SizeScale = 0.65 };
+
+    static string ToRoman(int number)
+    {
+        if (number <= 0 || number > 3999)
+            return number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        (int Value, string Numeral)[] table =
+        [
+            (1000, "m"), (900, "cm"), (500, "d"), (400, "cd"), (100, "c"), (90, "xc"),
+            (50, "l"), (40, "xl"), (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")
+        ];
+
+        var builder = new System.Text.StringBuilder();
+        foreach (var (v, n) in table)
+        {
+            while (number >= v)
+            {
+                builder.Append(n);
+                number -= v;
+            }
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>

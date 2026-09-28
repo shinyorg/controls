@@ -255,7 +255,7 @@ public static partial class OfficeIcons
             OfficeIconShape.Line(17f, 16f, 18.5f, 17f)
         ],
 
-        _ => []
+        _ => WordIcons.Shapes(icon) ?? []
     };
 
     /// <summary>A dotted cell border — Excel's own way of drawing "no line here" in its border marks.</summary>

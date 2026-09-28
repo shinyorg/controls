@@ -176,15 +176,15 @@ public class DocumentEditingTests
         // The run already carries a font and size from the style chain. Turning on bold must not
         // flatten them, which is what handing over a whole style rather than a mutation would do.
         using var document = await OpenAsync();
-        var block = document.Blocks.ToList().FindIndex(x => x is DocumentParagraph p && p.PlainText.StartsWith("Text using a style"));
+        var block = document.Paragraphs.ToList().FindIndex(p => p.PlainText.StartsWith("Text using a style"));
 
-        var before = ((DocumentParagraph)document.Blocks[block]).Runs[0].Style;
+        var before = document.Paragraphs[block].Runs[0].Style;
 
         document.Execute(new FormatRunsCommand(
             new DocumentRange(new DocumentPosition(block, 0), new DocumentPosition(block, 4)),
             RunFormatChange.Bold(true)));
 
-        var after = ((DocumentParagraph)document.Blocks[block]).Runs[0].Style;
+        var after = document.Paragraphs[block].Runs[0].Style;
 
         after.Bold.ShouldBeTrue();
         after.FontFamily.ShouldBe(before.FontFamily);
@@ -884,7 +884,7 @@ public class DocumentEditorControllerTests
         controller.SelectAll();
 
         controller.Selection.Range.Start.ShouldBe(DocumentPosition.Start);
-        controller.Selection.Range.End.Block.ShouldBe(document.Blocks.Count - 1);
+        controller.Selection.Range.End.Block.ShouldBe(document.Paragraphs.Count - 1);
     }
 
     [Fact]

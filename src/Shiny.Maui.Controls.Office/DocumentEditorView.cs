@@ -1,201 +1,68 @@
 using Shiny.Controls.Office.Document;
 using Shiny.Controls.Office.Icons;
 using Shiny.Controls.Office.Packaging;
-using Shiny.Controls.Office.Shapes;
 using Shiny.Maui.Controls.ColorPicker;
 using Shiny.Maui.Controls.Ribbons;
 using Shiny.Maui.Controls.FontPicker;
 using Shiny.Controls.Office.Spreadsheet;
-using Shiny.Controls.Office.Text;
-using TextAlignment = Shiny.Controls.Office.Text.TextAlignment;
 
 namespace Shiny.Maui.Controls.Office;
 
 /// <summary>
-/// <see cref="DocumentEditor"/> with a formatting toolbar above it.
+/// <see cref="DocumentEditor"/> with Word's ribbon above it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The toolbar is built from MAUI primitives plus the core package's <c>FontPickerButton</c> and
-/// <c>FontSizePickerButton</c>. MAUI has no <c>ShinyToolbar</c> — that control is Blazor-only — so the
-/// bar itself is a scrolling row here, while the Blazor <c>DocumentEditorView</c> composes ShinyToolbar
-/// for the same two slots. The API and behaviour match; only the internals differ.
+/// The tabs are Word's: Home (Clipboard, Font, Paragraph, Styles, Editing), Insert, Design, Layout,
+/// References, Review and View, plus a contextual Table tab that appears while the caret is in a
+/// table. The tab strip is on by default — with eight tabs, turning it off hides most of the editor.
 /// </para>
 /// <para>
-/// Every plain button on it is an <see cref="OfficeToolbarButton"/> drawing from the shared
-/// <see cref="OfficeIcons"/> set — one monochrome stroked weight, no colour of its own, the same
-/// artwork the Blazor toolbar renders. The pickers are the exception, because a font, a size and a
-/// colour have to show what they are currently set to.
+/// Every ribbon item is declared with the state it reflects (checked, enabled) as a function of the
+/// controller, and one refresh pass applies them all. That keeps a toggle's pressed state and a
+/// button's availability next to the command they belong to, rather than in a second list that has to
+/// be kept in step by hand.
+/// </para>
+/// <para>
+/// Plain buttons draw from the shared <see cref="OfficeIcons"/> set (the Word-only marks are
+/// <see cref="WordIcons"/>) — one monochrome stroked weight, the same artwork the Blazor ribbon renders.
+/// The pickers are the exception, because a font, a size and a colour have to show what they are set to.
 /// </para>
 /// </remarks>
-public class DocumentEditorView : ContentView, IDisposable
+public partial class DocumentEditorView : ContentView, IDisposable
 {
     readonly DocumentEditor editor = new();
     readonly Ribbon ribbon;
     readonly Grid root;
-
-    readonly RibbonToggleButton bold;
-    readonly RibbonToggleButton italic;
-    readonly RibbonToggleButton underline;
-    readonly RibbonToggleButton strike;
-    readonly RibbonButton undo;
-    readonly RibbonButton redo;
-    readonly RibbonToggleButton alignLeft;
-    readonly RibbonToggleButton alignCenter;
-    readonly RibbonToggleButton alignRight;
-    readonly RibbonToggleButton alignJustify;
-    readonly RibbonToggleButton highlight;
-    readonly RibbonToggleButton bulletList;
-    readonly RibbonToggleButton numberedList;
-    readonly RibbonButton indent;
-    readonly RibbonButton outdent;
-    readonly RibbonButton insertTable;
-    readonly RibbonButton insertPicture;
-    readonly RibbonButton watermark;
-    readonly IReadOnlyList<RibbonButton> marginButtons;
-    readonly RibbonButton insertHeader;
-    readonly RibbonButton insertFooter;
-    readonly RibbonMenuButton pageNumber;
-    readonly RibbonButton pageBreak;
-    readonly RibbonToggleButton printLayout;
-    readonly RibbonToggleButton portrait;
-    readonly RibbonToggleButton landscape;
-    readonly RibbonToggleButton spellCheck;
-    readonly RibbonButton zoomIn;
-    readonly RibbonButton zoomOut;
-    readonly RibbonButton fitWidth;
-    readonly Label zoomLabel;
-    readonly RibbonButton previousError;
-    readonly RibbonButton nextError;
+    readonly Grid body;
+    readonly Grid overlay;
     readonly OfficeFindBar findBar = new();
     readonly ColorPickerButton textColor;
-    readonly List<RibbonItem> buttons = [];
+    readonly List<ItemBinding> bindings = [];
+    readonly List<MenuBinding> menuBindings = [];
 
+    RibbonTab? tableTab;
+    RibbonMenuButton? stylesMenu;
     View? fontPicker;
     View? sizePicker;
     bool suppressPickerEvents;
     bool disposed;
+    DocumentEditorController? attached;
 
     public DocumentEditorView()
     {
-        this.bold = this.MakeToggle(OfficeIcon.Bold, "Bold (Ctrl+B)", () => this.editor.Controller?.ToggleBold());
-        this.italic = this.MakeToggle(OfficeIcon.Italic, "Italic (Ctrl+I)", () => this.editor.Controller?.ToggleItalic());
-        this.underline = this.MakeToggle(OfficeIcon.Underline, "Underline (Ctrl+U)", () => this.editor.Controller?.ToggleUnderline());
-        this.strike = this.MakeToggle(OfficeIcon.Strikethrough, "Strikethrough", () => this.editor.Controller?.ToggleStrikethrough());
-
-        this.alignLeft = this.MakeToggle(OfficeIcon.AlignLeft, "Align left", () => this.editor.Controller?.SetAlignment(TextAlignment.Left));
-        this.alignCenter = this.MakeToggle(OfficeIcon.AlignCenter, "Centre", () => this.editor.Controller?.SetAlignment(TextAlignment.Center));
-        this.alignRight = this.MakeToggle(OfficeIcon.AlignRight, "Align right", () => this.editor.Controller?.SetAlignment(TextAlignment.Right));
-        this.alignJustify = this.MakeToggle(OfficeIcon.AlignJustify, "Justify", () => this.editor.Controller?.SetAlignment(TextAlignment.Justify));
-
-        this.bulletList = this.MakeToggle(OfficeIcon.BulletList, "Bulleted list", () => this.editor.Controller?.ToggleBulletList());
-        this.numberedList = this.MakeToggle(OfficeIcon.NumberedList, "Numbered list", () => this.editor.Controller?.ToggleNumberedList());
-        this.outdent = this.MakeButton(OfficeIcon.Outdent, "Outdent (Shift+Tab)", () => this.editor.Controller?.ChangeListLevel(-1));
-        this.indent = this.MakeButton(OfficeIcon.Indent, "Indent (Tab)", () => this.editor.Controller?.ChangeListLevel(1));
-
-        this.highlight = this.MakeToggle(OfficeIcon.Highlight, "Highlight", () => _ = this.PickHighlightAsync());
-        this.insertTable = this.MakeAsyncButton(OfficeIcon.Table, "Table", this.InsertTableAsync);
-        this.insertPicture = this.MakeAsyncButton(OfficeIcon.Picture, "Picture", this.InsertPictureAsync);
-        this.watermark = this.MakeAsyncButton(OfficeIcon.Watermark, "Watermark", this.PickWatermarkAsync);
-
-        // A button per preset rather than one that opens a sheet of four. Four is few enough to show,
-        // and the whole reason to have a ribbon is that the choices are on it.
-        this.marginButtons =
-        [
-            .. PageMarginPresets.All.Select(preset => this.Track(new RibbonButton
-            {
-                // No Text: four captions are most of a phone's width, and they pushed everything after
-                // this group off the right-hand edge of the bar. The icon draws the inset instead.
-                Tooltip = $"{preset.Name} — {preset.Description}",
-                Size = RibbonItemSize.Small,
-                AutomationId = "DocToolbarMargins" + preset.Name,
-                IconTemplate = OfficeRibbonItems.IconTemplateFor(MarginIcon(preset.Name)),
-                Command = new Command(() => this.editor.Controller?.SetPageMargins(preset.Margins))
-            }))
-        ];
-
-        this.insertHeader = this.MakeAsyncButton(OfficeIcon.Header, "Header", () => this.EditChromeAsync(header: true));
-        this.insertFooter = this.MakeAsyncButton(OfficeIcon.Footer, "Footer", () => this.EditChromeAsync(header: false));
-        this.pageBreak = this.MakeButton(OfficeIcon.PageBreak, "Page break (Ctrl+Enter)", () => this.editor.Controller?.InsertPageBreak());
-
-        // A menu, not a button: a page number has a place and a form, and picking them afterwards
-        // means finding the header you just wrote into. Six entries is small enough to show at once.
-        this.pageNumber = this.Track(new RibbonMenuButton
+        this.textColor = this.CreateColorPicker(color =>
         {
-            Tooltip = "Page number",
-            Size = RibbonItemSize.Small,
-            AutomationId = "DocToolbarPageNumber",
-            IconTemplate = OfficeRibbonItems.IconTemplateFor(OfficeIcon.PageNumber)
+            this.editor.Controller?.SetTextColor(color);
+            this.AfterCommand();
         });
-
-        foreach (var placement in new[] { PageNumberPlacement.Footer, PageNumberPlacement.Header })
-        {
-            foreach (var position in new[] { PageNumberPosition.Left, PageNumberPosition.Center, PageNumberPosition.Right })
-            {
-                var where = placement;
-                var side = position;
-
-                this.pageNumber.Menu.Add(new RibbonMenuEntry
-                {
-                    Text = $"{where} — {side}",
-                    Command = new Command(() =>
-                    {
-                        this.editor.Controller?.InsertPageNumber(where, side);
-                        this.RefreshBar();
-                    })
-                });
-            }
-        }
-
-        // Print layout is a way of looking at the document, so it is a toggle rather than two buttons:
-        // the pressed state is what says which of the two you are in.
-        this.printLayout = this.MakeToggle(OfficeIcon.PrintLayout, "Print layout", () =>
-        {
-            this.editor.PageLayout = this.editor.PageLayout == DocumentPageLayout.Print
-                ? DocumentPageLayout.Reflow
-                : DocumentPageLayout.Print;
-
-            this.RefreshBar();
-        });
-
-        // Two toggles rather than one, because a page is one of two things rather than on or off -
-        // a single "Landscape" button leaves the user reading its pressed state backwards to work out
-        // what portrait would be.
-        this.portrait = this.MakeToggle(OfficeIcon.Portrait, "Portrait", () => this.SetOrientation(PageOrientation.Portrait));
-        this.landscape = this.MakeToggle(OfficeIcon.Landscape, "Landscape", () => this.SetOrientation(PageOrientation.Landscape));
-
-        this.zoomOut = this.MakeButton(OfficeIcon.ZoomOut, "Zoom out", () => this.StepZoom(-1));
-        this.zoomIn = this.MakeButton(OfficeIcon.ZoomIn, "Zoom in", () => this.StepZoom(1));
-        this.fitWidth = this.MakeButton(OfficeIcon.FitWidth, "Fit the page to the window", this.FitToWidth);
-
-        this.zoomLabel = new Label
-        {
-            FontSize = 13,
-            MinimumWidthRequest = 42,
-            HorizontalTextAlignment = Microsoft.Maui.TextAlignment.Center,
-            VerticalTextAlignment = Microsoft.Maui.TextAlignment.Center
-        };
-
-        this.zoomLabel.SetDynamicResource(
-            Label.TextColorProperty,
-            Shiny.Maui.Controls.Themes.ShinyThemeKeys.Color.OnSurfaceVariant);
-
-        this.spellCheck = this.MakeToggle(OfficeIcon.SpellCheck, "Check spelling", this.ToggleSpellCheck);
-        this.previousError = this.MakeButton(OfficeIcon.Previous, "Previous misspelling", () => this.GoToSpellingError(backwards: true));
-        this.nextError = this.MakeButton(OfficeIcon.Next, "Next misspelling", () => this.GoToSpellingError(backwards: false));
-
-        this.undo = this.MakeButton(OfficeIcon.Undo, "Undo (Ctrl+Z)", () => this.editor.Controller?.Undo());
-        this.redo = this.MakeButton(OfficeIcon.Redo, "Redo (Ctrl+Shift+Z)", () => this.editor.Controller?.Redo());
-
-        this.textColor = this.CreateColorPicker();
 
         this.ribbon = new Ribbon
         {
             SmallItemRows = 2,
 
             // These bars mix 32px pickers with icon buttons, and every group sizes its own rows - so
-            // without one height the groups stop lining up with one another and the titles under them
-            // land on different baselines.
+            // without one height the groups stop lining up with one another.
             SmallItemRowHeight = 32,
             AllowGroupCollapse = true,
 
@@ -204,9 +71,23 @@ public class DocumentEditorView : ContentView, IDisposable
             SimplifyBelowWidth = 600
         };
 
-        // Explicitly, because a BindableProperty's propertyChanged does not fire for its default -
-        // so the accent every one of these ships with would never have been applied at all.
+        // Explicitly, because a BindableProperty's propertyChanged does not fire for its default.
         this.ApplyAccent();
+
+        this.overlay = new Grid { InputTransparent = false, CascadeInputTransparent = false };
+        this.overlay.InputTransparent = true;
+
+        this.body = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Star)
+            }
+        };
+
+        this.body.Add(this.editor);
+        Grid.SetColumn(this.editor, 1);
 
         this.root = new Grid
         {
@@ -218,15 +99,22 @@ public class DocumentEditorView : ContentView, IDisposable
         };
 
         this.root.Add(this.ribbon);
-        this.root.Add(this.editor);
-        Grid.SetRow(this.editor, 1);
+        this.root.Add(this.body);
+        Grid.SetRow(this.body, 1);
+
+        // Panels (replace, symbols, the read-mode exit) float over the page rather than pushing it.
+        this.root.Add(this.overlay);
+        Grid.SetRow(this.overlay, 1);
 
         this.editor.DocumentChanged += this.OnDocumentChanged;
+        this.editor.ShortcutRequested += this.OnShortcutRequested;
         this.Content = this.root;
 
         this.BuildBar();
         this.AttachDrop();
     }
+
+    // ---- bindable properties ----
 
     public static readonly BindableProperty DocumentProperty = BindableProperty.Create(
         nameof(Document),
@@ -251,7 +139,13 @@ public class DocumentEditorView : ContentView, IDisposable
         typeof(double),
         typeof(DocumentEditorView),
         1.0,
-        propertyChanged: (b, _, value) => ((DocumentEditorView)b).editor.Zoom = (double)value);
+        BindingMode.TwoWay,
+        propertyChanged: (b, _, value) =>
+        {
+            var view = (DocumentEditorView)b;
+            view.editor.Zoom = (double)value;
+            view.RefreshBar();
+        });
 
     public static readonly BindableProperty IsReadOnlyProperty = BindableProperty.Create(
         nameof(IsReadOnly),
@@ -261,7 +155,7 @@ public class DocumentEditorView : ContentView, IDisposable
         propertyChanged: (b, _, value) =>
         {
             var view = (DocumentEditorView)b;
-            view.editor.IsReadOnly = (bool)value;
+            view.editor.IsReadOnly = (bool)value || view.ReadMode;
             view.RefreshBar();
         });
 
@@ -284,23 +178,33 @@ public class DocumentEditorView : ContentView, IDisposable
         typeof(bool),
         typeof(DocumentEditorView),
         true,
-        propertyChanged: (b, _, value) => ((DocumentEditorView)b).ribbon.IsVisible = (bool)value);
+        propertyChanged: (b, _, _) => ((DocumentEditorView)b).ApplyChromeVisibility());
+
+    /// <summary>
+    /// Draw the ribbon's tab strip. On by default.
+    /// </summary>
+    /// <remarks>
+    /// With eight tabs — nine with Table — turning the strip off leaves only Home reachable. It is
+    /// offered for a host that shows a single tab of its own choosing.
+    /// </remarks>
+    public static readonly BindableProperty ShowRibbonTabsProperty = BindableProperty.Create(
+        nameof(ShowRibbonTabs),
+        typeof(bool),
+        typeof(DocumentEditorView),
+        true,
+        propertyChanged: (b, _, value) =>
+        {
+            var view = (DocumentEditorView)b;
+            view.ribbon.ShowTabStrip = (bool)value;
+            view.ribbon.AllowCollapse = (bool)value;
+        });
 
     /// <summary>
     /// Whether the icon-only toolbar buttons carry a hover tooltip naming what they do.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// On for desktop, off for phones and tablets. Every button on this bar is icon only, and an icon
-    /// with no label is a guess until something names it — but the tooltip that names it opens on
-    /// hover, and there is no hover on a touch screen. A long-press tooltip is not the answer either:
-    /// it would compete with the tap the button exists for. Touch hosts get the semantic description
-    /// instead, which is what a screen reader reads on any platform.
-    /// </para>
-    /// <para>
-    /// The ribbon decides for itself whether to show a tooltip, from the same hover-capability rule -
-    /// so this now only reaches the pickers the bar hosts, which draw their own.
-    /// </para>
+    /// The ribbon decides for itself whether to show a tooltip, from the hover-capability rule — so
+    /// this only reaches the pickers the bar hosts, which draw their own.
     /// </remarks>
     public static readonly BindableProperty ShowToolbarTooltipsProperty = BindableProperty.Create(
         nameof(ShowToolbarTooltips),
@@ -319,6 +223,38 @@ public class DocumentEditorView : ContentView, IDisposable
         typeof(IList<double>),
         typeof(DocumentEditorView),
         propertyChanged: (b, _, _) => ((DocumentEditorView)b).BuildBar());
+
+    /// <summary>
+    /// Read Mode: the ribbon goes away and the document reflows into one column you can read but not
+    /// edit, with a button to come back out.
+    /// </summary>
+    public static readonly BindableProperty ReadModeProperty = BindableProperty.Create(
+        nameof(ReadMode),
+        typeof(bool),
+        typeof(DocumentEditorView),
+        false,
+        BindingMode.TwoWay,
+        propertyChanged: (b, _, _) => ((DocumentEditorView)b).ApplyReadMode());
+
+    /// <summary>Show the navigation pane — the document's headings, down the left, to jump between.</summary>
+    public static readonly BindableProperty ShowNavigationPaneProperty = BindableProperty.Create(
+        nameof(ShowNavigationPane),
+        typeof(bool),
+        typeof(DocumentEditorView),
+        false,
+        BindingMode.TwoWay,
+        propertyChanged: (b, _, _) => ((DocumentEditorView)b).ApplyNavigationPane());
+
+    /// <summary>
+    /// Show a File button at the ribbon's left, raising <see cref="FileRequested"/> — the hook for a
+    /// backstage view. Off by default: the editor has no File menu of its own.
+    /// </summary>
+    public static readonly BindableProperty ShowFileButtonProperty = BindableProperty.Create(
+        nameof(ShowFileButton),
+        typeof(bool),
+        typeof(DocumentEditorView),
+        false,
+        propertyChanged: (b, _, value) => ((DocumentEditorView)b).ApplyFileButton((bool)value));
 
     public WordDocument? Document
     {
@@ -362,6 +298,13 @@ public class DocumentEditorView : ContentView, IDisposable
         set => this.SetValue(ShowToolbarProperty, value);
     }
 
+    /// <inheritdoc cref="ShowRibbonTabsProperty"/>
+    public bool ShowRibbonTabs
+    {
+        get => (bool)this.GetValue(ShowRibbonTabsProperty);
+        set => this.SetValue(ShowRibbonTabsProperty, value);
+    }
+
     /// <summary>Hover tooltips on the icon-only toolbar buttons. Desktop only by default.</summary>
     public bool ShowToolbarTooltips
     {
@@ -382,15 +325,51 @@ public class DocumentEditorView : ContentView, IDisposable
         set => this.SetValue(FontSizesProperty, value);
     }
 
+    /// <inheritdoc cref="ReadModeProperty"/>
+    public bool ReadMode
+    {
+        get => (bool)this.GetValue(ReadModeProperty);
+        set => this.SetValue(ReadModeProperty, value);
+    }
+
+    /// <inheritdoc cref="ShowNavigationPaneProperty"/>
+    public bool ShowNavigationPane
+    {
+        get => (bool)this.GetValue(ShowNavigationPaneProperty);
+        set => this.SetValue(ShowNavigationPaneProperty, value);
+    }
+
+    /// <inheritdoc cref="ShowFileButtonProperty"/>
+    public bool ShowFileButton
+    {
+        get => (bool)this.GetValue(ShowFileButtonProperty);
+        set => this.SetValue(ShowFileButtonProperty, value);
+    }
+
     /// <summary>The underlying editor, for focus and direct key routing.</summary>
     public DocumentEditor Editor => this.editor;
 
     public DocumentEditorController? Controller => this.editor.Controller;
 
+    /// <summary>Word count, characters, paragraphs, pages and the caret's page — for a status bar.</summary>
+    public DocumentStatistics Statistics => this.editor.Controller?.Statistics ?? DocumentStatistics.Empty;
+
     public event EventHandler? DocumentChanged;
 
     /// <summary>Raised when a dropped or chosen file could not be inserted, so a host can say so.</summary>
     public event EventHandler<OfficeDropRejected>? DropRejected;
+
+    /// <summary>Raised when <see cref="Statistics"/> may have changed — an edit, or the caret moving to another page.</summary>
+    public event EventHandler? StatisticsChanged;
+
+    /// <summary>Raised when the zoom changes from anywhere — the View tab, a pinch, a binding.</summary>
+    public event EventHandler<double>? ZoomChanged;
+
+    /// <summary>Raised when the caret moves onto a paragraph of a different style, with the new style id.</summary>
+    public event EventHandler<string>? CurrentStyleChanged;
+
+    /// <summary>Raised by the File button. See <see cref="ShowFileButton"/>.</summary>
+    public event EventHandler? FileRequested;
 
     public static readonly BindableProperty ShapeWidthProperty = BindableProperty.Create(
         nameof(ShapeWidth), typeof(double), typeof(DocumentEditorView), 160d);
@@ -429,173 +408,154 @@ public class DocumentEditorView : ContentView, IDisposable
         return handled;
     }
 
-    void BuildBar()
+    /// <summary>Routes a key combination through Word's shortcuts. See <see cref="DocumentEditor.HandleShortcut"/>.</summary>
+    public bool HandleShortcut(string key, bool command, bool shift = false, bool alt = false)
     {
-        this.ribbon.Tabs.Clear();
-
-        this.fontPicker = this.CreateFontPicker();
-        this.sizePicker = this.CreateSizePicker();
-
-        // Undo and redo apply whatever the caret is in, so they sit outside the groups.
-        this.ribbon.QuickAccessItems.Clear();
-        this.ribbon.QuickAccessItems.Add(this.undo);
-        this.ribbon.QuickAccessItems.Add(this.redo);
-
-        var tab = new RibbonTab { Title = "Home", Key = "home" };
-
-        // Rows, which is what Word actually draws: the two boxes on top and the run of marks
-        // underneath. Filling columns instead put bold above italic and underline above strikethrough -
-        // a 2x2 block of a run people read across - and forced the font picker to share a column with a
-        // toggle, where the column took the picker's width and stretched the 16px B across all of it.
-        var font = new RibbonGroup { Title = "Font", Priority = 100 };
-
-        var fontBoxes = new RibbonRow();
-
-        if (this.fontPicker is not null)
-            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
-
-        if (this.sizePicker is not null)
-            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
-
-        font.Items.Add(fontBoxes);
-        font.Items.Add(OfficeRibbonItems.Row(
-            this.bold,
-            this.italic,
-            this.underline,
-            this.strike,
-            new RibbonSeparator(),
-            OfficeRibbonItems.Host(this.textColor),
-            this.highlight
-        ));
-        tab.Groups.Add(font);
-
-        // Lists and the indent pair on top, the four alignments underneath - Word's own arrangement,
-        // and two full rows of four rather than a 2x4 grid that read align-left / align-right down the
-        // first column.
-        var paragraph = new RibbonGroup { Title = "Paragraph", Priority = 90 };
-        paragraph.Items.Add(OfficeRibbonItems.Row(
-            this.bulletList,
-            this.numberedList,
-            this.outdent,
-            this.indent
-        ));
-        paragraph.Items.Add(OfficeRibbonItems.Row(
-            this.alignLeft,
-            this.alignCenter,
-            this.alignRight,
-            this.alignJustify
-        ));
-        tab.Groups.Add(paragraph);
-
-        // Proofing rides on Home rather than a Review tab of its own. Spelling is something you do
-        // while writing, not a separate pass, and a tab holding three buttons costs a click to reach
-        // and leaves most of a bar empty when you get there.
-        //
-        // The toggle is large and labelled: three icon-only buttons left a hole where the third row
-        // would be, and "check spelling" is not a mark anyone reads off a 16px glyph. The two steppers
-        // stack beside it, which is the column the hole used to be.
-        var proofing = new RibbonGroup { Title = "Proofing", Priority = 70 };
-        this.spellCheck.Size = RibbonItemSize.Large;
-        this.spellCheck.Text = "Spelling";
-        proofing.Items.Add(this.spellCheck);
-        proofing.Items.Add(this.previousError);
-        proofing.Items.Add(this.nextError);
-        tab.Groups.Add(proofing);
-
-        // On Home, and last on it. Finding a word is something you do while writing rather than a
-        // separate pass, so it sits on the tab that opens - but it is reached less often than the
-        // formatting beside it, which is what the priority orders and what decides which group folds
-        // into the overflow first on a narrow window.
-        //
-        // The bar spans the rows: it is one control as tall as the group, and on a single row it left
-        // the row underneath empty for the width of a search box.
-        var finding = new RibbonGroup { Title = "Find", Priority = 60 };
-        finding.Items.Add(OfficeRibbonItems.HostLarge(this.findBar));
-        tab.Groups.Add(finding);
-
-        this.ribbon.Tabs.Add(tab);
-
-        // Two tabs, not four. Home is what you do to the text under the caret; Layout is what you do
-        // to the page it sits on. Splitting further gave Insert and Layout one group each, which is a
-        // click to reach a bar with a single button on it.
-        var layoutTab = new RibbonTab { Title = "Layout", Key = "layout" };
-
-        // The four presets on one row. Two deep in columns they came out as two pairs, and which
-        // preset was which then depended on counting down a column rather than along a row.
-        var page = new RibbonGroup { Title = "Margins", Priority = 100 };
-        page.Items.Add(OfficeRibbonItems.Row([.. this.marginButtons]));
-        layoutTab.Groups.Add(page);
-
-        var pageSetup = new RibbonGroup { Title = "Page", Priority = 90 };
-        pageSetup.Items.Add(this.portrait);
-        pageSetup.Items.Add(this.landscape);
-        pageSetup.Items.Add(new RibbonSeparator());
-        pageSetup.Items.Add(this.printLayout);
-        pageSetup.Items.Add(this.watermark);
-        layoutTab.Groups.Add(pageSetup);
-
-        // Minus, readout, plus - on one row, in that order. Filling columns put the readout under the
-        // minus and the plus above "fit", which is a stepper whose two halves are on different lines
-        // with the number wedged between them.
-        var zoom = new RibbonGroup { Title = "Zoom", Priority = 80 };
-        zoom.Items.Add(OfficeRibbonItems.Row(
-            this.zoomOut,
-            OfficeRibbonItems.Host(this.zoomLabel),
-            this.zoomIn
-        ));
-
-        this.fitWidth.Text = "Fit width";
-        zoom.Items.Add(OfficeRibbonItems.Row(this.fitWidth));
-        layoutTab.Groups.Add(zoom);
-
-        this.ribbon.Tabs.Add(layoutTab);
-
-        // Insert stands on its own again now that it has something to hold: what goes *in* the
-        // document (a table, a picture) and what goes *around* it (the running head and foot, the
-        // number on every page, and the break between two of them).
-        var insertTab = new RibbonTab { Title = "Insert", Key = "insert" };
-
-        // Labelled: these are things you insert by name, not marks you recognise - nobody reads
-        // "footer" off a 16px glyph.
-        var objects = new RibbonGroup { Title = "Objects", Priority = 100 };
-        this.insertTable.Text = "Table";
-        this.insertPicture.Text = "Picture";
-        objects.Items.Add(OfficeRibbonItems.Row(this.insertTable, this.insertPicture));
-        insertTab.Groups.Add(objects);
-
-        // Two rows rather than three items filling columns two deep, which left the page-number menu
-        // alone in a second column with a hole under it.
-        var chrome = new RibbonGroup { Title = "Header & Footer", Priority = 90 };
-        this.insertHeader.Text = "Header";
-        this.insertFooter.Text = "Footer";
-        this.pageNumber.Text = "Page number";
-        chrome.Items.Add(OfficeRibbonItems.Row(this.insertHeader, this.insertFooter));
-        chrome.Items.Add(OfficeRibbonItems.Row(this.pageNumber));
-        insertTab.Groups.Add(chrome);
-
-        // One command, so it is drawn the way a single command should be: large, with its name on it.
-        // A lone 16px glyph under a caption reading "Breaks" said nothing.
-        var breaks = new RibbonGroup { Title = "Pages", Priority = 80 };
-        this.pageBreak.Size = RibbonItemSize.Large;
-        this.pageBreak.Text = "Page break";
-        breaks.Items.Add(this.pageBreak);
-        insertTab.Groups.Add(breaks);
-
-        this.ribbon.Tabs.Add(insertTab);
-        this.ribbon.Tabs.Add(OfficeRibbonItems.ShapesTab(g => this.editor.Controller?.InsertShape(g)));
-
+        var handled = this.editor.HandleShortcut(key, command, shift, alt);
         this.RefreshBar();
+        return handled;
     }
+
+    // ---- item bindings ----
+
+    /// <summary>An item and the state it shows, both worked out from the controller.</summary>
+    sealed record ItemBinding(RibbonItem Item, Func<DocumentEditorController, bool>? Enabled, Func<DocumentEditorController, bool>? Checked, bool ViewOnly);
+
+    /// <summary>A menu line whose tick follows the controller.</summary>
+    sealed record MenuBinding(RibbonMenuEntry Entry, Func<DocumentEditorController, bool> Checked);
+
+    /// <summary>
+    /// A command button.
+    /// </summary>
+    /// <param name="viewOnly">True for a command that changes nothing — zoom, find, navigation —
+    /// which stays live in a read-only document.</param>
+    RibbonButton Button(
+        OfficeIcon icon,
+        string tooltip,
+        Action<DocumentEditorController> action,
+        string? text = null,
+        bool large = false,
+        Func<DocumentEditorController, bool>? enabled = null,
+        bool viewOnly = false)
+    {
+        var button = large
+            ? OfficeRibbonItems.LargeCommand(icon, text ?? tooltip, tooltip, () => this.Run(action), $"DocToolbar{icon}")
+            : OfficeRibbonItems.Command(icon, tooltip, () => this.Run(action), text, $"DocToolbar{icon}");
+
+        this.bindings.Add(new ItemBinding(button, enabled, null, viewOnly));
+        return button;
+    }
+
+    /// <summary>A command whose work opens a prompt or a picker first, so it refreshes the bar itself.</summary>
+    RibbonButton AsyncButton(
+        OfficeIcon icon,
+        string tooltip,
+        Func<DocumentEditorController, Task> action,
+        string? text = null,
+        bool large = false,
+        Func<DocumentEditorController, bool>? enabled = null,
+        bool viewOnly = false)
+    {
+        void Start()
+        {
+            if (this.editor.Controller is { } controller)
+                _ = action(controller);
+        }
+
+        var button = large
+            ? OfficeRibbonItems.LargeCommand(icon, text ?? tooltip, tooltip, Start, $"DocToolbar{icon}")
+            : OfficeRibbonItems.Command(icon, tooltip, Start, text, $"DocToolbar{icon}");
+
+        this.bindings.Add(new ItemBinding(button, enabled, null, viewOnly));
+        return button;
+    }
+
+    RibbonToggleButton Toggle(
+        OfficeIcon icon,
+        string tooltip,
+        Action<DocumentEditorController> action,
+        Func<DocumentEditorController, bool> isChecked,
+        string? text = null,
+        bool large = false,
+        Func<DocumentEditorController, bool>? enabled = null,
+        bool viewOnly = false)
+    {
+        var toggle = OfficeRibbonItems.Toggle(icon, tooltip, () => this.Run(action), $"DocToolbar{icon}");
+        toggle.Text = text;
+
+        if (large)
+            toggle.Size = RibbonItemSize.Large;
+
+        this.bindings.Add(new ItemBinding(toggle, enabled, isChecked, viewOnly));
+        return toggle;
+    }
+
+    /// <summary>A dropdown of commands.</summary>
+    RibbonMenuButton Menu(
+        OfficeIcon icon,
+        string tooltip,
+        string? text,
+        IEnumerable<(string Text, Action<DocumentEditorController> Action, Func<DocumentEditorController, bool>? Checked)> entries,
+        bool large = false,
+        Func<DocumentEditorController, bool>? enabled = null,
+        bool viewOnly = false)
+    {
+        var menu = new RibbonMenuButton
+        {
+            Text = text,
+            Tooltip = tooltip,
+            Size = large ? RibbonItemSize.Large : RibbonItemSize.Small,
+            AutomationId = $"DocToolbar{icon}Menu",
+            IconTemplate = OfficeRibbonItems.IconTemplateFor(icon)
+        };
+
+        foreach (var (label, action, isChecked) in entries)
+        {
+            if (label == "-")
+            {
+                menu.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+                continue;
+            }
+
+            var entry = new RibbonMenuEntry { Text = label, Command = new Command(() => this.Run(action)) };
+            menu.Menu.Add(entry);
+
+            if (isChecked is not null)
+                this.menuBindings.Add(new MenuBinding(entry, isChecked));
+        }
+
+        this.bindings.Add(new ItemBinding(menu, enabled, null, viewOnly));
+        return menu;
+    }
+
+    static (string, Action<DocumentEditorController>, Func<DocumentEditorController, bool>?) Entry(
+        string text,
+        Action<DocumentEditorController> action,
+        Func<DocumentEditorController, bool>? isChecked = null)
+        => (text, action, isChecked);
+
+    static readonly (string, Action<DocumentEditorController>, Func<DocumentEditorController, bool>?) Separator = ("-", _ => { }, null);
+
+    /// <summary>Runs a command against the controller and settles the view afterwards.</summary>
+    void Run(Action<DocumentEditorController> action)
+    {
+        if (this.editor.Controller is not { } controller)
+            return;
+
+        action(controller);
+        this.AfterCommand();
+    }
+
+    // ---- pickers ----
 
     /// <summary>
     /// The core package's colour picker, in its button form.
     /// </summary>
     /// <remarks>
     /// Not a row of preset swatches: a document's text can be any colour, and a fixed palette is a
-    /// promise the format does not make. The button shows the colour at the caret and opens the full
-    /// spectrum — the same control the Blazor toolbar puts in this slot.
+    /// promise the format does not make.
     /// </remarks>
-    ColorPickerButton CreateColorPicker()
+    ColorPickerButton CreateColorPicker(Action<ArgbColor> picked)
     {
         var picker = new ColorPickerButton
         {
@@ -611,8 +571,7 @@ public class DocumentEditorView : ContentView, IDisposable
             if (this.suppressPickerEvents)
                 return;
 
-            this.editor.Controller?.SetTextColor(ToArgb(color));
-            this.AfterCommand();
+            picked(ToArgb(color));
         };
 
         return picker;
@@ -682,138 +641,7 @@ public class DocumentEditorView : ContentView, IDisposable
     /// <summary>One height for every control in the bar. See <see cref="OfficeToolbarButton.ItemHeight"/>.</summary>
     const double ToolbarItemHeight = OfficeToolbarButton.ItemHeight;
 
-
-    RibbonButton MakeButton(OfficeIcon icon, string hint, Action action)
-        => this.Track(OfficeRibbonItems.Command(icon, hint, () =>
-        {
-            action();
-            this.AfterCommand();
-        }, automationId: $"DocToolbar{icon}"));
-
-    /// <summary>
-    /// A command whose work opens a menu or a file picker first.
-    /// </summary>
-    /// <remarks>
-    /// It does not call <c>AfterCommand</c> itself: each of these has to wait for the user to choose
-    /// something, and refreshing the bar and stealing focus back before then would happen while the
-    /// menu is still up.
-    /// </remarks>
-    RibbonButton MakeAsyncButton(OfficeIcon icon, string hint, Func<Task> action)
-        => this.Track(OfficeRibbonItems.Command(icon, hint, () => _ = action(), automationId: $"DocToolbar{icon}"));
-
-    RibbonToggleButton MakeToggle(OfficeIcon icon, string hint, Action action)
-        => this.Track(OfficeRibbonItems.Toggle(icon, hint, () =>
-        {
-            action();
-            this.AfterCommand();
-        }, $"DocToolbar{icon}"));
-
-    /// <summary>Remembers an item so <c>RefreshBar</c> can enable and disable the set in one pass.</summary>
-    T Track<T>(T item) where T : RibbonItem
-    {
-        this.buttons.Add(item);
-        return item;
-    }
-
-    // ---- insert ----
-
-    async Task PickHighlightAsync()
-    {
-        var (chosen, color) = await OfficeMenus.PickHighlightAsync(OfficeMenus.PageOf(this));
-        if (!chosen)
-            return;
-
-        this.editor.Controller?.SetHighlight(color);
-        this.AfterCommand();
-    }
-
-    /// <summary>
-    /// Applies a margin preset to the whole document.
-    /// </summary>
-    /// <remarks>
-    /// Enabled in both layouts, though only <see cref="DocumentPageLayout.Print"/> can show the
-    /// result: the margins are the document's own and are written and saved either way, exactly as a
-    /// page break is. Disabling it in reflow would hide a setting the file still has.
-    /// </remarks>
-    async Task PickPageMarginsAsync()
-    {
-        if (await OfficeMenus.PickPageMarginsAsync(OfficeMenus.PageOf(this)) is not { } margins)
-            return;
-
-        this.editor.Controller?.SetPageMargins(margins);
-        this.AfterCommand();
-    }
-
-
-    async Task InsertTableAsync()
-    {
-        if (await OfficeMenus.PickTableAsync(OfficeMenus.PageOf(this)) is not { } size)
-            return;
-
-        this.editor.Controller?.InsertTable(size.Rows, size.Columns);
-        this.AfterCommand();
-    }
-
-    async Task InsertPictureAsync()
-    {
-        var (image, rejected) = await OfficeMenus.PickImageAsync(OfficeMenus.PageOf(this));
-
-        if (rejected is not null)
-        {
-            this.DropRejected?.Invoke(this, rejected);
-            return;
-        }
-
-        if (image is null)
-            return;
-
-        this.InsertImage(image);
-    }
-
-    void InsertImage(OfficePickedImage image)
-    {
-        this.editor.Controller?.InsertImage(
-            image.Data,
-            image.ContentType,
-            this.PictureWidth,
-            name: Path.GetFileNameWithoutExtension(image.FileName));
-
-        this.AfterCommand();
-    }
-
-    // ---- file drop ----
-
-    /// <summary>
-    /// Attaches the drop gesture to the editor surface.
-    /// </summary>
-    /// <remarks>
-    /// On the editor rather than on this view, so a drop onto the toolbar is not a drop into the
-    /// document — the toolbar is chrome, and dropping a picture on the Bold button should do nothing.
-    /// </remarks>
-    void AttachDrop()
-    {
-        var drop = new DropGestureRecognizer { AllowDrop = true };
-        drop.Drop += this.OnDropAsync;
-        this.editor.GestureRecognizers.Add(drop);
-    }
-
-    async void OnDropAsync(object? sender, DropEventArgs e)
-    {
-        if (this.IsReadOnly || this.Document is null)
-            return;
-
-        try
-        {
-            // The deferral that keeps the payload alive across the await is taken inside, on the one
-            // platform that needs one — it lives on the platform args, not on these.
-            foreach (var image in await OfficeFileDrop.ReadImagesAsync(e))
-                this.InsertImage(image);
-        }
-        catch (Exception ex)
-        {
-            this.DropRejected?.Invoke(this, new OfficeDropRejected(string.Empty, ex.Message));
-        }
-    }
+    // ---- lifecycle ----
 
     void AfterCommand()
     {
@@ -826,14 +654,58 @@ public class DocumentEditorView : ContentView, IDisposable
 
     void AttachController()
     {
-        if (this.editor.Controller is { } controller)
-            controller.Changed += (_, _) => this.RefreshBar();
+        if (this.attached is { } previous)
+        {
+            previous.Changed -= this.OnControllerChanged;
+            previous.StatisticsChanged -= this.OnStatisticsChanged;
+            previous.ZoomChanged -= this.OnZoomChanged;
+            previous.CurrentStyleChanged -= this.OnCurrentStyleChanged;
+        }
+
+        this.attached = this.editor.Controller;
+
+        if (this.attached is { } controller)
+        {
+            controller.Changed += this.OnControllerChanged;
+            controller.StatisticsChanged += this.OnStatisticsChanged;
+            controller.ZoomChanged += this.OnZoomChanged;
+            controller.CurrentStyleChanged += this.OnCurrentStyleChanged;
+        }
 
         // A new document is a new controller and therefore a new finder; a bar left holding the old
         // one would count matches in a document that is no longer on screen.
         this.findBar.Find = this.editor.Controller?.Find;
 
+        this.RebuildStylesMenu();
+        this.RefreshNavigationPane();
         this.RefreshBar();
+    }
+
+    void OnControllerChanged(object? sender, EventArgs e)
+    {
+        this.RefreshBar();
+        this.RefreshNavigationPane();
+    }
+
+    void OnStatisticsChanged(object? sender, EventArgs e) => this.StatisticsChanged?.Invoke(this, EventArgs.Empty);
+
+    void OnZoomChanged(object? sender, EventArgs e)
+    {
+        if (this.editor.Controller is not { } controller)
+            return;
+
+        // Written back so a two-way binding sees a pinch; the property's own handler is a no-op for the
+        // value the editor already has.
+        if (Math.Abs(this.Zoom - controller.Zoom) > 0.0001)
+            this.Zoom = controller.Zoom;
+
+        this.ZoomChanged?.Invoke(this, controller.Zoom);
+    }
+
+    void OnCurrentStyleChanged(object? sender, EventArgs e)
+    {
+        if (this.editor.Controller is { } controller)
+            this.CurrentStyleChanged?.Invoke(this, controller.CurrentStyleId);
     }
 
     void OnDocumentChanged(object? sender, EventArgs e)
@@ -842,187 +714,38 @@ public class DocumentEditorView : ContentView, IDisposable
         this.DocumentChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Reflects the formatting under the caret back into the toolbar.</summary>
-    /// <summary>
-    /// Writes the running head or foot, seeded with whatever is there now.
-    /// </summary>
-    /// <remarks>
-    /// A prompt rather than editing it in place on the page. Header and footer are separate stories in
-    /// the document — their own parts, laid out per page and repeated — so making them editable in the
-    /// canvas means a second caret, a second selection and a way to get in and out of them. Asking for
-    /// the line is the whole of what most documents need from them, and it is undoable like any other
-    /// command.
-    /// </remarks>
-    async Task EditChromeAsync(bool header)
-    {
-        if (this.editor.Controller is not { } controller || OfficeMenus.PageOf(this) is not { } page)
-            return;
-
-        var existing = controller.ChromeText(header);
-
-        var typed = await page.DisplayPromptAsync(
-            header ? "Header" : "Footer",
-            header ? "Shown at the top of every page" : "Shown at the bottom of every page",
-            "Set",
-            "Cancel",
-            initialValue: existing ?? string.Empty);
-
-        if (typed is null)
-            return;
-
-        // An empty line removes it, which is the only way back out of having one.
-        var text = string.IsNullOrWhiteSpace(typed) ? null : typed;
-
-        if (header)
-            controller.SetHeaderText(text);
-        else
-            controller.SetFooterText(text);
-
-        this.RefreshBar();
-    }
-
-    /// <summary>The icon whose drawn inset matches the preset.</summary>
-    static OfficeIcon MarginIcon(string presetName) => presetName switch
-    {
-        "Narrow" => OfficeIcon.MarginsNarrow,
-        "Moderate" => OfficeIcon.MarginsModerate,
-        "Wide" => OfficeIcon.MarginsWide,
-        _ => OfficeIcon.MarginsNormal
-    };
-
-    void SetOrientation(PageOrientation orientation)
-    {
-        this.editor.Controller?.SetPageOrientation(orientation);
-        this.RefreshBar();
-    }
-
-    /// <summary>The zoom stops the buttons step through.</summary>
-    /// <remarks>
-    /// Fixed stops rather than a multiplier: a percentage that lands on 87% is a worse answer than one
-    /// that lands on 100%, and these are the ones a reader recognises from every other document app.
-    /// </remarks>
-    static readonly double[] ZoomStops = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
-
-    void StepZoom(int direction)
-    {
-        var current = this.editor.Zoom;
-
-        var next = direction > 0
-            ? ZoomStops.FirstOrDefault(z => z > current + 0.001, ZoomStops[^1])
-            : ZoomStops.LastOrDefault(z => z < current - 0.001, ZoomStops[0]);
-
-        this.editor.Zoom = next;
-        this.RefreshBar();
-    }
-
-    /// <summary>
-    /// Sets the zoom so the page exactly spans the window.
-    /// </summary>
-    /// <remarks>
-    /// The answer to "I cannot see the whole line" on a phone. Panning reaches the right-hand side,
-    /// but a page is about twice a phone's width, so reading anything means panning every line.
-    /// </remarks>
-    void FitToWidth()
-    {
-        // Only in print. Reflow already fits the window by construction - it re-wraps to the measure -
-        // so there is nothing for this to do there.
-        if (this.editor.Controller is not { IsPaginated: true } controller)
-            return;
-
-        var available = this.editor.Width;
-        var page = controller.PageWidth;
-
-        if (available <= 0 || page <= 0)
-            return;
-
-        // Viewport.Width is controlWidth / zoom, so a zoom of controlWidth / pageWidth is exactly the
-        // one at which the page spans the window.
-        this.editor.Zoom = available / page;
-        this.RefreshBar();
-    }
-
-    /// <summary>
-    /// Turns the spelling pass on or off, and clears the underlines when it goes off.
-    /// </summary>
-    void ToggleSpellCheck()
-    {
-        if (this.editor.Controller is not { } controller)
-            return;
-
-        controller.IsSpellCheckEnabled = !controller.IsSpellCheckEnabled;
-        this.RefreshBar();
-    }
-
-    /// <summary>
-    /// Steps to the next misspelling and selects it, then offers what can be done about it.
-    /// </summary>
-    /// <remarks>
-    /// The menu is the point. Stepping to an error and stopping there leaves the user with a selected
-    /// word and the same problem they started with — on a phone the only way to act on it is the
-    /// long-press menu, which is the gesture this button exists to avoid needing.
-    /// </remarks>
-    async void GoToSpellingError(bool backwards)
-    {
-        if (this.editor.Controller is not { } controller)
-            return;
-
-        if (await controller.GoToNextSpellingErrorAsync(backwards) is null)
-            return;
-
-        await this.editor.ShowSpellingMenuForCaretAsync();
-    }
-
+    /// <summary>Reflects the controller's state — the caret's formatting, what is enabled — into the ribbon.</summary>
     void RefreshBar()
     {
-        var format = this.editor.Controller?.CaretFormat ?? CaretFormat.Default;
-        var enabled = !this.IsReadOnly && this.Document is not null;
+        var controller = this.editor.Controller;
+        var format = controller?.CaretFormat ?? CaretFormat.Default;
+        var loaded = controller is not null;
+        var editable = loaded && !this.IsReadOnly && !this.ReadMode;
 
-        this.bold.IsChecked = format.Bold;
-        this.italic.IsChecked = format.Italic;
-        this.underline.IsChecked = format.Underline;
-        this.strike.IsChecked = format.Strike;
-        this.highlight.IsChecked = format.Highlight is not null;
+        foreach (var binding in this.bindings)
+        {
+            var enabled = binding.ViewOnly ? loaded : editable;
+            if (enabled && controller is not null && binding.Enabled is { } rule)
+                enabled = rule(controller);
 
-        this.alignLeft.IsChecked = format.Alignment == TextAlignment.Left;
-        this.alignCenter.IsChecked = format.Alignment == TextAlignment.Center;
-        this.alignRight.IsChecked = format.Alignment == TextAlignment.Right;
-        this.alignJustify.IsChecked = format.Alignment == TextAlignment.Justify;
+            binding.Item.IsEnabled = enabled;
 
-        this.bulletList.IsChecked = format.List == ListStyle.Bullet;
-        this.numberedList.IsChecked = format.List == ListStyle.Numbered;
+            if (binding.Checked is { } isChecked && binding.Item is RibbonToggleButton toggle)
+                toggle.IsChecked = controller is not null && isChecked(controller);
+        }
 
-        var spelling = this.editor.Controller?.IsSpellCheckEnabled ?? false;
-        this.spellCheck.IsChecked = spelling;
+        if (controller is not null)
+        {
+            foreach (var binding in this.menuBindings)
+                binding.Entry.IsChecked = binding.Checked(controller);
+        }
 
-        this.zoomLabel.Text = $"{this.editor.Zoom * 100:0}%";
-        this.printLayout.IsChecked = this.editor.PageLayout == DocumentPageLayout.Print;
+        // The contextual tab follows the caret into and out of a table, as Word's does.
+        if (this.tableTab is not null)
+            this.tableTab.IsVisible = format.IsInTable && editable;
 
-        var orientation = this.editor.Controller?.PageOrientation ?? PageOrientation.Portrait;
-        this.portrait.IsChecked = orientation == PageOrientation.Portrait;
-        this.landscape.IsChecked = orientation == PageOrientation.Landscape;
-
-        foreach (var button in this.buttons)
-            button.IsEnabled = enabled;
-
-        // Stepping through misspellings means nothing while the pass that finds them is off.
-        this.previousError.IsEnabled = enabled && spelling;
-        this.nextError.IsEnabled = enabled && spelling;
-
-        // Zoom is a way of looking at the document, not a way of changing it, so it stays live in a
-        // read-only view - where being able to make the text bigger matters more, not less.
-        var loaded = this.Document is not null;
-        this.zoomIn.IsEnabled = loaded && this.editor.Zoom < ZoomStops[^1] - 0.001;
-        this.zoomOut.IsEnabled = loaded && this.editor.Zoom > ZoomStops[0] + 0.001;
-        this.fitWidth.IsEnabled = loaded;
-
-        this.undo.IsEnabled = enabled && (this.editor.Controller?.CanUndo ?? false);
-        this.redo.IsEnabled = enabled && (this.editor.Controller?.CanRedo ?? false);
-
-        // The nesting buttons only move list items, so they are off everywhere else rather than
-        // quietly doing nothing — and outdent is off at the top level, which is as far out as an item
-        // can come without leaving the list.
-        this.indent.IsEnabled = enabled && format.List != ListStyle.None;
-        this.outdent.IsEnabled = enabled && format.List != ListStyle.None && format.ListLevel > 0;
+        if (this.stylesMenu is not null)
+            this.stylesMenu.Text = this.StyleDisplayName(format.StyleId);
 
         // Writing the pickers' selection raises their change events, which would immediately re-apply
         // the format that was only being displayed - so the handlers are muted while they are updated.
@@ -1039,15 +762,22 @@ public class DocumentEditorView : ContentView, IDisposable
         }
 
         this.textColor.SelectedColor = FromArgb(format.Color);
-        this.textColor.IsEnabled = enabled;
+        this.textColor.IsEnabled = editable;
 
-        // Finding works in a read-only view - it changes nothing - so it follows whether a document is
-        // open rather than whether it can be edited.
-        this.findBar.IsEnabled = this.Document is not null;
+        foreach (var picker in this.extraPickers)
+            picker.IsEnabled = editable;
+
+        // Finding works in a read-only view - it changes nothing.
+        this.findBar.IsEnabled = loaded;
         this.findBar.SetTooltipsEnabled(this.ShowToolbarTooltips);
+
+        if (this.zoomLabel is not null)
+            this.zoomLabel.Text = $"{this.editor.Zoom * 100:0}%";
 
         this.suppressPickerEvents = false;
     }
+
+    readonly List<View> extraPickers = [];
 
     public void Dispose()
     {
@@ -1056,23 +786,31 @@ public class DocumentEditorView : ContentView, IDisposable
 
         this.disposed = true;
         this.editor.DocumentChanged -= this.OnDocumentChanged;
+        this.editor.ShortcutRequested -= this.OnShortcutRequested;
 
-        // Drops the bar's subscription to the finder, which outlives this view: the finder belongs to
-        // the controller and the controller to the document, and a host can keep both open.
+        if (this.attached is { } controller)
+        {
+            controller.Changed -= this.OnControllerChanged;
+            controller.StatisticsChanged -= this.OnStatisticsChanged;
+            controller.ZoomChanged -= this.OnZoomChanged;
+            controller.CurrentStyleChanged -= this.OnCurrentStyleChanged;
+        }
+
+        // Drops the bar's subscription to the finder, which outlives this view.
         this.findBar.Find = null;
         this.editor.Dispose();
 
         GC.SuppressFinalize(this);
     }
 
+    // ---- accent ----
+
     /// <summary>
     /// The colour this control wears: its ribbon's header band and tab underline.
     /// </summary>
     /// <remarks>
-    /// Defaults to <see cref="OfficeAccent.Document"/> — the colour Microsoft's own Word wears,
-    /// because that is what a user reads as "a document" before any label has been looked at. Set it to
-    /// take on the app's own brand instead, or to <c>null</c> to leave the bar on the theme's neutrals
-    /// like the rest of the chrome.
+    /// Defaults to <see cref="OfficeAccent.Document"/> — the colour Microsoft's own Word wears. Set it to
+    /// take on the app's own brand instead, or to <c>null</c> to leave the bar on the theme's neutrals.
     /// </remarks>
     public static readonly BindableProperty AccentProperty = BindableProperty.Create(
         nameof(Accent),
@@ -1114,49 +852,23 @@ public class DocumentEditorView : ContentView, IDisposable
     static Color ToColor(ArgbColor value)
         => Color.FromRgba(value.R / 255f, value.G / 255f, value.B / 255f, value.A / 255f);
 
+    void ApplyFileButton(bool show)
+    {
+        this.ribbon.ApplicationButtonText = show ? "File" : null;
+        this.ribbon.ApplicationButtonCommand = show ? new Command(() => this.FileRequested?.Invoke(this, EventArgs.Empty)) : null;
+    }
+
     /// <summary>
     /// A picture drawn behind the content. Forwarded to the surface.
     /// </summary>
     /// <remarks>
-    /// A display watermark - drawn, not written into the file. See <see cref="OfficeWatermark"/>.
+    /// A display watermark — drawn, not written into the file. For one Word shows too, use Design ▸
+    /// Watermark's text marks, which <see cref="DocumentEditorController.SetWatermarkText"/> writes into the
+    /// document's header.
     /// </remarks>
     public OfficeWatermark? Watermark
     {
         get => this.editor.Watermark;
         set => this.editor.Watermark = value;
     }
-
-    /// <summary>
-    /// Picks a picture and sets it as the watermark, or clears one already there.
-    /// </summary>
-    /// <remarks>
-    /// The button toggles rather than always asking: once a mark is set, the next thing anyone wants
-    /// from that button is to take it off, and a picker that reopens on a document already stamped is
-    /// a dead end with no way back.
-    /// </remarks>
-    async Task PickWatermarkAsync()
-    {
-        if (this.Watermark is not null)
-        {
-            this.Watermark = null;
-            this.RefreshBar();
-            return;
-        }
-
-        var (image, rejected) = await OfficeMenus.PickImageAsync(OfficeMenus.PageOf(this));
-
-        if (rejected is not null || image is null)
-            return;
-
-        // Turned onto the diagonal, which is where a stamp goes and what stops it being mistaken for
-        // content someone placed on the page.
-        this.Watermark = new OfficeWatermark
-        {
-            Image = image.Data,
-            RotationDegrees = 315
-        };
-
-        this.RefreshBar();
-    }
-
 }

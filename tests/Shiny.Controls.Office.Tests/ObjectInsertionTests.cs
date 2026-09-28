@@ -143,7 +143,8 @@ public class ObjectInsertionTests
         controller.Selection.MoveTo(new DocumentPosition(block, 1));
         controller.InsertText("XY");
 
-        ParagraphAt(document, block).PlainText.ShouldBe("XY" + before);
+        // The object is one placeholder character in the offset space, and the text follows it.
+        ParagraphAt(document, block).PlainText.ShouldBe(before[..1] + "XY" + before[1..]);
     }
 
     [Fact]
@@ -181,8 +182,10 @@ public class ObjectInsertionTests
         controller.Selection.MoveTo(new DocumentPosition(block, 6));
         controller.InsertText("|");
 
-        ParagraphAt(document, block).PlainText.ShouldBe(before[..5] + "|" + before[5..]);
+        ParagraphAt(document, block).PlainText.ShouldBe(before[..5] + WordParagraphEditorPlaceholder + "|" + before[5..]);
     }
+
+    const string WordParagraphEditorPlaceholder = "\uFFFC";
 
     // ---- Word: pictures ----
 

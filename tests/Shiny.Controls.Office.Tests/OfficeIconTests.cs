@@ -24,6 +24,10 @@ public class OfficeIconTests
             foreach (var icon in Enum.GetValues<OfficeIcon>())
                 data.Add(icon);
 
+            // The Word ribbon's set lives outside the enum; the same guards apply to it.
+            foreach (var icon in WordIcons.All)
+                data.Add(icon);
+
             return data;
         }
     }

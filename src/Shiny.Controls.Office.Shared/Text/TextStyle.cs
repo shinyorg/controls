@@ -10,6 +10,18 @@ public enum TextAlignment
     Justify
 }
 
+/// <summary>A tracked change a run of text is part of.</summary>
+public enum TextRevision
+{
+    None,
+
+    /// <summary>Inside a <c>w:ins</c>: drawn underlined in the reviewer's colour.</summary>
+    Inserted,
+
+    /// <summary>Inside a <c>w:del</c>: drawn struck through in the reviewer's colour.</summary>
+    Deleted
+}
+
 public enum UnderlineStyle
 {
     None,
@@ -52,6 +64,11 @@ public readonly record struct TextStyle
 
     /// <summary>The destination when this run is part of a hyperlink.</summary>
     public string? Link { get; init; }
+
+    /// <summary>
+    /// Whether this text is a tracked insertion or deletion, which the painter marks the way Word does.
+    /// </summary>
+    public TextRevision Revision { get; init; }
 
     public double EffectiveFontSize => this.FontSize * (this.SizeScale <= 0 ? 1 : this.SizeScale);
 }

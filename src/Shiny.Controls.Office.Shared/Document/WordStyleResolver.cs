@@ -29,6 +29,24 @@ sealed class WordStyleResolver
     public WordStyleResolver(MainDocumentPart main)
     {
         this.themeFonts = ThemeFonts.From(main.ThemePart);
+        this.Reload(main);
+    }
+
+    /// <summary>
+    /// Re-reads <c>styles.xml</c> after a style has been added to it.
+    /// </summary>
+    /// <remarks>
+    /// Resolved styles are cached for the life of the document, so a paragraph pointed at a style
+    /// created a moment ago would otherwise be read back with the formatting of a style that does not
+    /// exist — which is Normal, and looks like the gallery doing nothing.
+    /// </remarks>
+    public void Reload(MainDocumentPart main)
+    {
+        this.styles.Clear();
+        this.resolvedRunStyles.Clear();
+        this.resolvedParagraphStyles.Clear();
+        this.documentRunDefault = TextStyle.Default;
+        this.documentParagraphDefault = ParagraphFormat.Default;
 
         var part = main.StyleDefinitionsPart?.Styles;
         if (part is null)
@@ -59,6 +77,15 @@ sealed class WordStyleResolver
     }
 
     public TextStyle DefaultRunStyle => this.documentRunDefault;
+
+    /// <summary>The theme's font pair, for resolving a style definition that is not in the document yet.</summary>
+    public ThemeFonts ThemeFonts => this.themeFonts;
+
+    /// <summary>Every style definition, keyed by id.</summary>
+    public IReadOnlyDictionary<string, Style> Styles => this.styles;
+
+    /// <summary>True when the document defines a style with this id.</summary>
+    public bool Has(string styleId) => this.styles.ContainsKey(styleId);
 
     public string? StyleName(string? styleId)
         => styleId is not null && this.styles.TryGetValue(styleId, out var style)
@@ -264,6 +291,30 @@ sealed class WordStyleResolver
 
                     break;
 
+                case DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders borders:
+                    format = format with { Borders = ReadBorders(borders) };
+                    break;
+
+                case SectionProperties section:
+                    // A sectPr inside pPr is a section break at the end of this paragraph. Its w:type
+                    // says what the *next* section does; absent, that is a new page.
+                    format = format with
+                    {
+                        SectionBreak = OoxmlUnits.EnumAttribute(section.GetFirstChild<SectionType>(), "val") switch
+                        {
+                            "continuous" => SectionBreakKind.Continuous,
+                            "evenPage" => SectionBreakKind.EvenPage,
+                            "oddPage" => SectionBreakKind.OddPage,
+                            _ => SectionBreakKind.NextPage
+                        }
+                    };
+
+                    break;
+
+                case PageBreakBefore pageBreak:
+                    format = format with { PageBreakBefore = IsOn(pageBreak.Val) };
+                    break;
+
                 case OutlineLevel outline when outline.Val?.Value is { } level:
                     format = format with { OutlineLevel = level < 9 ? level + 1 : 0 };
                     break;
@@ -284,6 +335,35 @@ sealed class WordStyleResolver
     /// something an ancestor turned on.
     /// </summary>
     static bool IsOn(OnOffValue? value) => value is null || value.Value;
+
+    /// <summary>The edges a <c>w:pBdr</c> draws, or null when every edge is off.</summary>
+    static ParagraphBorders? ReadBorders(DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders element)
+    {
+        static bool Drawn(BorderType? edge)
+        {
+            var value = OoxmlUnits.EnumAttribute(edge, "val");
+            return value is not null && value is not ("none" or "nil");
+        }
+
+        var edges = new[] { (BorderType?)element.TopBorder, element.BottomBorder, element.LeftBorder, element.RightBorder };
+        var first = edges.FirstOrDefault(Drawn);
+        if (first is null)
+            return null;
+
+        var color = first.Color?.Value is { } hex && TryParseHex(hex, out var parsed)
+            ? parsed
+            : new ArgbColor(255, 0, 0, 0);
+
+        return new ParagraphBorders
+        {
+            Top = Drawn(element.TopBorder),
+            Bottom = Drawn(element.BottomBorder),
+            Left = Drawn(element.LeftBorder),
+            Right = Drawn(element.RightBorder),
+            Color = color,
+            Width = Math.Max(1, (first.Size?.Value ?? 4) / 6d)
+        };
+    }
 
     public static bool TryParseHex(string hex, out ArgbColor color)
     {

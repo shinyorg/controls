@@ -5,27 +5,23 @@
 @using Shiny.Controls.Office.Shapes
 @using Shiny.Controls.Office.Spreadsheet
 @using Shiny.Controls.Office.Text
+@implements IDisposable
 
 @*
-    DocumentEditor with formatting chrome on top.
+    DocumentEditor with Word's chrome on top: the ribbon, its dialogs, a navigation pane and read mode.
 
-    The toolbar is a ShinyToolbar from the core Blazor package, filled through its ChildContent, and
-    the pickers in it are the core package's own — FontPickerButton, FontSizePickerButton and
-    ColorPickerButton — which is what the MAUI DocumentEditorView puts in the same three slots.
+    The tabs follow Word's own — Home, Insert, Design, Layout, References, Review, View — with the
+    contextual Table tab appearing while the caret is in a table. Every command runs through the
+    shared DocumentEditorController, so this file only decides where a command sits and what it is
+    called; the MAUI DocumentEditorView builds the same bar from the same calls.
 
-    The row inside is its own flex container. ShinyToolbar renders ChildContent into a plain block, so
-    left to itself every control here would be an inline-level box on a text line, aligned to the text
-    baseline — and a button's baseline, a select's baseline and a swatch's baseline are all in
-    different places, which is exactly what "the toolbar buttons look slightly off" is.
-
-    Every plain button is an OfficeToolbarButton drawing from the shared icon set, so the mark for
-    "align centre" is one definition rendered twice rather than two that drift. The pickers stay as
-    they are: a font, a size and a colour have to show what they are currently set to, which is the
-    one thing a monochrome icon cannot do.
+    The pickers (font, size, colour, highlight) are the core package's own. Every plain button draws
+    from the shared Office icon set, the Word-only ones from WordIcons, so the mark for a command is
+    one definition rendered on both hosts.
 *@
 <div class="shiny-doc-editor-view @OfficeScheme.ScopeClass(this.Theme) @Class" style="@Style">
 
-    @if (ShowToolbar)
+    @if (ShowToolbar && !ReadModeOn)
     {
         @*
             The class stays on a div declared here, not on the Ribbon's CssClass. This file's scoped
@@ -37,130 +33,337 @@
         <Ribbon ShowTabStrip="ShowRibbonTabs"
                 AllowCollapse="ShowRibbonTabs"
                 SmallItemRows="2"
+                SelectedKey="@selectedTab"
+                SelectedKeyChanged="k => this.selectedTab = k"
+                ApplicationButtonText="@(FileClicked.HasDelegate ? "File" : null)"
+                ApplicationButtonClicked="FileClicked"
                 HeaderBackgroundColor="@(AccentBackground ?? ChosenToolbarBackground)"
                 HeaderForegroundColor="@AccentInk"
                 AccentColor="@AccentInk"
                 BodyBackgroundColor="@ChosenToolbarBackground">
             <QuickAccess>
                 <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo (Ctrl+Z)" Icon="@Ico(OfficeIcon.Undo)"
-                              Disabled="@(Disabled || !(editor?.Controller?.CanUndo ?? false))"
+                              Disabled="@(Disabled || !(C?.CanUndo ?? false))"
                               Clicked="() => Run(c => c.Undo())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo (Ctrl+Shift+Z)" Icon="@Ico(OfficeIcon.Redo)"
-                              Disabled="@(Disabled || !(editor?.Controller?.CanRedo ?? false))"
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo (Ctrl+Y)" Icon="@Ico(OfficeIcon.Redo)"
+                              Disabled="@(Disabled || !(C?.CanRedo ?? false))"
                               Clicked="() => Run(c => c.Redo())" />
             </QuickAccess>
 
             <ChildContent>
+                @* ================================ HOME ================================ *@
                 <RibbonTab Title="Home" Key="home">
 
+                    <RibbonGroup Title="Clipboard" Priority="95">
+                        <RibbonSplitButton Text="Paste" Tooltip="Paste (Ctrl+V)" Icon="@Ico(OfficeIcon.Paste)"
+                                           Disabled="Disabled" Menu="PasteMenu" Clicked="() => Paste(plain: false)" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Cut" Tooltip="Cut (Ctrl+X)" Icon="@Ico(OfficeIcon.Cut)"
+                                      Disabled="Disabled" Clicked="Cut" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Copy" Tooltip="Copy (Ctrl+C)" Icon="@Ico(OfficeIcon.Copy)"
+                                      Disabled="@(Document is null)" Clicked="Copy" />
+                        @* A split button: the face paints once, the menu keeps the brush loaded until it is
+                           put down - Word's double-click, which a ribbon button has no way to see. *@
+                        <RibbonSplitButton Size="RibbonItemSize.Small"
+                                           Text="@((C?.IsFormatPainterActive ?? false) ? "Painting…" : "Format Painter")"
+                                           Tooltip="Format Painter (Ctrl+Shift+C, then select; Esc to stop)"
+                                           Icon="@Ico(WordIcons.FormatPainter)"
+                                           Disabled="Disabled" Menu="PainterMenu"
+                                           Clicked="() => Run(c => c.CopyFormatting())" />
+                    </RibbonGroup>
+
                     @*
-                        Row flow, which is what Word actually draws: the two boxes on top and the run
-                        of marks underneath. Filling columns instead put bold above italic and
-                        underline above strikethrough - a 2x2 block of a run people read across - and
-                        forced the font picker to share a column with a toggle, where the column took
-                        the picker's width and stretched the 16px B across all 150px of it.
+                        Row flow, which is what Word actually draws: the boxes on top and the run of
+                        marks underneath.
                     *@
                     <RibbonGroup Title="Font" Priority="100">
                         <RibbonRow>
-                        <RibbonContent Size="RibbonItemSize.Small">
-                            <FontPickerButton AvailableFonts="FontFamilies"
-                                              SelectedFont="@Format.FontFamily"
-                                              Disabled="Disabled"
-                                              SelectedFontChanged="OnFontChanged" />
-                        </RibbonContent>
-                        <RibbonContent Size="RibbonItemSize.Small">
-                            <FontSizePickerButton AvailableFontSizes="FontSizes"
-                                                  SelectedFontSize="Format.FontSize"
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <FontPickerButton AvailableFonts="FontFamilies"
+                                                  SelectedFont="@Format.FontFamily"
                                                   Disabled="Disabled"
-                                                  SelectedFontSizeChanged="OnSizeChanged" />
-                        </RibbonContent>
-
+                                                  SelectedFontChanged="OnFontChanged" />
+                            </RibbonContent>
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <FontSizePickerButton AvailableFontSizes="FontSizes"
+                                                      SelectedFontSize="Format.FontSize"
+                                                      Disabled="Disabled"
+                                                      SelectedFontSizeChanged="OnSizeChanged" />
+                            </RibbonContent>
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Font Size (Ctrl+Shift+>)" Icon="@Ico(WordIcons.GrowFont)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.GrowFont())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Font Size (Ctrl+Shift+<)" Icon="@Ico(WordIcons.ShrinkFont)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.ShrinkFont())" />
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Change Case (Shift+F3)" Icon="@Ico(WordIcons.ChangeCase)"
+                                              Disabled="Disabled" Menu="CaseMenu" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Clear All Formatting (Ctrl+Space)" Icon="@Ico(OfficeIcon.ClearFormat)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.ClearFormatting())" />
                         </RibbonRow>
 
                         <RibbonRow>
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
-                                            Checked="Format.Bold" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleBold())" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
-                                            Checked="Format.Italic" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleItalic())" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline (Ctrl+U)" Icon="@Ico(OfficeIcon.Underline)"
-                                            Checked="Format.Underline" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleUnderline())" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
-                                            Checked="Format.Strike" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
+                                                Checked="Format.Bold" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleBold())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
+                                                Checked="Format.Italic" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleItalic())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline (Ctrl+U)" Icon="@Ico(OfficeIcon.Underline)"
+                                                Checked="Format.Underline" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleUnderline())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
+                                                Checked="Format.Strike" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Subscript (Ctrl+=)" Icon="@Ico(WordIcons.Subscript)"
+                                                Checked="Format.Subscript" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleSubscript())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Superscript (Ctrl+Shift+=)" Icon="@Ico(WordIcons.Superscript)"
+                                                Checked="Format.Superscript" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleSuperscript())" />
 
-                        <RibbonSeparator />
+                            <RibbonSeparator />
 
-                        @* Pickers with their own popup surface, which a ribbon button cannot be. *@
-                        <RibbonContent Size="RibbonItemSize.Small">
-                            @* Sized to the row rather than left at the picker's own 30px: a solid
-                               swatch is the heaviest mark on the bar, and at 30px beside 16px glyphs
-                               it read as the one thing on the ribbon that had gone wrong. *@
-                            <ColorPickerButton Text="Text colour"
-                                               SelectedColor="@ColorHex"
-                                               ShowOpacity="false"
-                                               Disabled="Disabled"
-                                               Style="--shiny-picker-height: 24px"
-                                               SelectedColorChanged="OnColorChanged" />
-                        </RibbonContent>
-                        <RibbonContent Size="RibbonItemSize.Small">
-                            <OfficeHighlightButton Current="Format.Highlight"
+                            @* Pickers with their own popup surface, which a ribbon button cannot be. *@
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <ColorPickerButton Text="Text colour"
+                                                   SelectedColor="@ColorHex"
+                                                   ShowOpacity="false"
                                                    Disabled="Disabled"
-                                                   ShowTooltips="ShowToolbarTooltips"
-                                                   Picked="OnHighlightPicked" />
-                        </RibbonContent>
+                                                   Style="--shiny-picker-height: 24px"
+                                                   SelectedColorChanged="OnColorChanged" />
+                            </RibbonContent>
+                            <RibbonContent Size="RibbonItemSize.Small">
+                                <OfficeHighlightButton Current="Format.Highlight"
+                                                       Disabled="Disabled"
+                                                       ShowTooltips="ShowToolbarTooltips"
+                                                       Picked="OnHighlightPicked" />
+                            </RibbonContent>
                         </RibbonRow>
                     </RibbonGroup>
 
-                    @*
-                        Lists and the indent pair on top, the four alignments underneath - Word's own
-                        arrangement, and two full rows of four rather than a ragged 2x4 grid that read
-                        align-left / align-right down the first column.
-                    *@
                     <RibbonGroup Title="Paragraph" Priority="90">
                         <RibbonRow>
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bulleted list" Icon="@Ico(OfficeIcon.BulletList)"
-                                            Checked="@(Format.List == ListStyle.Bullet)" Disabled="Disabled"
-                                            Clicked="_ => Run(c => c.ToggleBulletList())" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbered list" Icon="@Ico(OfficeIcon.NumberedList)"
-                                            Checked="@(Format.List == ListStyle.Numbered)" Disabled="Disabled"
-                                            Clicked="_ => Run(c => c.ToggleNumberedList())" />
-
-                        @* Enabled only inside a list, because that is the only thing they move. Word
-                           greys them out the same way rather than repurposing them as paragraph
-                           indent, which would make one button mean two things by caret position. *@
-                        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Outdent (Shift+Tab)" Icon="@Ico(OfficeIcon.Outdent)"
-                                      Disabled="@(Disabled || Format.List == ListStyle.None || Format.ListLevel == 0)"
-                                      Clicked="() => Run(c => c.ChangeListLevel(-1))" />
-                        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Indent (Tab)" Icon="@Ico(OfficeIcon.Indent)"
-                                      Disabled="@(Disabled || Format.List == ListStyle.None)"
-                                      Clicked="() => Run(c => c.ChangeListLevel(1))" />
-
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bullets (Ctrl+Shift+L)" Icon="@Ico(OfficeIcon.BulletList)"
+                                                Checked="@(Format.List == ListStyle.Bullet)" Disabled="Disabled"
+                                                Clicked="_ => Run(c => c.ToggleBulletList())" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbering" Icon="@Ico(OfficeIcon.NumberedList)"
+                                                Checked="@(Format.List == ListStyle.Numbered)" Disabled="Disabled"
+                                                Clicked="_ => Run(c => c.ToggleNumberedList())" />
+                            @* A numbered list is already nine levels deep (1., a., i.); Tab walks them. *@
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Multilevel List (Tab / Shift+Tab to change level)"
+                                          Icon="@Ico(WordIcons.MultilevelList)" Disabled="Disabled"
+                                          Clicked="() => Run(c => c.SetListStyle(ListStyle.Numbered))" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Indent (Ctrl+Shift+M)" Icon="@Ico(OfficeIcon.Outdent)"
+                                          Disabled="@(Disabled || (Format.List == ListStyle.None ? Format.IndentLeft <= 0 : Format.ListLevel == 0))"
+                                          Clicked="() => Run(c => c.ChangeIndent(-1))" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Indent (Ctrl+M)" Icon="@Ico(OfficeIcon.Indent)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.ChangeIndent(1))" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Show/Hide ¶ (Ctrl+Shift+8)" Icon="@Ico(WordIcons.ShowMarks)"
+                                                Checked="@(C?.ShowFormattingMarks ?? false)" Disabled="@(Document is null)"
+                                                Clicked="_ => Run(c => c.ShowFormattingMarks = !c.ShowFormattingMarks, requireEditable: false)" />
                         </RibbonRow>
 
                         <RibbonRow>
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
-                                            Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="Disabled"
-                                            Clicked="_ => Align(TextAlignment.Left)" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
-                                            Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="Disabled"
-                                            Clicked="_ => Align(TextAlignment.Center)" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
-                                            Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="Disabled"
-                                            Clicked="_ => Align(TextAlignment.Right)" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Justify" Icon="@Ico(OfficeIcon.AlignJustify)"
-                                            Checked="@(Format.Alignment == TextAlignment.Justify)" Disabled="Disabled"
-                                            Clicked="_ => Align(TextAlignment.Justify)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align Left (Ctrl+L)" Icon="@Ico(OfficeIcon.AlignLeft)"
+                                                Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="Disabled"
+                                                Clicked="_ => Align(TextAlignment.Left)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Center (Ctrl+E)" Icon="@Ico(OfficeIcon.AlignCenter)"
+                                                Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="Disabled"
+                                                Clicked="_ => Align(TextAlignment.Center)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align Right (Ctrl+R)" Icon="@Ico(OfficeIcon.AlignRight)"
+                                                Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="Disabled"
+                                                Clicked="_ => Align(TextAlignment.Right)" />
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Justify (Ctrl+J)" Icon="@Ico(OfficeIcon.AlignJustify)"
+                                                Checked="@(Format.Alignment == TextAlignment.Justify)" Disabled="Disabled"
+                                                Clicked="_ => Align(TextAlignment.Justify)" />
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Line and Paragraph Spacing" Icon="@Ico(WordIcons.LineSpacing)"
+                                              Disabled="Disabled" Menu="LineSpacingMenu" />
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Shading" Icon="@Ico(OfficeIcon.FillColor)"
+                                              Disabled="Disabled" Menu="ShadingMenu" />
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Borders" Icon="@Ico(WordIcons.Borders)"
+                                              Disabled="Disabled" Menu="BordersMenu" />
                         </RibbonRow>
                     </RibbonGroup>
 
+                    <RibbonGroup Title="Styles" Priority="80">
+                        <RibbonMenuButton Text="@CurrentStyleName" Tooltip="Styles" Icon="@Ico(WordIcons.Styles)"
+                                          Disabled="Disabled" Menu="StylesMenu" />
+                    </RibbonGroup>
+
                     @*
-                        Proofing rides on Home rather than a Review tab of its own. Spelling is
-                        something you do while writing, not a separate pass, and a tab holding three
-                        buttons costs a click to reach and leaves most of a bar empty when you arrive.
+                        Not gated on Disabled: finding changes nothing, so it works in a read-only
+                        document. The bar disables itself when there is no document to search.
                     *@
-                    <RibbonGroup Title="Proofing" Priority="70">
-                        @* Large and labelled: three icon-only buttons left a hole where the third row
-                           would be, and "check spelling" is not a mark anyone reads off a 16px glyph.
-                           The two steppers stack beside it, which is the column the hole used to be. *@
+                    <RibbonGroup Title="Editing" Priority="60">
+                        <RibbonContent>
+                            <OfficeFindBar Find="@(C?.Find)"
+                                           ShowTooltips="ShowToolbarTooltips"
+                                           Moved="StateHasChanged" />
+                        </RibbonContent>
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Replace" Tooltip="Replace (Ctrl+H)" Icon="@Ico(WordIcons.Replace)"
+                                      Disabled="Disabled" Clicked="OpenReplace" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Select All" Tooltip="Select All (Ctrl+A)" Icon="@Ico(WordIcons.SelectAll)"
+                                      Disabled="@(Document is null)" Clicked="() => Run(c => c.SelectAll(), requireEditable: false)" />
+                    </RibbonGroup>
+
+                    @if (ToolbarContent != null)
+                    {
+                        @* Never folds into an overflow button: whatever the host added is theirs. *@
+                        <RibbonGroup Title="@ToolbarContentTitle" Priority="200" CanCollapse="false">
+                            <RibbonContent>@ToolbarContent</RibbonContent>
+                        </RibbonGroup>
+                    }
+                </RibbonTab>
+
+                @* ================================ INSERT ================================ *@
+                <RibbonTab Title="Insert" Key="insert">
+                    <RibbonGroup Title="Pages" Priority="80">
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Blank Page" Tooltip="Blank Page" Icon="@Ico(WordIcons.BlankPage)"
+                                      Disabled="Disabled" Clicked="() => Run(c => c.InsertBlankPage())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Page Break" Tooltip="Page Break (Ctrl+Enter)" Icon="@Ico(OfficeIcon.PageBreak)"
+                                      Disabled="Disabled" Clicked="() => Run(c => c.InsertPageBreak())" />
+                        <RibbonMenuButton Size="RibbonItemSize.Small" Text="Section Break" Tooltip="Section Break" Icon="@Ico(WordIcons.SectionBreak)"
+                                          Disabled="@(Disabled || InTable)" Menu="SectionBreakMenu" />
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Tables &amp; Illustrations" Priority="100">
+                        <RibbonContent>
+                            <OfficeInsertMenu Disabled="Disabled"
+                                              ShowTooltips="ShowToolbarTooltips"
+                                              ShowShapes="false"
+                                              ShapePicked="OnShapePicked"
+                                              TablePicked="OnTablePicked"
+                                              ImagePicked="OnImagePicked"
+                                              ImageRejected="DropRejected" />
+                        </RibbonContent>
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Links" Priority="90">
+                        <RibbonButton Text="Link" Tooltip="Link (Ctrl+K)" Icon="@Ico(WordIcons.Hyperlink)"
+                                      Disabled="Disabled" Clicked="OpenHyperlink" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Bookmark" Tooltip="Bookmark" Icon="@Ico(WordIcons.Bookmark)"
+                                      Disabled="Disabled" Clicked="OpenBookmark" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Remove Link" Tooltip="Remove Link" Icon="@Ico(WordIcons.RemoveLink)"
+                                      Disabled="@(Disabled || C?.CurrentHyperlink is null)" Clicked="() => Run(c => c.RemoveHyperlink())" />
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Comments" Priority="85">
+                        <RibbonButton Text="Comment" Tooltip="New Comment (Ctrl+Alt+M)" Icon="@Ico(WordIcons.Comment)"
+                                      Disabled="Disabled" Clicked="OpenComment" />
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Header &amp; Footer" Priority="75">
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Header" Tooltip="Header"
+                                      Icon="@Ico(OfficeIcon.Header)"
+                                      Disabled="Disabled" Clicked="() => OpenChrome(header: true)" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Footer" Tooltip="Footer"
+                                      Icon="@Ico(OfficeIcon.Footer)"
+                                      Disabled="Disabled" Clicked="() => OpenChrome(header: false)" />
+                        @* A menu, not a button: a page number has a place and a form. *@
+                        <RibbonMenuButton Size="RibbonItemSize.Small" Text="Page Number"
+                                          Tooltip="Page Number"
+                                          Icon="@Ico(OfficeIcon.PageNumber)"
+                                          Disabled="Disabled" Menu="PageNumberMenu" />
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Text" Priority="70">
+                        <RibbonMenuButton Size="RibbonItemSize.Small" Text="Date &amp; Time" Tooltip="Date &amp; Time"
+                                          Icon="@Ico(WordIcons.DateTime)" Disabled="Disabled" Menu="DateTimeMenu" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Page Field" Tooltip="Insert the page number here"
+                                      Icon="@Ico(OfficeIcon.PageNumber)" Disabled="Disabled"
+                                      Clicked="() => Run(c => c.InsertPageNumberField())" />
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Symbols" Priority="65">
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Symbol" Tooltip="Symbol" Icon="@Ico(WordIcons.Symbol)"
+                                      Disabled="Disabled" Clicked="() => Open(DialogKind.Symbols)" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Horizontal Line" Tooltip="Horizontal Line" Icon="@Ico(WordIcons.HorizontalLine)"
+                                      Disabled="Disabled" Clicked="() => Run(c => c.InsertHorizontalLine())" />
+                    </RibbonGroup>
+                </RibbonTab>
+
+                @* ================================ DESIGN ================================ *@
+                <RibbonTab Title="Design" Key="design">
+                    <RibbonGroup Title="Page Background" Priority="100">
+                        <RibbonMenuButton Text="Watermark" Tooltip="Watermark" Icon="@Ico(OfficeIcon.Watermark)"
+                                          Disabled="Disabled" Menu="WatermarkMenu" />
+                        <RibbonMenuButton Text="Page Color" Tooltip="Page Color" Icon="@Ico(WordIcons.PageColor)"
+                                          Disabled="Disabled" Menu="PageColorMenu" />
+                        @* A picture drawn behind the page for display only - not written into the file. *@
+                        <RibbonContent Size="RibbonItemSize.Small">
+                            <OfficeWatermarkButton Disabled="Disabled"
+                                                   ShowTooltips="ShowToolbarTooltips"
+                                                   HasWatermark="@(Watermark is not null)"
+                                                   Picked="OnWatermarkPicked"
+                                                   Rejected="DropRejected" />
+                        </RibbonContent>
+                    </RibbonGroup>
+                </RibbonTab>
+
+                @* ================================ LAYOUT ================================ *@
+                <RibbonTab Title="Layout" Key="layout">
+                    <RibbonGroup Title="Page Setup" Priority="100">
+                        <RibbonContent>
+                            <OfficePageMarginsMenu Disabled="Disabled"
+                                                   ShowTooltips="ShowToolbarTooltips"
+                                                   Current="@Margins"
+                                                   MarginsPicked="OnMarginsPicked" />
+                        </RibbonContent>
+
+                        @* Two toggles rather than one, because a page is one of two things. *@
+                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Portrait"
+                                            Icon="@Ico(OfficeIcon.Portrait)"
+                                            Checked="@(Orientation == PageOrientation.Portrait)"
+                                            Disabled="Disabled"
+                                            Clicked="_ => Run(c => c.SetPageOrientation(PageOrientation.Portrait))" />
+                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Landscape"
+                                            Icon="@Ico(OfficeIcon.Landscape)"
+                                            Checked="@(Orientation == PageOrientation.Landscape)"
+                                            Disabled="Disabled"
+                                            Clicked="_ => Run(c => c.SetPageOrientation(PageOrientation.Landscape))" />
+
+                        <RibbonMenuButton Size="RibbonItemSize.Small" Text="Size" Tooltip="Size" Icon="@Ico(WordIcons.PageSize)"
+                                          Disabled="Disabled" Menu="PageSizeMenu" />
+                        <RibbonMenuButton Size="RibbonItemSize.Small" Text="Columns" Tooltip="Columns" Icon="@Ico(WordIcons.Columns)"
+                                          Disabled="Disabled" Menu="ColumnsMenu" />
+                        <RibbonMenuButton Size="RibbonItemSize.Small" Text="Breaks" Tooltip="Breaks" Icon="@Ico(OfficeIcon.PageBreak)"
+                                          Disabled="Disabled" Menu="BreaksMenu" />
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Paragraph" Priority="90">
+                        <RibbonRow>
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Indent" Icon="@Ico(OfficeIcon.Outdent)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.ChangeIndent(-1))" />
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Indent" Icon="@Ico(OfficeIcon.Indent)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.ChangeIndent(1))" />
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Text="@IndentLabel" Tooltip="Indentation" Icon="@Ico(OfficeIcon.Indent)"
+                                              Disabled="Disabled" Menu="IndentMenu" />
+                        </RibbonRow>
+                        <RibbonRow>
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Text="@($"Before {Format.SpaceBefore:0.#} pt")" Tooltip="Spacing Before"
+                                              Icon="@Ico(WordIcons.LineSpacing)" Disabled="Disabled" Menu="SpaceBeforeMenu" />
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Text="@($"After {Format.SpaceAfter:0.#} pt")" Tooltip="Spacing After"
+                                              Icon="@Ico(WordIcons.LineSpacing)" Disabled="Disabled" Menu="SpaceAfterMenu" />
+                        </RibbonRow>
+                    </RibbonGroup>
+                </RibbonTab>
+
+                @* ================================ REFERENCES ================================ *@
+                <RibbonTab Title="References" Key="references">
+                    <RibbonGroup Title="Table of Contents" Priority="100">
+                        <RibbonButton Text="Table of Contents" Tooltip="Insert a table of contents from Heading 1–3"
+                                      Icon="@Ico(WordIcons.TableOfContents)" Disabled="Disabled"
+                                      Clicked="() => Run(c => c.InsertTableOfContents())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Update Table" Tooltip="Update Table"
+                                      Icon="@Ico(WordIcons.UpdateTable)"
+                                      Disabled="@(Disabled || !(C?.HasTableOfContents ?? false))"
+                                      Clicked="() => Run(c => c.UpdateTableOfContents())" />
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Footnotes" Priority="90">
+                        <RibbonButton Text="Insert Footnote" Tooltip="Insert Footnote" Icon="@Ico(WordIcons.Footnote)"
+                                      Disabled="Disabled" Clicked="() => Open(DialogKind.Footnote)" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Next Footnote" Tooltip="Next Footnote" Icon="@Ico(OfficeIcon.Next)"
+                                      Disabled="@(Document is null || (C?.Footnotes.Count ?? 0) == 0)"
+                                      Clicked="() => Run(c => c.NextFootnote(), requireEditable: false)" />
+                    </RibbonGroup>
+                </RibbonTab>
+
+                @* ================================ REVIEW ================================ *@
+                <RibbonTab Title="Review" Key="review">
+                    <RibbonGroup Title="Proofing" Priority="100">
                         <RibbonToggleButton Text="Spelling" Tooltip="Check spelling"
                                             Icon="@Ico(OfficeIcon.SpellCheck)"
                                             Checked="@SpellCheckOn" Disabled="Disabled"
@@ -173,94 +376,80 @@
                                       Icon="@Ico(OfficeIcon.Next)"
                                       Disabled="@(Disabled || !SpellCheckOn)"
                                       Clicked="() => GoToSpellingError(backwards: false)" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Word Count" Tooltip="Word Count (Ctrl+Shift+G)"
+                                      Icon="@Ico(WordIcons.WordCount)" Disabled="@(Document is null)"
+                                      Clicked="() => Open(DialogKind.WordCount)" />
                     </RibbonGroup>
 
-                    @*
-                        On Home, and last on it. Finding a word is something you do while writing
-                        rather than a separate pass, so it sits on the tab that opens - but it is
-                        reached less often than the formatting beside it, which is what the priority
-                        orders and what decides which group folds into the overflow first on a narrow
-                        window.
-
-                        Not gated on Disabled: finding changes nothing, so it works in a read-only
-                        document. The bar disables itself when there is no document to search.
-                    *@
-                    <RibbonGroup Title="Find" Priority="60">
-                        @* Large: the bar is one control as tall as the group, and on a row of its own
-                           it left the row underneath empty for the width of a search box. *@
-                        <RibbonContent>
-                            <OfficeFindBar Find="@(editor?.Controller?.Find)"
-                                           ShowTooltips="ShowToolbarTooltips"
-                                           Moved="StateHasChanged" />
-                        </RibbonContent>
+                    <RibbonGroup Title="Comments" Priority="90">
+                        <RibbonButton Text="New Comment" Tooltip="New Comment (Ctrl+Alt+M)" Icon="@Ico(WordIcons.Comment)"
+                                      Disabled="Disabled" Clicked="OpenComment" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Delete" Tooltip="Delete Comment" Icon="@Ico(WordIcons.DeleteComment)"
+                                      Disabled="@(Disabled || C?.CurrentComment is null)"
+                                      Clicked="() => Run(c => c.DeleteComment())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Previous" Tooltip="Previous Comment" Icon="@Ico(OfficeIcon.Previous)"
+                                      Disabled="@(Document is null || (C?.Comments.Count ?? 0) == 0)"
+                                      Clicked="() => Run(c => c.PreviousComment(), requireEditable: false)" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Next" Tooltip="Next Comment" Icon="@Ico(OfficeIcon.Next)"
+                                      Disabled="@(Document is null || (C?.Comments.Count ?? 0) == 0)"
+                                      Clicked="() => Run(c => c.NextComment(), requireEditable: false)" />
+                        <RibbonToggleButton Size="RibbonItemSize.Small" Text="Show Comments" Tooltip="Show Comments"
+                                            Icon="@Ico(WordIcons.Comment)"
+                                            Checked="@(C?.ShowComments ?? true)" Disabled="@(Document is null)"
+                                            Clicked="_ => Run(c => c.ShowComments = !c.ShowComments, requireEditable: false)" />
                     </RibbonGroup>
 
-                    @if (ToolbarContent != null)
-                    {
-                        @* Never folds into an overflow button: whatever the host added is theirs. *@
-                        <RibbonGroup Title="@ToolbarContentTitle" Priority="200" CanCollapse="false">
-                            <RibbonContent>@ToolbarContent</RibbonContent>
-                        </RibbonGroup>
-                    }
+                    <RibbonGroup Title="Tracking" Priority="80">
+                        <RibbonToggleButton Text="Track Changes" Tooltip="Track Changes (Ctrl+Shift+E)"
+                                            Icon="@Ico(WordIcons.TrackChanges)"
+                                            Checked="@(C?.IsTrackingChanges ?? false)" Disabled="Disabled"
+                                            Clicked="_ => Run(c => c.IsTrackingChanges = !c.IsTrackingChanges)" />
+                    </RibbonGroup>
+
+                    <RibbonGroup Title="Changes" Priority="70">
+                        <RibbonSplitButton Text="Accept" Tooltip="Accept and Move to Next" Icon="@Ico(WordIcons.Accept)"
+                                           Disabled="@(Disabled || (C?.Revisions.Count ?? 0) == 0)"
+                                           Menu="AcceptMenu" Clicked="() => Run(c => c.AcceptChange())" />
+                        <RibbonSplitButton Text="Reject" Tooltip="Reject and Move to Next" Icon="@Ico(WordIcons.Reject)"
+                                           Disabled="@(Disabled || (C?.Revisions.Count ?? 0) == 0)"
+                                           Menu="RejectMenu" Clicked="() => Run(c => c.RejectChange())" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Previous" Tooltip="Previous Change" Icon="@Ico(OfficeIcon.Previous)"
+                                      Disabled="@(Document is null || (C?.Revisions.Count ?? 0) == 0)"
+                                      Clicked="() => Run(c => c.PreviousChange(), requireEditable: false)" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Next" Tooltip="Next Change" Icon="@Ico(OfficeIcon.Next)"
+                                      Disabled="@(Document is null || (C?.Revisions.Count ?? 0) == 0)"
+                                      Clicked="() => Run(c => c.NextChange(), requireEditable: false)" />
+                    </RibbonGroup>
                 </RibbonTab>
 
-                @*
-                    Two tabs, not four. Home is what you do to the text under the caret; Layout is what
-                    you do to the page it sits on. Splitting further gave Insert and Layout one group
-                    each, which is a click to reach a bar with a single button on it.
-                *@
-                <RibbonTab Title="Layout" Key="layout">
-                    <RibbonGroup Title="Page Setup" Priority="100">
-                        @* Large: one control is the whole group, and on a single row it left the row
-                           underneath it empty for the width of a menu button. *@
-                        <RibbonContent>
-                            <OfficePageMarginsMenu Disabled="Disabled"
-                                                   ShowTooltips="ShowToolbarTooltips"
-                                                   Current="@Margins"
-                                                   MarginsPicked="OnMarginsPicked" />
-                        </RibbonContent>
-                    </RibbonGroup>
-
-                    @*
-                        Print layout is a way of looking at the document, so it is a toggle rather than
-                        two buttons: the pressed state is what says which of the two you are in.
-                    *@
-                    <RibbonGroup Title="Page" Priority="90">
-                        @* Two toggles rather than one, because a page is one of two things rather than
-                           on or off - a single "Landscape" button leaves the user reading its pressed
-                           state backwards to work out what portrait would be. *@
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Portrait"
-                                            Icon="@Ico(OfficeIcon.Portrait)"
-                                            Checked="@(Orientation == PageOrientation.Portrait)"
-                                            Disabled="Disabled"
-                                            Clicked="_ => Run(c => c.SetPageOrientation(PageOrientation.Portrait))" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Landscape"
-                                            Icon="@Ico(OfficeIcon.Landscape)"
-                                            Checked="@(Orientation == PageOrientation.Landscape)"
-                                            Disabled="Disabled"
-                                            Clicked="_ => Run(c => c.SetPageOrientation(PageOrientation.Landscape))" />
-
-                        <RibbonSeparator />
-
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Print layout"
+                @* ================================ VIEW ================================ *@
+                <RibbonTab Title="View" Key="view">
+                    <RibbonGroup Title="Views" Priority="100">
+                        <RibbonToggleButton Text="Read Mode" Tooltip="Read Mode" Icon="@Ico(WordIcons.ReadMode)"
+                                            Checked="ReadModeOn" Disabled="@(Document is null)"
+                                            Clicked="_ => SetReadMode(!ReadModeOn)" />
+                        <RibbonToggleButton Text="Print Layout" Tooltip="Print Layout"
                                             Icon="@Ico(OfficeIcon.PrintLayout)"
                                             Checked="@(LayoutMode == DocumentPageLayout.Print)"
-                                            Clicked="_ => TogglePrintLayout()" />
-
-                        <RibbonContent Size="RibbonItemSize.Small">
-                            <OfficeWatermarkButton Disabled="Disabled"
-                                                   ShowTooltips="ShowToolbarTooltips"
-                                                   HasWatermark="@(Watermark is not null)"
-                                                   Picked="OnWatermarkPicked"
-                                                   Rejected="DropRejected" />
-                        </RibbonContent>
+                                            Clicked="_ => SetLayout(DocumentPageLayout.Print)" />
+                        <RibbonToggleButton Text="Web Layout" Tooltip="Web Layout — one continuous column"
+                                            Icon="@Ico(OfficeIcon.FitWidth)"
+                                            Checked="@(LayoutMode == DocumentPageLayout.Reflow)"
+                                            Clicked="_ => SetLayout(DocumentPageLayout.Reflow)" />
                     </RibbonGroup>
 
-                    @*
-                        Minus, readout, plus - on one row, in that order. Filling columns put the
-                        readout under the minus and the plus above "fit", which is a stepper whose two
-                        halves are on different lines with the number wedged between them.
-                    *@
+                    <RibbonGroup Title="Show" Priority="90">
+                        <RibbonToggleButton Size="RibbonItemSize.Small" Text="Navigation Pane" Tooltip="Navigation Pane"
+                                            Icon="@Ico(WordIcons.NavigationPane)"
+                                            Checked="navigationPane" Disabled="@(Document is null)"
+                                            Clicked="_ => this.navigationPane = !this.navigationPane" />
+                        <RibbonToggleButton Size="RibbonItemSize.Small" Text="Formatting Marks" Tooltip="Show/Hide ¶ (Ctrl+Shift+8)"
+                                            Icon="@Ico(WordIcons.ShowMarks)"
+                                            Checked="@(C?.ShowFormattingMarks ?? false)" Disabled="@(Document is null)"
+                                            Clicked="_ => Run(c => c.ShowFormattingMarks = !c.ShowFormattingMarks, requireEditable: false)" />
+                    </RibbonGroup>
+
+                    @* Minus, readout, plus - on one row, in that order. *@
                     <RibbonGroup Title="Zoom" Priority="80">
                         <RibbonRow>
                             <RibbonButton Size="RibbonItemSize.Small" Tooltip="Zoom out"
@@ -274,6 +463,8 @@
                                           Disabled="@(!CanZoomIn)" Clicked="() => StepZoom(1)" />
                         </RibbonRow>
                         <RibbonRow>
+                            <RibbonButton Size="RibbonItemSize.Small" Text="100%" Tooltip="Zoom to 100%"
+                                          Icon="@Ico(OfficeIcon.ZoomIn)" Clicked="() => SetZoomAsync(1.0)" />
                             <RibbonButton Size="RibbonItemSize.Small" Text="Fit width"
                                           Tooltip="Fit the page to the window"
                                           Icon="@Ico(OfficeIcon.FitWidth)"
@@ -282,55 +473,31 @@
                     </RibbonGroup>
                 </RibbonTab>
 
-                @*
-                    Insert stands on its own now that it has something to hold: what goes *in* the
-                    document (a table, a picture) and what goes *around* it (the running head and foot,
-                    the number on every page, and the break between two of them).
-                *@
-                <RibbonTab Title="Insert" Key="insert">
-                    <RibbonGroup Title="Objects" Priority="100">
-                        <RibbonContent>
-                            <OfficeInsertMenu Disabled="Disabled"
-                                              ShowTooltips="ShowToolbarTooltips"
-                                              ShowShapes="false"
-                                              ShapePicked="OnShapePicked"
-                                              TablePicked="OnTablePicked"
-                                              ImagePicked="OnImagePicked"
-                                              ImageRejected="DropRejected" />
-                        </RibbonContent>
-                    </RibbonGroup>
-
-                    @*
-                        Labelled, and two rows rather than three items filling columns two deep - which
-                        left the page-number menu alone in a second column with a hole under it. These
-                        are things you insert by name, not marks you recognise: nobody reads "footer"
-                        off a 16px glyph.
-                    *@
-                    <RibbonGroup Title="Header &amp; Footer" Priority="90">
+                @* ============================ TABLE (contextual) ============================ *@
+                <RibbonTab Title="Table" Key="table" Visible="InTable" ContextTitle="Table Tools">
+                    <RibbonGroup Title="Rows &amp; Columns" Priority="100">
                         <RibbonRow>
-                            <RibbonButton Size="RibbonItemSize.Small" Text="Header" Tooltip="Header"
-                                          Icon="@Ico(OfficeIcon.Header)"
-                                          Disabled="Disabled" Clicked="() => OpenChrome(header: true)" />
-                            <RibbonButton Size="RibbonItemSize.Small" Text="Footer" Tooltip="Footer"
-                                          Icon="@Ico(OfficeIcon.Footer)"
-                                          Disabled="Disabled" Clicked="() => OpenChrome(header: false)" />
+                            <RibbonButton Size="RibbonItemSize.Small" Text="Insert Above" Tooltip="Insert Row Above" Icon="@Ico(OfficeIcon.InsertRow)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.InsertTableRowAbove())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Text="Insert Below" Tooltip="Insert Row Below" Icon="@Ico(OfficeIcon.InsertRow)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.InsertTableRowBelow())" />
                         </RibbonRow>
                         <RibbonRow>
-                            @* A menu, not a button: a page number has a place and a form, and picking
-                               them afterwards means finding the header you just wrote into. *@
-                            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Page number"
-                                              Tooltip="Page number"
-                                              Icon="@Ico(OfficeIcon.PageNumber)"
-                                              Disabled="Disabled" Menu="PageNumberMenu" />
+                            <RibbonButton Size="RibbonItemSize.Small" Text="Insert Left" Tooltip="Insert Column Left" Icon="@Ico(OfficeIcon.InsertColumn)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.InsertTableColumnLeft())" />
+                            <RibbonButton Size="RibbonItemSize.Small" Text="Insert Right" Tooltip="Insert Column Right" Icon="@Ico(OfficeIcon.InsertColumn)"
+                                          Disabled="Disabled" Clicked="() => Run(c => c.InsertTableColumnRight())" />
                         </RibbonRow>
+                        <RibbonMenuButton Text="Delete" Tooltip="Delete Rows, Columns or the Table" Icon="@Ico(WordIcons.DeleteTable)"
+                                          Disabled="Disabled" Menu="TableDeleteMenu" />
                     </RibbonGroup>
 
-                    @* One command, so it is drawn the way a single command should be: large, with its
-                       name on it. A lone 16px glyph under a caption reading "Breaks" said nothing. *@
-                    <RibbonGroup Title="Pages" Priority="80">
-                        <RibbonButton Text="Page break" Tooltip="Page break (Ctrl+Enter)"
-                                      Icon="@Ico(OfficeIcon.PageBreak)"
-                                      Disabled="Disabled" Clicked="() => Run(c => c.InsertPageBreak())" />
+                    <RibbonGroup Title="Merge" Priority="90">
+                        <RibbonButton Text="Merge Cells" Tooltip="Merge the selected cells" Icon="@Ico(WordIcons.MergeCells)"
+                                      Disabled="@(Disabled || !(C?.CanMergeTableCells ?? false))"
+                                      Clicked="() => Run(c => c.MergeTableCells())" />
+                        <RibbonButton Text="Split Cells" Tooltip="Split Cells" Icon="@Ico(WordIcons.SplitCells)"
+                                      Disabled="Disabled" Clicked="() => Run(c => c.SplitTableCell())" />
                     </RibbonGroup>
                 </RibbonTab>
 
@@ -340,50 +507,198 @@
         </div>
     }
 
-    <div class="doc-surface">
-        <DocumentEditor @ref="editor"
-                        Document="Document"
-                        Theme="Theme"
-                        Zoom="ZoomLevel"
-                        Watermark="Watermark"
-                        PageLayout="LayoutMode"
-                        ReadOnly="ReadOnly"
-                        SpellChecker="SpellChecker"
-                        SpellCheckEnabled="SpellCheckOn"
-                        AllowFileDrop="AllowFileDrop"
-                        DropRejected="DropRejected"
-                        SelectionChanged="StateHasChanged"
-                        DocumentChanged="OnDocumentChanged" />
+    <div class="doc-body">
+        @if (navigationPane && !ReadModeOn && C is { } nav)
+        {
+            <nav class="doc-nav" aria-label="Navigation">
+                <div class="doc-nav-title">
+                    <span>Navigation</span>
+                    <button type="button" class="doc-nav-close" aria-label="Close navigation pane"
+                            @onclick="() => this.navigationPane = false">@OfficeToolbarIcons.Get(WordIcons.Reject, 14)</button>
+                </div>
 
-    @*
-        A small prompt rather than editing the head in place on the page. Header and footer are
-        separate stories in the document - their own parts, laid out per page and repeated - so making
-        them editable in the canvas means a second caret, a second selection and a way in and out of
-        them. Asking for the line is the whole of what most documents need, and it is undoable like any
-        other command.
-    *@
-    @if (this.chrome is { } editing)
-    {
-        <div class="chrome-backdrop" @onclick="() => this.chrome = null"></div>
+                @{ var headings = nav.Headings(); }
+                @if (headings.Count == 0)
+                {
+                    <div class="doc-nav-empty">Headings you add to the document appear here.</div>
+                }
+                else
+                {
+                    @foreach (var heading in headings)
+                    {
+                        <button type="button"
+                                class="doc-nav-item @(IsCurrentHeading(heading, headings) ? "on" : null)"
+                                style="padding-left:@(8 + (Math.Min(heading.Level, 6) - 1) * 14)px"
+                                @onclick="() => GoToHeading(heading)">@heading.Text</button>
+                    }
+                }
+            </nav>
+        }
 
-        <div class="chrome-prompt" role="dialog"
-             aria-label="@(editing.Header ? "Header" : "Footer")">
-            <label class="chrome-label" for="chrome-text">
-                @(editing.Header ? "Shown at the top of every page" : "Shown at the bottom of every page")
-            </label>
+        <div class="doc-surface">
+            <DocumentEditor @ref="editor"
+                            Document="Document"
+                            Theme="Theme"
+                            Zoom="ZoomLevel"
+                            Watermark="Watermark"
+                            PageLayout="@(ReadModeOn ? DocumentPageLayout.Reflow : LayoutMode)"
+                            ReadOnly="@(ReadOnly || ReadModeOn)"
+                            SpellChecker="SpellChecker"
+                            SpellCheckEnabled="SpellCheckOn"
+                            AllowFileDrop="AllowFileDrop"
+                            DropRejected="DropRejected"
+                            SelectionChanged="StateHasChanged"
+                            ShortcutRequested="OnShortcutRequested"
+                            LinkClicked="LinkClicked"
+                            DocumentChanged="OnDocumentChanged" />
 
-            <input id="chrome-text"
-                   class="chrome-input"
-                   value="@editing.Text"
-                   @oninput="e => this.chrome = (editing.Header, e.Value?.ToString() ?? string.Empty)"
-                   @onkeydown="OnChromeKeyDown" />
+            @if (ReadModeOn)
+            {
+                <button type="button" class="doc-readmode-exit" @onclick="() => SetReadMode(false)">
+                    @OfficeToolbarIcons.Get(WordIcons.ReadMode, 16)
+                    <span>Exit Read Mode</span>
+                </button>
+            }
 
-            <div class="chrome-actions">
-                <button type="button" @onclick="() => this.chrome = null">Cancel</button>
-                <button type="button" class="chrome-primary" @onclick="CommitChrome">Set</button>
-            </div>
+            @if (this.dialog != DialogKind.None)
+            {
+                <div class="dialog-backdrop" @onclick="CloseDialog"></div>
+
+                <div class="dialog @(this.dialog == DialogKind.Symbols ? "dialog-wide" : null)" role="dialog"
+                     aria-label="@DialogTitle" @onkeydown="OnDialogKeyDown">
+                    <div class="dialog-title">@DialogTitle</div>
+
+                    @switch (this.dialog)
+                    {
+                        case DialogKind.Header:
+                        case DialogKind.Footer:
+                            <label class="dialog-label" for="dlg-one">
+                                @(this.dialog == DialogKind.Header ? "Shown at the top of every page" : "Shown at the bottom of every page")
+                            </label>
+                            <input id="dlg-one" class="dialog-input" @bind="textOne" @bind:event="oninput" />
+                            break;
+
+                        case DialogKind.Replace:
+                            <label class="dialog-label" for="dlg-find">Find what</label>
+                            <input id="dlg-find" class="dialog-input" @bind="textOne" @bind:event="oninput" />
+                            <label class="dialog-label" for="dlg-replace">Replace with</label>
+                            <input id="dlg-replace" class="dialog-input" @bind="textTwo" @bind:event="oninput" />
+                            <div class="dialog-checks">
+                                <label><input type="checkbox" @bind="matchCase" /> Match case</label>
+                                <label><input type="checkbox" @bind="wholeWord" /> Find whole words only</label>
+                            </div>
+                            <div class="dialog-status" aria-live="polite">@status</div>
+                            break;
+
+                        case DialogKind.Hyperlink:
+                            <label class="dialog-label" for="dlg-text">Text to display</label>
+                            <input id="dlg-text" class="dialog-input" @bind="textOne" @bind:event="oninput" />
+                            <label class="dialog-label" for="dlg-address">Address</label>
+                            <input id="dlg-address" class="dialog-input" placeholder="https://… or #bookmark"
+                                   @bind="textTwo" @bind:event="oninput" />
+                            @if (C?.Bookmarks is { Count: > 0 } marks)
+                            {
+                                <div class="dialog-label">Or a place in this document</div>
+                                <div class="dialog-list">
+                                    @foreach (var mark in marks)
+                                    {
+                                        <button type="button" @onclick="() => PickBookmarkTarget(mark)">@mark.Name</button>
+                                    }
+                                </div>
+                            }
+                            break;
+
+                        case DialogKind.Comment:
+                            <label class="dialog-label" for="dlg-comment">Comment by @(C?.Author)</label>
+                            <textarea id="dlg-comment" class="dialog-input dialog-textarea" @bind="textOne" @bind:event="oninput"></textarea>
+                            break;
+
+                        case DialogKind.Bookmark:
+                            <label class="dialog-label" for="dlg-bookmark">Bookmark name</label>
+                            <input id="dlg-bookmark" class="dialog-input" @bind="textOne" @bind:event="oninput" />
+                            @if (!string.IsNullOrEmpty(textOne) && !DocumentEditorController.IsValidBookmarkName(textOne))
+                            {
+                                <div class="dialog-status dialog-error">Start with a letter; letters, digits and _ only; 40 characters at most.</div>
+                            }
+                            @if (C?.Bookmarks is { Count: > 0 } existing)
+                            {
+                                <div class="dialog-list">
+                                    @foreach (var mark in existing)
+                                    {
+                                        <button type="button" @onclick="() => GoToBookmark(mark.Name)">Go to @mark.Name</button>
+                                    }
+                                </div>
+                            }
+                            break;
+
+                        case DialogKind.Footnote:
+                            <label class="dialog-label" for="dlg-note">Footnote text</label>
+                            <textarea id="dlg-note" class="dialog-input dialog-textarea" @bind="textOne" @bind:event="oninput"></textarea>
+                            break;
+
+                        case DialogKind.Watermark:
+                            <label class="dialog-label" for="dlg-mark">Watermark text</label>
+                            <input id="dlg-mark" class="dialog-input" @bind="textOne" @bind:event="oninput" />
+                            break;
+
+                        case DialogKind.WordCount:
+                            <table class="dialog-stats">
+                                <tr><td>Pages</td><td>@stats.Pages.ToString("N0")</td></tr>
+                                <tr><td>Words</td><td>@stats.Words.ToString("N0")</td></tr>
+                                <tr><td>Characters (no spaces)</td><td>@stats.CharactersNoSpaces.ToString("N0")</td></tr>
+                                <tr><td>Characters (with spaces)</td><td>@stats.CharactersWithSpaces.ToString("N0")</td></tr>
+                                <tr><td>Paragraphs</td><td>@stats.Paragraphs.ToString("N0")</td></tr>
+                                <tr><td>Lines</td><td>@stats.Lines.ToString("N0")</td></tr>
+                                @if (stats.SelectedWords > 0)
+                                {
+                                    <tr><td>Words selected</td><td>@stats.SelectedWords.ToString("N0")</td></tr>
+                                }
+                            </table>
+                            break;
+
+                        case DialogKind.Symbols:
+                            <div class="dialog-symbols">
+                                @foreach (var symbol in DocumentEditorController.CommonSymbols)
+                                {
+                                    <button type="button" title="@symbol" @onclick="() => InsertSymbol(symbol)">@symbol</button>
+                                }
+                            </div>
+                            break;
+                    }
+
+                    <div class="dialog-actions">
+                        @switch (this.dialog)
+                        {
+                            case DialogKind.Replace:
+                                <button type="button" @onclick="ReplaceFindNext">Find Next</button>
+                                <button type="button" @onclick="ReplaceOne">Replace</button>
+                                <button type="button" class="dialog-primary" @onclick="ReplaceAll">Replace All</button>
+                                <button type="button" @onclick="CloseDialog">Close</button>
+                                break;
+
+                            case DialogKind.WordCount:
+                            case DialogKind.Symbols:
+                                <button type="button" class="dialog-primary" @onclick="CloseDialog">Close</button>
+                                break;
+
+                            case DialogKind.Hyperlink:
+                                @if (C?.CurrentHyperlink is not null)
+                                {
+                                    <button type="button" @onclick="RemoveLink">Remove Link</button>
+                                }
+                                <button type="button" @onclick="CloseDialog">Cancel</button>
+                                <button type="button" class="dialog-primary" @onclick="CommitDialog">OK</button>
+                                break;
+
+                            default:
+                                <button type="button" @onclick="CloseDialog">Cancel</button>
+                                <button type="button" class="dialog-primary" @onclick="CommitDialog">@CommitLabel</button>
+                                break;
+                        }
+                    </div>
+                </div>
+            }
         </div>
-    }
     </div>
 </div>
 
@@ -397,7 +712,7 @@
 
     [Parameter] public double Zoom { get; set; } = 1.0;
 
-    /// <summary>Raised when the Layout tab's zoom controls are used, so a host can `@bind` to it.</summary>
+    /// <summary>Raised whenever the zoom changes — the ribbon, Ctrl+wheel, a pinch — so a host can `@bind` to it.</summary>
     [Parameter] public EventCallback<double> ZoomChanged { get; set; }
 
     /// <summary>
@@ -406,10 +721,34 @@
     /// </summary>
     [Parameter] public DocumentPageLayout PageLayout { get; set; } = DocumentPageLayout.Print;
 
-    /// <summary>Raised when the Layout tab's print-layout toggle is used, so a host can `@bind`.</summary>
+    /// <summary>Raised when the View tab's layout toggles are used, so a host can `@bind`.</summary>
     [Parameter] public EventCallback<DocumentPageLayout> PageLayoutChanged { get; set; }
 
     [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>
+    /// Read Mode: no ribbon, one reflowed column, nothing editable — the document for reading. A
+    /// floating button leaves it.
+    /// </summary>
+    [Parameter] public bool ReadMode { get; set; }
+
+    /// <summary>Raised when Read Mode is entered or left from the view itself.</summary>
+    [Parameter] public EventCallback<bool> ReadModeChanged { get; set; }
+
+    /// <summary>
+    /// Raised when the File button is pressed. The File button is only drawn when this is bound — it is
+    /// the hook for a host's backstage.
+    /// </summary>
+    [Parameter] public EventCallback FileClicked { get; set; }
+
+    /// <summary>Raised with fresh figures whenever the word count or current page may have changed.</summary>
+    [Parameter] public EventCallback<DocumentStatistics> StatisticsChanged { get; set; }
+
+    /// <summary>Raised with the style id when the caret moves onto a paragraph of a different style.</summary>
+    [Parameter] public EventCallback<string> CurrentStyleChanged { get; set; }
+
+    /// <summary>Raised when a hyperlink out of the document is followed; left unbound, it opens in a new tab.</summary>
+    [Parameter] public EventCallback<DocumentLinkEventArgs> LinkClicked { get; set; }
 
     /// <summary>Passed straight through to the inner <see cref="DocumentEditor"/>.</summary>
     [Parameter] public ISpellChecker? SpellChecker { get; set; }
@@ -421,14 +760,7 @@
 
     [Parameter] public bool ShowToolbar { get; set; } = true;
 
-    /// <summary>
-    /// Whether the icon-only toolbar buttons carry a tooltip naming what they do.
-    /// </summary>
-    /// <remarks>
-    /// On, because every button on this bar is icon only and an icon with no label is a guess until
-    /// something names it. Turning it off falls back to the browser's own <c>title</c>, which is
-    /// slower to appear and cannot be themed but still says what the button is.
-    /// </remarks>
+    /// <summary>Whether the icon-only toolbar buttons carry a tooltip naming what they do.</summary>
     [Parameter] public bool ShowToolbarTooltips { get; set; } = true;
 
     /// <summary>Whether dragging an image file onto the document inserts it. On by default.</summary>
@@ -445,7 +777,7 @@
     /// <summary>How wide an inserted picture is, in pixels. Its height follows the image's own ratio.</summary>
     [Parameter] public double PictureWidth { get; set; } = 240;
 
-    /// <summary>Extra items appended to the toolbar, after the built-in formatting controls.</summary>
+    /// <summary>Extra items appended to the Home tab, after the built-in groups.</summary>
     [Parameter] public RenderFragment? ToolbarContent { get; set; }
 
     [Parameter] public IReadOnlyList<string> FontFamilies { get; set; } =
@@ -453,10 +785,7 @@
         "Calibri", "Cambria", "Arial", "Times New Roman", "Georgia", "Verdana", "Courier New"
     ];
 
-    /// <summary>
-    /// The sizes the picker offers. Doubles rather than ints so the list matches what a document can
-    /// actually hold — and what the MAUI DocumentEditorView takes for the same property.
-    /// </summary>
+    /// <summary>The sizes the picker offers.</summary>
     [Parameter] public IReadOnlyList<double> FontSizes { get; set; } =
     [
         8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72
@@ -466,30 +795,16 @@
     [Parameter] public string ToolbarContentTitle { get; set; } = "Actions";
 
     /// <summary>
-    /// Whether the bar shows the ribbon's tab strip, and with it the collapse chevron.
+    /// Draw the tab strip. On by default: the bar has Word's full set of tabs, and with the strip off
+    /// every tab but Home is unreachable.
     /// </summary>
-    /// <remarks>
-    /// Off by default. This is a formatting bar wrapped around an editor, not an application's whole
-    /// chrome, and there is one tab to show - a strip carrying a single "Home" is noise. Turn it on
-    /// when the editor is the application rather than a component in one.
-    /// </remarks>
-    /// <summary>
-    /// Draw the tab strip. On here, unlike the other two bars.
-    /// </summary>
-    /// <remarks>
-    /// A strip carrying a single "Home" is noise, which is why the spreadsheet and slide bars leave it
-    /// off. This one has Home, Insert, Layout and Review — with it off, three of the four are simply
-    /// unreachable.
-    /// </remarks>
     [Parameter] public bool ShowRibbonTabs { get; set; } = true;
 
     /// <summary>A shared-set icon as the ribbon takes it: inline SVG markup, not a MarkupString.</summary>
     static string Ico(OfficeIcon icon) => OfficeToolbarIcons.Get(icon).Value;
 
     [Parameter] public double ToolbarHeight { get; set; } = 44;
-    // Theme tokens rather than literals: the bar sits in the app's chrome, not on the page the
-    // editor is drawing, so it has to follow light/dark with everything else. A literal white
-    // default left a stark white bar wrapped around a dark editor in dark mode.
+
     // The Ribbon's own stylesheet carries this; forwarding it unconditionally would beat any rule an
     // app writes against the ribbon, so only a caller-chosen value is passed on.
     internal const string DefaultToolbarBackground = "var(--shiny-color-surface-container-low, #EFF4FB)";
@@ -511,111 +826,718 @@
 
     public DocumentEditorController? Controller => this.editor?.Controller;
 
-    bool Disabled => this.ReadOnly || this.Document is null;
+    /// <summary>Word count, characters, paragraphs, pages and the caret's page — for a status bar.</summary>
+    public DocumentStatistics Statistics => this.C?.Statistics ?? DocumentStatistics.Empty;
 
-    CaretFormat Format => this.editor?.Controller?.CaretFormat ?? CaretFormat.Default;
+    /// <summary>The caret paragraph's style id — for a style gallery.</summary>
+    public string CurrentStyleId => this.C?.CurrentStyleId ?? "Normal";
+
+    DocumentEditorController? C => this.editor?.Controller;
+
+    bool Disabled => this.ReadOnly || this.Document is null || this.ReadModeOn;
+
+    bool InTable => this.C?.IsInTable ?? false;
+
+    CaretFormat Format => this.C?.CaretFormat ?? CaretFormat.Default;
+
+    string? selectedTab;
+    bool navigationPane;
+
+    // ---- controller subscriptions ----
+
+    DocumentEditorController? subscribed;
+
+    protected override void OnAfterRender(bool firstRender) => this.Subscribe();
 
     /// <summary>
-    /// Whether the spelling pass is running: the toolbar's own choice, or the host's if it has not
-    /// been overridden here.
+    /// Follows the controller: a new document is a new controller, and a handler left on the old one
+    /// would report figures for a document that is no longer open.
     /// </summary>
-    /// <remarks>
-    /// The override exists so the Review tab's toggle works in a host that passed
-    /// <c>SpellCheckEnabled</c> one-way. Writing the parameter itself would be undone by the next
-    /// render; a host that binds gets its value back through <c>SpellCheckEnabledChanged</c> and the
-    /// override then agrees with it.
-    /// </remarks>
-    bool SpellCheckOn => this.spellCheckOverride ?? this.SpellCheckEnabled;
+    void Subscribe()
+    {
+        var current = this.C;
+        if (ReferenceEquals(current, this.subscribed))
+            return;
 
-    bool? spellCheckOverride;
+        this.Unsubscribe();
+        this.subscribed = current;
+
+        if (current is null)
+            return;
+
+        current.StatisticsChanged += this.OnStatisticsChanged;
+        current.CurrentStyleChanged += this.OnCurrentStyleChanged;
+        current.ZoomChanged += this.OnZoomChanged;
+    }
+
+    void Unsubscribe()
+    {
+        if (this.subscribed is not { } previous)
+            return;
+
+        previous.StatisticsChanged -= this.OnStatisticsChanged;
+        previous.CurrentStyleChanged -= this.OnCurrentStyleChanged;
+        previous.ZoomChanged -= this.OnZoomChanged;
+        this.subscribed = null;
+    }
+
+    void OnStatisticsChanged(object? sender, EventArgs e)
+    {
+        if (!this.StatisticsChanged.HasDelegate || sender is not DocumentEditorController controller)
+            return;
+
+        _ = this.InvokeAsync(() => this.StatisticsChanged.InvokeAsync(controller.Statistics));
+    }
+
+    void OnCurrentStyleChanged(object? sender, EventArgs e)
+    {
+        if (sender is not DocumentEditorController controller)
+            return;
+
+        _ = this.InvokeAsync(async () =>
+        {
+            if (this.CurrentStyleChanged.HasDelegate)
+                await this.CurrentStyleChanged.InvokeAsync(controller.CurrentStyleId);
+
+            this.StateHasChanged();
+        });
+    }
+
+    /// <summary>
+    /// A zoom made on the surface itself — Ctrl+wheel, a trackpad pinch — has to become the view's too,
+    /// or the next render hands the surface the old value and the page snaps back.
+    /// </summary>
+    void OnZoomChanged(object? sender, EventArgs e)
+    {
+        if (sender is not DocumentEditorController controller || Math.Abs(controller.Zoom - this.ZoomLevel) < 0.001)
+            return;
+
+        var zoom = controller.Zoom;
+        this.zoomOverride = zoom;
+
+        _ = this.InvokeAsync(async () =>
+        {
+            await this.ZoomChanged.InvokeAsync(zoom);
+            this.StateHasChanged();
+        });
+    }
+
+    public void Dispose() => this.Unsubscribe();
+
+    // ---- read mode and layout ----
+
+    bool? readModeOverride;
+
+    bool ReadModeOn => this.readModeOverride ?? this.ReadMode;
+
+    async Task SetReadMode(bool on)
+    {
+        this.readModeOverride = on;
+        this.dialog = DialogKind.None;
+        await this.ReadModeChanged.InvokeAsync(on);
+    }
 
     DocumentPageLayout? layoutOverride;
 
-    /// <summary>
-    /// The layout in force: the toolbar's own choice, or the host's if it has not been overridden.
-    /// </summary>
-    /// <remarks>Same shape as the spelling toggle and the zoom, and for the same reason.</remarks>
+    /// <summary>The layout in force: the toolbar's own choice, or the host's if it has not been overridden.</summary>
     DocumentPageLayout LayoutMode => this.layoutOverride ?? this.PageLayout;
 
-    async Task TogglePrintLayout()
+    async Task SetLayout(DocumentPageLayout layout)
     {
-        var next = this.LayoutMode == DocumentPageLayout.Print
-            ? DocumentPageLayout.Reflow
-            : DocumentPageLayout.Print;
+        this.layoutOverride = layout;
 
-        this.layoutOverride = next;
+        if (this.ReadModeOn)
+            await this.SetReadMode(false);
 
-        if (this.Controller is { } controller)
-            controller.PageLayout = next;
+        if (this.C is { } controller)
+            controller.PageLayout = layout;
 
-        await this.PageLayoutChanged.InvokeAsync(next);
+        await this.PageLayoutChanged.InvokeAsync(layout);
     }
+
+    // ---- navigation pane ----
+
+    void GoToHeading(DocumentHeading heading)
+    {
+        this.C?.GoToParagraph(heading.Paragraph);
+        _ = this.editor?.FocusAsync();
+    }
+
+    /// <summary>The heading whose section the caret is in: the last one at or above it.</summary>
+    bool IsCurrentHeading(DocumentHeading heading, IReadOnlyList<DocumentHeading> headings)
+    {
+        var caret = this.C?.Selection.Focus.Block ?? -1;
+        var current = headings.LastOrDefault(x => x.Paragraph <= caret);
+        return ReferenceEquals(current, heading);
+    }
+
+    // ---- menus ----
+
+    static RibbonMenuEntry Separator() => new() { IsSeparator = true };
+
+    RibbonMenuEntry Entry(string text, Action<DocumentEditorController> action, bool isChecked = false, string? icon = null)
+        => new()
+        {
+            Text = text,
+            Icon = icon,
+            IsChecked = isChecked,
+            IsDisabled = this.Disabled,
+            OnClick = EventCallback.Factory.Create(this, () => this.Run(action))
+        };
+
+    RibbonMenuEntry Entry(string text, Func<Task> action, bool isChecked = false, string? icon = null)
+        => new()
+        {
+            Text = text,
+            Icon = icon,
+            IsChecked = isChecked,
+            IsDisabled = this.Disabled,
+            OnClick = EventCallback.Factory.Create(this, action)
+        };
+
+    /// <summary>A colour swatch as menu icon markup: inline SVG, never an emoji square.</summary>
+    static string Swatch(string? hex) => hex is null
+        ? """<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-opacity=".5"/><path d="M3 13L13 3" stroke="currentColor" stroke-opacity=".6"/></svg>"""
+        : $"""<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="2" fill="#{hex}" stroke="currentColor" stroke-opacity=".35"/></svg>""";
+
+    static readonly (string Name, string Hex)[] ShadingSwatches =
+    [
+        ("Yellow", "FFF2CC"), ("Light Blue", "DDEBF7"), ("Light Green", "E2EFDA"), ("Light Orange", "FCE4D6"),
+        ("Light Gray", "EDEDED"), ("Gray", "BFBFBF"), ("Blue", "9BC2E6"), ("Rose", "F8CBAD")
+    ];
+
+    static readonly (string Name, string Hex)[] PageSwatches =
+    [
+        ("Cream", "FFF8E7"), ("Pale Yellow", "FFFBD6"), ("Pale Blue", "EAF2FB"), ("Pale Green", "EDF7EA"),
+        ("Pale Rose", "FCEEEE"), ("Light Gray", "F2F2F2"), ("Lavender", "F1EDFA"), ("Mint", "E8F7F3")
+    ];
+
+    List<RibbonMenuEntry> PasteMenu =>
+    [
+        Entry("Paste (Keep Source Formatting)", () => this.Paste(plain: false)),
+        Entry("Paste Text Only (Ctrl+Shift+Alt+V)", () => this.Paste(plain: true))
+    ];
+
+    List<RibbonMenuEntry> PainterMenu =>
+    [
+        Entry("Paint Once", c => { if (!c.IsFormatPainterActive) c.CopyFormatting(); }),
+        Entry("Keep Painting", c => { c.CancelFormatPainter(); c.CopyFormatting(sticky: true); },
+            isChecked: this.C?.IsFormatPainterSticky ?? false),
+        Entry("Stop Painting", c => c.CancelFormatPainter())
+    ];
+
+    List<RibbonMenuEntry> CaseMenu =>
+    [
+        Entry("Sentence case.", c => c.ChangeCase(TextCase.Sentence)),
+        Entry("lowercase", c => c.ChangeCase(TextCase.Lower)),
+        Entry("UPPERCASE", c => c.ChangeCase(TextCase.Upper)),
+        Entry("Capitalize Each Word", c => c.ChangeCase(TextCase.Capitalize)),
+        Entry("tOGGLE cASE", c => c.ChangeCase(TextCase.Toggle))
+    ];
+
+    List<RibbonMenuEntry> LineSpacingMenu =>
+    [
+        .. DocumentEditorController.LineSpacingPresets.Select(value =>
+            Entry(value.ToString("0.0#", System.Globalization.CultureInfo.CurrentCulture), c => c.SetLineSpacing(value),
+                isChecked: Math.Abs(this.Format.LineSpacing - value) < 0.02)),
+        Separator(),
+        Entry(this.Format.SpaceBefore > 0 ? "Remove Space Before Paragraph" : "Add Space Before Paragraph", c => c.ToggleSpaceBefore()),
+        Entry(this.Format.SpaceAfter > 0 ? "Remove Space After Paragraph" : "Add Space After Paragraph", c => c.ToggleSpaceAfter())
+    ];
+
+    List<RibbonMenuEntry> ShadingMenu =>
+    [
+        Entry("No Color", c => c.SetParagraphShading(null), isChecked: this.Format.Shading is null, icon: Swatch(null)),
+        Separator(),
+        .. ShadingSwatches.Select(s =>
+        {
+            OfficeColors.TryParse(s.Hex, out var color);
+            return Entry(s.Name, c => c.SetParagraphShading(color), isChecked: this.Format.Shading == color, icon: Swatch(s.Hex));
+        })
+    ];
+
+    List<RibbonMenuEntry> BordersMenu =>
+    [
+        Entry("Bottom Border", c => c.SetParagraphBorders(ParagraphBorderPreset.Bottom),
+            isChecked: this.Format.Borders is { Bottom: true, Top: false }),
+        Entry("Top Border", c => c.SetParagraphBorders(ParagraphBorderPreset.Top),
+            isChecked: this.Format.Borders is { Top: true, Bottom: false }),
+        Entry("Outside Borders", c => c.SetParagraphBorders(ParagraphBorderPreset.Outside),
+            isChecked: this.Format.Borders is { Top: true, Bottom: true, Left: true, Right: true }),
+        Separator(),
+        Entry("No Border", c => c.SetParagraphBorders(ParagraphBorderPreset.None), isChecked: this.Format.Borders is null),
+        Entry("Horizontal Line", c => c.InsertHorizontalLine())
+    ];
+
+    string CurrentStyleName
+    {
+        get
+        {
+            var id = this.CurrentStyleId;
+            return this.C?.AvailableStyles.FirstOrDefault(x => x.Id == id)?.Name ?? this.Format.StyleName ?? "Normal";
+        }
+    }
+
+    List<RibbonMenuEntry> StylesMenu =>
+    [
+        .. (this.C?.AvailableStyles ?? []).Select(style =>
+            Entry(style.Name, c => c.ApplyStyle(style.Id), isChecked: style.Id == this.CurrentStyleId))
+    ];
+
+    List<RibbonMenuEntry> SectionBreakMenu =>
+    [
+        Entry("Next Page", c => c.InsertSectionBreak(SectionBreakType.NextPage)),
+        Entry("Continuous", c => c.InsertSectionBreak(SectionBreakType.Continuous))
+    ];
+
+    List<RibbonMenuEntry> BreaksMenu =>
+    [
+        Entry("Page", c => c.InsertPageBreak()),
+        Separator(),
+        new RibbonMenuEntry { Text = "Section Breaks", IsDisabled = true },
+        Entry("Next Page", c => c.InsertSectionBreak(SectionBreakType.NextPage)),
+        Entry("Continuous", c => c.InsertSectionBreak(SectionBreakType.Continuous))
+    ];
+
+    List<RibbonMenuEntry> DateTimeMenu =>
+    [
+        .. DocumentEditorController.DateTimeFormats(DateTime.Now).Distinct().Select(text => Entry(text, c => c.InsertText(text)))
+    ];
+
+    List<RibbonMenuEntry> WatermarkMenu =>
+    [
+        .. new[] { "CONFIDENTIAL", "DRAFT", "DO NOT COPY", "ASAP", "SAMPLE", "URGENT" }.Select(text =>
+            Entry(text, c => c.SetWatermarkText(text), isChecked: this.C?.WatermarkText == text)),
+        Separator(),
+        Entry("Custom Watermark…", () => { this.Open(DialogKind.Watermark); return Task.CompletedTask; }),
+        Entry("Remove Watermark", c => c.SetWatermarkText(null))
+    ];
+
+    List<RibbonMenuEntry> PageColorMenu =>
+    [
+        Entry("No Color", c => c.SetPageColor(null), isChecked: this.C?.PageColor is null, icon: Swatch(null)),
+        Separator(),
+        .. PageSwatches.Select(s =>
+        {
+            OfficeColors.TryParse(s.Hex, out var color);
+            return Entry(s.Name, c => c.SetPageColor(color), isChecked: this.C?.PageColor == color, icon: Swatch(s.Hex));
+        })
+    ];
+
+    List<RibbonMenuEntry> PageSizeMenu =>
+    [
+        .. PaperSize.Presets.Select(size =>
+            Entry($"{size.Name}  {size.Description}", c => c.SetPaperSize(size), isChecked: this.C?.PaperSize == size))
+    ];
+
+    List<RibbonMenuEntry> ColumnsMenu =>
+    [
+        Entry("One", c => c.SetColumns(1), isChecked: (this.C?.ColumnCount ?? 1) == 1),
+        Entry("Two", c => c.SetColumns(2), isChecked: this.C?.ColumnCount == 2),
+        Entry("Three", c => c.SetColumns(3), isChecked: this.C?.ColumnCount == 3)
+    ];
+
+    string IndentLabel => this.Format.IndentFirstLine switch
+    {
+        > 0.5 => "First line",
+        < -0.5 => "Hanging",
+        _ => "Special"
+    };
+
+    List<RibbonMenuEntry> IndentMenu =>
+    [
+        Entry("None", c => c.SetIndents(null, null, 0), isChecked: Math.Abs(this.Format.IndentFirstLine) < 0.5),
+        Entry("First Line (0.5\")", c => c.SetIndents(null, null, DocumentEditorController.IndentStep), isChecked: this.Format.IndentFirstLine > 0.5),
+        Entry("Hanging (0.5\")", c => c.SetIndents(null, null, -DocumentEditorController.IndentStep), isChecked: this.Format.IndentFirstLine < -0.5),
+        Separator(),
+        Entry("Right Indent 0\"", c => c.SetIndents(null, 0, null), isChecked: this.Format.IndentRight < 0.5),
+        Entry("Right Indent 0.5\"", c => c.SetIndents(null, DocumentEditorController.IndentStep, null),
+            isChecked: Math.Abs(this.Format.IndentRight - DocumentEditorController.IndentStep) < 0.5)
+    ];
+
+    static readonly double[] SpacingSteps = [0, 6, 12, 18, 24];
+
+    List<RibbonMenuEntry> SpaceBeforeMenu =>
+    [
+        .. SpacingSteps.Select(pt => Entry($"{pt} pt", c => c.SetParagraphSpacing(pt, null), isChecked: Math.Abs(this.Format.SpaceBefore - pt) < 0.1))
+    ];
+
+    List<RibbonMenuEntry> SpaceAfterMenu =>
+    [
+        .. SpacingSteps.Select(pt => Entry($"{pt} pt", c => c.SetParagraphSpacing(null, pt), isChecked: Math.Abs(this.Format.SpaceAfter - pt) < 0.1))
+    ];
+
+    List<RibbonMenuEntry> AcceptMenu =>
+    [
+        Entry("Accept and Move to Next", c => c.AcceptChange()),
+        Entry("Accept All Changes", c => c.AcceptAllChanges())
+    ];
+
+    List<RibbonMenuEntry> RejectMenu =>
+    [
+        Entry("Reject and Move to Next", c => c.RejectChange()),
+        Entry("Reject All Changes", c => c.RejectAllChanges())
+    ];
+
+    List<RibbonMenuEntry> TableDeleteMenu =>
+    [
+        Entry("Delete Rows", c => c.DeleteTableRow()),
+        Entry("Delete Columns", c => c.DeleteTableColumn()),
+        Entry("Delete Table", c => c.DeleteTable())
+    ];
 
     List<RibbonMenuEntry> PageNumberMenu =>
     [
         .. new[] { PageNumberPlacement.Footer, PageNumberPlacement.Header }
             .SelectMany(placement => new[] { PageNumberPosition.Left, PageNumberPosition.Center, PageNumberPosition.Right }
-                .Select(position => new RibbonMenuEntry
-                {
-                    Text = $"{placement} — {position}",
-                    IsDisabled = this.Disabled,
-                    OnClick = EventCallback.Factory.Create(this, () => this.Run(c => c.InsertPageNumber(placement, position)))
-                }))
+                .Select(position => Entry($"{placement} — {position}", c => c.InsertPageNumber(placement, position))))
     ];
 
-    /// <summary>The header or footer being written, or null when the prompt is closed.</summary>
-    (bool Header, string Text)? chrome;
+    // ---- dialogs ----
+
+    enum DialogKind
+    {
+        None,
+        Header,
+        Footer,
+        Replace,
+        Hyperlink,
+        Comment,
+        Bookmark,
+        Footnote,
+        Watermark,
+        WordCount,
+        Symbols
+    }
+
+    DialogKind dialog;
+    string textOne = string.Empty;
+    string textTwo = string.Empty;
+    bool matchCase;
+    bool wholeWord;
+    string? status;
+    DocumentStatistics stats = DocumentStatistics.Empty;
+
+    string DialogTitle => this.dialog switch
+    {
+        DialogKind.Header => "Header",
+        DialogKind.Footer => "Footer",
+        DialogKind.Replace => "Find and Replace",
+        DialogKind.Hyperlink => this.C?.CurrentHyperlink is null ? "Insert Link" : "Edit Link",
+        DialogKind.Comment => "New Comment",
+        DialogKind.Bookmark => "Bookmark",
+        DialogKind.Footnote => "Insert Footnote",
+        DialogKind.Watermark => "Custom Watermark",
+        DialogKind.WordCount => "Word Count",
+        DialogKind.Symbols => "Symbol",
+        _ => string.Empty
+    };
+
+    string CommitLabel => this.dialog switch
+    {
+        DialogKind.Comment => "Post",
+        DialogKind.Bookmark => "Add",
+        DialogKind.Footnote => "Insert",
+        DialogKind.Watermark => "Apply",
+        _ => "Set"
+    };
+
+    void Open(DialogKind kind)
+    {
+        if (this.C is null)
+            return;
+
+        this.dialog = kind;
+        this.textOne = string.Empty;
+        this.textTwo = string.Empty;
+        this.status = null;
+
+        if (kind == DialogKind.WordCount)
+            this.stats = this.C.Statistics;
+    }
 
     void OpenChrome(bool header)
     {
-        if (this.Controller is not { } controller || this.Disabled)
+        if (this.C is not { } controller || this.Disabled)
             return;
 
-        this.chrome = (header, controller.ChromeText(header) ?? string.Empty);
+        this.Open(header ? DialogKind.Header : DialogKind.Footer);
+        this.textOne = controller.ChromeText(header) ?? string.Empty;
     }
 
-    /// <summary>Enter commits, Escape abandons — the two keys a one-field prompt owes the keyboard.</summary>
-    async Task OnChromeKeyDown(KeyboardEventArgs e)
+    void OpenReplace()
     {
-        if (e.Key == "Enter")
-            await this.CommitChrome();
-        else if (e.Key == "Escape")
-            this.chrome = null;
-    }
-
-    async Task CommitChrome()
-    {
-        if (this.chrome is not { } editing || this.Controller is not { } controller)
+        if (this.C is not { } controller)
             return;
 
-        // An empty line removes it, which is the only way back out of having one.
-        var text = string.IsNullOrWhiteSpace(editing.Text) ? null : editing.Text;
+        this.Open(DialogKind.Replace);
+        var selected = this.SelectedText();
+        this.textOne = selected.Length > 0 ? selected : controller.Find.Query;
+        this.matchCase = controller.Find.Options.MatchCase;
+        this.wholeWord = controller.Find.Options.WholeWord;
+    }
 
-        if (editing.Header)
-            controller.SetHeaderText(text);
+    void OpenHyperlink()
+    {
+        if (this.C is not { } controller || this.Disabled)
+            return;
+
+        this.Open(DialogKind.Hyperlink);
+
+        if (controller.CurrentHyperlink is { } link)
+        {
+            this.textOne = link.Text;
+            this.textTwo = link.Target;
+        }
         else
-            controller.SetFooterText(text);
-
-        this.chrome = null;
-        await this.DocumentChanged.InvokeAsync();
+        {
+            this.textOne = this.SelectedText();
+        }
     }
+
+    void OpenComment()
+    {
+        if (!this.Disabled)
+            this.Open(DialogKind.Comment);
+    }
+
+    void OpenBookmark()
+    {
+        if (!this.Disabled)
+            this.Open(DialogKind.Bookmark);
+    }
+
+    /// <summary>The selection's text when it lies within one paragraph, or empty.</summary>
+    string SelectedText()
+    {
+        if (this.C is not { } controller || controller.Selection.IsEmpty)
+            return string.Empty;
+
+        var range = controller.Selection.Range;
+        if (!range.IsWithinOneBlock)
+            return string.Empty;
+
+        var text = controller.Document.Paragraphs[range.Start.Block].PlainText;
+        var from = Math.Min(range.Start.Offset, text.Length);
+        var to = Math.Min(range.End.Offset, text.Length);
+        return text[from..to].Replace("￼", string.Empty);
+    }
+
+    async Task OnShortcutRequested(WordCommand command)
+    {
+        switch (command)
+        {
+            case WordCommand.Find:
+                // The find box lives on Home; bring the tab to the front so it is there to type into.
+                this.selectedTab = "home";
+                break;
+
+            case WordCommand.Replace: this.OpenReplace(); break;
+            case WordCommand.Hyperlink: this.OpenHyperlink(); break;
+            case WordCommand.NewComment: this.OpenComment(); break;
+            case WordCommand.WordCount: this.Open(DialogKind.WordCount); break;
+        }
+
+        await Task.CompletedTask;
+        this.StateHasChanged();
+    }
+
+    async Task OnDialogKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            await this.CloseDialog();
+            return;
+        }
+
+        // Enter commits a one-line form; in a textarea it is a new line unless Ctrl is held.
+        if (e.Key != "Enter")
+            return;
+
+        switch (this.dialog)
+        {
+            case DialogKind.Replace:
+                await this.ReplaceFindNext();
+                break;
+
+            case DialogKind.Comment or DialogKind.Footnote when !e.CtrlKey && !e.MetaKey:
+                break;
+
+            case DialogKind.WordCount or DialogKind.Symbols:
+                await this.CloseDialog();
+                break;
+
+            default:
+                await this.CommitDialog();
+                break;
+        }
+    }
+
+    async Task CloseDialog()
+    {
+        this.dialog = DialogKind.None;
+        this.status = null;
+
+        if (this.editor is { } surface)
+            await surface.FocusAsync();
+    }
+
+    async Task CommitDialog()
+    {
+        if (this.C is not { } controller)
+        {
+            this.dialog = DialogKind.None;
+            return;
+        }
+
+        var kind = this.dialog;
+        var one = this.textOne;
+        var two = this.textTwo;
+
+        switch (kind)
+        {
+            case DialogKind.Header:
+            case DialogKind.Footer:
+                // An empty line removes it, which is the only way back out of having one.
+                var text = string.IsNullOrWhiteSpace(one) ? null : one;
+                if (kind == DialogKind.Header)
+                    controller.SetHeaderText(text);
+                else
+                    controller.SetFooterText(text);
+
+                break;
+
+            case DialogKind.Hyperlink:
+                if (string.IsNullOrWhiteSpace(two))
+                    return;
+
+                controller.InsertHyperlink(NormalizeAddress(two), one);
+                break;
+
+            case DialogKind.Comment:
+                if (string.IsNullOrWhiteSpace(one))
+                    return;
+
+                controller.AddComment(one);
+                break;
+
+            case DialogKind.Bookmark:
+                if (!controller.InsertBookmark(one.Trim()))
+                    return;
+
+                break;
+
+            case DialogKind.Footnote:
+                controller.InsertFootnote(one);
+                break;
+
+            case DialogKind.Watermark:
+                controller.SetWatermarkText(string.IsNullOrWhiteSpace(one) ? null : one);
+                break;
+        }
+
+        await this.CloseDialog();
+        await this.RaiseChangedAsync();
+    }
+
+    /// <summary>A bare domain gets a scheme, as Word's link dialog does; a bookmark or mail link is left alone.</summary>
+    static string NormalizeAddress(string address)
+    {
+        address = address.Trim();
+
+        if (address.StartsWith('#') || address.Contains("://", StringComparison.Ordinal) ||
+            address.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+        {
+            return address;
+        }
+
+        return address.Contains('@') ? "mailto:" + address : "https://" + address;
+    }
+
+    void PickBookmarkTarget(DocumentBookmark mark) => this.textTwo = "#" + mark.Name;
+
+    async Task RemoveLink()
+    {
+        this.C?.RemoveHyperlink();
+        await this.CloseDialog();
+        await this.RaiseChangedAsync();
+    }
+
+    async Task GoToBookmark(string name)
+    {
+        this.C?.GoToBookmark(name);
+        await this.CloseDialog();
+    }
+
+    async Task InsertSymbol(string symbol)
+    {
+        // The grid stays open, like Word's, so several symbols can go in one after another.
+        if (this.C is { } controller && !this.Disabled)
+        {
+            controller.InsertSymbol(symbol);
+            await this.RaiseChangedAsync();
+        }
+    }
+
+    /// <summary>Points the finder at the dialog's query, re-running it only when something changed.</summary>
+    bool SyncFind()
+    {
+        if (this.C is not { } controller || string.IsNullOrEmpty(this.textOne))
+            return false;
+
+        var options = new FindOptions { MatchCase = this.matchCase, WholeWord = this.wholeWord };
+        var changed = controller.Find.Query != this.textOne || controller.Find.Options != options;
+
+        controller.Find.Options = options;
+        controller.Find.Query = this.textOne;
+        return changed;
+    }
+
+    async Task ReplaceFindNext()
+    {
+        if (this.C is not { } controller)
+            return;
+
+        // A changed query lands on its first hit by itself; stepping again would skip that one.
+        if (!this.SyncFind())
+            controller.Find.FindNext();
+
+        this.status = controller.Find.Count == 0 ? "No matches." : $"Match {controller.Find.Status}";
+        await Task.CompletedTask;
+    }
+
+    async Task ReplaceOne()
+    {
+        if (this.C is not { } controller || this.Disabled)
+            return;
+
+        this.SyncFind();
+        controller.ReplaceCurrent(this.textTwo ?? string.Empty);
+
+        this.status = controller.Find.Count == 0 ? "All done." : $"Match {controller.Find.Status}";
+        await this.RaiseChangedAsync();
+    }
+
+    async Task ReplaceAll()
+    {
+        if (this.C is not { } controller || this.Disabled || string.IsNullOrEmpty(this.textOne))
+            return;
+
+        var options = new FindOptions { MatchCase = this.matchCase, WholeWord = this.wholeWord };
+        var count = controller.ReplaceAll(this.textOne, this.textTwo ?? string.Empty, options);
+
+        this.status = count == 0 ? "No matches." : $"{count} replaced.";
+        await this.RaiseChangedAsync();
+    }
+
+    // ---- zoom ----
 
     /// <summary>The zoom stops the buttons step through.</summary>
-    /// <remarks>
-    /// Fixed stops rather than a multiplier: a percentage that lands on 87% is a worse answer than one
-    /// that lands on 100%, and these are the ones a reader recognises from every other document app.
-    /// </remarks>
     static readonly double[] ZoomStops = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
 
     double? zoomOverride;
 
-    /// <summary>
-    /// The zoom in force: the toolbar's own, or the host's if it has not been overridden here.
-    /// </summary>
-    /// <remarks>
-    /// Same shape as the spelling toggle, and for the same reason - writing the <c>Zoom</c> parameter
-    /// itself would be undone by the next render in a host that passed it one-way.
-    /// </remarks>
+    /// <summary>The zoom in force: the toolbar's own, or the host's if it has not been overridden here.</summary>
     double ZoomLevel => this.zoomOverride ?? this.Zoom;
 
     bool CanZoomIn => this.ZoomLevel < ZoomStops[^1] - 0.001;
@@ -633,16 +1555,10 @@
         await this.SetZoomAsync(next);
     }
 
-    /// <summary>
-    /// Sets the zoom so the page exactly spans the window.
-    /// </summary>
-    /// <remarks>
-    /// Only in print. Reflow already fits the window by construction - it re-wraps to the measure - so
-    /// there is nothing for this to do there.
-    /// </remarks>
+    /// <summary>Sets the zoom so the page exactly spans the window. Only in print.</summary>
     async Task FitToWidth()
     {
-        if (this.Controller is not { IsPaginated: true } controller)
+        if (this.C is not { IsPaginated: true } controller)
             return;
 
         var page = controller.PageWidth;
@@ -658,33 +1574,32 @@
     {
         this.zoomOverride = value;
 
-        if (this.Controller is { } controller)
+        if (this.C is { } controller)
             controller.Zoom = value;
 
         await this.ZoomChanged.InvokeAsync(value);
     }
+
+    // ---- spelling ----
+
+    bool SpellCheckOn => this.spellCheckOverride ?? this.SpellCheckEnabled;
+
+    bool? spellCheckOverride;
 
     async Task ToggleSpellCheck()
     {
         var next = !this.SpellCheckOn;
         this.spellCheckOverride = next;
 
-        if (this.Controller is { } controller)
+        if (this.C is { } controller)
             controller.IsSpellCheckEnabled = next;
 
         await this.SpellCheckEnabledChanged.InvokeAsync(next);
     }
 
-    /// <summary>
-    /// Steps to the next misspelling and selects it, then offers what can be done about it.
-    /// </summary>
-    /// <remarks>
-    /// The menu is the point. Stepping to an error and stopping there leaves the user with a selected
-    /// word and the same problem they started with.
-    /// </remarks>
     async Task GoToSpellingError(bool backwards)
     {
-        if (this.Controller is not { } controller || this.Disabled)
+        if (this.C is not { } controller || this.Disabled)
             return;
 
         if (await controller.GoToNextSpellingErrorAsync(backwards) is null)
@@ -694,24 +1609,56 @@
             await surface.ShowSpellingMenuForCaretAsync();
     }
 
-    /// <summary>The document's current margins, for the gallery to mark. Null until one is open.</summary>
-    PageMargins? Margins => this.editor?.Controller?.PageMargins;
+    // ---- commands ----
 
-    PageOrientation Orientation => this.editor?.Controller?.PageOrientation ?? PageOrientation.Portrait;
+    /// <summary>The document's current margins, for the gallery to mark. Null until one is open.</summary>
+    PageMargins? Margins => this.C?.PageMargins;
+
+    PageOrientation Orientation => this.C?.PageOrientation ?? PageOrientation.Portrait;
 
     string ColorHex => OfficeColors.ToHex(this.Format.Color);
 
-    async Task Run(Action<DocumentEditorController> action)
+    /// <summary>
+    /// Runs a command against the controller, then gives the editor its focus back and reports the
+    /// change. Commands that only look — navigation, view toggles — pass <c>requireEditable: false</c>.
+    /// </summary>
+    async Task Run(Action<DocumentEditorController> action, bool requireEditable = true)
     {
-        if (this.editor?.Controller is not { } controller || this.Disabled)
+        if (this.C is not { } controller || (requireEditable && this.Disabled))
             return;
 
         action(controller);
 
         // Focus goes back to the editor after every toolbar action: leaving it on the button means the
         // next keystroke goes nowhere, which reads as the editor having silently stopped working.
-        await this.editor.FocusAsync();
+        if (this.editor is { } surface)
+            await surface.FocusAsync();
+
         await this.RaiseChangedAsync();
+    }
+
+    Task Run(Func<DocumentEditorController, bool> action, bool requireEditable = true)
+        => this.Run(c => { _ = action(c); }, requireEditable);
+
+    async Task Paste(bool plain)
+    {
+        if (this.editor is { } surface && !this.Disabled)
+            await surface.PasteAsync(plain);
+    }
+
+    async Task Cut()
+    {
+        if (this.editor is { } surface && !this.Disabled)
+            await surface.CutAsync();
+    }
+
+    async Task Copy()
+    {
+        if (this.editor is { } surface)
+        {
+            await surface.CopyAsync();
+            await surface.FocusAsync();
+        }
     }
 
     Task Align(TextAlignment alignment) => this.Run(c => c.SetAlignment(alignment));
@@ -733,14 +1680,6 @@
 
     Task OnHighlightPicked(ArgbColor? color) => this.Run(c => c.SetHighlight(color));
 
-    /// <summary>
-    /// Applies a margin preset to the whole document.
-    /// </summary>
-    /// <remarks>
-    /// Offered in both layouts although only <see cref="DocumentPageLayout.Print"/> can show the
-    /// result — the margins belong to the document and are written and saved either way, exactly as a
-    /// page break is. Hiding the control in reflow would hide a setting the file still has.
-    /// </remarks>
     Task OnMarginsPicked(PageMargins margins) => this.Run(c => c.SetPageMargins(margins));
 
     Task OnShapePicked(ShapeGeometry geometry)
@@ -766,15 +1705,7 @@
             await this.DocumentChanged.InvokeAsync();
     }
 
-    /// <summary>
-    /// The colour this control wears: its ribbon's header band and tab underline.
-    /// </summary>
-    /// <remarks>
-    /// Defaults to <see cref="OfficeAccent.Document"/> - the colour Microsoft's own Word wears,
-    /// because that is what a user reads as "a document" before any label has been looked at. Set it to
-    /// take on the app's own brand instead, or to <c>null</c> to leave the bar on the theme's neutrals
-    /// like the rest of the chrome.
-    /// </remarks>
+    /// <summary>The colour this control wears: its ribbon's header band and tab underline.</summary>
     [Parameter] public OfficeAccent? Accent { get; set; } = OfficeAccent.Document;
 
     string? AccentBackground => this.Accent is { } a ? Css(a.Color) : null;
@@ -783,7 +1714,6 @@
 
     static string Css(ArgbColor value)
         => $"rgba({value.R},{value.G},{value.B},{(value.A / 255d).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
-
 
     /// <summary>A picture drawn behind the page. Forwarded to the surface.</summary>
     [Parameter] public OfficeWatermark? Watermark { get; set; }
@@ -794,5 +1724,4 @@
         this.StateHasChanged();
         return Task.CompletedTask;
     }
-
 }

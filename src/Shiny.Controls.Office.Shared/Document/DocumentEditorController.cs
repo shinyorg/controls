@@ -33,6 +33,44 @@ public sealed record CaretFormat
 
     /// <summary>How deeply nested that list item is, zero-based. Zero when it is not in a list.</summary>
     public int ListLevel { get; init; }
+
+    /// <summary>The caret paragraph's style id — what the style gallery lights. "Normal" when it names none.</summary>
+    public string StyleId { get; init; } = "Normal";
+
+    public bool Superscript { get; init; }
+    public bool Subscript { get; init; }
+
+    /// <summary>Line spacing as a multiple of single — 1.0, 1.15, 1.5, 2.0.</summary>
+    public double LineSpacing { get; init; } = 1.0;
+
+    /// <summary>Space above the paragraph, in points.</summary>
+    public double SpaceBefore { get; init; }
+
+    /// <summary>Space below the paragraph, in points.</summary>
+    public double SpaceAfter { get; init; }
+
+    /// <summary>Left indent in pixels.</summary>
+    public double IndentLeft { get; init; }
+
+    public double IndentRight { get; init; }
+
+    /// <summary>First-line indent in pixels; negative for a hanging indent.</summary>
+    public double IndentFirstLine { get; init; }
+
+    /// <summary>The paragraph's shading, or null.</summary>
+    public ArgbColor? Shading { get; init; }
+
+    /// <summary>The paragraph's borders, or null.</summary>
+    public ParagraphBorders? Borders { get; init; }
+
+    /// <summary>True inside a table cell — the cue for the contextual Table tab.</summary>
+    public bool IsInTable { get; init; }
+
+    /// <summary>The hyperlink under the caret, or null.</summary>
+    public string? Hyperlink { get; init; }
+
+    /// <summary>True when the text at the caret is a tracked insertion or deletion.</summary>
+    public TextRevision Revision { get; init; }
 }
 
 public enum CaretMove
@@ -57,7 +95,7 @@ public enum CaretMove
 /// two things: painting, and giving the platform somewhere to send text — a hidden contenteditable on
 /// the web, a hidden entry on MAUI.
 /// </remarks>
-public sealed class DocumentEditorController : DocumentController
+public sealed partial class DocumentEditorController : DocumentController
 {
     readonly WordDocument document;
 
@@ -104,6 +142,7 @@ public sealed class DocumentEditorController : DocumentController
         {
             this.DropPendingIfCaretMoved();
             this.RefreshCaretFormat();
+            this.NotifyPageIfMoved();
             this.RaiseChanged();
         };
 
@@ -201,7 +240,7 @@ public sealed class DocumentEditorController : DocumentController
     public Task RefreshSpellingAsync(CancellationToken cancellationToken = default)
     {
         var (first, last) = this.VisibleBlockRange();
-        return this.Spelling.RefreshAsync(this.Document.Blocks, first, last, cancellationToken);
+        return this.Spelling.RefreshAsync(this.Document.Paragraphs, first, last, cancellationToken);
     }
 
     /// <summary>
@@ -251,7 +290,7 @@ public sealed class DocumentEditorController : DocumentController
 
     (int First, int Last) VisibleBlockRange()
     {
-        var blocks = this.Blocks;
+        var blocks = this.StoryParagraphs;
 
         // Blocks are in flow coordinates and the scroll offset is in the paginated view's, so the
         // band has to be converted. Skipping this would spell-check the wrong paragraphs — off by
@@ -268,8 +307,10 @@ public sealed class DocumentEditorController : DocumentController
             if (blocks[i].Y + blocks[i].Height < top)
                 continue;
 
+            // Not a break: cells side by side in a table row are consecutive in the story but a short
+            // cell's paragraphs can sit above a tall neighbour's, so order in Y is not order here.
             if (blocks[i].Y > bottom)
-                break;
+                continue;
 
             if (first < 0)
                 first = i;
@@ -283,7 +324,7 @@ public sealed class DocumentEditorController : DocumentController
     /// <summary>Underline rectangles for misspelled words, in document coordinates.</summary>
     public IEnumerable<GridRectLike> SpellingRects()
     {
-        var blocks = this.Blocks;
+        var blocks = this.StoryParagraphs;
         var (first, last) = this.VisibleBlockRange();
 
         for (var i = first; i <= last && i < blocks.Count; i++)
@@ -291,7 +332,7 @@ public sealed class DocumentEditorController : DocumentController
             if (blocks[i] is not LaidOutParagraph paragraph)
                 continue;
 
-            if (this.Document.Blocks.ElementAtOrDefault(i) is not DocumentParagraph source)
+            if (this.Document.Paragraphs.ElementAtOrDefault(i) is not { } source)
                 continue;
 
             foreach (var error in this.Spelling.ErrorsFor(i, source.PlainText))
@@ -338,7 +379,7 @@ public sealed class DocumentEditorController : DocumentController
         bool backwards = false,
         CancellationToken cancellationToken = default)
     {
-        var blocks = this.Document.Blocks;
+        var blocks = this.Document.Paragraphs;
         if (blocks.Count == 0)
             return null;
 
@@ -357,7 +398,7 @@ public sealed class DocumentEditorController : DocumentController
 
             index = ((index % blocks.Count) + blocks.Count) % blocks.Count;
 
-            if (blocks.ElementAtOrDefault(index) is not DocumentParagraph paragraph)
+            if (blocks.ElementAtOrDefault(index) is not { } paragraph)
                 continue;
 
             // Checked here, one paragraph at a time, because the spelling pass only ever runs over
@@ -399,7 +440,7 @@ public sealed class DocumentEditorController : DocumentController
     /// <summary>The misspelling under a position, or null.</summary>
     public SpellingError? SpellingErrorAt(DocumentPosition position)
     {
-        if (this.Document.Blocks.ElementAtOrDefault(position.Block) is not DocumentParagraph paragraph)
+        if (this.Document.Paragraphs.ElementAtOrDefault(position.Block) is not { } paragraph)
             return null;
 
         foreach (var error in this.Spelling.ErrorsFor(position.Block, paragraph.PlainText))
@@ -477,7 +518,7 @@ public sealed class DocumentEditorController : DocumentController
             // The common path stays a single command. A transaction closes as a composite, which ends
             // the coalescing run - so wrapping every keystroke in one would make each character its
             // own undo step.
-            this.document.Execute(new InsertTextCommand(at, text));
+            this.ExecuteInsert(at, text);
         }
         else
         {
@@ -490,7 +531,7 @@ public sealed class DocumentEditorController : DocumentController
             // would leave the caret carrying a format nobody chose.
             using (this.document.Undo.BeginTransaction("Typing"))
             {
-                this.document.Execute(new InsertTextCommand(at, text));
+                this.ExecuteInsert(at, text);
 
                 foreach (var change in formats)
                     this.document.Execute(new FormatRunsCommand(new DocumentRange(at, end), change));
@@ -531,7 +572,7 @@ public sealed class DocumentEditorController : DocumentController
 
     /// <summary>The level of the list item at a block, when that item has no text. Null otherwise.</summary>
     int? EmptyListItemAt(int block)
-        => this.Document.Blocks.ElementAtOrDefault(block) is DocumentParagraph { List: { } label } paragraph
+        => this.Document.Paragraphs.ElementAtOrDefault(block) is { List: { } label } paragraph
             && paragraph.PlainText.Length == 0
             ? label.Numbering?.Level ?? 0
             : null;
@@ -551,15 +592,44 @@ public sealed class DocumentEditorController : DocumentController
         if (caret.Offset > 0)
         {
             var from = caret with { Offset = caret.Offset - 1 };
+
+            if (this.document.IsTrackingRevisions)
+            {
+                // Tracked: the character stays, struck through, and the caret steps back over it.
+                if (!this.IsDeletedAt(from))
+                    this.document.Execute(new TrackedDeleteCommand(new DocumentRange(from, caret), this.Author, DateTime.UtcNow, this.NextRevisionId()));
+
+                this.Selection.MoveTo(from);
+                this.AfterEdit();
+                return;
+            }
+
             this.document.Execute(new DeleteRangeCommand(new DocumentRange(from, caret)));
             this.Selection.MoveTo(from);
             this.AfterEdit();
             return;
         }
 
+        if (this.document.IsTrackingRevisions)
+        {
+            // Joining paragraphs is not tracked; the caret just moves back into the one above.
+            this.Move(CaretMove.Left);
+            return;
+        }
+
         // At the very start of a paragraph, backspace joins it to the one above.
         if (caret.Block == 0)
             return;
+
+        // Unless the one above is in another container - the paragraph after a table, or the first in
+        // a cell. Nothing joins across that boundary; Word steps the caret over it instead.
+        if (!this.CanJoin(caret.Block - 1, caret.Block))
+        {
+            if (this.Document.CellOf(caret.Block) is null)
+                this.Move(CaretMove.Left);
+
+            return;
+        }
 
         var previousLength = this.LengthOf(caret.Block - 1);
         this.document.Execute(new MergeParagraphCommand(caret.Block - 1));
@@ -582,12 +652,27 @@ public sealed class DocumentEditorController : DocumentController
 
         if (caret.Offset < length)
         {
-            this.document.Execute(new DeleteRangeCommand(new DocumentRange(caret, caret with { Offset = caret.Offset + 1 })));
+            var next = caret with { Offset = caret.Offset + 1 };
+
+            if (this.document.IsTrackingRevisions)
+            {
+                if (!this.IsDeletedAt(caret))
+                    this.document.Execute(new TrackedDeleteCommand(new DocumentRange(caret, next), this.Author, DateTime.UtcNow, this.NextRevisionId()));
+
+                this.Selection.MoveTo(next);
+                this.AfterEdit();
+                return;
+            }
+
+            this.document.Execute(new DeleteRangeCommand(new DocumentRange(caret, next)));
             this.AfterEdit();
             return;
         }
 
-        if (caret.Block + 1 >= this.Document.Blocks.Count)
+        if (this.document.IsTrackingRevisions)
+            return;
+
+        if (caret.Block + 1 >= this.Document.Paragraphs.Count || !this.CanJoin(caret.Block, caret.Block + 1))
             return;
 
         this.document.Execute(new MergeParagraphCommand(caret.Block));
@@ -600,9 +685,49 @@ public sealed class DocumentEditorController : DocumentController
             return this.Selection.Focus;
 
         var range = this.Selection.Range;
+
+        if (this.document.IsTrackingRevisions)
+        {
+            // The deleted text stays in place, struck through; whatever replaces it goes after it.
+            this.document.Execute(new TrackedDeleteCommand(range, this.Author, DateTime.UtcNow, this.NextRevisionId()));
+
+            var after = this.ClampPosition(range.End);
+            this.Selection.MoveTo(after);
+            return after;
+        }
+
         this.document.Execute(new DeleteRangeCommand(range));
         this.Selection.MoveTo(range.Start);
         return range.Start;
+    }
+
+    /// <summary>True when the character at a position is tracked-deleted text.</summary>
+    bool IsDeletedAt(DocumentPosition position)
+    {
+        if (this.Document.Paragraphs.ElementAtOrDefault(position.Block) is not { } paragraph)
+            return false;
+
+        var cursor = 0;
+        foreach (var run in paragraph.Runs)
+        {
+            if (position.Offset >= cursor && position.Offset < cursor + run.Length)
+                return run.Style.Revision == TextRevision.Deleted;
+
+            cursor += run.Length;
+        }
+
+        return false;
+    }
+
+    /// <summary>A position pulled back inside the document after an edit that may have shortened it.</summary>
+    DocumentPosition ClampPosition(DocumentPosition position)
+    {
+        var count = this.Document.Paragraphs.Count;
+        if (count == 0)
+            return DocumentPosition.Start;
+
+        var block = Math.Clamp(position.Block, 0, count - 1);
+        return new DocumentPosition(block, Math.Clamp(position.Offset, 0, this.LengthOf(block)));
     }
 
     // ---- formatting ----
@@ -700,6 +825,11 @@ public sealed class DocumentEditorController : DocumentController
         if (this.IsReadOnlyDocument)
             return false;
 
+        // In a table Tab walks the cells - Word's own rule, and the only way through a table from the
+        // keyboard. A list inside a cell still nests, which is why the list test comes first there.
+        if (this.IsInTable && !this.SelectionTouchesAList())
+            return this.TabInTable(backwards: shift);
+
         if (this.SelectionTouchesAList())
         {
             this.ChangeListLevel(shift ? -1 : 1);
@@ -723,7 +853,7 @@ public sealed class DocumentEditorController : DocumentController
 
         for (var block = range.Start.Block; block <= range.End.Block; block++)
         {
-            if (this.Document.Blocks.ElementAtOrDefault(block) is DocumentParagraph { List: not null })
+            if (this.Document.Paragraphs.ElementAtOrDefault(block) is { List: not null })
                 return true;
         }
 
@@ -750,7 +880,7 @@ public sealed class DocumentEditorController : DocumentController
             return false;
 
         // Already a list item: the marker is just text the user meant to type.
-        if (this.Document.Blocks.ElementAtOrDefault(at.Block) is not DocumentParagraph { List: null } paragraph)
+        if (this.Document.Paragraphs.ElementAtOrDefault(at.Block) is not { List: null } paragraph)
             return false;
 
         var text = paragraph.PlainText;
@@ -1149,12 +1279,14 @@ public sealed class DocumentEditorController : DocumentController
         if (this.IsReadOnlyDocument)
             return;
 
-        var block = Math.Clamp(this.Selection.Focus.Block, 0, Math.Max(0, this.Document.Blocks.Count - 1));
+        var paragraph = Math.Clamp(this.Selection.Focus.Block, 0, Math.Max(0, this.Document.Paragraphs.Count - 1));
+        var top = Math.Max(0, this.Document.TopBlockOf(paragraph));
 
-        this.document.Execute(new InsertTableCommand(block, rows, columns));
+        this.document.Execute(new InsertTableCommand(top, rows, columns));
 
         // Into the first cell, which is where someone who just made a table wants to be typing.
-        this.Selection.MoveTo(new DocumentPosition(block + 1, 0));
+        var first = this.Document.FirstParagraphOf(top + 1);
+        this.Selection.MoveTo(new DocumentPosition(first < 0 ? paragraph : first, 0));
         this.AfterEdit();
     }
 
@@ -1199,7 +1331,7 @@ public sealed class DocumentEditorController : DocumentController
 
     /// <summary>The selected inline object itself, or null.</summary>
     public InlineObject? SelectedInline
-        => this.selectedObject is { } at && this.Document.Blocks.ElementAtOrDefault(at.Block) is DocumentParagraph paragraph
+        => this.selectedObject is { } at && this.Document.Paragraphs.ElementAtOrDefault(at.Block) is { } paragraph
             ? InlineAt(paragraph, at.Offset)
             : null;
 
@@ -1213,7 +1345,7 @@ public sealed class DocumentEditorController : DocumentController
             if (run.IsBreak)
                 continue;
 
-            var length = run.Inline is null ? run.Text.Length : 1;
+            var length = run.Length;
 
             if (run.Inline is { } inline && offset >= cursor && offset < cursor + length)
                 return inline;
@@ -1248,7 +1380,7 @@ public sealed class DocumentEditorController : DocumentController
     public DocumentPosition? ObjectAt(double x, double y)
     {
         var (documentX, documentY) = this.ToFlow(x, y);
-        var blocks = this.Blocks;
+        var blocks = this.StoryParagraphs;
 
         for (var i = 0; i < blocks.Count; i++)
         {
@@ -1281,7 +1413,7 @@ public sealed class DocumentEditorController : DocumentController
         if (this.selectedObject is not { } at)
             return null;
 
-        if (this.Blocks.ElementAtOrDefault(at.Block) is not LaidOutParagraph paragraph)
+        if (this.StoryParagraphs.ElementAtOrDefault(at.Block) is not { } paragraph)
             return null;
 
         foreach (var line in paragraph.Lines)
@@ -1504,7 +1636,7 @@ public sealed class DocumentEditorController : DocumentController
 
     public void SelectAll()
     {
-        var last = this.Document.Blocks.Count - 1;
+        var last = this.Document.Paragraphs.Count - 1;
         this.Selection.Select(DocumentPosition.Start, new DocumentPosition(last, this.LengthOf(last)));
     }
 
@@ -1558,7 +1690,7 @@ public sealed class DocumentEditorController : DocumentController
                 if (caret.Offset < length)
                     return caret with { Offset = caret.Offset + 1 };
 
-                return caret.Block + 1 < this.Document.Blocks.Count
+                return caret.Block + 1 < this.Document.Paragraphs.Count
                     ? new DocumentPosition(caret.Block + 1, 0)
                     : caret;
 
@@ -1572,7 +1704,7 @@ public sealed class DocumentEditorController : DocumentController
                 return DocumentPosition.Start;
 
             case CaretMove.DocumentEnd:
-                var last = this.Document.Blocks.Count - 1;
+                var last = this.Document.Paragraphs.Count - 1;
                 return new DocumentPosition(last, this.LengthOf(last));
 
             case CaretMove.WordLeft:
@@ -1624,7 +1756,7 @@ public sealed class DocumentEditorController : DocumentController
             while (offset < text.Length && !char.IsWhiteSpace(text[offset]))
                 offset++;
 
-            return offset == caret.Offset && caret.Block + 1 < this.Document.Blocks.Count
+            return offset == caret.Offset && caret.Block + 1 < this.Document.Paragraphs.Count
                 ? new DocumentPosition(caret.Block + 1, 0)
                 : caret with { Offset = offset };
         }
@@ -1646,29 +1778,60 @@ public sealed class DocumentEditorController : DocumentController
     public DocumentPosition? PositionAt(double x, double y)
     {
         var (documentX, documentY) = this.ToFlow(x, y);
+        return this.PositionAtFlow(documentX, documentY);
+    }
 
+    /// <summary>The story position nearest a point in flow coordinates.</summary>
+    /// <remarks>
+    /// Table cells sit side by side, so several paragraphs can span the same Y. Among those the one
+    /// whose cell contains the X wins, and failing that the nearest cell — which is what lets a click in
+    /// a cell's padding, or in the gap below a short cell, still land in that cell.
+    /// </remarks>
+    DocumentPosition? PositionAtFlow(double documentX, double documentY)
+    {
         LaidOutParagraph? best = null;
         var index = -1;
-        var blocks = this.Blocks;
+        var bestScore = double.MaxValue;
+        var blocks = this.StoryParagraphs;
 
         for (var i = 0; i < blocks.Count; i++)
         {
-            if (blocks[i] is not LaidOutParagraph block)
-                continue;
+            var block = blocks[i];
+            var cell = this.StoryCellBounds(i);
 
-            if (documentY >= block.Y && documentY <= block.Y + block.Height)
+            // Distance outside the paragraph's band, vertically, and outside its cell horizontally.
+            // Zero on both means the point is inside.
+            var top = block.Y;
+            var bottom = block.Y + block.Height;
+
+            if (cell is { } c)
             {
-                best = block;
-                index = i;
-                break;
+                // A cell's last paragraph owns the space down to the cell's bottom edge, and its first
+                // the space up to the top.
+                if (i + 1 >= blocks.Count || this.StoryCellBounds(i + 1) != cell)
+                    bottom = Math.Max(bottom, c.Bottom);
+
+                if (i == 0 || this.StoryCellBounds(i - 1) != cell)
+                    top = Math.Min(top, c.Y);
             }
 
-            // Remember the last block above the point, so clicking in the gap below the document
-            // still lands somewhere sensible rather than nowhere.
-            if (block.Y <= documentY)
+            var dy = documentY < top ? top - documentY : documentY > bottom ? documentY - bottom : 0;
+            var dx = cell is { } r
+                ? (documentX < r.X ? r.X - documentX : documentX > r.Right ? documentX - r.Right : 0)
+                : 0;
+
+            // Vertical distance dominates: a paragraph on the right line always beats one on another
+            // line, whatever the horizontal distance.
+            var score = (dy * 10000) + dx;
+
+            if (score < bestScore)
             {
+                bestScore = score;
                 best = block;
                 index = i;
+
+                if (score == 0)
+                    break;
             }
         }
 
@@ -1697,8 +1860,8 @@ public sealed class DocumentEditorController : DocumentController
                 return run.SourceOffset;
 
             // An object is one character and cannot be clicked into, only on one side or the other.
-            if (run.Inline is not null)
-                return run.SourceOffset + (x > run.X + (run.Width / 2) ? 1 : 0);
+            if (run.IsAtomic)
+                return run.SourceOffset + (x > run.X + (run.Width / 2) ? run.Length : 0);
 
             // Walk the run's characters and take the boundary the click is closest to, so clicking the
             // right half of a glyph puts the caret after it rather than before.
@@ -1726,10 +1889,11 @@ public sealed class DocumentEditorController : DocumentController
     /// <summary>The caret's rectangle in document coordinates.</summary>
     public GridRectLike CaretRect(DocumentPosition position)
     {
-        var blocks = this.Blocks;
-        if (position.Block < 0 || position.Block >= blocks.Count || blocks[position.Block] is not LaidOutParagraph paragraph)
+        var blocks = this.StoryParagraphs;
+        if (position.Block < 0 || position.Block >= blocks.Count)
             return new GridRectLike(0, 0, 1, 16);
 
+        var paragraph = blocks[position.Block];
         var line = paragraph.Lines.LastOrDefault(l => position.Offset >= l.SourceOffset) ?? paragraph.Lines[0];
         var x = paragraph.X;
 
@@ -1738,9 +1902,9 @@ public sealed class DocumentEditorController : DocumentController
             if (position.Offset < run.SourceOffset)
                 break;
 
-            // An inline object has no text to measure through: the caret is either at its left edge
-            // or, once the offset has passed it, at its right.
-            if (run.Inline is not null)
+            // An atomic piece has no text to measure through: the caret is either at its left edge or,
+            // once the offset has passed it, at its right.
+            if (run.IsAtomic)
             {
                 x = paragraph.X + run.X + (position.Offset > run.SourceOffset ? run.Width : 0);
                 continue;
@@ -1758,7 +1922,7 @@ public sealed class DocumentEditorController : DocumentController
 
     (int Start, int End) LineBoundsAt(DocumentPosition position)
     {
-        if (this.Blocks.ElementAtOrDefault(position.Block) is not LaidOutParagraph paragraph)
+        if (this.StoryParagraphs.ElementAtOrDefault(position.Block) is not { } paragraph)
             return (0, 0);
 
         var line = paragraph.Lines.LastOrDefault(l => position.Offset >= l.SourceOffset) ?? paragraph.Lines[0];
@@ -1825,7 +1989,7 @@ public sealed class DocumentEditorController : DocumentController
 
         for (var block = range.Start.Block; block <= range.End.Block; block++)
         {
-            if (this.Blocks.ElementAtOrDefault(block) is not LaidOutParagraph paragraph)
+            if (this.StoryParagraphs.ElementAtOrDefault(block) is not { } paragraph)
                 continue;
 
             var from = block == range.Start.Block ? range.Start.Offset : 0;
@@ -1973,13 +2137,13 @@ public sealed class DocumentEditorController : DocumentController
     // ---- state ----
 
     string TextOf(int block)
-        => this.Document.Blocks.ElementAtOrDefault(block) is DocumentParagraph paragraph ? paragraph.PlainText : string.Empty;
+        => this.Document.Paragraphs.ElementAtOrDefault(block) is { } paragraph ? paragraph.PlainText : string.Empty;
 
     int LengthOf(int block) => this.TextOf(block).Length;
 
     void ClampSelection()
     {
-        var blocks = this.Document.Blocks.Count;
+        var blocks = this.Document.Paragraphs.Count;
         if (blocks == 0)
             return;
 
@@ -1999,13 +2163,14 @@ public sealed class DocumentEditorController : DocumentController
         this.Find.Invalidate();
         this.RefreshCaretFormat();
         this.ScrollCaretIntoView();
+        this.InvalidateStatistics();
         this.RaiseChanged();
     }
 
     /// <summary>Reads the formatting under the caret so a toolbar can show what is active.</summary>
     void RefreshCaretFormat()
     {
-        if (this.Document.Blocks.ElementAtOrDefault(this.Selection.Focus.Block) is not DocumentParagraph paragraph)
+        if (this.Document.Paragraphs.ElementAtOrDefault(this.Selection.Focus.Block) is not { } paragraph)
             return;
 
         // The character *before* the caret is what Word reports, so typing continues the run the caret
@@ -2019,13 +2184,13 @@ public sealed class DocumentEditorController : DocumentController
             if (run.IsBreak)
                 continue;
 
-            if (offset < cursor + run.Text.Length || run.Text.Length == 0)
+            if (offset < cursor + run.Length || run.Length == 0)
             {
                 style = run.Style;
                 break;
             }
 
-            cursor += run.Text.Length;
+            cursor += run.Length;
             style = run.Style;
         }
 
@@ -2049,7 +2214,22 @@ public sealed class DocumentEditorController : DocumentController
                 _ => ListStyle.Numbered
             },
 
-            ListLevel = paragraph.List?.Numbering?.Level ?? 0
+            ListLevel = paragraph.List?.Numbering?.Level ?? 0,
+
+            StyleId = paragraph.Element?.ParagraphProperties?.ParagraphStyleId?.Val?.Value ?? "Normal",
+            Superscript = style.BaselineShift > 0,
+            Subscript = style.BaselineShift < 0,
+            LineSpacing = Math.Round(paragraph.Format.LineSpacing, 2),
+            SpaceBefore = OoxmlUnits.PixelsToPointsApprox(paragraph.Format.SpaceBefore),
+            SpaceAfter = OoxmlUnits.PixelsToPointsApprox(paragraph.Format.SpaceAfter),
+            IndentLeft = paragraph.Format.IndentLeft,
+            IndentRight = paragraph.Format.IndentRight,
+            IndentFirstLine = paragraph.Format.IndentFirstLine,
+            Shading = paragraph.Format.Shading,
+            Borders = paragraph.Format.Borders,
+            IsInTable = this.Document.CellOf(this.Selection.Focus.Block) is not null,
+            Hyperlink = style.Link,
+            Revision = style.Revision
         };
 
         // Layered over what the document says, in the order they were chosen. Without this the toolbar
@@ -2058,7 +2238,11 @@ public sealed class DocumentEditorController : DocumentController
         foreach (var change in this.pending)
             format = change.PreviewCaret?.Invoke(format) ?? format;
 
+        var previousStyle = this.CaretFormat.StyleId;
         this.CaretFormat = format;
+
+        if (!string.Equals(previousStyle, format.StyleId, StringComparison.Ordinal))
+            this.CurrentStyleChanged?.Invoke(this, EventArgs.Empty);
     }
 }
 

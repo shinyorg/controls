@@ -9,7 +9,7 @@ namespace Shiny.Controls.Office.Document;
 /// Layout is the expensive part and only depends on width, so it is cached and rebuilt on resize or
 /// zoom rather than on every scroll or repaint.
 /// </remarks>
-public class DocumentController
+public partial class DocumentController
 {
     readonly DocumentLayoutEngine engine;
     readonly Dictionary<(bool Header, int Page), DocumentChromeLayout?> chrome = new();
@@ -56,6 +56,7 @@ public class DocumentController
             this.zoom = clamped;
             this.laidOutWidth = -1;
             this.ApplyViewport();
+            this.ZoomChanged?.Invoke(this, EventArgs.Empty);
             this.Changed?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -290,13 +291,21 @@ public class DocumentController
             return this.layout;
         }
 
-        this.layout = this.engine.Layout(this.Document.Blocks, width);
+        // Reflow has no page foot to put footnotes at, so they follow the text, under a rule — the
+        // endnote form. Print places them per page instead; see FootnotesFor.
+        var notes = this.IsPaginated ? [] : this.Document.Footnotes;
+        IReadOnlyList<DocumentBlock> source = notes.Count == 0
+            ? this.Document.Blocks
+            : [.. this.Document.Blocks, new DocumentRule(), .. notes.SelectMany(x => x.Blocks)];
+
+        this.layout = this.engine.Layout(source, width);
         this.laidOutWidth = width;
+        this.IndexStory(this.layout);
         this.laidOutFontGeneration = generation;
         this.chrome.Clear();
 
         this.pagination = this.IsPaginated
-            ? DocumentPagination.Paginate(this.layout.Blocks, this.layout.Height, this.Document.Page, this.PageGap)
+            ? DocumentPagination.Paginate(this.layout.Blocks, this.layout.Height, this.Document.Page, this.PageGap, this.FootnoteReservations())
             : DocumentPagination.Reflowed(this.layout.Height, this.Viewport.Height);
 
         this.Viewport.ContentHeight = this.pagination.ViewHeight;
@@ -327,7 +336,7 @@ public class DocumentController
         var views = new List<DocumentPageView>();
 
         foreach (var page in pagination.Visible(this.Viewport.ScrollY, this.Viewport.Height))
-            views.Add(new DocumentPageView(page, this.HeaderFor(page), this.FooterFor(page)));
+            views.Add(new DocumentPageView(page, this.HeaderFor(page), this.FooterFor(page)) { Footnotes = this.FootnotesFor(page) });
 
         return views;
     }

@@ -256,17 +256,22 @@ public class FindTests
     }
 
     [Fact]
-    public async Task TableCellsAreNotCountedBecauseTheArrowsCannotReachThem()
+    public async Task TableCellsAreSearchedAndTheCaretLandsInTheCell()
     {
-        // The fixture's table holds "North". A count including it would promise a hit the caret has no
-        // position to land on - a document position is a block and an offset, and a table has neither.
+        // The fixture's table holds "North". Positions index the story - every paragraph in reading
+        // order, cells included - so a hit inside a table is one the arrows can step to.
         var (document, controller) = await OpenDocumentAsync();
         using var _ = document;
 
         document.Blocks.OfType<DocumentTable>().ShouldNotBeEmpty();
 
         controller.Find.Query = "North";
-        controller.Find.Count.ShouldBe(0);
+        controller.Find.Count.ShouldBe(1);
+
+        var match = controller.Find.Matches[0];
+        document.CellOf(match.Block).ShouldNotBeNull();
+        document.Paragraphs[match.Block].PlainText.ShouldBe("North");
+        controller.Selection.Range.ShouldBe(match.Range);
     }
 
     // ---- decks ----

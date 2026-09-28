@@ -27,6 +27,29 @@ public sealed record StyledRun(string Text, TextStyle Style)
 
     /// <summary>Non-null when this run is an inline object — a picture or a shape — rather than text.</summary>
     public InlineObject? Inline { get; init; }
+
+    /// <summary>
+    /// How much of the paragraph's offset space the run occupies, when that is not its text's length.
+    /// </summary>
+    /// <remarks>
+    /// -1, the default, means <see cref="Text"/>'s length. Anything else makes the run atomic: it is laid
+    /// out as one unbreakable piece and the caret steps over it in one go, the way it steps over a
+    /// picture. A footnote reference is the case — it is drawn as its number, which can be two digits,
+    /// but it is one mark in the document and one character to the caret.
+    /// </remarks>
+    public int SourceLength { get; init; } = -1;
+
+    /// <summary>The <c>w:id</c> of the footnote this run references, or null for an ordinary run.</summary>
+    public int? FootnoteId { get; init; }
+
+    /// <summary>
+    /// Set on a tab that runs to a right-aligned tab stop: the leader character drawn across it
+    /// (<c>'.'</c> for dots), or a space for none.
+    /// </summary>
+    public char? RightTabLeader { get; init; }
+
+    /// <summary>How much of the offset space the run covers — see <see cref="SourceLength"/>.</summary>
+    public int Length => this.IsBreak ? 0 : this.Inline is not null ? 1 : this.SourceLength >= 0 ? this.SourceLength : this.Text.Length;
 }
 
 
@@ -61,6 +84,15 @@ public sealed record LaidOutRun(string Text, TextStyle Style, double X, double W
     /// has to be recorded during layout because afterwards the mapping is gone.
     /// </remarks>
     public int SourceOffset { get; init; }
+
+    /// <summary>Offset-space length when it differs from the text's — see <see cref="StyledRun.SourceLength"/>.</summary>
+    public int SourceLength { get; init; } = -1;
+
+    /// <summary>True when the caret treats this piece as one indivisible character.</summary>
+    public bool IsAtomic => this.Inline is not null || this.SourceLength >= 0;
+
+    /// <summary>How much of the offset space the piece covers.</summary>
+    public int Length => this.Inline is not null ? 1 : this.SourceLength >= 0 ? this.SourceLength : this.Text.Length;
 }
 
 /// <summary>One line of a laid-out paragraph.</summary>
@@ -151,8 +183,10 @@ public sealed class TextLayoutEngine(ITextMeasurer measurer)
             indent = 0;
         }
 
-        foreach (var run in runs)
+        for (var runIndex = 0; runIndex < runs.Count; runIndex++)
         {
+            var run = runs[runIndex];
+
             if (run.IsBreak)
             {
                 Flush(lastLineOfParagraph: true);
@@ -175,10 +209,48 @@ public sealed class TextLayoutEngine(ITextMeasurer measurer)
 
                 // Ascent is the whole height, descent zero: an inline object sits on the baseline
                 // rather than straddling it, which is where Word puts one.
-                current.Add(new PendingPiece(string.Empty, run.Style, inline.Width, inline.Height, 0, inline, sourceOffset));
+                current.Add(new PendingPiece(string.Empty, run.Style, inline.Width, inline.Height, 0, inline, sourceOffset, 1));
 
                 // One character, so caret arithmetic after it stays right.
                 sourceOffset++;
+                continue;
+            }
+
+            if (run.RightTabLeader is { } leader)
+            {
+                // A right-aligned tab stop: the tab stretches so whatever follows it on the line ends at
+                // the right margin — the page number at the end of a table-of-contents line.
+                var rest = 0d;
+                for (var j = runIndex + 1; j < runs.Count && !runs[j].IsBreak; j++)
+                    rest += runs[j].Inline?.Width ?? this.Measurer.Measure(runs[j].Text, runs[j].Style).Width;
+
+                var used = current.Sum(p => p.Width);
+                var space = this.Measurer.Measure(" ", run.Style).Width;
+                var tabWidth = Math.Max(space, width - indent - used - rest - 1);
+
+                var fill = string.Empty;
+                if (leader != ' ')
+                {
+                    var dot = Math.Max(1, this.Measurer.Measure(leader.ToString(), run.Style).Width);
+                    var count = (int)Math.Floor((tabWidth - (space * 2)) / dot);
+                    fill = count > 0 ? new string(leader, count) : string.Empty;
+                }
+
+                var metrics = this.Measurer.LineMetrics(run.Style);
+                current.Add(new PendingPiece(fill, run.Style, tabWidth, metrics.Ascent, metrics.Descent, null, sourceOffset, run.Length));
+                sourceOffset += run.Length;
+                continue;
+            }
+
+            if (run.SourceLength >= 0)
+            {
+                // Atomic text: one piece, never wrapped inside, occupying its declared length.
+                var atomic = this.Measurer.Measure(run.Text, run.Style);
+                if (atomic.Width > width - indent - current.Sum(p => p.Width) && current.Count > 0)
+                    Flush(lastLineOfParagraph: false);
+
+                current.Add(new PendingPiece(run.Text, run.Style, atomic.Width, atomic.Ascent, atomic.Descent, null, sourceOffset, run.SourceLength));
+                sourceOffset += run.SourceLength;
                 continue;
             }
 
@@ -211,14 +283,14 @@ public sealed class TextLayoutEngine(ITextMeasurer measurer)
                         if (current.Sum(p => p.Width) + fragmentMetrics.Width > available && current.Count > 0)
                             Flush(lastLineOfParagraph: false);
 
-                        current.Add(new PendingPiece(fragment, run.Style, fragmentMetrics.Width, fragmentMetrics.Ascent, fragmentMetrics.Descent, null, fragmentOffset));
+                        current.Add(new PendingPiece(fragment, run.Style, fragmentMetrics.Width, fragmentMetrics.Ascent, fragmentMetrics.Descent, null, fragmentOffset, fragment.Length));
                         fragmentOffset += fragment.Length;
                     }
 
                     continue;
                 }
 
-                current.Add(new PendingPiece(piece, run.Style, metrics.Width, metrics.Ascent, metrics.Descent, null, pieceOffset));
+                current.Add(new PendingPiece(piece, run.Style, metrics.Width, metrics.Ascent, metrics.Descent, null, pieceOffset, piece.Length));
             }
         }
 
@@ -243,7 +315,7 @@ public sealed class TextLayoutEngine(ITextMeasurer measurer)
     public static double HeightOf(IReadOnlyList<LaidOutLine> lines, double lineSpacing = 1.0)
         => lines.Count == 0 ? 0 : lines[^1].Y + lines[^1].Height * lineSpacing;
 
-    readonly record struct PendingPiece(string Text, TextStyle Style, double Width, double Ascent, double Descent, InlineObject? Inline, int SourceOffset);
+    readonly record struct PendingPiece(string Text, TextStyle Style, double Width, double Ascent, double Descent, InlineObject? Inline, int SourceOffset, int Length);
 
     static LaidOutLine Commit(
         List<PendingPiece> pieces,
@@ -309,7 +381,8 @@ public sealed class TextLayoutEngine(ITextMeasurer measurer)
             runs.Add(new LaidOutRun(piece.Text, piece.Style, x, piece.Width, piece.Inline)
             {
                 Height = piece.Inline?.Height ?? piece.Ascent + piece.Descent,
-                SourceOffset = piece.SourceOffset
+                SourceOffset = piece.SourceOffset,
+                SourceLength = piece.Inline is null && piece.Length != piece.Text.Length ? piece.Length : -1
             });
 
             x += piece.Width;
@@ -321,7 +394,7 @@ public sealed class TextLayoutEngine(ITextMeasurer measurer)
         // was trimmed for width - a caret clicked past the end of a line belongs after that space.
         var lineStart = pieces.Count > 0 ? pieces[0].SourceOffset : 0;
         var lineEnd = pieces.Count > 0
-            ? pieces[^1].SourceOffset + pieces[^1].Text.Length
+            ? pieces[^1].SourceOffset + pieces[^1].Length
             : lineStart;
 
         return new LaidOutLine(runs, y, used, ascent, descent)

@@ -9,10 +9,11 @@
 <h1>Document Editor</h1>
 <p class="lead">
     A <code>.docx</code> editor. Two controls: <code>DocumentEditor</code> is the bare surface,
-    <code>DocumentEditorView</code> wraps it in a <code>Ribbon</code> with the formatting chrome —
-    Home carries font, paragraph, lists, proofing and find; Layout carries margins, orientation,
-    print layout, watermark and zoom; Insert carries tables, pictures, header, footer, page numbers
-    and page breaks.
+    <code>DocumentEditorView</code> wraps it in Word's ribbon — Home (clipboard, font, paragraph,
+    styles, find &amp; replace), Insert (pages, tables, links, comments, header &amp; footer, symbols),
+    Design (watermark, page colour), Layout (margins, orientation, size, columns, breaks), References
+    (table of contents, footnotes), Review (spelling, comments, track changes, word count) and View
+    (read mode, navigation pane, zoom) — plus a Table tab while the caret is in a table.
 </p>
 <p class="lead">
     The Home tab's two list buttons make any paragraph a bulleted or numbered item, and typing
@@ -27,6 +28,7 @@
 *@
 <div class="toolbar">
     <label class="chk"><input type="checkbox" @bind="withToolbar" /> Toolbar wrapper</label>
+    <label class="chk"><input type="checkbox" @bind="readMode" /> Read mode</label>
     <button class="btn" @onclick="ToggleTheme">@(dark ? "Follow page" : "Force dark")</button>
     <span class="status">@Status</span>
 </div>
@@ -37,6 +39,8 @@
         <DocumentEditorView Document="document"
                             Theme="@(dark ? DocumentTheme.Dark : null)"
                             SpellChecker="checker"
+                            @bind-ReadMode="readMode"
+                            StatisticsChanged="s => this.statistics = s"
                             DocumentChanged="OnChanged" />
     }
     else
@@ -50,8 +54,10 @@
 
 <p class="hint">
     Click to place the caret, drag to select, double-click a word, triple-click a paragraph. Type to insert; Enter splits a paragraph; Backspace at the
-    start of one joins it to the paragraph above. Ctrl/Cmd+B, I, U format the selection; Ctrl/Cmd+Z and
-    Shift+Ctrl/Cmd+Z undo and redo. Right-click a red-underlined word for corrections.
+    start of one joins it to the paragraph above. Word's shortcuts work: Ctrl/Cmd+B, I, U, C, X, V, Z, Y,
+    H (replace), K (link), E/L/R/J (alignment), Ctrl+Shift+&gt;/&lt; (font size), Ctrl+Enter (page break),
+    Ctrl+1/2/5 (line spacing) and Ctrl+Alt+1..3 (headings). Tab walks table cells; Ctrl+click follows a
+    link. Right-click a red-underlined word for corrections.
 </p>
 
 @code {
@@ -67,12 +73,14 @@
     readonly SampleSpellChecker checker = new();
 
     bool withToolbar = true;
+    bool readMode;
+    DocumentStatistics? statistics;
     bool dark;
     int edits;
 
     string Status => this.document is null
         ? "loading"
-        : $"{this.document.Blocks.Count} blocks · {this.edits} edits{(this.document.IsDirty ? " · unsaved" : string.Empty)}";
+        : $"{(this.statistics is { } s ? $"Page {s.CurrentPage} of {s.Pages} · {s.Words} words · " : string.Empty)}{this.edits} edits{(this.document.IsDirty ? " · unsaved" : string.Empty)}";
 
     protected override async Task OnInitializedAsync()
     {
