@@ -55,3 +55,50 @@ export function bounds(el) {
     const r = el.getBoundingClientRect();
     return [r.left, r.top, r.width, r.height];
 }
+
+/*
+    Save and print for the Word shell. The bytes arrive as a DotNetStreamReference, which is the one
+    way to move a file out of .NET without base64-inflating it through a string.
+*/
+async function blobFrom(streamRef, mime) {
+    const buffer = await streamRef.arrayBuffer();
+    return new Blob([buffer], { type: mime });
+}
+
+export async function saveFile(name, mime, streamRef) {
+    const url = URL.createObjectURL(await blobFrom(streamRef, mime));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+/*
+    Prints a PDF through the browser's own viewer: loaded into a hidden frame and printed from there,
+    so the page itself is not what gets printed. Where a browser will not print a PDF from a frame
+    (Safari, Firefox with pdf.js disabled) the PDF opens in a tab instead, which has its own Print.
+*/
+export async function printPdf(streamRef) {
+    const url = URL.createObjectURL(await blobFrom(streamRef, 'application/pdf'));
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    frame.src = url;
+
+    const cleanup = () => setTimeout(() => { frame.remove(); URL.revokeObjectURL(url); }, 60000);
+
+    frame.onload = () => {
+        try {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        } catch {
+            window.open(url, '_blank');
+        }
+        cleanup();
+    };
+
+    document.body.appendChild(frame);
+}

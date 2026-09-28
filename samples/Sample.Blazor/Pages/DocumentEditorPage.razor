@@ -1,6 +1,7 @@
 @page "/document-editor"
 @using Shiny.Blazor.Controls.Office
 @using Shiny.Controls.Office.Document
+@using Shiny.Controls.Office.Shell
 @using Shiny.Controls.Office.Skia
 @implements IDisposable
 
@@ -8,38 +9,41 @@
 
 <h1>Document Editor</h1>
 <p class="lead">
-    A <code>.docx</code> editor. Two controls: <code>DocumentEditor</code> is the bare surface,
-    <code>DocumentEditorView</code> wraps it in Word's ribbon — Home (clipboard, font, paragraph,
-    styles, find &amp; replace), Insert (pages, tables, links, comments, header &amp; footer, symbols),
-    Design (watermark, page colour), Layout (margins, orientation, size, columns, breaks), References
-    (table of contents, footnotes), Review (spelling, comments, track changes, word count) and View
-    (read mode, navigation pane, zoom) — plus a Table tab while the caret is in a table.
+    A <code>.docx</code> editor dressed as Word. <code>DocumentEditorView</code> wraps the bare
+    <code>DocumentEditor</code> surface in the Office shell: the title bar (AutoSave, Save / Undo / Redo,
+    the document name, the command search), Word's ribbon with Comments / Editing / Share at its right
+    end, the ruler, the navigation and comments panes, the status bar (page, words, view modes, zoom) and
+    the File backstage — New from a template, Save As, Export to PDF, Print.
 </p>
 <p class="lead">
-    The Home tab's two list buttons make any paragraph a bulleted or numbered item, and typing
-    <code>-&nbsp;</code> or <code>1.&nbsp;</code> at the start of a line does the same. <kbd>Tab</kbd>
-    inside a list nests the item — the second level reads as <code>1a</code> — and
-    <kbd>Shift</kbd>+<kbd>Tab</kbd> brings it back out.
+    Try the command search ("table", "bold", "pdf"), drag the ruler's indent markers, pick a template
+    under <strong>File › New</strong>, or <strong>File › Export › PDF</strong> — the PDF is drawn by the
+    same painter as the page.
 </p>
 
-@*
-    Everything the ribbon carries is driven from the ribbon. What is left here is what it does not
-    have: whether the wrapper is there at all, and the Theme parameter a host supplies.
-*@
 <div class="toolbar">
-    <label class="chk"><input type="checkbox" @bind="withToolbar" /> Toolbar wrapper</label>
-    <label class="chk"><input type="checkbox" @bind="readMode" /> Read mode</label>
+    <label class="chk"><input type="checkbox" @bind="withShell" /> Office shell</label>
+    <label class="chk"><input type="checkbox" @bind="withToolbar" /> Editor wrapper</label>
     <button class="btn" @onclick="ToggleTheme">@(dark ? "Follow page" : "Force dark")</button>
     <span class="status">@Status</span>
 </div>
 
-<div class="editor-host">
+<div class="editor-host @(withShell && withToolbar ? "is-shell" : null)">
     @if (withToolbar)
     {
         <DocumentEditorView Document="document"
+                            ShowShell="withShell"
                             Theme="@(dark ? DocumentTheme.Dark : null)"
                             SpellChecker="checker"
-                            @bind-ReadMode="readMode"
+                            @bind-DocumentName="name"
+                            SaveState="saveState"
+                            @bind-AutoSave="autoSave"
+                            UserName="Allan Ritchie"
+                            RecentFiles="recent"
+                            SaveRequested="SaveAsync"
+                            RecentFileSelected="OpenRecentAsync"
+                            DocumentOpened="OnDocumentOpened"
+                            ShareRequested="OnShare"
                             StatisticsChanged="s => this.statistics = s"
                             DocumentChanged="OnChanged" />
     }
@@ -53,11 +57,11 @@
 </div>
 
 <p class="hint">
-    Click to place the caret, drag to select, double-click a word, triple-click a paragraph. Type to insert; Enter splits a paragraph; Backspace at the
-    start of one joins it to the paragraph above. Word's shortcuts work: Ctrl/Cmd+B, I, U, C, X, V, Z, Y,
-    H (replace), K (link), E/L/R/J (alignment), Ctrl+Shift+&gt;/&lt; (font size), Ctrl+Enter (page break),
-    Ctrl+1/2/5 (line spacing) and Ctrl+Alt+1..3 (headings). Tab walks table cells; Ctrl+click follows a
-    link. Right-click a red-underlined word for corrections.
+    Click to place the caret, drag to select, double-click a word, triple-click a paragraph. Word's
+    shortcuts work: Ctrl/Cmd+B, I, U, C, X, V, Z, Y, F (navigation pane search), H (replace), K (link),
+    E/L/R/J (alignment), Ctrl+Enter (page break) and Ctrl+Alt+1..3 (headings). Tab walks table cells;
+    Ctrl+click follows a link. Right-click a red-underlined word for corrections. Save with no host
+    handler downloads the <code>.docx</code>; this page handles it to show the save state instead.
 </p>
 
 @code {
@@ -72,15 +76,27 @@
     /// </remarks>
     readonly SampleSpellChecker checker = new();
 
+    /// <summary>The host keeps the recent list; the backstage shows it and raises the pick.</summary>
+    readonly IReadOnlyList<OfficeRecentFile> recent =
+    [
+        new("Quarterly Report", "Documents", DateTimeOffset.Now.AddHours(-2)) { IsPinned = true },
+        new("Project Plan", "Documents › Work", DateTimeOffset.Now.AddDays(-1)),
+        new("Meeting Notes", "Desktop", DateTimeOffset.Now.AddDays(-6))
+    ];
+
+    bool withShell = true;
     bool withToolbar = true;
-    bool readMode;
-    DocumentStatistics? statistics;
     bool dark;
+    bool autoSave;
+    string? name = "Quarterly Report";
+    OfficeSaveState? saveState;
+    string? message;
+    DocumentStatistics? statistics;
     int edits;
 
     string Status => this.document is null
         ? "loading"
-        : $"{(this.statistics is { } s ? $"Page {s.CurrentPage} of {s.Pages} · {s.Words} words · " : string.Empty)}{this.edits} edits{(this.document.IsDirty ? " · unsaved" : string.Empty)}";
+        : this.message ?? $"{(this.statistics is { } s ? $"{s.Words} words · " : string.Empty)}{this.edits} edits";
 
     protected override async Task OnInitializedAsync()
     {
@@ -90,9 +106,49 @@
 
     void ToggleTheme() => this.dark = !this.dark;
 
+    /// <summary>
+    /// A host's save: here it only pretends, to show the title bar's save states. A real one would
+    /// write <c>document.ToArray()</c> somewhere.
+    /// </summary>
+    async Task SaveAsync()
+    {
+        this.saveState = OfficeSaveState.Saving;
+        this.StateHasChanged();
+
+        await Task.Delay(600);
+
+        this.saveState = OfficeSaveState.SavedLocally;
+        this.message = $"Saved \"{this.name}\" ({this.document?.ToArray().Length ?? 0:N0} bytes)";
+    }
+
+    async Task OpenRecentAsync(OfficeRecentFile file)
+    {
+        // The sample has one document to show; a real host would open file.Location.
+        var bytes = SampleOfficeDocuments.BuildDocument();
+        var previous = this.document;
+        this.document = await WordDocument.OpenAsync(new MemoryStream(bytes), editable: true);
+        previous?.Dispose();
+        this.name = file.Name;
+        this.saveState = null;
+    }
+
+    void OnShare() => this.message = "Share is the host's: copy a link, open a dialog...";
+
+    void OnDocumentOpened(WordDocument opened)
+    {
+        this.message = "Opened a new document from a template";
+        this.saveState = null;
+    }
+
     void OnChanged()
     {
         this.edits++;
+
+        // An edit after a save is unsaved again; null lets the view work it out from the document.
+        if (this.saveState is OfficeSaveState.SavedLocally or OfficeSaveState.Saved)
+            this.saveState = null;
+
+        this.message = null;
         this.StateHasChanged();
     }
 

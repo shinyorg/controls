@@ -283,4 +283,30 @@ public static class WordShell
     /// <summary>A comment's date as the comments pane shows it.</summary>
     public static string CommentDate(DocumentComment comment, DateTimeOffset now, CultureInfo? culture = null)
         => comment.Date is { } date ? OfficeBackstageText.Relative(new DateTimeOffset(date), now, culture) : string.Empty;
+
+    // ---- simple writers ----
+
+    /// <summary>
+    /// The document as a plain HTML page — headings as <c>h1</c>-<c>h6</c>, everything else as
+    /// paragraphs. What Save As › Web Page writes when the host has no richer converter.
+    /// </summary>
+    public static string ToHtml(WordDocument document, string? title = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var html = new System.Text.StringBuilder();
+        html.Append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>")
+            .Append(System.Net.WebUtility.HtmlEncode(title ?? "Document"))
+            .Append("</title>\n</head>\n<body>\n");
+
+        foreach (var paragraph in document.Paragraphs)
+        {
+            var level = paragraph.Format.OutlineLevel;
+            var tag = level is >= 1 and <= 6 ? "h" + level.ToString(CultureInfo.InvariantCulture) : "p";
+            var text = paragraph.VisibleText.Replace("\uFFFC", string.Empty);
+            html.Append('<').Append(tag).Append('>').Append(System.Net.WebUtility.HtmlEncode(text)).Append("</").Append(tag).Append(">\n");
+        }
+
+        return html.Append("</body>\n</html>\n").ToString();
+    }
 }

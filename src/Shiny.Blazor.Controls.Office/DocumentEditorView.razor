@@ -1,6 +1,9 @@
+@using Microsoft.AspNetCore.Components.Rendering
 @using Shiny.Blazor.Controls
 @using Shiny.Controls.Office.Document
 @using Shiny.Controls.Office.Icons
+@using Shiny.Controls.Office.Shell
+@using Shiny.Controls.Office.Skia
 @using Shiny.Controls.Office.Packaging
 @using Shiny.Controls.Office.Shapes
 @using Shiny.Controls.Office.Spreadsheet
@@ -19,53 +22,94 @@
     from the shared Office icon set, the Word-only ones from WordIcons, so the mark for a command is
     one definition rendered on both hosts.
 *@
-<div class="shiny-doc-editor-view @OfficeScheme.ScopeClass(this.Theme) @Class" style="@Style">
-
-    @if (ShowToolbar && !ReadModeOn)
+<div class="shiny-doc-editor-view @OfficeScheme.ScopeClass(this.Theme) @(ShellOn ? "has-shell" : null) @Class" style="@Style">
+    @if (ShellOn)
     {
         @*
-            The class stays on a div declared here, not on the Ribbon's CssClass. This file's scoped
-            rules read `.doc-toolbar ::deep .x`, which compiles to `.doc-toolbar[scope-of-this-file] .x`
-            - put the class on a child component's root and it carries that component's scope id
-            instead, and every rule in this stylesheet silently stops matching.
+            The Word window. Every slot is filled by a method in this file, so its markup - and with it
+            this file's scoped CSS - is authored here even where another component renders it.
         *@
+        <OfficeShell App="OfficeApp.Word"
+                     AccentColor="@ShellAccent"
+                     IsBackstageOpen="backstageOpen"
+                     IsBackstageOpenChanged="OnBackstageOpenChanged"
+                     IsLeftPaneOpen="NavigationOpen"
+                     IsLeftPaneOpenChanged="SetNavigationOpenAsync"
+                     IsRightPaneOpen="CommentsOpen"
+                     IsRightPaneOpenChanged="SetCommentsOpenAsync"
+                     IsFocusMode="focusMode"
+                     IsFocusModeChanged="v => this.focusMode = v"
+                     ShellLayoutChanged="OnShellLayoutChanged"
+                     TitleBar="@(ShowTitleBar ? TitleBarSlot : null)"
+                     Ribbon="@(ShowToolbar && !ReadModeOn ? RibbonSlot : null)"
+                     Ruler="@(RulerVisible ? RulerSlot : null)"
+                     LeftPane="@(ReadModeOn ? null : NavigationSlot)"
+                     RightPane="@(ReadModeOn ? null : CommentsSlot)"
+                     StatusBar="@(ShowStatusBar ? StatusSlot : null)"
+                     Backstage="BackstageSlot"
+                     ChildContent="BodySlot" />
+    }
+    else
+    {
+        @if (ShowToolbar && !ReadModeOn)
+        {
+            @RibbonSlot
+        }
+
+        @BodySlot
+    }
+</div>
+
+@code {
+    // ---- markup the shell and the plain layout share ----
+
+    RenderFragment RibbonSlot => this.RenderRibbon;
+
+    RenderFragment BodySlot => this.RenderBody;
+
+    RenderFragment QuickAccessSlot => this.RenderQuickAccess;
+
+    /*
+        The class stays on a div declared here, not on the Ribbon's CssClass. This file's scoped rules
+        read `.doc-toolbar ::deep .x`, which compiles to `.doc-toolbar[scope-of-this-file] .x` - put the
+        class on a child component's root and it carries that component's scope id instead, and every
+        rule in this stylesheet silently stops matching.
+    */
+    void RenderRibbon(RenderTreeBuilder __builder)
+    {
         <div class="doc-toolbar">
         <Ribbon ShowTabStrip="ShowRibbonTabs"
                 AllowCollapse="ShowRibbonTabs"
                 SmallItemRows="2"
                 SelectedKey="@selectedTab"
                 SelectedKeyChanged="k => this.selectedTab = k"
-                ApplicationButtonText="@(FileClicked.HasDelegate ? "File" : null)"
-                ApplicationButtonClicked="FileClicked"
-                HeaderBackgroundColor="@(AccentBackground ?? ChosenToolbarBackground)"
-                HeaderForegroundColor="@AccentInk"
-                AccentColor="@AccentInk"
+                @ref="ribbonRef"
+                DisplayMode="ribbonMode"
+                DisplayModeChanged="m => this.ribbonMode = m"
+                ApplicationButtonText="@(ShellOn || FileClicked.HasDelegate ? "File" : null)"
+                ApplicationButtonClicked="OnFileButtonAsync"
+                QuickAccess="@(ShellOn && ShowTitleBar ? null : QuickAccessSlot)"
+                HeaderEnd="@(ShellOn ? HeaderEndSlot : null)"
+                HeaderBackgroundColor="@(ShellOn ? ChosenToolbarBackground : AccentBackground ?? ChosenToolbarBackground)"
+                HeaderForegroundColor="@(ShellOn ? null : AccentInk)"
+                AccentColor="@(ShellOn ? AccentBackground : AccentInk)"
                 BodyBackgroundColor="@ChosenToolbarBackground">
-            <QuickAccess>
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo (Ctrl+Z)" Icon="@Ico(OfficeIcon.Undo)"
-                              Disabled="@(Disabled || !(C?.CanUndo ?? false))"
-                              Clicked="() => Run(c => c.Undo())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo (Ctrl+Y)" Icon="@Ico(OfficeIcon.Redo)"
-                              Disabled="@(Disabled || !(C?.CanRedo ?? false))"
-                              Clicked="() => Run(c => c.Redo())" />
-            </QuickAccess>
-
             <ChildContent>
                 @* ================================ HOME ================================ *@
                 <RibbonTab Title="Home" Key="home">
 
                     <RibbonGroup Title="Clipboard" Priority="95">
-                        <RibbonSplitButton Text="Paste" Tooltip="Paste (Ctrl+V)" Icon="@Ico(OfficeIcon.Paste)"
+                        <RibbonSplitButton Text="Paste" Tooltip="Paste" Shortcut="Ctrl+V" Icon="@Ico(OfficeIcon.Paste)"
                                            Disabled="Disabled" Menu="PasteMenu" Clicked="() => Paste(plain: false)" />
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Cut" Tooltip="Cut (Ctrl+X)" Icon="@Ico(OfficeIcon.Cut)"
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Cut" Tooltip="Cut" Shortcut="Ctrl+X" Icon="@Ico(OfficeIcon.Cut)"
                                       Disabled="Disabled" Clicked="Cut" />
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Copy" Tooltip="Copy (Ctrl+C)" Icon="@Ico(OfficeIcon.Copy)"
-                                      Disabled="@(Document is null)" Clicked="Copy" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Copy" Tooltip="Copy" Shortcut="Ctrl+C" Icon="@Ico(OfficeIcon.Copy)"
+                                      Disabled="@(CurrentDocument is null)" Clicked="Copy" />
                         @* A split button: the face paints once, the menu keeps the brush loaded until it is
                            put down - Word's double-click, which a ribbon button has no way to see. *@
                         <RibbonSplitButton Size="RibbonItemSize.Small"
                                            Text="@((C?.IsFormatPainterActive ?? false) ? "Painting…" : "Format Painter")"
-                                           Tooltip="Format Painter (Ctrl+Shift+C, then select; Esc to stop)"
+                                           Tooltip="Format Painter" Shortcut="Ctrl+Shift+C" Description="Pick up the formatting here, then select text to paint it. Esc stops."
                                            Icon="@Ico(WordIcons.FormatPainter)"
                                            Disabled="Disabled" Menu="PainterMenu"
                                            Clicked="() => Run(c => c.CopyFormatting())" />
@@ -89,28 +133,28 @@
                                                       Disabled="Disabled"
                                                       SelectedFontSizeChanged="OnSizeChanged" />
                             </RibbonContent>
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Font Size (Ctrl+Shift+>)" Icon="@Ico(WordIcons.GrowFont)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Font Size" Shortcut="Ctrl+Shift+>" Icon="@Ico(WordIcons.GrowFont)"
                                           Disabled="Disabled" Clicked="() => Run(c => c.GrowFont())" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Font Size (Ctrl+Shift+<)" Icon="@Ico(WordIcons.ShrinkFont)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Font Size" Shortcut="Ctrl+Shift+<" Icon="@Ico(WordIcons.ShrinkFont)"
                                           Disabled="Disabled" Clicked="() => Run(c => c.ShrinkFont())" />
-                            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Change Case (Shift+F3)" Icon="@Ico(WordIcons.ChangeCase)"
+                            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Change Case" Shortcut="Shift+F3" Icon="@Ico(WordIcons.ChangeCase)"
                                               Disabled="Disabled" Menu="CaseMenu" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Clear All Formatting (Ctrl+Space)" Icon="@Ico(OfficeIcon.ClearFormat)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Clear All Formatting" Shortcut="Ctrl+Space" Icon="@Ico(OfficeIcon.ClearFormat)"
                                           Disabled="Disabled" Clicked="() => Run(c => c.ClearFormatting())" />
                         </RibbonRow>
 
                         <RibbonRow>
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold" Shortcut="Ctrl+B" Icon="@Ico(OfficeIcon.Bold)"
                                                 Checked="Format.Bold" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleBold())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic" Shortcut="Ctrl+I" Icon="@Ico(OfficeIcon.Italic)"
                                                 Checked="Format.Italic" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleItalic())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline (Ctrl+U)" Icon="@Ico(OfficeIcon.Underline)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline" Shortcut="Ctrl+U" Icon="@Ico(OfficeIcon.Underline)"
                                                 Checked="Format.Underline" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleUnderline())" />
                             <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
                                                 Checked="Format.Strike" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Subscript (Ctrl+=)" Icon="@Ico(WordIcons.Subscript)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Subscript" Shortcut="Ctrl+=" Icon="@Ico(WordIcons.Subscript)"
                                                 Checked="Format.Subscript" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleSubscript())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Superscript (Ctrl+Shift+=)" Icon="@Ico(WordIcons.Superscript)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Superscript" Shortcut="Ctrl+Shift+=" Icon="@Ico(WordIcons.Superscript)"
                                                 Checked="Format.Superscript" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleSuperscript())" />
 
                             <RibbonSeparator />
@@ -135,7 +179,7 @@
 
                     <RibbonGroup Title="Paragraph" Priority="90">
                         <RibbonRow>
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bullets (Ctrl+Shift+L)" Icon="@Ico(OfficeIcon.BulletList)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bullets" Shortcut="Ctrl+Shift+L" Icon="@Ico(OfficeIcon.BulletList)"
                                                 Checked="@(Format.List == ListStyle.Bullet)" Disabled="Disabled"
                                                 Clicked="_ => Run(c => c.ToggleBulletList())" />
                             <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbering" Icon="@Ico(OfficeIcon.NumberedList)"
@@ -145,27 +189,27 @@
                             <RibbonButton Size="RibbonItemSize.Small" Tooltip="Multilevel List (Tab / Shift+Tab to change level)"
                                           Icon="@Ico(WordIcons.MultilevelList)" Disabled="Disabled"
                                           Clicked="() => Run(c => c.SetListStyle(ListStyle.Numbered))" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Indent (Ctrl+Shift+M)" Icon="@Ico(OfficeIcon.Outdent)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Indent" Shortcut="Ctrl+Shift+M" Icon="@Ico(OfficeIcon.Outdent)"
                                           Disabled="@(Disabled || (Format.List == ListStyle.None ? Format.IndentLeft <= 0 : Format.ListLevel == 0))"
                                           Clicked="() => Run(c => c.ChangeIndent(-1))" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Indent (Ctrl+M)" Icon="@Ico(OfficeIcon.Indent)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Indent" Shortcut="Ctrl+M" Icon="@Ico(OfficeIcon.Indent)"
                                           Disabled="Disabled" Clicked="() => Run(c => c.ChangeIndent(1))" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Show/Hide ¶ (Ctrl+Shift+8)" Icon="@Ico(WordIcons.ShowMarks)"
-                                                Checked="@(C?.ShowFormattingMarks ?? false)" Disabled="@(Document is null)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Show/Hide ¶" Shortcut="Ctrl+Shift+8" Icon="@Ico(WordIcons.ShowMarks)"
+                                                Checked="@(C?.ShowFormattingMarks ?? false)" Disabled="@(CurrentDocument is null)"
                                                 Clicked="_ => Run(c => c.ShowFormattingMarks = !c.ShowFormattingMarks, requireEditable: false)" />
                         </RibbonRow>
 
                         <RibbonRow>
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align Left (Ctrl+L)" Icon="@Ico(OfficeIcon.AlignLeft)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align Left" Shortcut="Ctrl+L" Icon="@Ico(OfficeIcon.AlignLeft)"
                                                 Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="Disabled"
                                                 Clicked="_ => Align(TextAlignment.Left)" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Center (Ctrl+E)" Icon="@Ico(OfficeIcon.AlignCenter)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Center" Shortcut="Ctrl+E" Icon="@Ico(OfficeIcon.AlignCenter)"
                                                 Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="Disabled"
                                                 Clicked="_ => Align(TextAlignment.Center)" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align Right (Ctrl+R)" Icon="@Ico(OfficeIcon.AlignRight)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align Right" Shortcut="Ctrl+R" Icon="@Ico(OfficeIcon.AlignRight)"
                                                 Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="Disabled"
                                                 Clicked="_ => Align(TextAlignment.Right)" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Justify (Ctrl+J)" Icon="@Ico(OfficeIcon.AlignJustify)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Justify" Shortcut="Ctrl+J" Icon="@Ico(OfficeIcon.AlignJustify)"
                                                 Checked="@(Format.Alignment == TextAlignment.Justify)" Disabled="Disabled"
                                                 Clicked="_ => Align(TextAlignment.Justify)" />
                             <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Line and Paragraph Spacing" Icon="@Ico(WordIcons.LineSpacing)"
@@ -178,8 +222,18 @@
                     </RibbonGroup>
 
                     <RibbonGroup Title="Styles" Priority="80">
-                        <RibbonMenuButton Text="@CurrentStyleName" Tooltip="Styles" Icon="@Ico(WordIcons.Styles)"
-                                          Disabled="Disabled" Menu="StylesMenu" />
+                        @if (ShellOn)
+                        {
+                            <OfficeStyleGallery Styles="@WordShell.Styles(C)"
+                                                SelectedStyleId="@CurrentStyleId"
+                                                Disabled="Disabled"
+                                                StyleSelected="OnStyleSelected" />
+                        }
+                        else
+                        {
+                            <RibbonMenuButton Text="@CurrentStyleName" Tooltip="Styles" Icon="@Ico(WordIcons.Styles)"
+                                              Disabled="Disabled" Menu="StylesMenu" />
+                        }
                     </RibbonGroup>
 
                     @*
@@ -192,10 +246,10 @@
                                            ShowTooltips="ShowToolbarTooltips"
                                            Moved="StateHasChanged" />
                         </RibbonContent>
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Replace" Tooltip="Replace (Ctrl+H)" Icon="@Ico(WordIcons.Replace)"
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Replace" Tooltip="Replace" Shortcut="Ctrl+H" Icon="@Ico(WordIcons.Replace)"
                                       Disabled="Disabled" Clicked="OpenReplace" />
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Select All" Tooltip="Select All (Ctrl+A)" Icon="@Ico(WordIcons.SelectAll)"
-                                      Disabled="@(Document is null)" Clicked="() => Run(c => c.SelectAll(), requireEditable: false)" />
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Select All" Tooltip="Select All" Shortcut="Ctrl+A" Icon="@Ico(WordIcons.SelectAll)"
+                                      Disabled="@(CurrentDocument is null)" Clicked="() => Run(c => c.SelectAll(), requireEditable: false)" />
                     </RibbonGroup>
 
                     @if (ToolbarContent != null)
@@ -212,7 +266,7 @@
                     <RibbonGroup Title="Pages" Priority="80">
                         <RibbonButton Size="RibbonItemSize.Small" Text="Blank Page" Tooltip="Blank Page" Icon="@Ico(WordIcons.BlankPage)"
                                       Disabled="Disabled" Clicked="() => Run(c => c.InsertBlankPage())" />
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Page Break" Tooltip="Page Break (Ctrl+Enter)" Icon="@Ico(OfficeIcon.PageBreak)"
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Page Break" Tooltip="Page Break" Shortcut="Ctrl+Enter" Icon="@Ico(OfficeIcon.PageBreak)"
                                       Disabled="Disabled" Clicked="() => Run(c => c.InsertPageBreak())" />
                         <RibbonMenuButton Size="RibbonItemSize.Small" Text="Section Break" Tooltip="Section Break" Icon="@Ico(WordIcons.SectionBreak)"
                                           Disabled="@(Disabled || InTable)" Menu="SectionBreakMenu" />
@@ -231,7 +285,7 @@
                     </RibbonGroup>
 
                     <RibbonGroup Title="Links" Priority="90">
-                        <RibbonButton Text="Link" Tooltip="Link (Ctrl+K)" Icon="@Ico(WordIcons.Hyperlink)"
+                        <RibbonButton Text="Link" Tooltip="Link" Shortcut="Ctrl+K" Icon="@Ico(WordIcons.Hyperlink)"
                                       Disabled="Disabled" Clicked="OpenHyperlink" />
                         <RibbonButton Size="RibbonItemSize.Small" Text="Bookmark" Tooltip="Bookmark" Icon="@Ico(WordIcons.Bookmark)"
                                       Disabled="Disabled" Clicked="OpenBookmark" />
@@ -240,7 +294,7 @@
                     </RibbonGroup>
 
                     <RibbonGroup Title="Comments" Priority="85">
-                        <RibbonButton Text="Comment" Tooltip="New Comment (Ctrl+Alt+M)" Icon="@Ico(WordIcons.Comment)"
+                        <RibbonButton Text="Comment" Tooltip="New Comment" Shortcut="Ctrl+Alt+M" Icon="@Ico(WordIcons.Comment)"
                                       Disabled="Disabled" Clicked="OpenComment" />
                     </RibbonGroup>
 
@@ -356,7 +410,7 @@
                         <RibbonButton Text="Insert Footnote" Tooltip="Insert Footnote" Icon="@Ico(WordIcons.Footnote)"
                                       Disabled="Disabled" Clicked="() => Open(DialogKind.Footnote)" />
                         <RibbonButton Size="RibbonItemSize.Small" Text="Next Footnote" Tooltip="Next Footnote" Icon="@Ico(OfficeIcon.Next)"
-                                      Disabled="@(Document is null || (C?.Footnotes.Count ?? 0) == 0)"
+                                      Disabled="@(CurrentDocument is null || (C?.Footnotes.Count ?? 0) == 0)"
                                       Clicked="() => Run(c => c.NextFootnote(), requireEditable: false)" />
                     </RibbonGroup>
                 </RibbonTab>
@@ -376,31 +430,31 @@
                                       Icon="@Ico(OfficeIcon.Next)"
                                       Disabled="@(Disabled || !SpellCheckOn)"
                                       Clicked="() => GoToSpellingError(backwards: false)" />
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Word Count" Tooltip="Word Count (Ctrl+Shift+G)"
-                                      Icon="@Ico(WordIcons.WordCount)" Disabled="@(Document is null)"
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Word Count" Tooltip="Word Count" Shortcut="Ctrl+Shift+G"
+                                      Icon="@Ico(WordIcons.WordCount)" Disabled="@(CurrentDocument is null)"
                                       Clicked="() => Open(DialogKind.WordCount)" />
                     </RibbonGroup>
 
                     <RibbonGroup Title="Comments" Priority="90">
-                        <RibbonButton Text="New Comment" Tooltip="New Comment (Ctrl+Alt+M)" Icon="@Ico(WordIcons.Comment)"
+                        <RibbonButton Text="New Comment" Tooltip="New Comment" Shortcut="Ctrl+Alt+M" Icon="@Ico(WordIcons.Comment)"
                                       Disabled="Disabled" Clicked="OpenComment" />
                         <RibbonButton Size="RibbonItemSize.Small" Text="Delete" Tooltip="Delete Comment" Icon="@Ico(WordIcons.DeleteComment)"
                                       Disabled="@(Disabled || C?.CurrentComment is null)"
                                       Clicked="() => Run(c => c.DeleteComment())" />
                         <RibbonButton Size="RibbonItemSize.Small" Text="Previous" Tooltip="Previous Comment" Icon="@Ico(OfficeIcon.Previous)"
-                                      Disabled="@(Document is null || (C?.Comments.Count ?? 0) == 0)"
+                                      Disabled="@(CurrentDocument is null || (C?.Comments.Count ?? 0) == 0)"
                                       Clicked="() => Run(c => c.PreviousComment(), requireEditable: false)" />
                         <RibbonButton Size="RibbonItemSize.Small" Text="Next" Tooltip="Next Comment" Icon="@Ico(OfficeIcon.Next)"
-                                      Disabled="@(Document is null || (C?.Comments.Count ?? 0) == 0)"
+                                      Disabled="@(CurrentDocument is null || (C?.Comments.Count ?? 0) == 0)"
                                       Clicked="() => Run(c => c.NextComment(), requireEditable: false)" />
                         <RibbonToggleButton Size="RibbonItemSize.Small" Text="Show Comments" Tooltip="Show Comments"
                                             Icon="@Ico(WordIcons.Comment)"
-                                            Checked="@(C?.ShowComments ?? true)" Disabled="@(Document is null)"
+                                            Checked="@(C?.ShowComments ?? true)" Disabled="@(CurrentDocument is null)"
                                             Clicked="_ => Run(c => c.ShowComments = !c.ShowComments, requireEditable: false)" />
                     </RibbonGroup>
 
                     <RibbonGroup Title="Tracking" Priority="80">
-                        <RibbonToggleButton Text="Track Changes" Tooltip="Track Changes (Ctrl+Shift+E)"
+                        <RibbonToggleButton Text="Track Changes" Tooltip="Track Changes" Shortcut="Ctrl+Shift+E"
                                             Icon="@Ico(WordIcons.TrackChanges)"
                                             Checked="@(C?.IsTrackingChanges ?? false)" Disabled="Disabled"
                                             Clicked="_ => Run(c => c.IsTrackingChanges = !c.IsTrackingChanges)" />
@@ -414,10 +468,10 @@
                                            Disabled="@(Disabled || (C?.Revisions.Count ?? 0) == 0)"
                                            Menu="RejectMenu" Clicked="() => Run(c => c.RejectChange())" />
                         <RibbonButton Size="RibbonItemSize.Small" Text="Previous" Tooltip="Previous Change" Icon="@Ico(OfficeIcon.Previous)"
-                                      Disabled="@(Document is null || (C?.Revisions.Count ?? 0) == 0)"
+                                      Disabled="@(CurrentDocument is null || (C?.Revisions.Count ?? 0) == 0)"
                                       Clicked="() => Run(c => c.PreviousChange(), requireEditable: false)" />
                         <RibbonButton Size="RibbonItemSize.Small" Text="Next" Tooltip="Next Change" Icon="@Ico(OfficeIcon.Next)"
-                                      Disabled="@(Document is null || (C?.Revisions.Count ?? 0) == 0)"
+                                      Disabled="@(CurrentDocument is null || (C?.Revisions.Count ?? 0) == 0)"
                                       Clicked="() => Run(c => c.NextChange(), requireEditable: false)" />
                     </RibbonGroup>
                 </RibbonTab>
@@ -426,7 +480,7 @@
                 <RibbonTab Title="View" Key="view">
                     <RibbonGroup Title="Views" Priority="100">
                         <RibbonToggleButton Text="Read Mode" Tooltip="Read Mode" Icon="@Ico(WordIcons.ReadMode)"
-                                            Checked="ReadModeOn" Disabled="@(Document is null)"
+                                            Checked="ReadModeOn" Disabled="@(CurrentDocument is null)"
                                             Clicked="_ => SetReadMode(!ReadModeOn)" />
                         <RibbonToggleButton Text="Print Layout" Tooltip="Print Layout"
                                             Icon="@Ico(OfficeIcon.PrintLayout)"
@@ -441,11 +495,11 @@
                     <RibbonGroup Title="Show" Priority="90">
                         <RibbonToggleButton Size="RibbonItemSize.Small" Text="Navigation Pane" Tooltip="Navigation Pane"
                                             Icon="@Ico(WordIcons.NavigationPane)"
-                                            Checked="navigationPane" Disabled="@(Document is null)"
-                                            Clicked="_ => this.navigationPane = !this.navigationPane" />
-                        <RibbonToggleButton Size="RibbonItemSize.Small" Text="Formatting Marks" Tooltip="Show/Hide ¶ (Ctrl+Shift+8)"
+                                            Checked="NavigationOpen" Disabled="@(CurrentDocument is null)"
+                                            Clicked="_ => SetNavigationOpenAsync(!NavigationOpen)" />
+                        <RibbonToggleButton Size="RibbonItemSize.Small" Text="Formatting Marks" Tooltip="Show/Hide ¶" Shortcut="Ctrl+Shift+8"
                                             Icon="@Ico(WordIcons.ShowMarks)"
-                                            Checked="@(C?.ShowFormattingMarks ?? false)" Disabled="@(Document is null)"
+                                            Checked="@(C?.ShowFormattingMarks ?? false)" Disabled="@(CurrentDocument is null)"
                                             Clicked="_ => Run(c => c.ShowFormattingMarks = !c.ShowFormattingMarks, requireEditable: false)" />
                     </RibbonGroup>
 
@@ -507,14 +561,28 @@
         </div>
     }
 
+    void RenderQuickAccess(RenderTreeBuilder __builder)
+    {
+
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo" Shortcut="Ctrl+Z" Icon="@Ico(OfficeIcon.Undo)"
+                              Disabled="@(Disabled || !(C?.CanUndo ?? false))"
+                              Clicked="() => Run(c => c.Undo())" />
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo" Shortcut="Ctrl+Y" Icon="@Ico(OfficeIcon.Redo)"
+                              Disabled="@(Disabled || !(C?.CanRedo ?? false))"
+                              Clicked="() => Run(c => c.Redo())" />
+
+    }
+
+    void RenderBody(RenderTreeBuilder __builder)
+    {
     <div class="doc-body">
-        @if (navigationPane && !ReadModeOn && C is { } nav)
+        @if (!ShellOn && NavigationOpen && !ReadModeOn && C is { } nav)
         {
             <nav class="doc-nav" aria-label="Navigation">
                 <div class="doc-nav-title">
                     <span>Navigation</span>
                     <button type="button" class="doc-nav-close" aria-label="Close navigation pane"
-                            @onclick="() => this.navigationPane = false">@OfficeToolbarIcons.Get(WordIcons.Reject, 14)</button>
+                            @onclick="() => SetNavigationOpenAsync(false)">@OfficeToolbarIcons.Get(WordIcons.Reject, 14)</button>
                 </div>
 
                 @{ var headings = nav.Headings(); }
@@ -537,12 +605,12 @@
 
         <div class="doc-surface">
             <DocumentEditor @ref="editor"
-                            Document="Document"
+                            Document="CurrentDocument"
                             Theme="Theme"
                             Zoom="ZoomLevel"
                             Watermark="Watermark"
                             PageLayout="@(ReadModeOn ? DocumentPageLayout.Reflow : LayoutMode)"
-                            ReadOnly="@(ReadOnly || ReadModeOn)"
+                            ReadOnly="@(ReadOnly || ReadModeOn || IsViewing)"
                             SpellChecker="SpellChecker"
                             SpellCheckEnabled="SpellCheckOn"
                             AllowFileDrop="AllowFileDrop"
@@ -700,9 +768,183 @@
             }
         </div>
     </div>
-</div>
+    }
 
-@code {
+
+    // ---- the shell's slots ----
+
+    RenderFragment TitleBarSlot => this.RenderTitleBar;
+
+    RenderFragment HeaderEndSlot => this.RenderHeaderEnd;
+
+    RenderFragment RulerSlot => this.RenderRuler;
+
+    RenderFragment NavigationSlot => this.RenderNavigation;
+
+    RenderFragment CommentsSlot => this.RenderComments;
+
+    RenderFragment StatusSlot => this.RenderStatus;
+
+    RenderFragment BackstageSlot => this.RenderBackstage;
+
+    void RenderTitleBar(RenderTreeBuilder __builder)
+    {
+        <OfficeTitleBar DocumentName="@EffectiveDocumentName"
+                        DocumentNameChanged="OnDocumentNameChangedAsync"
+                        DocumentLocation="@DocumentLocation"
+                        SaveState="EffectiveSaveState"
+                        AutoSave="AutoSave"
+                        AutoSaveChanged="OnAutoSaveChangedAsync"
+                        CanUndo="@(!Disabled && (C?.CanUndo ?? false))"
+                        CanRedo="@(!Disabled && (C?.CanRedo ?? false))"
+                        SaveRequested="SaveAsync"
+                        UndoRequested="() => Run(c => c.Undo())"
+                        RedoRequested="() => Run(c => c.Redo())"
+                        CommandIndex="commands"
+                        SearchSubmitted="OnCommandSearchSubmittedAsync"
+                        UserName="@UserName" />
+    }
+
+    void RenderHeaderEnd(RenderTreeBuilder __builder)
+    {
+        <OfficeRibbonActions IsCommentsOpen="CommentsOpen"
+                             IsCommentsOpenChanged="SetCommentsOpenAsync"
+                             CommentsTogglesRightPane="false"
+                             EditMode="EditModeValue"
+                             EditModeChanged="SetEditModeAsync"
+                             ShareClicked="OnShareAsync" />
+    }
+
+    void RenderRuler(RenderTreeBuilder __builder)
+    {
+        if (C is not { } c)
+            return;
+
+        var margins = c.PageMargins;
+
+        <OfficeRuler PageWidth="@WordShell.ToPoints(c.Document.Page.Width)"
+                     LeftMargin="@WordShell.ToPoints(margins.Left)"
+                     LeftMarginChanged="OnRulerLeftMarginAsync"
+                     RightMargin="@WordShell.ToPoints(margins.Right)"
+                     RightMarginChanged="OnRulerRightMarginAsync"
+                     Indents="@WordShell.Indents(Format)"
+                     IndentsChanged="OnRulerIndentsAsync"
+                     TabStops="@WordShell.TabStops(c)"
+                     TabStopsChanged="OnRulerTabStopsAsync"
+                     AllowMarginDrag="@(!Disabled)"
+                     ShowIndents="@(!Disabled)"
+                     Zoom="@c.ViewScale"
+                     PageOffset="@(c.PageX * c.ViewScale)" />
+    }
+
+    void RenderNavigation(RenderTreeBuilder __builder)
+    {
+        var headings = WordShell.Headings(C);
+
+        <OfficeNavigationPane Headings="headings"
+                              CurrentHeadingId="@WordShell.CurrentHeadingId(C, headings)"
+                              HeadingSelected="GoToHeadingAsync"
+                              SearchText="@navigationSearch"
+                              SearchTextChanged="v => this.navigationSearch = v"
+                              SearchRequested="SearchDocumentAsync"
+                              SearchResults="navigationResults"
+                              ResultSelected="GoToResultAsync"
+                              SelectedTab="navigationTab"
+                              SelectedTabChanged="t => this.navigationTab = t"
+                              CloseRequested="() => SetNavigationOpenAsync(false)" />
+    }
+
+    void RenderComments(RenderTreeBuilder __builder)
+    {
+        <OfficeSidePane Title="Comments" CloseRequested="() => SetCommentsOpenAsync(false)">
+            <HeaderContent>
+                <button type="button" class="doc-comments-new" disabled="@Disabled" @onclick="OpenComment">
+                    @OfficeToolbarIcons.Get(WordIcons.Comment, 16)
+                    <span>New</span>
+                </button>
+            </HeaderContent>
+            <ChildContent>
+                @if (C is not { } c || c.Comments.Count == 0)
+                {
+                    <div class="doc-comments-empty">
+                        No comments yet. Select some text and choose New to start a conversation.
+                    </div>
+                }
+                else
+                {
+                    var now = DateTimeOffset.Now;
+                    var current = c.CurrentComment?.Id;
+
+                    <div class="doc-comments" role="list">
+                        @foreach (var comment in c.Comments)
+                        {
+                            var item = comment;
+                            <div class="doc-comment @(item.Id == current ? "on" : null)" role="listitem">
+                                <div class="doc-comment-head">
+                                    <span class="doc-comment-avatar" aria-hidden="true">@OfficeColorText.Initials(item.Initials ?? item.Author)</span>
+                                    <span class="doc-comment-meta">
+                                        <span class="doc-comment-author">@item.Author</span>
+                                        <span class="doc-comment-date">@WordShell.CommentDate(item, now)</span>
+                                    </span>
+                                    <button type="button" class="doc-comment-delete" title="Delete comment" aria-label="Delete comment"
+                                            disabled="@Disabled" @onclick="() => DeleteCommentAsync(item)">
+                                        @OfficeToolbarIcons.Get(WordIcons.DeleteComment, 14)
+                                    </button>
+                                </div>
+                                <button type="button" class="doc-comment-body" @onclick="() => GoToCommentAsync(item)">
+                                    @if (c.CommentedText(item) is { Length: > 0 } quote)
+                                    {
+                                        <span class="doc-comment-quote">@quote</span>
+                                    }
+                                    <span class="doc-comment-text">@item.Text</span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+            </ChildContent>
+        </OfficeSidePane>
+    }
+
+    void RenderStatus(RenderTreeBuilder __builder)
+    {
+        <OfficeStatusBar Items="statusItems"
+                         ItemClicked="OnStatusItemClickedAsync"
+                         SelectedViewMode="@WordShell.ViewModeId(ReadModeOn, LayoutMode)"
+                         SelectedViewModeChanged="OnViewModeSelectedAsync"
+                         Zoom="ZoomLevel"
+                         ZoomChanged="SetZoomAsync"
+                         ZoomModel="StatusZoomModel"
+                         PageWidth="@(C?.Document.Page.Width ?? 816)"
+                         PageHeight="@(C?.Document.Page.Height ?? 1056)"
+                         TextWidth="@(C?.Document.Page.ContentWidth ?? 624)"
+                         ViewportWidth="@((C?.Viewport.Width ?? 0) * (C?.ViewScale ?? 1))"
+                         ViewportHeight="@((C?.Viewport.Height ?? 0) * (C?.ViewScale ?? 1))" />
+    }
+
+    void RenderBackstage(RenderTreeBuilder __builder)
+    {
+        <OfficeBackstage DocumentName="@EffectiveDocumentName"
+                         SelectedPage="backstagePage"
+                         SelectedPageChanged="OnBackstagePageChangedAsync"
+                         Templates="@(Templates ?? WordTemplates.All)"
+                         RecentFiles="RecentFiles"
+                         DocumentInfo="backstageInfo"
+                         TemplateSelected="NewFromTemplateAsync"
+                         RecentFileSelected="RecentFileSelected"
+                         OpenRequested="OpenRequested"
+                         SaveRequested="SaveAsync"
+                         SaveAsRequested="SaveAsAsync"
+                         ExportRequested="ExportAsync"
+                         PrintRequested="PrintAsync"
+                         PrintPreview="@(printPreview is null ? null : PrintPreviewSlot)" />
+    }
+
+    RenderFragment PrintPreviewSlot => __builder =>
+    {
+        <img class="doc-print-preview" src="@printPreview" alt="Print preview of the first page" />
+    };
+
     DocumentEditor? editor;
 
     [Parameter] public WordDocument? Document { get; set; }
@@ -834,20 +1076,23 @@
 
     DocumentEditorController? C => this.editor?.Controller;
 
-    bool Disabled => this.ReadOnly || this.Document is null || this.ReadModeOn;
+    bool Disabled => this.ReadOnly || this.CurrentDocument is null || this.ReadModeOn || this.IsViewing;
 
     bool InTable => this.C?.IsInTable ?? false;
 
     CaretFormat Format => this.C?.CaretFormat ?? CaretFormat.Default;
 
     string? selectedTab;
-    bool navigationPane;
 
     // ---- controller subscriptions ----
 
     DocumentEditorController? subscribed;
 
-    protected override void OnAfterRender(bool firstRender) => this.Subscribe();
+    protected override void OnAfterRender(bool firstRender)
+    {
+        this.Subscribe();
+        this.AfterShellRender();
+    }
 
     /// <summary>
     /// Follows the controller: a new document is a new controller, and a handler left on the old one
@@ -868,6 +1113,13 @@
         current.StatisticsChanged += this.OnStatisticsChanged;
         current.CurrentStyleChanged += this.OnCurrentStyleChanged;
         current.ZoomChanged += this.OnZoomChanged;
+        current.Changed += this.OnControllerChangedForShell;
+
+        // A document opened in Reviewing starts tracking, as switching to Reviewing does.
+        if (this.EditModeValue == OfficeEditMode.Reviewing)
+            current.IsTrackingChanges = true;
+
+        this.UpdateStatus();
     }
 
     void Unsubscribe()
@@ -878,15 +1130,20 @@
         previous.StatisticsChanged -= this.OnStatisticsChanged;
         previous.CurrentStyleChanged -= this.OnCurrentStyleChanged;
         previous.ZoomChanged -= this.OnZoomChanged;
+        previous.Changed -= this.OnControllerChangedForShell;
         this.subscribed = null;
     }
 
     void OnStatisticsChanged(object? sender, EventArgs e)
     {
-        if (!this.StatisticsChanged.HasDelegate || sender is not DocumentEditorController controller)
+        if (sender is not DocumentEditorController controller)
             return;
 
-        _ = this.InvokeAsync(() => this.StatisticsChanged.InvokeAsync(controller.Statistics));
+        // The status bar's items are observable: setting their text redraws the bar alone.
+        _ = this.InvokeAsync(this.UpdateStatus);
+
+        if (this.StatisticsChanged.HasDelegate)
+            _ = this.InvokeAsync(() => this.StatisticsChanged.InvokeAsync(controller.Statistics));
     }
 
     void OnCurrentStyleChanged(object? sender, EventArgs e)
@@ -922,7 +1179,11 @@
         });
     }
 
-    public void Dispose() => this.Unsubscribe();
+    public void Dispose()
+    {
+        this.Unsubscribe();
+        this.DisposeShell();
+    }
 
     // ---- read mode and layout ----
 
@@ -1328,8 +1589,13 @@
         switch (command)
         {
             case WordCommand.Find:
-                // The find box lives on Home; bring the tab to the front so it is there to type into.
-                this.selectedTab = "home";
+                // In the shell, Word's Ctrl+F: the navigation pane's search. Without it the find box
+                // lives on Home, so that tab comes to the front to be typed into.
+                if (this.ShellOn)
+                    await this.OpenSearchAsync(null);
+                else
+                    this.selectedTab = "home";
+
                 break;
 
             case WordCommand.Replace: this.OpenReplace(); break;
