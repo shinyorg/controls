@@ -12,7 +12,7 @@
     padding: 4px 0;
     border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
     border-radius: 6px;
-    background: var(--shiny-color-surface-container-high, #FFFFFF);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
     color: var(--shiny-color-on-surface, #161C23);
     box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
     font-size: 12.5px;
@@ -29,8 +29,8 @@
 }
 
 .sheet-menu__item:hover:not(.is-disabled) {
-    background: var(--shiny-color-secondary-container, #D6E9D8);
-    color: var(--shiny-color-on-secondary-container, #0E2A15);
+    background: var(--shiny-color-secondary-container, #D0D6DC);
+    color: var(--shiny-color-on-secondary-container, #3E4652);
 }
 
 .sheet-menu__item.is-disabled {

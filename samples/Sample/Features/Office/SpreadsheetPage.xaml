@@ -5,31 +5,32 @@
              x:Class="Sample.Features.Office.SpreadsheetPage"
              Title="Spreadsheet">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="12" RowSpacing="8">
+    <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="8">
 
         <HorizontalStackLayout Grid.Row="0" Spacing="8">
             <Button Text="Add row" Clicked="OnAddRow" />
-            <Button Text="Undo" Clicked="OnUndo" />
-            <Button Text="Redo" Clicked="OnRedo" />
             <Button Text="Theme" Clicked="OnToggleTheme" />
+            <Button Text="Shell on/off" Clicked="OnToggleShell" />
         </HorizontalStackLayout>
 
-        <!-- A read-only formula bar: it shows the formula behind the active cell, not its result. -->
-        <Border Grid.Row="1" Padding="8,6" StrokeThickness="1">
-            <Label x:Name="FormulaBar" FontFamily="Monospace" FontSize="13" LineBreakMode="TailTruncation" />
+        <!--
+            The control is Excel's whole window: the green title bar (AutoSave, Save/Undo/Redo, the name,
+            command search), the ribbon with File -> backstage and Comments / Editing / Share at its end,
+            the formula bar, the grid, the sheet tabs, and the status bar (Ready/Edit, Average/Count/Sum,
+            Normal / Page Layout / Page Break Preview and a zoom slider bound to Zoom).
+        -->
+        <Border Grid.Row="1" StrokeThickness="1">
+            <office:SpreadsheetView x:Name="Sheet"
+                                    DocumentName="Budget"
+                                    UserName="Allan Ritchie"
+                                    FileRequested="OnFileRequested"
+                                    CellChanged="OnCellChanged" />
         </Border>
 
-        <Border Grid.Row="2" StrokeThickness="1">
-            <office:SpreadsheetView x:Name="Sheet" ShowToolbar="True" CellChanged="OnCellChanged" />
-        </Border>
-
-        <!-- A status bar in the app's own chrome: the view reports the selection's statistics and its
-             zoom, and the app decides where to show them - as Excel's own status bar does. -->
-        <VerticalStackLayout Grid.Row="3" Spacing="2">
-            <Label x:Name="StatusBar" FontSize="12" />
-            <Label FontSize="12"
-                   Opacity="0.7"
-                   Text="The ribbon is Excel's: Home (merge, borders, conditional formatting, tables, cell styles, sort and filter, fill), Insert (tables, charts, links, notes), Formulas (function library, name manager), Data, Review and View (gridlines, headings, zoom, freeze panes). Right-click or long-press for the context menu; pinch to zoom; drag the selection corner to fill." />
-        </VerticalStackLayout>
+        <Label Grid.Row="2"
+               x:Name="LastFile"
+               FontSize="12"
+               Opacity="0.7"
+               Text="File ▸ Save, Save As, Export (xlsx, CSV, PDF) and Print write into the app's cache folder here; the path shows on this line." />
     </Grid>
 </ContentPage>

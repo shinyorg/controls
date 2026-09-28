@@ -35,7 +35,7 @@
 
 /* The grid paints to a canvas that fills its host, so the host needs an explicit height. */
 .sheet-host {
-    height: 420px;
+    height: 680px;
     border: 1px solid var(--shiny-color-outline, #ccc);
     border-radius: 0 0 6px 6px;
     overflow: hidden;

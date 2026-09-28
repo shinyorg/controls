@@ -45,6 +45,69 @@ workbook.Undo.Undo();
 await workbook.SaveAsync();
 ```
 
+## The Excel window
+
+The control is Excel's whole window, not a grid with a toolbar. It wraps itself in the
+[Office shell](office-shell.md) dressed as Excel, and that is **on by default**:
+
+| Part | What it does |
+|---|---|
+| Title bar | Excel green. AutoSave, Save / Undo / Redo, the workbook name (click to rename), the save status ("Unsaved changes" → "Saving…" → "Saved" / "Saved locally"), and the command search |
+| Command search | Every ribbon command, with its shortcut (tooltips carry `Shortcut` now, not "(Ctrl+B)" in the text), plus Save, New Workbook, Export to PDF / CSV, Print, Comments and the three views. A query that matches no command is searched for across every visible sheet |
+| Ribbon | **File** opens the backstage. **Comments**, the **Editing / Reviewing / Viewing** menu (Viewing makes the workbook read-only) and **Share** sit at the right end of the tab strip. Undo/Redo move to the title bar |
+| Comments pane | Every note in the workbook — `Sheet!Cell`, author, text — and a click selects the cell, switching sheets |
+| Status bar | **Ready / Enter / Edit** (typing over a cell is Enter, F2 is Edit), **"Average: 8  Count: 3  Sum: 24"** when the selection holds at least two values (hidden otherwise, as in Excel), **Normal / Page Layout / Page Break Preview**, and a zoom slider bound to `Zoom` (10–400%) |
+| Backstage | New (blank workbook plus Monthly budget, Invoice and Weekly schedule, built in code by `SpreadsheetTemplates`), Open, Info (sheets, cells with data, formulas, notes), Save, Save As, Print, Export |
+
+**Page views.** Page Layout dashes the edges of the printed pages over the grid; Page Break Preview
+draws them solid blue, greys out everything off the pages and writes "Page n" on each. Pages are US
+Letter with Excel's Normal margins, cut at whole columns and rows from A1 to the end of the used range
+(`SheetPagination`); nothing in the workbook changes. They are views of the grid, not a page-by-page
+layout with headers and footers.
+
+**Files.** The shell reads and writes nothing itself. Save (title bar, backstage, Ctrl+S), Save As,
+Export and Print each raise `FileRequested` with a `SpreadsheetFileRequest` — the format, a file name
+("Budget.csv"), the action, and `WriteToAsync(stream)` / `ToBytesAsync()`. xlsx is the whole workbook;
+**CSV** is the active sheet's formatted values (UTF-8 with a BOM, as Excel writes it); **PDF** is the
+active sheet's used range painted by the grid's own `SpreadsheetPainter` onto Letter pages through
+SkiaSharp's `SKDocument`, without headings, gridlines or the selection. On Blazor an unhandled request
+downloads the file (Print opens the PDF in a new tab for the browser to print); on MAUI handle it:
+
+```csharp
+sheet.FileRequested += async (_, request) =>
+{
+    var path = Path.Combine(FileSystem.AppDataDirectory, request.FileName);
+    await using var file = File.Create(path);
+    await request.WriteToAsync(file);
+};
+```
+
+```razor
+<SpreadsheetView @bind-Workbook="workbook"
+                 @bind-Zoom="zoom"
+                 DocumentName="Budget"
+                 UserName="Allan Ritchie"
+                 RecentFiles="recent"
+                 FileRequested="SaveAsync" />
+```
+
+Picking a template builds the workbook, shows it and reports it (`WorkbookChanged` on Blazor — use
+`@bind-Workbook` — `WorkbookReplaced` on MAUI); handle `TemplateSelected` to do it yourself.
+`OpenRequested`, `RecentFileSelected` and `ShareRequested` are the host's. `UserName` is also the
+author written into new notes. `Commands` is the `OfficeCommandIndex` behind the search, for the app's
+own entries.
+
+**Turning parts off.** `ShowShell="false"` drops the shell and gives the ribbon + formula bar + grid +
+tabs layout of before. Short of that, `ShowTitleBar`, `ShowStatusBar`, `ShowBackstage` (File then only
+raises `FileMenuRequested`), `ShowCommentsPane` and, on Blazor, `ShowRibbonActions`. MAUI builds every
+part in the constructor and only toggles `IsVisible`, so the AppKit head renders it; the comments list
+is rebuilt when notes change and may not repaint on AppKit until a resize, like the shell's other
+lists.
+
+> **Behaviour change:** the shell is on by default, so an existing `SpreadsheetView` grows a title bar,
+> status bar and backstage. `FileMenuRequested` is still raised, after the backstage opens. A plain
+> viewer sets `ShowShell="false"` (and `ShowToolbar="false"`).
+
 **Formula bar.** A name box and formula field above the grid, on by default and turned off with
 `ShowFormulaBar="false"`. It matters because the grid paints the *result*: a cell reading 156.75 gives
 no way to discover that it holds `=SUM(D2:D4)`, and no way to edit it as a formula rather than retyping
@@ -59,7 +122,7 @@ half-typed formula, so a field left focused froze it — the grid moved, the add
 not. In a browser the click blurs the input and this happens on its own.
 
 **The ribbon.** A `SpreadsheetToolbar` sits above the formula bar, laid out the way Excel's is:
-**File** (a hook — the control raises `FileMenuRequested` for the host's own backstage), **Home**,
+**File** (the backstage — see [The Excel window](#the-excel-window)), **Home**,
 **Insert**, **Formulas**, **Data**, **Review** and **View**. Every button is one undoable command
 through the same `SpreadsheetController` a keyboard shortcut would reach, so a ribbon action and a typed
 edit share one undo stack.
@@ -220,7 +283,7 @@ The formatting bar is a [Ribbon](ribbon.md) on both hosts, organised the way Exc
 
 | Tab | Groups |
 |---|---|
-| **File** | The application button. The control raises `FileMenuRequested`; the host draws the backstage. |
+| **File** | The application button. Opens the built-in backstage (see [The Excel window](#the-excel-window)) and raises `FileMenuRequested`. |
 | **Home** | Clipboard · Font (with the **Borders** dropdown — edges, line style, line colour) · Alignment (with **Merge & Center**) · Number (with More Number Formats…) · **Styles** (Conditional Formatting, Format as Table, Cell Styles) · **Cells** (Insert, Delete, Format — row height, column width, hide/unhide, Format Cells…) · Editing (AutoSum, Fill, Clear, Sort & Filter, Go To) · Find |
 | **Insert** | Table · Charts (column, bar, line, pie, area) · Link · Note · Watermark |
 | **Formulas** | Function Library (Insert Function, AutoSum, one menu per category) · Defined Names (Name Manager, Define Name, Use in Formula) · Calculation (Calculate Now, Show Formulas) |
@@ -384,8 +447,10 @@ means. The right-click menu and a validated cell's dropdown work the same way (`
 
 **Keyboard.** `controller.HandleKey(key, modifiers)` is Excel's shortcut table for both hosts — Ctrl+arrow
 to the region edge, Ctrl+Shift+arrow to extend, Ctrl/Shift+Space, Ctrl+A, F2, Ctrl+; and Ctrl+Shift+:,
-Alt+=, Ctrl+1, Ctrl+B/I/U, Ctrl+D/R, Ctrl+K, Ctrl+` and the rest. Blazor wires it; on MAUI call
-`SpreadsheetView.HandleKey` from a platform key hook.
+Alt+=, Ctrl+1, Ctrl+B/I/U, Ctrl+D/R, Ctrl+K, Ctrl+` and the rest. Blazor wires it, and in the shell
+Ctrl/Cmd+S saves and Ctrl/Cmd+P prints. On MAUI call `SpreadsheetView.HandleKey` from a platform key
+hook: MAUI has no portable key-down event and the Office package ships no physical-key hook (the
+`DocumentEditor` has the same seam and the same gap), so without one a MAUI host gets no shortcuts.
 
 **Formula autocomplete.** Typing `=SU` in a cell or the formula bar drops a list of matching functions
 and defined names; inside a call, a tip shows its signature. It is `FormulaAssist`, shared by both hosts.
@@ -395,6 +460,8 @@ and defined names; inside a call, a tip shows its signature. It is `FormulaAssis
 `Zoom` (0.1–4) scales everything, headings included. Ctrl+wheel zooms on Blazor, pinch on MAUI.
 `SelectionStatistics` is what Excel's status bar shows — Average, Count, Numerical Count, Min, Max,
 Sum — computed over the visible cells of the selection, so a filtered column sums what is on screen.
+The built-in status bar (see [The Excel window](#the-excel-window)) already shows it and drives
+`Zoom`; the members below are for a host that turned the shell off and draws its own.
 
 ```csharp
 // MAUI: Zoom is a two-way bindable property; the rest are events

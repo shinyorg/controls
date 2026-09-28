@@ -20,30 +20,27 @@
     <button class="btn" disabled="@(!CanUndo)" @onclick="Undo">Undo</button>
     <button class="btn" disabled="@(!CanRedo)" @onclick="Redo">Redo</button>
     <button class="btn" @onclick="ToggleTheme">@(dark ? "Follow page" : "Force dark")</button>
-    <span class="status">@Status</span>
-</div>
-
-@* What a status bar shows - the view reports it, so the app can put it wherever its chrome goes. *@
-<div class="toolbar">
-    <span class="status">Zoom @($"{this.zoom:P0}")</span>
-    @if (this.statistics.IsMeaningful)
-    {
-        <span class="status">
-            @(this.statistics.Average is { } average ? $"Average: {average:N2}   " : string.Empty)Count: @this.statistics.Count@(this.statistics.NumericalCount > 0 ? $"   Sum: {this.statistics.Sum:N2}" : string.Empty)
-        </span>
-    }
+    <span class="status">@Status · zoom @($"{this.zoom:P0}")</span>
 </div>
 
 <div class="sheet-host">
     @*
-        The ribbon, formula bar and sheet tabs are all the control's own - ShowToolbar,
-        ShowFormulaBar and ShowSheetTabs turn each on or off. All three are on by default.
+        The control is Excel's whole window: the green title bar (AutoSave, Save/Undo/Redo, the name,
+        command search), the ribbon with File -> backstage and Comments / Editing / Share at its end, the
+        formula bar, the grid, the sheet tabs and the status bar (Ready/Edit, Average/Count/Sum, the
+        three views and a zoom slider bound to Zoom). ShowShell="false" drops back to the bare ribbon.
+
+        FileRequested is left unhandled here, so Save, Save As, Export (xlsx, CSV, PDF) download in the
+        browser and Print opens the sheet as a PDF. A host that stores files handles it instead.
     *@
     @* Theme left null: the grid follows the page's light/dark scheme on its own. The button above
        pins it dark, to show that an explicit Theme still wins. *@
     <SpreadsheetView @ref="view"
-                     Workbook="workbook"
+                     @bind-Workbook="workbook"
                      @bind-Zoom="zoom"
+                     DocumentName="Budget"
+                     UserName="Allan Ritchie"
+                     RecentFiles="recent"
                      SelectionStatisticsChanged="OnStatistics"
                      Theme="@(dark ? SpreadsheetTheme.Dark : null)"
                      CellChanged="OnCellChanged" />
@@ -73,6 +70,13 @@
     int nextRow = 6;
     double zoom = 1;
     SelectionStatistics statistics = SelectionStatistics.Empty;
+
+    // The backstage's recent list is the host's to supply; these are placeholders.
+    readonly IReadOnlyList<Shiny.Controls.Office.Shell.OfficeRecentFile> recent =
+    [
+        new("Q3 forecast.xlsx", "Documents", DateTimeOffset.Now.AddHours(-3)),
+        new("Team roster.xlsx", "OneDrive › Shared", DateTimeOffset.Now.AddDays(-2)) { IsPinned = true }
+    ];
 
     bool CanUndo => this.workbook?.Undo.CanUndo ?? false;
     bool CanRedo => this.workbook?.Undo.CanRedo ?? false;
@@ -104,6 +108,10 @@
         this.workbook.Execute(new AddSheetCommand("Summary", 1));
         this.workbook.Execute(new SetCellValueCommand("Summary", CellRef.Parse("A1"), CellValue.FromText("Budget total")));
         this.workbook.Execute(new SetCellFormulaCommand("Summary", CellRef.Parse("B1"), "Budget!D5"));
+
+        // Notes for the Comments pane (the button at the right of the ribbon's tab strip).
+        this.workbook.Execute(new SetNoteCommand("Budget", CellRef.Parse("C3"), new CellNote(CellRef.Parse("C3"), "Price went up in March.", "Allan")));
+        this.workbook.Execute(new SetNoteCommand("Summary", CellRef.Parse("B1"), new CellNote(CellRef.Parse("B1"), "Pulled from the Budget sheet.", "Allan")));
     }
 
     void AddItem(int row, string name, double quantity, double unit)
@@ -119,6 +127,10 @@
 
     void AddRow()
     {
+        // File ▸ New can swap in a template workbook that has no Budget sheet to add to.
+        if (this.workbook?.Sheets.Any(x => x.Name == "Budget") != true)
+            return;
+
         AddItem(this.nextRow, $"Item {this.nextRow}", this.nextRow, 5);
 
         // The total has to grow with the table; nothing rewrites ranges for us yet.
