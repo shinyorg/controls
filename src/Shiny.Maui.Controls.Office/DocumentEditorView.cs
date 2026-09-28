@@ -642,7 +642,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
     {
         // Focus returns to the editor after every toolbar action; leaving it on the button means the
         // next keystroke goes nowhere, which reads as the editor having stopped working.
-        this.editor.FocusEditor();
+        this.editor.RestoreFocus();
         this.RefreshBar();
         this.RefreshShell();
         this.DocumentChanged?.Invoke(this, EventArgs.Empty);

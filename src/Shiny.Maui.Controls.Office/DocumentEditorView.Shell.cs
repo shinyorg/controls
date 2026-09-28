@@ -266,7 +266,7 @@ public partial class DocumentEditorView
         this.navigationPaneView.HeadingSelected += (_, heading) =>
         {
             if (WordShell.GoTo(this.editor.Controller, heading))
-                this.editor.FocusEditor();
+                this.editor.RestoreFocus();
         };
         this.navigationPaneView.SearchRequested += (_, text) =>
             this.navigationPaneView.SearchResults = WordShell.Search(this.editor.Controller, text);
@@ -665,7 +665,7 @@ public partial class DocumentEditorView
             Command = new Command(() =>
             {
                 if (this.editor.Controller?.GoToComment(id) == true)
-                    this.editor.FocusEditor();
+                    this.editor.RestoreFocus();
             })
         });
 

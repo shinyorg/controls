@@ -516,7 +516,12 @@ group at all and every command ends up behind a dropdown. See [Ribbon](ribbon.md
 A mouse drag selects text; a finger has no wheel, so a drag has to pan or the page cannot be scrolled
 at all. Under touch the editor takes the mobile convention: **tap** places the caret, **drag** pans the
 page, **double-tap** selects a word and **triple-tap** a paragraph, and a selection is adjusted by
-dragging the round **handles** drawn under each of its ends. Long-press still opens the spelling menu.
+dragging the round **handles** drawn under each of its ends. Long-press opens the spelling menu on a
+misspelt word and otherwise selects the word, handles and all (MAUI; a finger held still is a long
+press even though Android keeps reporting moves at the same point). On a touch screen a ribbon command
+or a jump from a pane hands focus back to the page only if it had it, so the soft keyboard does not pop
+up over the page for a formatting tap; when it does open, the page shrinks above it and scrolls the
+caret into view.
 
 The caret is placed on the way *up* rather than the way down, because until the finger lifts there is
 no telling a tap from the start of a pan.
