@@ -73,7 +73,7 @@ class RibbonGroupView : Grid
         }
     }
 
-    static void InvalidateTree(IView view)
+    internal static void InvalidateTree(IView view)
     {
         view.InvalidateMeasure();
 

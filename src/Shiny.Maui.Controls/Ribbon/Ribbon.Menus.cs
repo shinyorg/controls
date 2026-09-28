@@ -70,6 +70,26 @@ public partial class Ribbon
         };
 
         this.Present(anchor, null, body);
+
+        // Hosted content (Word's find bar) is lent from the bar, where it was last measured hidden: on
+        // iOS the popup sized itself from that stale measure and clipped the rest of the group away
+        // (Find showed, Replace and Select did not). Re-measure once it is up, then re-place the card.
+        if (this.menuCard is { } card && this.Dispatcher is { } dispatcher)
+        {
+            dispatcher.Dispatch(() =>
+            {
+                if (!ReferenceEquals(this.menuCard, card))
+                    return;
+
+                RibbonGroupView.InvalidateTree(card);
+
+                dispatcher.Dispatch(() =>
+                {
+                    if (ReferenceEquals(this.menuCard, card) && PageOverlay.GetOrCreateRoot(this) is { } root)
+                        this.PlaceCard(card, ViewGeometry.BoundsIn(anchor, root), root);
+                });
+            });
+        }
     }
 
 
@@ -140,8 +160,13 @@ public partial class Ribbon
             return;
         }
 
-        var size = ((IView)card).Measure(double.PositiveInfinity, double.PositiveInfinity);
-        var width = double.IsFinite(size.Width) && size.Width > 0 ? size.Width : 220;
+        // Against the room there is: unconstrained, content that fills (a find box) reports a width
+        // wider than the page, which pinned the card to the left edge far from its button.
+        // A measure includes the margin, which on a re-place is the previous position.
+        var margin = card.Margin.HorizontalThickness;
+        var room = root.Width > 16 ? root.Width - 16 + margin : double.PositiveInfinity;
+        var size = ((IView)card).Measure(room, double.PositiveInfinity);
+        var width = double.IsFinite(size.Width) && size.Width - margin > 0 ? size.Width - margin : 220;
 
         var x = rect.X;
         if (root.Width > 0 && x + width > root.Width - 8)
