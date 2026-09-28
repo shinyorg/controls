@@ -233,11 +233,11 @@ public partial class SlideEditorView : ContentView, IDisposable
         // so the accent every one of these ships with would never have been applied at all.
         this.ApplyAccent();
 
+        // The slide and the plain status line; the ribbon goes in the shell's own slot above it.
         this.root = new Grid
         {
             RowDefinitions =
             {
-                new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Star),
                 new RowDefinition(GridLength.Auto)
             }
@@ -270,7 +270,6 @@ public partial class SlideEditorView : ContentView, IDisposable
             this.RefreshBar();
         };
 
-        this.root.Add(this.ribbon);
         this.root.Add(body);
         this.statusBar = new Grid
         {
@@ -285,14 +284,15 @@ public partial class SlideEditorView : ContentView, IDisposable
         Grid.SetColumn(this.statusTools, 3);
 
         this.root.Add(this.statusBar);
-        Grid.SetRow(body, 1);
-        Grid.SetRow(this.statusBar, 2);
+        Grid.SetRow(this.statusBar, 1);
 
         this.editor.DeckChanged += this.OnDeckChanged;
         this.editor.ShortcutRequested += this.OnShortcutRequested;
         this.AttachDrop();
         this.editor.SlideChanged += this.OnSlideChanged;
-        this.Content = this.root;
+        // PowerPoint's window around it all. Built whole, up front, and switched part by part with
+        // IsVisible: the AppKit head never realises a child added after the first layout.
+        this.Content = this.BuildShell();
 
         this.BuildBar();
     }
@@ -331,7 +331,7 @@ public partial class SlideEditorView : ContentView, IDisposable
         propertyChanged: (b, _, value) =>
         {
             var view = (SlideEditorView)b;
-            view.editor.IsReadOnly = (bool)value;
+            view.editor.IsReadOnly = view.EffectiveReadOnly;
             view.RefreshBar();
         });
 
@@ -348,7 +348,7 @@ public partial class SlideEditorView : ContentView, IDisposable
         typeof(bool),
         typeof(SlideEditorView),
         true,
-        propertyChanged: (b, _, value) => ((SlideEditorView)b).statusBar.IsVisible = (bool)value);
+        propertyChanged: (b, _, _) => ((SlideEditorView)b).ApplyShell());
 
     /// <summary>
     /// Whether the icon-only toolbar buttons carry a hover tooltip naming what they do.
@@ -604,7 +604,6 @@ public partial class SlideEditorView : ContentView, IDisposable
         view.PresentingChanged += this.OnShowPresentingChanged;
 
         this.root.Add(view);
-        Grid.SetRow(view, 1);
 
         this.show = view;
         return view;
@@ -621,6 +620,7 @@ public partial class SlideEditorView : ContentView, IDisposable
         }
 
         this.RefreshBar();
+        this.SyncShellStatus();
         this.PresentingChanged?.Invoke(this, value);
     }
 
@@ -830,7 +830,7 @@ public partial class SlideEditorView : ContentView, IDisposable
 
     async void OnDropAsync(object? sender, DropEventArgs e)
     {
-        if (this.IsReadOnly || this.Deck is null || this.editor.Controller is not { } controller)
+        if (this.EffectiveReadOnly || this.Deck is null || this.editor.Controller is not { } controller)
             return;
 
         // Where the drop landed, in slide coordinates. Read before the await, while the gesture's
@@ -973,7 +973,7 @@ public partial class SlideEditorView : ContentView, IDisposable
     /// </summary>
     void OnNotesChanged(object? sender, TextChangedEventArgs e)
     {
-        if (this.writingNotes || this.editor.Controller is not { } controller || this.IsReadOnly)
+        if (this.writingNotes || this.editor.Controller is not { } controller || this.EffectiveReadOnly)
             return;
 
         this.notesDraft = e.NewTextValue;
@@ -1065,7 +1065,7 @@ public partial class SlideEditorView : ContentView, IDisposable
     /// <summary>Deletes the current slide, asking first unless <see cref="ConfirmSlideDelete"/> is off.</summary>
     public async Task RequestDeleteSlideAsync()
     {
-        if (this.editor.Controller is not { CanDeleteSlide: true } controller || this.IsReadOnly)
+        if (this.editor.Controller is not { CanDeleteSlide: true } controller || this.EffectiveReadOnly)
             return;
 
         var index = controller.Index;
@@ -1168,7 +1168,7 @@ public partial class SlideEditorView : ContentView, IDisposable
         var controller = this.editor.Controller;
         var format = controller?.CaretFormat ?? SlideCaretFormat.Default;
 
-        var enabled = !this.IsReadOnly && this.Deck is not null;
+        var enabled = !this.EffectiveReadOnly && this.Deck is not null;
         var hasSelection = enabled && controller?.SelectedShape >= 0;
 
         // Text formatting only means something while a caret is inside a shape's text. A live Bold
@@ -1291,6 +1291,7 @@ public partial class SlideEditorView : ContentView, IDisposable
 
         this.disposed = true;
 
+        this.DisposeShell();
         this.editor.DeckChanged -= this.OnDeckChanged;
         this.editor.SlideChanged -= this.OnSlideChanged;
         this.editor.ShortcutRequested -= this.OnShortcutRequested;
@@ -1350,6 +1351,17 @@ public partial class SlideEditorView : ContentView, IDisposable
             this.ribbon.HeaderBackgroundColor = null;
             this.ribbon.HeaderForegroundColor = null;
             this.ribbon.AccentColor = null;
+            return;
+        }
+
+        // In the Office shell the accent is the title bar's; the ribbon sits on the surface below it with
+        // the accent as its tab underline, as PowerPoint for the web has it.
+        if (this.shellBuilt && this.ShowShell)
+        {
+            this.ribbon.HeaderBackgroundColor = null;
+            this.ribbon.HeaderForegroundColor = null;
+            this.ribbon.AccentColor = ToColor(accent.Color);
+            this.RefreshTitle();
             return;
         }
 

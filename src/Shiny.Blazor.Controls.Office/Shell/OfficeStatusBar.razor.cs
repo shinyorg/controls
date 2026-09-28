@@ -67,6 +67,21 @@ public partial class OfficeStatusBar : ComponentBase, IDisposable
 
     [Parameter] public double ViewportHeight { get; set; }
 
+    /// <summary>
+    /// PowerPoint's "Fit slide to current window" button after the percentage. Off by default — Word and
+    /// Excel have none.
+    /// </summary>
+    [Parameter] public bool ShowFitToWindow { get; set; }
+
+    /// <summary>Draws the fit button pressed: the zoom is following the window rather than a set percentage.</summary>
+    [Parameter] public bool IsFitted { get; set; }
+
+    /// <summary>The fit button's tooltip.</summary>
+    [Parameter] public string FitToWindowText { get; set; } = "Fit slide to current window";
+
+    /// <summary>The fit button was pressed. The host works out the zoom and feeds it back through <see cref="Zoom"/>.</summary>
+    [Parameter] public EventCallback FitToWindowRequested { get; set; }
+
     /// <summary>Hides Focus, the view modes and the slider. Null follows the shell.</summary>
     [Parameter] public bool? Compact { get; set; }
 
@@ -167,6 +182,9 @@ public partial class OfficeStatusBar : ComponentBase, IDisposable
     public Task SetZoomFromSliderAsync(double position) => this.SetZoomAsync(this.Model.FromSlider(position));
 
     public void OpenZoomDialog() => this.zoomDialogOpen = true;
+
+    /// <summary>Presses the fit button. Test seam.</summary>
+    public Task FitToWindowAsync() => this.FitToWindowRequested.InvokeAsync();
 
     async Task OnSliderAsync(ChangeEventArgs e)
     {

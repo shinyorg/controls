@@ -3,7 +3,8 @@
 [← All Shiny Controls](../../README.md)
 
 > Same packages as the viewers. Two controls: `SlideEditor` is the lone editing surface;
-> `SlideEditorView` is the same thing plus an editing toolbar.
+> `SlideEditorView` is the same thing in PowerPoint's window — title bar, ribbon, status bar and File
+> backstage ([the Office shell](office-shell.md)), on by default.
 
 ```csharp
 using var deck = await SlideDeck.OpenAsync("deck.pptx", editable: true);
@@ -270,6 +271,64 @@ A **pinned** theme on Blazor carries the chrome with it: the view's root takes t
 ribbon, its pickers and the rest of the bar re-derive their `--shiny-color-*` tokens to match the
 canvas. Unpinning removes it.
 
+## The PowerPoint window
+
+`SlideEditorView` is PowerPoint's whole window, not a canvas with a toolbar. It wraps itself in the
+[Office shell](office-shell.md) dressed as PowerPoint (red `#C43E1C`), and that is **on by default**:
+
+| Part | What it does |
+|---|---|
+| Title bar | AutoSave, Save / Undo / Redo and **Start From Beginning** (F5) in quick access, the presentation name (click to rename), the save status ("Unsaved changes" → "Saving…" → "Saved" / "Saved locally"), the command search and the account (`UserName`) |
+| Command search | Every ribbon command with its shortcut (tooltips now carry `Shortcut`, not "(Ctrl+B)" in the text), plus Save, New Presentation, Export to PDF / slide as PNG / all slides as PNG, Print, Reading View, Fit, Zoom 100%. On Blazor, where the ribbon indexes a tab only once it has rendered, the commands of the unopened tabs are listed up front — New Slide, Text Box, Chart, Link, Header & Footer, Themes, Format Background, Slide Size, Transitions, Animations, Animation Pane, From Beginning / Current Slide, Presenter View, Hide Slide, the views, Notes, Ruler, Gridlines, Guides — and each steps aside once its tab has been visited. A query that matches no command is found across the slides (Find) and the hit is selected |
+| Ribbon | **File** opens the backstage (and still raises `FileMenuRequested`). The **Editing / Viewing** menu (Viewing makes the deck read-only; Reviewing edits as Editing — slides have no tracked changes) and **Share** sit at the right end of the tab strip. There is no Comments button: the slide editor has no comments engine, and the notes toggle is on the status bar. Slide Show gains an **Export** group — **PDF** and **Pictures** (this slide as PNG / JPEG, all slides as PNG in a .zip) — on both hosts |
+| Status bar | **"Slide 3 of 12"** ("Slide Master" in that view), the proofing language, **Notes** (toggles `ShowNotes`), the three views — **Normal**, **Slide Sorter**, **Reading View** (plays the show from the current slide; the button stays pressed while it runs) — the zoom slider, two-way with `Zoom` (10–400%, following the fitted zoom when `Zoom` is null), and **Fit slide to current window**, pressed while the zoom is fitted |
+| Backstage | New (Blank presentation plus **Project update** on Slate, **Pitch deck** on Midnight and **Lesson** on Botanical — built in code by `SlideTemplates`, each a real .pptx with PowerPoint's five layouts; Blazor draws each one's title slide as its thumbnail), Open, Info (slides, hidden slides, words, slides with notes, author), Save, Save As (pptx, PDF, PNG), Print (with a preview of the current slide), Export (PDF, PNG of this slide, PNG of every slide as a .zip, JPEG) |
+
+**Files.** The shell reads and writes nothing itself. Save (title bar, backstage, Ctrl+S), Save As,
+Export (backstage or ribbon) and Print each raise `FileRequested` with a `SlideFileRequest` — the deck,
+the current slide, the format, a file name ("Pitch deck.pdf"), the action, and `WriteToAsync(stream)` /
+`ToBytesAsync()` (`SlideExport` does the writing: pptx through `SaveToAsync`, the rest through
+`SlideExporter`). On Blazor an unhandled request downloads the file and Print opens the PDF in the
+browser's print dialog, as Word and Excel do; on MAUI handle it:
+
+```csharp
+slides.FileRequested += async (_, request) =>
+{
+    var path = Path.Combine(FileSystem.AppDataDirectory, request.FileName);
+    await using var file = File.Create(path);
+    await request.WriteToAsync(file);
+};
+```
+
+```razor
+<SlideEditorView Deck="deck"
+                 DeckReplaced="d => deck = d"
+                 @bind-Zoom="zoom"
+                 DocumentName="Quarterly Review"
+                 UserName="Allan Ritchie"
+                 RecentFiles="recent"
+                 FileRequested="SaveAsync" />
+```
+
+Picking a template opens it, shows it and reports it through `DeckReplaced` (both hosts; the host owns
+that deck from then on); handle `TemplateSelected` to do it yourself. `OpenRequested`,
+`RecentFileSelected` and `ShareRequested` are the host's. With `AutoSave` on and `FileRequested`
+handled, edits are saved two seconds after the last one. `Commands` (Blazor) / `CommandIndex` (MAUI) is
+the `OfficeCommandIndex` behind the search, for the app's own entries. MAUI also exposes the parts —
+`Shell`, `TitleBar`, `StatusBar`, `Backstage`, `RibbonActions`, `Ribbon` — and the seams `Save()`,
+`Export(format)`, `SelectViewMode(id)` and `SearchSlides(text)`.
+
+**Turning parts off.** `ShowShell="false"` drops the shell and gives the ribbon + slide + plain status
+line of before (File then appears only while `FileMenuRequested` is handled). Short of that,
+`ShowTitleBar`, `ShowStatusBar` (`ShowStatus` off hides either status bar), `ShowBackstage` (File then
+only raises `FileMenuRequested`) and `ShowRibbonActions`. MAUI builds every part in the constructor and
+only toggles `IsVisible`, so the AppKit head renders it.
+
+> **Behaviour change:** the shell is on by default, so an existing `SlideEditorView` grows a title bar,
+> the Office status bar and a backstage, and its ribbon loses the accent-filled header (the accent moves
+> to the title bar and the tab underline). `FileMenuRequested` is still raised, after the backstage
+> opens. A host that wants the old layout sets `ShowShell="false"`.
+
 ## The toolbar is a Ribbon
 
 The formatting bar is a [Ribbon](ribbon.md) on both hosts, replacing the single scrolling strip of
@@ -286,8 +345,9 @@ Two things the strip could not do:
 Undo and redo sit in the ribbon's quick access row, outside the tabs, so they never move or disappear.
 
 **The tab strip is on by default** now that the editor carries PowerPoint's full set of tabs
-(`ShowRibbonTabs` on Blazor turns it off for a single-row bar). **File is a hook only**: handle
-`FileMenuRequested` and the ribbon shows a File button that raises it — the backstage is the host's.
+(`ShowRibbonTabs` on Blazor turns it off for a single-row bar). **File opens the backstage** while the
+shell is on (see [The PowerPoint window](#the-powerpoint-window)); with `ShowShell="false"` it is a
+hook only — handle `FileMenuRequested` and the ribbon shows a File button that raises it.
 
 **Below 600px wide the bar runs in `Simplified` mode** — one dense row, every item small, group titles
 dropped. Group collapsing is the wrong answer at phone width: it folds groups into dropdowns

@@ -676,3 +676,33 @@
 .slide-status-notes:hover:not(:disabled) { background: color-mix(in srgb, currentColor 10%, transparent); }
 .slide-status-notes.on { background: color-mix(in srgb, currentColor 14%, transparent); }
 .slide-status-notes:disabled { opacity: 0.4; cursor: default; }
+
+/*
+    PowerPoint's groups put a large button beside a column of rows - New Slide next to Layout / Reset /
+    Section, Shapes / Arrange / Quick Styles next to Fill and Outline. The ribbon stacks a group that
+    holds rows (right for Font and Paragraph, which are nothing but rows), and here that stacked the
+    large buttons on top of the rows and made the Drawing group five buttons tall. Such a group goes
+    back to the ribbon's column grid, where a large item spans the rows and each row takes one.
+*/
+.slide-toolbar ::deep .shiny-ribbon-group__items:has(.shiny-ribbon-row):has(.is-large) {
+    display: grid;
+    align-items: center;
+    justify-items: start;
+}
+
+/* ---- the PowerPoint shell ---- */
+
+/* The shell is a child component: its root carries its own scope, so it is reached with ::deep. */
+.shiny-slide-editor-view.has-shell > ::deep .office-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Backstage > Print: the slide being edited, drawn as it will print. */
+.slide-print-preview {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface, #F6FAFE);
+}

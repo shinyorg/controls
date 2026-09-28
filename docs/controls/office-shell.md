@@ -171,6 +171,11 @@ Segments are `OfficeStatusItem`s (observable: set `Text`, `IsVisible`, `IsClicka
 `OfficeStatusText`: `Page(1, 3)` → "Page 1 of 3", `Words(197)` → "197 words", `Slide(3, 12)`,
 `Aggregates(values, count)` → Excel's "Average: 4  Count: 3  Sum: 12" (null for a single cell).
 
+`ShowFitToWindow` adds PowerPoint's "Fit slide to current window" button after the percentage;
+`IsFitted` draws it pressed and `FitToWindowRequested` (both hosts; `FitToWindow()` on MAUI,
+`FitToWindowAsync()` on Blazor) asks the host to fit — the slide editor passes its fitted zoom back
+through `Zoom`. See [Slide Editor](slide-editor.md#the-powerpoint-window) for the full PowerPoint wiring.
+
 `Zoom` is a factor (1 = 100%) — the same unit every editor's `Zoom` takes, so bind them together.
 `OfficeZoomModel` holds the range (10–500%), the snap points (100%) and the step (10%); the slider is
 piecewise — its left half is 10–100% and its right half 100–500%, so 100% sits in the middle. Give the
