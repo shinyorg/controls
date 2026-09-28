@@ -22,7 +22,7 @@ namespace Shiny.Maui.Controls.Office;
 /// without it.
 /// </para>
 /// </remarks>
-public class SlideEditor : ContentView, IDisposable
+public partial class SlideEditor : ContentView, IDisposable
 {
     readonly SKCanvasView canvas;
     readonly Entry input;
@@ -216,83 +216,116 @@ public class SlideEditor : ContentView, IDisposable
 
     // ---- painting ----
 
+    SlideEditorSurfacePainter? surfacePainter;
+    SlideShowPainter? previewPainter;
+    SlideShowController? preview;
+    IDispatcherTimer? previewTicker;
+
+    /// <summary>The accent the selection chrome is drawn in. Unset is the editor's blue.</summary>
+    public ArgbColor? ChromeAccent { get; set; }
+
     void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
-        var theme = this.EffectiveTheme;
         var surface = e.Surface.Canvas;
-        surface.Clear(new SKColor(theme.Surround.R, theme.Surround.G, theme.Surround.B));
 
-        if (this.controller is null || this.controller.SinglePlacement() is not { } placement)
+        if (this.controller is null)
+        {
+            var theme = this.EffectiveTheme;
+            surface.Clear(new SKColor(theme.Surround.R, theme.Surround.G, theme.Surround.B));
             return;
+        }
 
         var scale = this.Width > 0 ? (float)(e.Info.Width / this.Width) : 1f;
 
-        this.painter.Paint(surface, new SlidePaintRequest
+        // Every view and all the chrome come from the shared surface painter, so Blazor draws the same.
+        this.surfacePainter ??= new SlideEditorSurfacePainter(this.painter);
+        this.surfacePainter.Paint(surface, this.controller, new SlideEditorSurfaceOptions
         {
-            Watermark = this.Watermark,
-            Slide = placement.Slide,
-            SlideWidth = this.controller.Deck.SlideWidth,
-            SlideHeight = this.controller.Deck.SlideHeight,
-            DestinationX = placement.X,
-            DestinationY = placement.Y,
-            DestinationWidth = placement.Width,
-            DestinationHeight = placement.Height,
-            Theme = theme,
+            Theme = this.EffectiveTheme,
             Scale = scale,
-            Chrome = this.BuildChrome(),
-
-            // An empty placeholder's "Click to add title" is editing chrome, so it belongs to the
-            // editor and not the viewer - and not to the one placeholder the caret is inside.
-            ShowPlaceholderPrompts = !this.IsReadOnly,
-            PromptHiddenShape = this.controller is { IsEditingText: true } editing ? editing.SelectedShape : -1
+            IsFocused = this.focused,
+            IsReadOnly = this.IsReadOnly,
+            Watermark = this.Watermark,
+            Accent = this.ChromeAccent ?? new ArgbColor(255, 0x2F, 0x6F, 0xED)
         });
+
+        // A Preview plays over the slide itself, inside its own rectangle.
+        if (this.preview is { } running && running.Frame() is { } frame && this.controller.SinglePlacement() is { } placement)
+        {
+            this.previewPainter ??= new SlideShowPainter(this.painter);
+            surface.Save();
+            surface.Scale(scale);
+            this.previewPainter.PaintInto(surface, frame, this.controller.Deck,
+                new SKRect((float)placement.X, (float)placement.Y, (float)(placement.X + placement.Width), (float)(placement.Y + placement.Height)),
+                this.Watermark);
+            surface.Restore();
+        }
     }
 
     /// <summary>
-    /// The selection frame, handles, text highlight, find highlights and caret — or null when there is
-    /// none of it to draw.
+    /// Plays the current slide's transition and animations in place — the Preview button on the
+    /// Transitions and Animations tabs.
     /// </summary>
-    /// <remarks>
-    /// Find highlights are not editing chrome. A search marks what it turned up, which is as useful in
-    /// a deck that cannot be edited as in one that can, so they are drawn whether or not a shape is
-    /// selected and whether or not the editor is read-only. The frame, the handles and the caret say
-    /// "you can change this" and are held to the editable case.
-    /// </remarks>
-    SlideEditorChrome? BuildChrome()
+    public void Preview()
     {
-        if (this.controller is not { } controller)
-            return null;
+        if (this.controller is not { Count: > 0 } controller || this.Dispatcher is null)
+            return;
 
-        var matches = controller.FindMatchRects().Select(Tuple).ToList();
-        var editable = controller.SelectedShape >= 0 && !this.IsReadOnly;
+        this.StopPreview();
+        controller.ClearSelection();
+        this.preview = SlideShowController.Preview(controller.Deck, controller.Index);
 
-        if (!editable && matches.Count == 0)
-            return null;
-
-        return new SlideEditorChrome
+        var timer = this.Dispatcher.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(16);
+        timer.Tick += (_, _) =>
         {
-            SelectionFrame = editable ? Rect(controller.SelectionBounds()) : null,
-            Handles = editable ? controller.SelectionHandles().Select(x => Tuple(x.Rect)).ToList() : [],
+            if (this.preview is not { } running)
+                return;
 
-            // Drawn even when the deck is read-only: stepping to a match selects the word, and the
-            // wash over it is the only thing saying which of the highlighted hits is the current one.
-            TextSelection = controller.TextSelectionRects().Select(Tuple).ToList(),
-            FindMatches = matches,
+            running.Tick();
+            this.Invalidate();
 
-            // The caret is only drawn while the editor actually has focus; one shown without it reads
-            // as an editor accepting keystrokes when it is not.
-            Caret = editable && this.focused ? Rect(controller.CaretRect()) : null,
-            IsEditingText = controller.IsEditingText
+            if (running.IsPreviewDone)
+                this.StopPreview();
         };
 
-        static (double X, double Y, double Width, double Height)? Rect(SlideRect? r)
-            => r is { } value ? Tuple(value) : null;
-
-        static (double X, double Y, double Width, double Height) Tuple(SlideRect r)
-            => (r.X, r.Y, r.Width, r.Height);
+        this.previewTicker = timer;
+        timer.Start();
     }
 
+    /// <summary>Ends a preview early; a tap on the slide does the same.</summary>
+    public void StopPreview()
+    {
+        this.previewTicker?.Stop();
+        this.previewTicker = null;
+
+        if (this.preview is not null)
+        {
+            this.preview = null;
+            this.Invalidate();
+        }
+    }
+
+    public bool IsPreviewing => this.preview is not null;
+
+    /// <summary>Repaints — after a view setting (ruler, gridlines, markers) that is not an edit.</summary>
+    public void Repaint() => this.Invalidate();
+
+    /// <summary>
+    /// Held modifiers, for a host with a platform key hook: Shift constrains a drag (15° rotation,
+    /// proportional corners, one axis) and adds to the selection on a tap; Control toggles a shape in
+    /// the selection. MAUI's touch events carry no modifier state of their own.
+    /// </summary>
+    public bool ShiftHeld { get; set; }
+
+    public bool ControlHeld { get; set; }
+
     // ---- pointer ----
+
+    readonly Dictionary<long, SKPoint> touches = [];
+    double pinchStartDistance;
+    double pinchStartZoom;
+    bool pinching;
 
     void OnTouch(object? sender, SKTouchEventArgs e)
     {
@@ -309,6 +342,20 @@ public class SlideEditor : ContentView, IDisposable
         switch (e.ActionType)
         {
             case SKTouchAction.Pressed:
+                this.StopPreview();
+                this.touches[e.Id] = new SKPoint(x, y);
+
+                // A second finger turns the gesture into a pinch: the first finger's drag is dropped.
+                if (this.touches.Count == 2)
+                {
+                    this.controller.PointerUp();
+                    var pair = this.touches.Values.ToArray();
+                    this.pinchStartDistance = Math.Max(1, SKPoint.Distance(pair[0], pair[1]));
+                    this.pinchStartZoom = this.controller.EffectiveZoom;
+                    this.pinching = true;
+                    break;
+                }
+
                 if (this.IsDoubleTap(x, y))
                 {
                     this.controller.PointerDoubleClick(x, y);
@@ -316,21 +363,56 @@ public class SlideEditor : ContentView, IDisposable
                     break;
                 }
 
-                this.controller.PointerDown(x, y);
+                this.controller.PointerDown(x, y, this.ShiftHeld, this.ControlHeld);
                 this.FocusEditor();
                 break;
 
             case SKTouchAction.Moved when e.InContact:
-                this.controller.PointerMove(x, y);
+                this.touches[e.Id] = new SKPoint(x, y);
+
+                if (this.pinching && this.touches.Count >= 2)
+                {
+                    var pair = this.touches.Values.Take(2).ToArray();
+                    var distance = SKPoint.Distance(pair[0], pair[1]);
+                    var centre = new SKPoint((pair[0].X + pair[1].X) / 2, (pair[0].Y + pair[1].Y) / 2);
+                    this.controller.ZoomAt(this.pinchStartZoom * distance / this.pinchStartDistance, centre.X, centre.Y);
+                    break;
+                }
+
+                if (!this.pinching)
+                    this.controller.PointerMove(x, y, this.ShiftHeld);
+
                 break;
 
             case SKTouchAction.Released:
             case SKTouchAction.Cancelled:
+                this.touches.Remove(e.Id);
+
+                if (this.pinching)
+                {
+                    if (this.touches.Count == 0)
+                        this.pinching = false;
+
+                    break;
+                }
+
                 this.controller.PointerUp();
                 break;
 
             case SKTouchAction.WheelChanged:
-                if (!this.controller.IsEditingText)
+                if (this.controller.Mode == SlideViewMode.Grid)
+                {
+                    this.controller.Scroll(-e.WheelDelta);
+                }
+                else if (this.ControlHeld)
+                {
+                    this.controller.ZoomAt(this.controller.EffectiveZoom * Math.Exp(e.WheelDelta * 0.0025), x, y);
+                }
+                else if (this.controller.CanPan)
+                {
+                    this.controller.PanBy(0, -e.WheelDelta);
+                }
+                else if (!this.controller.IsEditingText)
                 {
                     if (e.WheelDelta < 0)
                         this.controller.Next();
@@ -598,8 +680,10 @@ public class SlideEditor : ContentView, IDisposable
             case EditorKey.Home: this.controller.MoveToLineStart(shift); break;
             case EditorKey.End: this.controller.MoveToLineEnd(shift); break;
             case EditorKey.Backspace: this.controller.Backspace(); break;
+            case EditorKey.Enter when shift: this.controller.InsertLineBreak(); break;
             case EditorKey.Enter: this.controller.InsertParagraph(); break;
             case EditorKey.Tab: this.controller.HandleTab(shift); break;
+            case EditorKey.SelectAll when !this.controller.IsEditingText: this.controller.SelectAllShapes(); break;
             case EditorKey.SelectAll: this.controller.SelectAll(); break;
             case EditorKey.Bold: this.controller.ToggleBold(); break;
             case EditorKey.Italic: this.controller.ToggleItalic(); break;
@@ -650,6 +734,9 @@ public class SlideEditor : ContentView, IDisposable
         this.input.Focused -= this.OnInputFocused;
         this.input.Unfocused -= this.OnInputUnfocused;
 
+        this.StopPreview();
+        this.surfacePainter?.Dispose();
+        this.previewPainter?.Dispose();
         this.painter.Dispose();
         this.measurer.Dispose();
     }

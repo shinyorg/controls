@@ -154,9 +154,23 @@ public partial class SlideView : ContentView, IDisposable
 
     void Invalidate() => this.canvas.InvalidateSurface();
 
-    public void Next() => this.controller?.Next();
+    /// <summary>Advance one slide — or, in a show, one click of its animations.</summary>
+    public void Next()
+    {
+        if (this.show is { } running)
+            running.Next();
+        else
+            this.controller?.Next();
+    }
 
-    public void Previous() => this.controller?.Previous();
+    /// <summary>Go back one slide (or click).</summary>
+    public void Previous()
+    {
+        if (this.show is { } running)
+            running.Previous();
+        else
+            this.controller?.Previous();
+    }
 
     void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
@@ -168,6 +182,17 @@ public partial class SlideView : ContentView, IDisposable
             return;
 
         var scale = this.Width > 0 ? (float)(e.Info.Width / this.Width) : 1f;
+
+        if (this.show is { } running && this.Deck is { } deck)
+        {
+            this.showPainter ??= new SlideShowPainter(this.painter);
+            this.showPainter.Paint(canvasSurface, running.Frame(), deck, this.Width, this.Height, scale, this.Watermark);
+
+            if (running.IsAnimating)
+                this.StartTicking();
+
+            return;
+        }
 
         if (this.controller.Mode == SlideViewMode.Grid)
         {
@@ -233,12 +258,12 @@ public partial class SlideView : ContentView, IDisposable
                 break;
 
             case SKTouchAction.WheelChanged:
-                if (this.controller.Mode == SlideViewMode.Grid)
+                if (this.controller.Mode == SlideViewMode.Grid && this.show is null)
                     this.controller.Scroll(-e.WheelDelta);
                 else if (e.WheelDelta < 0)
-                    this.controller.Next();
+                    this.Next();
                 else
-                    this.controller.Previous();
+                    this.Previous();
 
                 break;
         }
@@ -275,10 +300,16 @@ public partial class SlideView : ContentView, IDisposable
         if (Math.Abs(dx) > 40 && Math.Abs(dx) > Math.Abs(dy))
         {
             if (dx < 0)
-                this.controller.Next();
+                this.Next();
             else
-                this.controller.Previous();
+                this.Previous();
 
+            return;
+        }
+
+        if (this.show is { } running && Math.Abs(dx) < 12 && Math.Abs(dy) < 12)
+        {
+            this.OnShowTap(running, x, y);
             return;
         }
 
@@ -302,6 +333,16 @@ public partial class SlideView : ContentView, IDisposable
 
         if (this.controller is not null)
             this.controller.Changed -= this.OnControllerChanged;
+
+        this.StopTicking();
+        if (this.show is { } running)
+        {
+            running.Changed -= this.OnShowChanged;
+            running.Ended -= this.OnShowEnded;
+            this.show = null;
+        }
+
+        this.showPainter?.Dispose();
 
         this.StopPresenting();
         this.canvas.PaintSurface -= this.OnPaintSurface;

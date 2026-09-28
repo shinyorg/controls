@@ -43,6 +43,7 @@ public partial class SlideEditorPage : ContentPage
         this.Editor.Deck = this.deck;
         this.Editor.DeckChanged += this.OnDeckChanged;
         this.Editor.DropRejected += this.OnDropRejected;
+        this.Editor.StatusChanged += (_, _) => this.UpdateStatus();
 
         this.UpdateStatus();
     }
@@ -70,7 +71,7 @@ public partial class SlideEditorPage : ContentPage
     void UpdateStatus()
         => this.StatusLabel.Text = this.deck is null
             ? "loading"
-            : $"{this.deck.Slides.Count} slides · {this.edits} edits{(this.deck.IsDirty ? " · unsaved" : string.Empty)}";
+            : $"Slide {this.Editor.CurrentSlideIndex + 1} of {this.Editor.SlideCount} · {this.Editor.ViewMode} · {Math.Round(this.Editor.EffectiveZoom * 100)}% · {this.edits} edits{(this.deck.IsDirty ? " · unsaved" : string.Empty)}";
 
     protected override void OnHandlerChanged()
     {

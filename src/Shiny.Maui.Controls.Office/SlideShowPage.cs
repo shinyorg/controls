@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls.Shapes;
+using SkiaSharp.Views.Maui.Controls;
 
 namespace Shiny.Maui.Controls.Office;
 
@@ -91,23 +92,157 @@ class SlideShowPage : ContentPage
         this.notesPanel.MaximumHeightRequest = 180;
         this.notesPanel.Content = new ScrollView { Content = this.notesLabel };
 
-        this.Content = new Grid
+        this.surface.ShowChanged += this.OnShowChanged;
+
+        if (owner.PresenterView)
         {
-            Children =
+            this.Content = this.BuildPresenterView();
+        }
+        else
+        {
+            this.Content = new Grid
             {
-                this.surface,
-                new VerticalStackLayout
+                Children =
                 {
-                    Spacing = 0,
-                    VerticalOptions = LayoutOptions.End,
-                    Margin = new Thickness(0, 0, 0, 20),
-                    Children = { this.notesPanel, this.chrome }
+                    this.surface,
+                    new VerticalStackLayout
+                    {
+                        Spacing = 0,
+                        VerticalOptions = LayoutOptions.End,
+                        Margin = new Thickness(0, 0, 0, 20),
+                        Children = { this.notesPanel, this.chrome }
+                    }
                 }
-            }
-        };
+            };
+        }
 
         this.Update();
     }
+
+    // ---- presenter view ----
+
+    Label? timerLabel;
+    Label? presenterCounter;
+    Label? presenterNotes;
+    Label? nextLabel;
+    SKCanvasView? nextCanvas;
+    IDispatcherTimer? clock;
+    readonly SkiaTextMeasurer nextMeasurer = new();
+    SlidePainter? nextPainter;
+
+    /// <summary>
+    /// PowerPoint's Presenter View on the one screen: the slide the room sees on the left; the next
+    /// slide, the notes, the clock and the controls on the right.
+    /// </summary>
+    View BuildPresenterView()
+    {
+        this.timerLabel = new Label { TextColor = Colors.White, FontSize = 26, VerticalOptions = LayoutOptions.Center };
+        this.nextLabel = new Label { TextColor = Color.FromArgb("#B0B0B0"), FontSize = 12 };
+        this.presenterNotes = new Label { TextColor = Color.FromArgb("#EDEDED"), FontSize = 18, LineBreakMode = LineBreakMode.WordWrap };
+
+        this.nextPainter = new SlidePainter(this.nextMeasurer);
+        this.nextCanvas = new SKCanvasView { HeightRequest = 180 };
+        this.nextCanvas.PaintSurface += this.OnPaintNext;
+
+        var pause = ChromeButton("Pause", 13);
+        pause.Clicked += (_, _) =>
+        {
+            this.surface.Show?.TogglePause();
+            pause.Text = this.surface.Show?.IsPaused == true ? "Resume" : "Pause";
+        };
+
+        var black = ChromeButton("Black", 13);
+        black.Clicked += (_, _) => this.surface.Show?.ToggleBlack();
+
+        var white = ChromeButton("White", 13);
+        white.Clicked += (_, _) => this.surface.Show?.ToggleWhite();
+
+        var back = ChromeButton("‹", 22);
+        back.Clicked += (_, _) => this.surface.Previous();
+
+        var forward = ChromeButton("›", 22);
+        forward.Clicked += (_, _) => this.surface.Next();
+
+        var end = ChromeButton("End Show", 13);
+        end.Clicked += (_, _) => this.owner.StopPresenting();
+
+        var side = new Grid
+        {
+            Padding = 14,
+            RowSpacing = 10,
+            BackgroundColor = Color.FromArgb("#1B1B1D"),
+            RowDefinitions =
+            {
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Star),
+                new RowDefinition(GridLength.Auto)
+            }
+        };
+
+        this.presenterCounter = new Label { TextColor = Colors.White, FontSize = 14, VerticalOptions = LayoutOptions.Center };
+        side.Add(new HorizontalStackLayout { Spacing = 8, Children = { this.timerLabel, pause, this.presenterCounter } }, 0, 0);
+        side.Add(this.nextLabel, 0, 1);
+        side.Add(this.nextCanvas, 0, 2);
+        side.Add(new ScrollView { Content = this.presenterNotes }, 0, 3);
+        side.Add(new FlexLayout { Wrap = FlexWrap.Wrap, Children = { back, forward, black, white, end } }, 0, 4);
+
+        var root = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(new GridLength(380)) }
+        };
+
+        root.Add(this.surface, 0, 0);
+        root.Add(side, 1, 0);
+
+        var timer = this.Dispatcher.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(500);
+        timer.Tick += (_, _) => this.UpdateClock();
+        this.clock = timer;
+        timer.Start();
+
+        return root;
+    }
+
+    void UpdateClock()
+    {
+        if (this.timerLabel is null || this.surface.Show is not { } show)
+            return;
+
+        var elapsed = show.Elapsed;
+        this.timerLabel.Text = elapsed.TotalHours >= 1 ? elapsed.ToString(@"h\:mm\:ss") : elapsed.ToString(@"mm\:ss");
+    }
+
+    void OnPaintNext(object? sender, SkiaSharp.Views.Maui.SKPaintSurfaceEventArgs e)
+    {
+        var canvas = e.Surface.Canvas;
+        canvas.Clear(new SkiaSharp.SKColor(0x20, 0x20, 0x20));
+
+        if (this.nextPainter is null || this.owner.Deck is not { } deck || this.surface.Show?.NextSlideIndex is not { } next || this.nextCanvas is null)
+            return;
+
+        var scale = this.nextCanvas.Width > 0 ? (float)(e.Info.Width / this.nextCanvas.Width) : 1f;
+        var width = this.nextCanvas.Width;
+        var height = this.nextCanvas.Height;
+        var fit = Math.Min(width / deck.SlideWidth, height / deck.SlideHeight);
+
+        this.nextPainter.Paint(canvas, new SlidePaintRequest
+        {
+            Slide = deck.Slides[next],
+            SlideWidth = deck.SlideWidth,
+            SlideHeight = deck.SlideHeight,
+            DestinationX = (width - deck.SlideWidth * fit) / 2,
+            DestinationY = (height - deck.SlideHeight * fit) / 2,
+            DestinationWidth = deck.SlideWidth * fit,
+            DestinationHeight = deck.SlideHeight * fit,
+            Theme = SlideTheme.Presentation,
+            Scale = scale,
+            DrawBorder = false
+        });
+    }
+
+    void OnShowChanged(object? sender, EventArgs e) => this.Update();
 
     static Button ChromeButton(string text, double fontSize)
     {
@@ -194,6 +329,14 @@ class SlideShowPage : ContentPage
 
         this.surface.SlideChanged -= this.OnSlideChanged;
         this.surface.Interacted -= this.OnInteracted;
+        this.surface.ShowChanged -= this.OnShowChanged;
+
+        this.clock?.Stop();
+        if (this.nextCanvas is not null)
+            this.nextCanvas.PaintSurface -= this.OnPaintNext;
+
+        this.nextPainter?.Dispose();
+        this.nextMeasurer.Dispose();
 
         // The inline viewer is left on the slide the show ended on, not the one it started from.
         this.owner.AdoptSlideIndex(this.surface.SlideIndex);
@@ -230,18 +373,31 @@ class SlideShowPage : ContentPage
     void Update()
     {
         var controller = this.surface.Controller;
-        var count = controller?.Count ?? 0;
-        var index = controller?.Index ?? 0;
+        var show = this.surface.Show;
 
-        this.counter.Text = count == 0 ? string.Empty : $"{index + 1} / {count}";
+        // The show counts the slides it plays, hidden ones left out.
+        var (position, count) = show?.Progress ?? ((controller?.Index ?? 0) + 1, controller?.Count ?? 0);
+        this.counter.Text = count == 0 ? string.Empty : $"{position} / {count}";
+        if (this.presenterCounter is not null)
+            this.presenterCounter.Text = count == 0 ? string.Empty : $"Slide {position} of {count}";
 
-        // The dim that goes with this is a visual state on the button itself; see ChromeButton.
-        this.previous.IsEnabled = controller?.CanGoPrevious == true;
-        this.next.IsEnabled = controller?.CanGoNext == true;
+        // Always live in a show: forward still has clicks to play, and past the last slide is the end
+        // screen. The dim that goes with a disabled one is a visual state on the button itself.
+        this.previous.IsEnabled = show is not null || controller?.CanGoPrevious == true;
+        this.next.IsEnabled = show is not null || controller?.CanGoNext == true;
 
-        var notes = controller?.Current?.Notes;
+        var notes = show?.Current?.Notes ?? controller?.Current?.Notes;
         this.notesLabel.Text = string.IsNullOrWhiteSpace(notes) ? "No notes on this slide." : notes;
         this.notesPanel.IsVisible = this.notesShown && this.owner.ShowPresenterControls;
+
+        if (this.presenterNotes is not null)
+            this.presenterNotes.Text = string.IsNullOrWhiteSpace(notes) ? "No notes on this slide." : notes;
+
+        if (this.nextLabel is not null)
+            this.nextLabel.Text = show?.NextSlideIndex is null ? "End of slide show" : "Next slide";
+
+        this.nextCanvas?.InvalidateSurface();
+        this.UpdateClock();
     }
 
     /// <summary>Bring the chrome back and push the fade-out deadline out again.</summary>

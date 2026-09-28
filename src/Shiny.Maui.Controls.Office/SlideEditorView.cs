@@ -27,7 +27,7 @@ namespace Shiny.Maui.Controls.Office;
 /// what they are currently set to.
 /// </para>
 /// </remarks>
-public class SlideEditorView : ContentView, IDisposable
+public partial class SlideEditorView : ContentView, IDisposable
 {
     readonly SlideEditor editor = new();
     readonly Ribbon ribbon;
@@ -255,11 +255,14 @@ public class SlideEditorView : ContentView, IDisposable
 
         var body = new Grid
         {
-            ColumnDefinitions = { this.railColumn, new ColumnDefinition(GridLength.Star) }
+            ColumnDefinitions = { this.railColumn, new ColumnDefinition(GridLength.Star), this.paneColumn }
         };
         body.Add(this.rail);
+        body.Add(this.outlinePane);
         body.Add(main);
         Grid.SetColumn(main, 1);
+        body.Add(this.animationPane);
+        Grid.SetColumn(this.animationPane, 2);
 
         this.rail.Interacted += (_, _) =>
         {
@@ -271,17 +274,22 @@ public class SlideEditorView : ContentView, IDisposable
         this.root.Add(body);
         this.statusBar = new Grid
         {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Auto) }
         };
+        this.statusBar.Add(this.slideCountLabel);
         this.statusBar.Add(this.status);
+        Grid.SetColumn(this.status, 1);
         this.statusBar.Add(this.notesButton);
-        Grid.SetColumn(this.notesButton, 1);
+        Grid.SetColumn(this.notesButton, 2);
+        this.statusBar.Add(this.statusTools);
+        Grid.SetColumn(this.statusTools, 3);
 
         this.root.Add(this.statusBar);
         Grid.SetRow(body, 1);
         Grid.SetRow(this.statusBar, 2);
 
         this.editor.DeckChanged += this.OnDeckChanged;
+        this.editor.ShortcutRequested += this.OnShortcutRequested;
         this.AttachDrop();
         this.editor.SlideChanged += this.OnSlideChanged;
         this.Content = this.root;
@@ -532,7 +540,7 @@ public class SlideEditorView : ContentView, IDisposable
     /// deck is being built: a show started to see how the slide in front of you actually lands. Pass 0
     /// for the run-through.
     /// </remarks>
-    public void StartPresenting(int? from = null)
+    public void StartPresenting(int? from = null, bool presenterView = false)
     {
         if (this.Deck is null || this.IsPresenting)
             return;
@@ -540,6 +548,7 @@ public class SlideEditorView : ContentView, IDisposable
         // The caret and the drag handles are editing state, and a show is not editing. Left standing,
         // they are what the editor paints the instant the show ends — over whichever slide the
         // presenter walked to, where the shape they belonged to is not.
+        this.editor.StopPreview();
         this.editor.Controller?.ClearSelection();
 
         if (from is { } index)
@@ -552,6 +561,7 @@ public class SlideEditorView : ContentView, IDisposable
         view.Deck = this.Deck;
         view.Watermark = this.Watermark;
         view.SlideIndex = this.SlideIndex;
+        view.PresenterView = presenterView;
         view.StartPresenting();
 
         this.RefreshBar();
@@ -615,152 +625,6 @@ public class SlideEditorView : ContentView, IDisposable
     }
 
     // ---- toolbar ----
-
-    void BuildBar()
-    {
-        this.ribbon.Tabs.Clear();
-
-        this.fontPicker = this.CreateFontPicker();
-        this.sizePicker = this.CreateSizePicker();
-
-        this.ribbon.QuickAccessItems.Clear();
-        this.ribbon.QuickAccessItems.Add(this.undo);
-        this.ribbon.QuickAccessItems.Add(this.redo);
-
-        var tab = new RibbonTab { Title = "Home", Key = "home" };
-
-        // Which slide you are on is navigation, not formatting, so it leads rather than sitting among
-        // the text commands.
-        // The counter belongs between the arrows, not after them: it is the thing the two arrows move,
-        // and reading "< > 1/3" makes them look like two commands with an unrelated label beside them.
-        // A row is what keeps the three on one line - filling columns stacked the arrows and left the
-        // counter alone in the next one.
-        var slide = new RibbonGroup { Title = "Slide", Priority = 110 };
-        slide.Items.Add(OfficeRibbonItems.Row(
-            this.previous,
-            OfficeRibbonItems.Host(this.counter),
-            this.next
-        ));
-
-        // Beside the arrows rather than on a tab of its own: playing the deck is what the slide you
-        // are looking at is *for*, and a show that costs a tab switch is one nobody starts to check a
-        // build.
-        this.present.Size = RibbonItemSize.Large;
-        slide.Items.Add(this.present);
-        tab.Groups.Add(slide);
-
-        // Beside navigation rather than on Insert: PowerPoint puts New Slide on Home, and that is
-        // where people look for it.
-        var slides = new RibbonGroup { Title = "Slides", Priority = 105 };
-
-        // Two rows, the Blazor bar's shape: a large New Slide and a column per pair made the group
-        // wide enough to push Paragraph into a dropdown. Earlier and Later are icon only.
-        this.newSlide.Size = RibbonItemSize.Small;
-        slides.Items.Add(OfficeRibbonItems.Row(this.newSlide, this.duplicateSlide, this.deleteSlide));
-        slides.Items.Add(OfficeRibbonItems.Row(this.moveSlideEarlier, this.moveSlideLater, this.slideLayout));
-        tab.Groups.Add(slides);
-
-        // Shapes, not text. The same commands as Ctrl+C/X/V/D through HandleKey.
-        var clipboard = new RibbonGroup { Title = "Clipboard", Priority = 95 };
-        clipboard.Items.Add(this.paste);
-        clipboard.Items.Add(this.cut);
-        clipboard.Items.Add(this.copy);
-        clipboard.Items.Add(this.duplicateShape);
-
-        var arrange = new RibbonGroup { Title = "Arrange", Priority = 85 };
-        arrange.Items.Add(this.toFront);
-        arrange.Items.Add(this.forward);
-        arrange.Items.Add(this.backward);
-        arrange.Items.Add(this.toBack);
-
-        // Rows: the two boxes on top, the run of marks underneath - the same shape the document editor
-        // draws, so the two bars are learned once. Filling columns put bold above italic and underline
-        // above strikethrough, and forced the font picker to share a column with a toggle.
-        var font = new RibbonGroup { Title = "Font", Priority = 100 };
-
-        var fontBoxes = new RibbonRow();
-
-        if (this.fontPicker is not null)
-            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.fontPicker));
-
-        if (this.sizePicker is not null)
-            fontBoxes.Items.Add(OfficeRibbonItems.Host(this.sizePicker));
-
-        font.Items.Add(fontBoxes);
-        font.Items.Add(OfficeRibbonItems.Row(
-            this.bold,
-            this.italic,
-            this.underline,
-            this.strike,
-            new RibbonSeparator(),
-            OfficeRibbonItems.Host(this.textColor),
-            this.highlight
-        ));
-        tab.Groups.Add(font);
-
-        // Lists and the indent pair on top, the alignments underneath - the same two rows the document
-        // editor draws.
-        var paragraph = new RibbonGroup { Title = "Paragraph", Priority = 90 };
-        paragraph.Items.Add(OfficeRibbonItems.Row(
-            this.bulletList,
-            this.numberedList,
-            this.outdent,
-            this.indent
-        ));
-        paragraph.Items.Add(OfficeRibbonItems.Row(
-            this.alignLeft,
-            this.alignCenter,
-            this.alignRight
-        ));
-        tab.Groups.Add(paragraph);
-
-        // On Home rather than a tab of its own: finding a word is something you do while building the
-        // deck, and a search that costs a tab switch is one nobody uses. Last on the tab, because it is
-        // reached less often than the formatting beside it - which is what decides the order groups
-        // fold into the overflow in on a narrow window. It spans the rows: on a single row it left the
-        // row underneath empty for the width of a search box.
-        var finding = new RibbonGroup { Title = "Find", Priority = 60 };
-        finding.Items.Add(OfficeRibbonItems.HostLarge(this.findBar));
-        tab.Groups.Add(finding);
-
-        this.ribbon.Tabs.Add(tab);
-
-        // Two tabs. Home is the slide you are on and the text on it; Insert is what goes on it. The
-        // split is only worth making because the second tab holds a real bar - a text box, three ways
-        // to place an object and the way to remove one - rather than a token button.
-        var insertTab = new RibbonTab { Title = "Insert", Key = "insert" };
-        // What goes on the slide, on one row; removing one underneath, which says "this one is
-        // different" better than a rule beside it in a column flow that put delete under a text box
-        // anyway.
-        var insert = new RibbonGroup { Title = "Insert", Priority = 100 };
-        insert.Items.Add(OfficeRibbonItems.Row(
-            this.addTextBox,
-            this.insertTable,
-            this.insertPicture
-        ));
-
-        this.deleteShape.Text = "Delete";
-        insert.Items.Add(OfficeRibbonItems.Row(this.deleteShape));
-        insertTab.Groups.Add(insert);
-
-        // Clipboard and Arrange act on objects, so they sit with the other object commands. On Home
-        // they pushed Font and Paragraph into dropdowns at ordinary desktop widths.
-        insertTab.Groups.Add(clipboard);
-        insertTab.Groups.Add(arrange);
-
-        // The watermark is a picture drawn behind the whole slide, not a thing you place on it - so it
-        // is about the design of the slide rather than its contents, and sat oddly among the four
-        // commands that put an object under the pointer.
-        var design = new RibbonGroup { Title = "Design", Priority = 90 };
-        this.watermark.Size = RibbonItemSize.Large;
-        this.watermark.Text = "Watermark";
-        design.Items.Add(this.watermark);
-        insertTab.Groups.Add(design);
-        this.ribbon.Tabs.Add(insertTab);
-        this.ribbon.Tabs.Add(OfficeRibbonItems.ShapesTab(this.InsertShape));
-
-        this.RefreshBar();
-    }
 
     /// <summary>
     /// The core package's colour picker, in its button form.
@@ -1088,9 +952,19 @@ public class SlideEditorView : ContentView, IDisposable
 
     void ApplyRailVisibility()
     {
-        var show = this.ShowSlideRail && (this.Width <= 0 || this.Width >= 600);
+        var wide = this.Width <= 0 || this.Width >= 600;
+        var mode = this.editor.Controller?.ViewMode ?? SlideEditorViewMode.Normal;
+
+        // The outline takes the rail's place; the sorter needs neither.
+        var outline = wide && mode == SlideEditorViewMode.Outline;
+        var show = !outline && this.ShowSlideRail && wide && mode != SlideEditorViewMode.SlideSorter;
+
         this.rail.IsVisible = show;
-        this.railColumn.Width = show ? new GridLength(180) : new GridLength(0);
+        this.outlinePane.IsVisible = outline;
+        this.railColumn.Width = outline ? new GridLength(360) : show ? new GridLength(180) : new GridLength(0);
+
+        this.animationPane.IsVisible = wide && this.showAnimationPane;
+        this.paneColumn.Width = this.animationPane.IsVisible ? new GridLength(260) : new GridLength(0);
     }
 
     /// <summary>
@@ -1259,7 +1133,13 @@ public class SlideEditorView : ContentView, IDisposable
         this.rail.Controller = this.editor.Controller;
 
         if (this.editor.Controller is { } controller)
+        {
             controller.Changed += this.OnControllerChanged;
+
+            // A zoom or view set before the deck arrived applies to it now.
+            controller.Zoom = this.Zoom;
+            controller.ViewMode = this.ViewMode;
+        }
 
         // A new deck is a new controller and therefore a new finder; a bar left holding the old one
         // would count matches in a deck that is no longer on screen.
@@ -1394,6 +1274,8 @@ public class SlideEditorView : ContentView, IDisposable
         // open rather than whether it can be edited.
         this.findBar.IsEnabled = this.Deck is not null;
         this.findBar.SetTooltipsEnabled(this.ShowToolbarTooltips);
+
+        this.RefreshPowerPoint();
     }
 
     public void Dispose()
@@ -1411,6 +1293,7 @@ public class SlideEditorView : ContentView, IDisposable
 
         this.editor.DeckChanged -= this.OnDeckChanged;
         this.editor.SlideChanged -= this.OnSlideChanged;
+        this.editor.ShortcutRequested -= this.OnShortcutRequested;
 
         if (this.editor.Controller is { } controller)
             controller.Changed -= this.OnControllerChanged;
