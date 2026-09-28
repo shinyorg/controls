@@ -35,6 +35,160 @@ public partial class SlideView
         this.Watermark = owner.Watermark;
         this.Deck = owner.Deck;
         this.SlideIndex = owner.SlideIndex;
+
+        // The show surface runs the show engine: clicks through animations, transitions, timings,
+        // hidden slides, black and white screens.
+        if (this.Deck is { Slides.Count: > 0 } deck)
+        {
+            this.show = new SlideShowController(deck, this.SlideIndex);
+            this.show.Changed += this.OnShowChanged;
+            this.show.Ended += this.OnShowEnded;
+        }
+    }
+
+    SlideShowController? show;
+    SlideShowPainter? showPainter;
+    IDispatcherTimer? ticker;
+
+    /// <summary>The running show on the presenting surface, for the show page's counter and presenter view.</summary>
+    internal SlideShowController? Show => this.show;
+
+    /// <summary>
+    /// Present in PowerPoint's Presenter View: the slide beside the next one, the notes, a timer and the
+    /// controls. Off by default — the plain show is what a projector wants.
+    /// </summary>
+    public static readonly BindableProperty PresenterViewProperty = BindableProperty.Create(
+        nameof(PresenterView),
+        typeof(bool),
+        typeof(SlideView),
+        false);
+
+    /// <inheritdoc cref="PresenterViewProperty"/>
+    public bool PresenterView
+    {
+        get => (bool)this.GetValue(PresenterViewProperty);
+        set => this.SetValue(PresenterViewProperty, value);
+    }
+
+    /// <summary>Raised on the show page's surface whenever the show's slide, click or screen changes.</summary>
+    internal event EventHandler? ShowChanged;
+
+    void OnShowChanged(object? sender, EventArgs e)
+    {
+        if (this.show is { } running && this.controller is { } c && c.Index != running.SlideIndex)
+            c.Index = running.SlideIndex;
+
+        this.StartTicking();
+        this.Invalidate();
+        this.ShowChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    void OnShowEnded(object? sender, EventArgs e) => this.mirrorOwner?.StopPresenting();
+
+    /// <summary>A frame clock while something moves — a transition, an effect, a timed advance.</summary>
+    void StartTicking()
+    {
+        if (this.ticker is not null || this.show is null || this.Dispatcher is null)
+            return;
+
+        var timer = this.Dispatcher.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(16);
+        timer.Tick += (_, _) =>
+        {
+            if (this.show is not { } running)
+            {
+                this.StopTicking();
+                return;
+            }
+
+            running.Tick();
+            this.Invalidate();
+
+            if (!running.IsAnimating)
+                this.StopTicking();
+        };
+
+        this.ticker = timer;
+        timer.Start();
+    }
+
+    void StopTicking()
+    {
+        this.ticker?.Stop();
+        this.ticker = null;
+    }
+
+    /// <summary>A tap in a show: a clip or a link under the finger first, then forward or back.</summary>
+    void OnShowTap(SlideShowController running, double x, double y)
+    {
+        if (this.Deck is { } deck && this.Width > 0)
+        {
+            var fit = Math.Min(this.Width / deck.SlideWidth, this.Height / deck.SlideHeight);
+            var slideX = (x - (this.Width - deck.SlideWidth * fit) / 2) / fit;
+            var slideY = (y - (this.Height - deck.SlideHeight * fit) / 2) / fit;
+
+            if (running.MediaAt(slideX, slideY) is { Media: { } media })
+            {
+                _ = PlayMediaAsync(media);
+                return;
+            }
+
+            if (running.HyperlinkAt(slideX, slideY, this.measurer) is { } link)
+            {
+                if (running.Follow(link) is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                    _ = OpenLinkAsync(uri);
+
+                return;
+            }
+        }
+
+        if (x < this.Width * BackTapZone)
+            running.Previous();
+        else
+            running.Next(fromClick: true);
+    }
+
+    static async Task OpenLinkAsync(Uri uri)
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync(uri);
+        }
+        catch (Exception)
+        {
+            // No browser registered (a kiosk, a test host): the link simply does nothing.
+        }
+    }
+
+    /// <summary>
+    /// Plays an embedded clip in the platform's own player: written to the cache and handed to the
+    /// launcher. The show stays where it was underneath.
+    /// </summary>
+    static async Task PlayMediaAsync(SlideMedia media)
+    {
+        try
+        {
+            if (media.ReadAll() is not { } bytes)
+                return;
+
+            var extension = media.ContentType switch
+            {
+                "video/quicktime" => ".mov",
+                "video/webm" => ".webm",
+                "audio/mpeg" => ".mp3",
+                "audio/mp4" or "audio/x-m4a" => ".m4a",
+                "audio/wav" or "audio/x-wav" => ".wav",
+                _ => media.IsVideo ? ".mp4" : ".mp3"
+            };
+
+            var path = Path.Combine(FileSystem.CacheDirectory, $"shiny-slide-media-{Guid.NewGuid():N}{extension}");
+            await File.WriteAllBytesAsync(path, bytes);
+            await Launcher.Default.OpenAsync(new OpenFileRequest("Play", new ReadOnlyFile(path, media.ContentType)));
+        }
+        catch (Exception)
+        {
+            // No player for the format on this head.
+        }
     }
 
     /// <summary>

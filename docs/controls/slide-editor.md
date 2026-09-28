@@ -91,7 +91,9 @@ slide — same platforms, same rejections, same `DropRejected` event as the docu
 **Highlighting** uses the same palette as the document side. `a:highlight` holds a real colour, so
 nothing is approximated here.
 
-⚠️ Not implemented, deliberately: soft line breaks and rotation handles.
+<kbd>Shift</kbd>+<kbd>Enter</kbd> writes a soft line break (`a:br`) — a new line inside the same
+paragraph, so it keeps the bullet. A selected shape shows a **rotation handle** above its top edge; drag
+it to rotate, holding <kbd>Shift</kbd> to snap to 15°. See [PowerPoint feature set](#powerpoint-feature-set).
 
 ## Nudging, arranging and the shape clipboard
 
@@ -246,10 +248,15 @@ standing they are what the editor paints the instant the show ends — over whic
 walked to, where the shape they belonged to is not. Ending one leaves the editor on the slide the show
 ended on, with the focus back on the surface.
 
-⚠️ **No `F5` here.** The viewer binds it; the editor deliberately does not. Blazor fixes
-`preventDefault` at render time — one keystroke behind the handler that decides it — so a bound `F5`
-would sometimes reach the browser instead, and on the web that reloads the page and takes an unsaved
-deck with it.
+**`F5` plays from the beginning, `Shift`+`F5` from the current slide.** Blazor fixes `preventDefault`
+at render time — one keystroke behind the handler that decides it — so a bound `F5` could reach the
+browser and reload the page, unsaved deck and all. The editor therefore suppresses `F5` and its own
+`Ctrl` combinations synchronously in `wwwroot/slideEditor.js` before .NET sees them. On MAUI the keys
+arrive as `SlideShortcut.ShowFromBeginning` / `ShowFromCurrent` through `SlideEditor.HandleShortcut`.
+
+`StartPresentingAsync(from, presenterView: true)` / `StartPresenting(from, presenterView: true)` opens
+**presenter view**: the current slide beside the next one, the notes, an elapsed timer with pause, and
+black/white screen buttons. The show honours transitions, animations, hidden slides and hyperlinks.
 
 ## Dark mode
 
@@ -278,10 +285,9 @@ Two things the strip could not do:
 
 Undo and redo sit in the ribbon's quick access row, outside the tabs, so they never move or disappear.
 
-**The tab strip is off by default** (`ShowRibbonTabs`). This is a bar a host drops above a surface, not
-an application's whole chrome, and a strip carrying a single "Home" is noise — the groups do the
-organising. Turn it on when the editor *is* the application, and you get the tab strip and the
-collapse chevron with it.
+**The tab strip is on by default** now that the editor carries PowerPoint's full set of tabs
+(`ShowRibbonTabs` on Blazor turns it off for a single-row bar). **File is a hook only**: handle
+`FileMenuRequested` and the ribbon shows a File button that raises it — the backstage is the host's.
 
 **Below 600px wide the bar runs in `Simplified` mode** — one dense row, every item small, group titles
 dropped. Group collapsing is the wrong answer at phone width: it folds groups into dropdowns
@@ -290,16 +296,98 @@ group at all and every command ends up behind a dropdown. See [Ribbon](ribbon.md
 
 ## The toolbar
 
-Two tabs. **Home** is the slide you are on and the text on it — Slide (previous / counter / next / slide
-show), Slides (new / duplicate / delete / earlier / later / layout), Font and Paragraph. **Insert** adds
-objects and acts on them — Insert, Clipboard and Arrange. Speaker notes are toggled from the status bar,
-where PowerPoint keeps them. **Insert** is what goes on it — a text box, a shape, a table, a picture, and, behind a
-rule, the way to remove the selected one.
+Organised the way PowerPoint's is: **Home** (Clipboard, Slides, Font, Paragraph, Drawing, Editing with
+Find and Replace), **Insert** (Slides, Tables, Images, Illustrations — shapes, icons, charts — Links,
+Text — text box, header & footer, date & time, slide number — Media), **Design** (themes, variants,
+slide size, format background), **Transitions**, **Animations**, **Slide Show** and **View**. Contextual
+tabs appear with the selection: **Shape Format**, **Table Design** / **Table Layout**, **Chart Design**,
+and **Slide Master** while that view is open. Speaker notes and the view/zoom controls sit in the status
+bar, where PowerPoint keeps them. Icons without a glyph in the shared set come from
+`Icons/OfficeIcons.PowerPoint.cs` (`SlideIcon`).
 
-The split is only worth making because the second tab holds a real bar rather than a token button. The
-deck has no Layout or Zoom tab for the same reason there is nothing to put on one: a slide is a fixed
-artboard that is always scaled to fit the viewport, so unlike a document page it is never clipped and
-there is nothing to pan to or zoom in on.
+## PowerPoint feature set
+
+Everything below is on the shared `SlideEditorController`, so both hosts' ribbons are thin, and every
+command is **one undo step** (a drag, a rotation, a nudge run included). A deck opened and saved without
+an edit is byte-identical; everything written follows the schema's element order.
+
+**Shape Format.** Fill (solid, gradient, picture, none), outline colour / weight / dash / none, shadow,
+quick styles, exact size fields (with aspect lock), align and distribute relative to the slide or the
+selection, rotate ±90°, flip, and the rotation handle.
+
+```csharp
+c.SetShapeFill(SlideFillSpec.Color(color)); c.SetShapeOutlineDash(LineDash.Dash); c.SetShapeShadow(true);
+c.ApplyQuickStyle(style); c.SetShapeSize(320, null, lockAspect: true);
+c.AlignToSlide = true; c.Align(ShapeAlignment.Center); c.Distribute(horizontally: true);
+c.RotateBy(90); c.SetRotation(30); c.Flip(horizontal: true);
+```
+
+**Multi-select, groups, guides.** <kbd>Shift</kbd>/<kbd>Ctrl</kbd>+click adds to the selection, dragging
+on empty slide draws a marquee, and moving several moves them together. **Group** writes a real
+`p:grpSp` (<kbd>Ctrl</kbd>+<kbd>G</kbd>), **Ungroup** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd>)
+takes it apart keeping each child where it was drawn. While dragging, **smart guides** snap to the
+slide's centre and edges and to other shapes' edges and centres (`SmartGuides`, `SnapDistance`).
+
+**Text.** Soft break, grow/shrink font (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>&gt;</kbd>/<kbd>&lt;</kbd>),
+change case, clear formatting, superscript/subscript, character spacing, line spacing, text direction
+(horizontal, rotated, stacked), vertical alignment and autofit (none / shrink text / resize shape).
+Shortcuts: <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd>/<kbd>U</kbd>, <kbd>Ctrl</kbd>+<kbd>E</kbd>/<kbd>L</kbd>/
+<kbd>R</kbd>/<kbd>J</kbd>, <kbd>Ctrl</kbd>+<kbd>D</kbd>, <kbd>Ctrl</kbd>+<kbd>M</kbd>, <kbd>F5</kbd>,
+<kbd>Shift</kbd>+<kbd>F5</kbd>. On MAUI they are `SlideShortcut` values through `SlideEditor.HandleShortcut`.
+
+**Hyperlinks** on text runs and on whole shapes — a web address or another slide (`#slide=N`) —
+`c.SetHyperlink(new SlideHyperlink("https://…"))` or `new SlideHyperlink(null, Slide: 3)`. A show follows them: web links open in the browser, slide
+links jump.
+
+**Design.** Seven built-in themes (`SlideThemeDefinition.BuiltIn`) each with colour **variants**;
+applying one rewrites the theme part's colour scheme and major/minor fonts. **Slide size** 16:9, 4:3 or
+custom (content scales with it). **Format background** — solid, gradient or picture, this slide or all.
+
+**Transitions.** None, Fade, Push, Wipe, Split, Reveal, Cover, Zoom and Morph, with duration, direction,
+**Apply to all**, advance on click and/or after N seconds, and **Preview** on the editing surface.
+Written as PowerPoint writes them (`mc:AlternateContent` with the `p14` duration) and played in the show.
+
+**Animations.** Entrance (Appear, Fade, Fly In, Wipe, Zoom), emphasis (Grow/Shrink, Spin, Pulse) and exit
+(Disappear, Fade Out, Fly Out); trigger on click / with previous / after previous, duration and delay. The
+**animation pane** lists the slide's sequence to reorder or remove, and numbered markers show on the
+slide while the Animations tab is open. Stored in `p:timing` (with `p:bldLst`), round-tripped, and played
+in the show. Deleting a shape prunes its animations.
+
+**Slide Show tab.** From beginning, from current, presenter view, and **Hide slide** (`show="0"`,
+skipped in a show, dimmed in the rail).
+
+**Insert.** Charts — column, bar, line, pie — with a data-grid dialog, drawn by Skia and written as a
+real `c:chartSpace` with its caches (no embedded workbook); icons; audio and video (a poster frame, played
+by the show on tap); date/time, slide number, and a **Header & Footer** dialog for this slide or all.
+
+**View tab.** Normal, **Outline** (edit titles and bullets as text), **Slide Sorter** (drag to reorder),
+**Notes Page**, and **Slide Master** (edit the master's and layouts' text styles and backgrounds; saved
+back to those parts). Zoom from 25% to 400% or fit, with <kbd>Ctrl</kbd>+wheel or pinch; ruler,
+gridlines and guides.
+
+**Sections** in the rail: add, rename, remove (with or without their slides), move, collapse — written
+to `p14:sectionLst`.
+
+**Export.** `ExportSlidePng(slide, width)`, `ExportSlidesPng(width)`, `ExportPdf()` (`SKDocument.CreatePdf`,
+one page per visible slide). The painter is `SlideExporter` in `Shiny.Controls.Office.Skia`.
+
+### Status for a host's status bar
+
+| Member | Blazor | MAUI |
+|---|---|---|
+| Current slide (0-based) | `CurrentSlideIndex` | `CurrentSlideIndex` (read-only bindable) |
+| Slide count | `SlideCount` | `SlideCount` (read-only bindable) |
+| Zoom requested, `null` = fit | `@bind-Zoom` (`Zoom`/`ZoomChanged`) | `Zoom` (two-way) |
+| Zoom in effect | `EffectiveZoom` | `EffectiveZoom` (read-only bindable) |
+| Notes pane | `@bind-ShowNotes` | `ShowNotes` |
+| View | `@bind-ViewMode` (`SlideEditorViewMode`) | `ViewMode` (two-way) |
+| Any of the above changed | `StatusChanged` callback, `StatusUpdated` event | `StatusChanged` event |
+| Presenting | `IsPresenting` | `IsPresenting` |
+
+⚠️ Known limits: character spacing is saved but not yet drawn; MAUI touch carries no modifier state, so
+multi-select there goes through `SlideEditor.ShiftHeld` / `ControlHeld` (set by a host's keyboard hook) or
+the marquee; the Blazor show has no separate audience window (presenter view is a side panel); audio and
+video play through the host (a browser element / the platform launcher) rather than inline on the slide.
 
 ## Find
 

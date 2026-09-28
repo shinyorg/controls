@@ -49,6 +49,8 @@
     IJSObjectReference? dropHandle;
     IJSObjectReference? inputModule;
     IJSObjectReference? inputHandle;
+    IJSObjectReference? keysModule;
+    IJSObjectReference? keysHandle;
     DotNetObjectReference<SlideEditor>? selfReference;
     SkiaTextMeasurer? measurer;
     SlidePainter? painter;
@@ -204,16 +206,25 @@
             await this.DeckChanged.InvokeAsync();
     }
 
+    SlideEditorSurfacePainter? surfacePainter;
+    SlideShowPainter? previewPainter;
+    SlideShowController? preview;
+    System.Threading.Timer? previewTicker;
+
+    /// <summary>The accent the selection chrome is drawn in.</summary>
+    [Parameter] public Shiny.Controls.Office.Spreadsheet.ArgbColor? ChromeAccent { get; set; }
+
     void OnPaint(SKPaintSurfaceEventArgs e)
     {
         var info = e.Info;
-        var theme = this.EffectiveTheme;
         var surface = e.Surface.Canvas;
 
-        surface.Clear(new SKColor(theme.Surround.R, theme.Surround.G, theme.Surround.B));
-
         if (this.controller is null || this.painter is null)
+        {
+            var theme = this.EffectiveTheme;
+            surface.Clear(new SKColor(theme.Surround.R, theme.Surround.G, theme.Surround.B));
             return;
+        }
 
         // The surface arrives in device pixels; the layout works in CSS pixels.
         var scale = (float)this.dpr;
@@ -227,73 +238,78 @@
             this.controller.Resize(width, height);
         }
 
-        if (this.controller.SinglePlacement() is not { } placement)
-            return;
-
-        this.painter.Paint(surface, new SlidePaintRequest
+        // Every view and all the chrome come from the shared surface painter, so MAUI draws the same.
+        this.surfacePainter ??= new SlideEditorSurfacePainter(this.painter);
+        this.surfacePainter.Paint(surface, this.controller, new SlideEditorSurfaceOptions
         {
-            Watermark = this.Watermark,
-            Slide = placement.Slide,
-            SlideWidth = this.controller.Deck.SlideWidth,
-            SlideHeight = this.controller.Deck.SlideHeight,
-            DestinationX = placement.X,
-            DestinationY = placement.Y,
-            DestinationWidth = placement.Width,
-            DestinationHeight = placement.Height,
-            Theme = theme,
+            Theme = this.EffectiveTheme,
             Scale = scale,
-            Chrome = this.BuildChrome(),
-
-            // An empty placeholder's "Click to add title" is editing chrome, so it belongs to the
-            // editor and not the viewer - and not to the one placeholder the caret is inside.
-            ShowPlaceholderPrompts = !this.ReadOnly,
-            PromptHiddenShape = this.controller is { IsEditingText: true } editing ? editing.SelectedShape : -1
+            IsFocused = this.focused,
+            IsReadOnly = this.ReadOnly,
+            Watermark = this.Watermark,
+            Accent = this.ChromeAccent ?? new Shiny.Controls.Office.Spreadsheet.ArgbColor(255, 0x2F, 0x6F, 0xED)
         });
+
+        // A Preview plays over the slide itself, inside its own rectangle.
+        if (this.preview is { } running && running.Frame() is { } frame && this.controller.SinglePlacement() is { } placement)
+        {
+            this.previewPainter ??= new SlideShowPainter(this.painter);
+            surface.Save();
+            surface.Scale(scale);
+            this.previewPainter.PaintInto(surface, frame, this.controller.Deck,
+                new SKRect((float)placement.X, (float)placement.Y, (float)(placement.X + placement.Width), (float)(placement.Y + placement.Height)),
+                this.Watermark);
+            surface.Restore();
+        }
     }
 
     /// <summary>
-    /// The selection frame, handles, text highlight, find highlights and caret — or null when there is
-    /// none of it to draw.
+    /// Plays the current slide's transition and animations in place — the Preview button on the
+    /// Transitions and Animations tabs.
     /// </summary>
-    /// <remarks>
-    /// Find highlights are not editing chrome. A search marks what it turned up, which is as useful in
-    /// a deck that cannot be edited as in one that can, so they are drawn whether or not a shape is
-    /// selected and whether or not the editor is read-only. The frame, the handles and the caret say
-    /// "you can change this" and are held to the editable case.
-    /// </remarks>
-    SlideEditorChrome? BuildChrome()
+    public void Preview()
     {
-        if (this.controller is not { } controller)
-            return null;
+        if (this.controller is not { Count: > 0 } controller)
+            return;
 
-        var matches = controller.FindMatchRects().Select(Tuple).ToList();
-        var editable = controller.SelectedShape >= 0 && !this.ReadOnly;
-
-        if (!editable && matches.Count == 0)
-            return null;
-
-        return new SlideEditorChrome
+        this.StopPreview();
+        controller.ClearSelection();
+        this.preview = SlideShowController.Preview(controller.Deck, controller.Index);
+        this.previewTicker = new System.Threading.Timer(_ => _ = this.InvokeAsync(() =>
         {
-            SelectionFrame = editable ? Rect(controller.SelectionBounds()) : null,
-            Handles = editable ? controller.SelectionHandles().Select(x => Tuple(x.Rect)).ToList() : [],
+            if (this.preview is not { } running)
+                return;
 
-            // Drawn even when the deck is read-only: stepping to a match selects the word, and the
-            // wash over it is the only thing saying which of the highlighted hits is the current one.
-            TextSelection = controller.TextSelectionRects().Select(Tuple).ToList(),
-            FindMatches = matches,
+            running.Tick();
+            this.canvas?.Invalidate();
 
-            // The caret is only drawn while the editor actually has focus; one shown without it reads
-            // as an editor that is accepting keystrokes when it is not.
-            Caret = editable && this.focused ? Rect(controller.CaretRect()) : null,
-            IsEditingText = controller.IsEditingText
-        };
-
-        static (double X, double Y, double Width, double Height)? Rect(SlideRect? r)
-            => r is { } value ? Tuple(value) : null;
-
-        static (double X, double Y, double Width, double Height) Tuple(SlideRect r)
-            => (r.X, r.Y, r.Width, r.Height);
+            if (running.IsPreviewDone)
+                this.StopPreview();
+        }), null, 0, 33);
     }
+
+    /// <summary>Ends a preview early; a click on the slide does the same.</summary>
+    public void StopPreview()
+    {
+        this.previewTicker?.Dispose();
+        this.previewTicker = null;
+
+        if (this.preview is not null)
+        {
+            this.preview = null;
+            this.canvas?.Invalidate();
+        }
+    }
+
+    /// <summary>Repaints the surface — after a view setting (ruler, gridlines, markers) that is not an edit.</summary>
+    public void Invalidate()
+    {
+        this.canvas?.Invalidate();
+        this.StateHasChanged();
+    }
+
+    /// <summary>True while a Preview is playing.</summary>
+    public bool IsPreviewing => this.preview is not null;
 
     // ---- pointer ----
 
@@ -302,7 +318,10 @@
         if (this.controller is null)
             return;
 
-        this.controller.PointerDown(e.OffsetX, e.OffsetY, e.ShiftKey);
+        this.StopPreview();
+
+        // Shift extends (text) or adds (shapes); Ctrl or Cmd adds or takes a shape out.
+        this.controller.PointerDown(e.OffsetX, e.OffsetY, e.ShiftKey, e.CtrlKey || e.MetaKey);
 
         // Focus is taken deliberately: the host element prevents the pointer's default action, which
         // is what otherwise moves focus off the hidden input a few milliseconds later.
@@ -314,7 +333,8 @@
         if (this.controller is null || (e.Buttons & 1) != 1)
             return;
 
-        this.controller.PointerMove(e.OffsetX, e.OffsetY);
+        // Shift: 15-degree rotation steps, proportional corners, and a move held to one axis.
+        this.controller.PointerMove(e.OffsetX, e.OffsetY, e.ShiftKey);
     }
 
     void OnPointerUp(PointerEventArgs e) => this.controller?.PointerUp();
@@ -325,9 +345,35 @@
         this.focusInput = true;
     }
 
+    /// <summary>
+    /// Ctrl+wheel (and a trackpad pinch, which browsers report as one) zooms about the pointer; a
+    /// zoomed slide scrolls; otherwise the wheel pages through the deck as it always has.
+    /// </summary>
     void OnWheel(WheelEventArgs e)
     {
-        if (this.controller is null || this.controller.IsEditingText)
+        if (this.controller is null)
+            return;
+
+        if (e.CtrlKey || e.MetaKey)
+        {
+            var factor = Math.Exp(-e.DeltaY * 0.0025);
+            this.controller.ZoomAt(this.controller.EffectiveZoom * factor, e.OffsetX, e.OffsetY);
+            return;
+        }
+
+        if (this.controller.Mode == SlideViewMode.Grid)
+        {
+            this.controller.Scroll(e.DeltaY);
+            return;
+        }
+
+        if (this.controller.CanPan)
+        {
+            this.controller.PanBy(e.ShiftKey ? e.DeltaY : e.DeltaX, e.ShiftKey ? 0 : e.DeltaY);
+            return;
+        }
+
+        if (this.controller.IsEditingText)
             return;
 
         if (e.DeltaY > 0)
@@ -375,8 +421,12 @@
                 break;
 
             case "insertParagraph":
-            case "insertLineBreak":
                 this.controller.InsertParagraph();
+                break;
+
+            // Shift+Enter: a line break inside the paragraph, PowerPoint's soft return.
+            case "insertLineBreak":
+                this.controller.InsertLineBreak();
                 break;
 
             case "deleteContentBackward":
@@ -395,7 +445,19 @@
         return Task.CompletedTask;
     }
 
-    void OnKeyDown(KeyboardEventArgs e)
+    /// <summary>
+    /// A shortcut the editor recognises but a surrounding view acts on: <c>show-beginning</c> (F5),
+    /// <c>show-current</c> (Shift+F5), <c>link</c> (Ctrl+K), <c>find</c> (Ctrl+F), <c>replace</c> (Ctrl+H).
+    /// </summary>
+    [Parameter] public EventCallback<string> CommandRequested { get; set; }
+
+    async Task RequestAsync(string command)
+    {
+        if (this.CommandRequested.HasDelegate)
+            await this.CommandRequested.InvokeAsync(command);
+    }
+
+    async Task OnKeyDown(KeyboardEventArgs e)
     {
         if (this.controller is null)
             return;
@@ -403,6 +465,88 @@
         var extend = e.ShiftKey;
         var command = e.CtrlKey || e.MetaKey;
         this.preventKeyDefault = true;
+
+        // Shortcuts that mean the same with or without a caret — PowerPoint's.
+        switch (e.Key)
+        {
+            case "F5":
+                await this.RequestAsync(e.ShiftKey ? "show-current" : "show-beginning");
+                return;
+
+            case "k" or "K" when command:
+                await this.RequestAsync("link");
+                return;
+
+            case "f" or "F" when command:
+                await this.RequestAsync("find");
+                return;
+
+            case "h" or "H" when command:
+                await this.RequestAsync("replace");
+                return;
+
+            // Ctrl+Shift+> and < grow and shrink the font, a step on the size ladder.
+            case ">" or "." when command && e.ShiftKey:
+                this.controller.GrowFont(1);
+                this.Repaint();
+                return;
+
+            case "<" or "," when command && e.ShiftKey:
+                this.controller.GrowFont(-1);
+                this.Repaint();
+                return;
+
+            // Paragraph alignment, with or without a caret (a selected shape aligns all its text).
+            case "e" or "E" when command:
+                this.controller.SetParagraphAlignment(Shiny.Controls.Office.Text.TextAlignment.Center);
+                this.Repaint();
+                return;
+
+            case "l" or "L" when command:
+                this.controller.SetParagraphAlignment(Shiny.Controls.Office.Text.TextAlignment.Left);
+                this.Repaint();
+                return;
+
+            case "r" or "R" when command:
+                this.controller.SetParagraphAlignment(Shiny.Controls.Office.Text.TextAlignment.Right);
+                this.Repaint();
+                return;
+
+            case "j" or "J" when command:
+                this.controller.SetParagraphAlignment(Shiny.Controls.Office.Text.TextAlignment.Justify);
+                this.Repaint();
+                return;
+
+            // Ctrl+G groups, Ctrl+Shift+G ungroups.
+            case "g" or "G" when command && !this.controller.IsEditingText:
+                if (e.ShiftKey)
+                    this.controller.Ungroup();
+                else
+                    this.controller.Group();
+
+                this.Repaint();
+                return;
+
+            // Ctrl+= subscript, Ctrl+Shift+= (Ctrl++) superscript.
+            case "=" or "+" when command && this.controller.IsEditingText:
+                if (e.ShiftKey || e.Key == "+")
+                    this.controller.ToggleSuperscript();
+                else
+                    this.controller.ToggleSubscript();
+
+                this.Repaint();
+                return;
+
+            // Ctrl+Space clears character formatting.
+            case " " when command:
+                this.controller.ClearFormatting();
+                this.Repaint();
+                return;
+
+            case "Escape" when this.IsPreviewing:
+                this.StopPreview();
+                return;
+        }
 
         // Undo and redo work whether or not a caret is inside text — moving a shape is undoable too.
         switch (e.Key)
@@ -435,6 +579,10 @@
             {
                 case "Escape":
                     this.controller.ClearSelection();
+                    break;
+
+                case "a" or "A" when command:
+                    this.controller.SelectAllShapes();
                     break;
 
                 case "Delete":
@@ -626,6 +774,7 @@
             }
 
             await this.AttachInputAsync();
+            await this.AttachKeysAsync();
             await this.AttachDropAsync();
         }
 
@@ -713,6 +862,26 @@
         }
     }
 
+    /// <summary>
+    /// Cancels the browser's own action for the editor's shortcuts — F5 reloading the page, Ctrl+R,
+    /// Ctrl+L, Ctrl+D — synchronously, which Blazor's render-time preventDefault cannot.
+    /// </summary>
+    async Task AttachKeysAsync()
+    {
+        try
+        {
+            this.keysModule = await this.Js.InvokeAsync<IJSObjectReference>(
+                "import",
+                "./_content/Shiny.Blazor.Controls.Office/slideEditor.js");
+
+            this.keysHandle = await this.keysModule.InvokeAsync<IJSObjectReference>("attach", this.input);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Shiny.Office] Slide editor shortcuts are unavailable: {ex.Message}");
+        }
+    }
+
     async Task AttachInputAsync()
     {
         try
@@ -779,6 +948,25 @@
             // The circuit is already gone; there is nothing left to detach from.
         }
 
+        this.StopPreview();
+
+        try
+        {
+            if (this.keysModule is not null && this.keysHandle is not null)
+            {
+                await this.keysModule.InvokeVoidAsync("detach", this.keysHandle);
+                await this.keysHandle.DisposeAsync();
+            }
+
+            if (this.keysModule is not null)
+                await this.keysModule.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        this.surfacePainter?.Dispose();
+        this.previewPainter?.Dispose();
         this.selfReference?.Dispose();
         this.painter?.Dispose();
         this.measurer?.Dispose();

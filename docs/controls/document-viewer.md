@@ -4,8 +4,8 @@
 
 > Same packages as the Spreadsheet: `Shiny.Maui.Controls.Office` / `Shiny.Blazor.Controls.Office`.
 
-`DocumentView` renders `.docx` and `SlideView` renders `.pptx`. Both are **read-only** — editing those
-two formats is a later phase.
+`DocumentView` renders `.docx` and `SlideView` renders `.pptx`. Both are **read-only**; to edit, use
+[Document Editor](document-editor.md) and [Slide Editor](slide-editor.md) over the same documents.
 
 ```csharp
 using var document = await WordDocument.OpenAsync("report.docx");

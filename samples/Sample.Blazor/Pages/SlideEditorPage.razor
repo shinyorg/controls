@@ -24,6 +24,8 @@
         <SlideEditorView Deck="deck"
                          @bind-SlideIndex="index"
                          Theme="@(dark ? SlideTheme.Dark : null)"
+                         @bind-Zoom="zoom"
+                         @bind-ViewMode="viewMode"
                          DeckChanged="OnChanged" />
     }
     else
@@ -40,6 +42,10 @@
     Enter) to put a caret inside its text; type, and Ctrl/Cmd+B, I, U format the selection. Tab and
     Shift+Tab change a bullet's outline level. Escape leaves the text, Delete removes the selected
     shape, and Ctrl/Cmd+Z undoes everything — including a whole drag, as one step.
+    Shift/Ctrl-click or drag a box to select several; Ctrl+G groups them. Drag the round handle to
+    rotate (Shift snaps to 15°). The Design, Transitions, Animations, Slide Show and View tabs carry
+    themes, transitions, animations, presenter view, the outline, the sorter and the slide master;
+    Ctrl+wheel zooms and F5 starts the show.
 </p>
 
 @code {
@@ -47,11 +53,13 @@
     bool withToolbar = true;
     bool dark;
     int index;
+    double? zoom;
+    SlideEditorViewMode viewMode;
     int edits;
 
     string Status => this.deck is null
         ? "loading"
-        : $"{this.deck.Slides.Count} slides · {this.edits} edits{(this.deck.IsDirty ? " · unsaved" : string.Empty)}";
+        : $"{this.deck.Slides.Count} slides · {this.viewMode} · {(this.zoom is { } z ? $"{Math.Round(z * 100)}%" : "fit")} · {this.edits} edits{(this.deck.IsDirty ? " · unsaved" : string.Empty)}";
 
     protected override async Task OnInitializedAsync()
     {

@@ -18,5 +18,8 @@ public enum ShapeHandle
     BottomRight,
     Bottom,
     BottomLeft,
-    Left
+    Left,
+
+    /// <summary>The round grip above a selected slide shape that turns it. Slides only.</summary>
+    Rotate
 }

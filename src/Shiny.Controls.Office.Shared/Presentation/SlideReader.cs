@@ -14,36 +14,118 @@ namespace Shiny.Controls.Office.Presentation;
 /// </summary>
 sealed class SlideReader
 {
-    readonly SlidePart part;
+    readonly SlidePart? part;
     readonly IUnsupportedFeatureSink unsupported;
     readonly DrawingReader drawing;
     readonly SlideLayoutPart? layout;
     readonly SlideMasterPart? master;
+    readonly ThemeFonts fonts;
+    readonly ThemeColors colors;
+    int number;
+
+    /// <summary>
+    /// The part whose relationships the tree being read resolves against. A layout's logo is related
+    /// from the layout, not the slide — resolving it against the slide found nothing, or the wrong
+    /// picture.
+    /// </summary>
+    OpenXmlPart owner;
 
     public SlideReader(SlidePart part, IUnsupportedFeatureSink unsupported)
     {
         this.part = part;
+        this.owner = part;
         this.unsupported = unsupported;
         this.layout = part.SlideLayoutPart;
         this.master = this.layout?.SlideMasterPart;
 
         var themePart = this.master?.ThemePart;
-        this.drawing = new DrawingReader(ThemeColors.From(themePart));
+        this.colors = ThemeColors.From(themePart);
+        this.fonts = ThemeFonts.From(themePart);
+        this.drawing = new DrawingReader(this.colors);
+    }
+
+    /// <summary>A reader for a master, or a layout of it, as the Slide Master view shows them.</summary>
+    public SlideReader(SlideMasterPart master, SlideLayoutPart? layout, IUnsupportedFeatureSink unsupported)
+    {
+        this.part = null;
+        this.owner = (OpenXmlPart?)layout ?? master;
+        this.unsupported = unsupported;
+        this.layout = layout;
+        this.master = master;
+
+        var themePart = master.ThemePart;
+        this.colors = ThemeColors.From(themePart);
+        this.fonts = ThemeFonts.From(themePart);
+        this.drawing = new DrawingReader(this.colors);
+    }
+
+    /// <summary>
+    /// A master or layout as a page: its placeholders included and editable, with the text they carry
+    /// ("Click to edit Master title style") drawn in the styles every slide inherits.
+    /// </summary>
+    public Slide ReadTemplate(int number)
+    {
+        this.number = number;
+        var shapes = new List<SlideShape>();
+
+        if (this.layout is null)
+        {
+            this.owner = this.master!;
+            if (this.master!.SlideMaster?.CommonSlideData?.ShapeTree is { } masterTree)
+                shapes.AddRange(this.ReadTree(masterTree, decorativeOnly: false));
+        }
+        else
+        {
+            if (this.master?.SlideMaster?.CommonSlideData?.ShapeTree is { } masterTree && this.ShowsMasterShapes())
+            {
+                this.owner = this.master;
+                shapes.AddRange(this.ReadTree(masterTree, decorativeOnly: true));
+            }
+
+            this.owner = this.layout;
+            if (this.layout.SlideLayout?.CommonSlideData?.ShapeTree is { } layoutTree)
+                shapes.AddRange(this.ReadTree(layoutTree, decorativeOnly: false));
+        }
+
+        var background = this.layout?.SlideLayout?.CommonSlideData?.Background is { } fromLayout
+            ? this.ReadBackgroundElement(fromLayout, this.layout)
+            : this.master?.SlideMaster?.CommonSlideData?.Background is { } fromMaster
+                ? this.ReadBackgroundElement(fromMaster, this.master)
+                : ShapeFill.None;
+
+        return new Slide
+        {
+            Number = number,
+            Shapes = shapes,
+            Background = background,
+            OwnBackground = this.layout is null
+                ? this.master?.SlideMaster?.CommonSlideData?.Background is { } m ? this.ReadBackgroundElement(m, this.master) : null
+                : this.layout.SlideLayout?.CommonSlideData?.Background is { } l ? this.ReadBackgroundElement(l, this.layout) : null,
+            Title = this.layout?.SlideLayout?.CommonSlideData?.Name?.Value ?? "Slide Master"
+        };
     }
 
     public Slide Read(int number)
     {
+        this.number = number;
         var shapes = new List<SlideShape>();
 
         // Layout and master shapes paint underneath the slide's own, and only the non-placeholder ones:
         // a placeholder on the master is a template for the slide's content, not content itself.
         if (this.master?.SlideMaster?.CommonSlideData?.ShapeTree is { } masterTree && this.ShowsMasterShapes())
+        {
+            this.owner = this.master;
             shapes.AddRange(this.ReadTree(masterTree, decorativeOnly: true));
+        }
 
         if (this.layout?.SlideLayout?.CommonSlideData?.ShapeTree is { } layoutTree)
+        {
+            this.owner = this.layout;
             shapes.AddRange(this.ReadTree(layoutTree, decorativeOnly: true));
+        }
 
-        if (this.part.Slide?.CommonSlideData?.ShapeTree is { } tree)
+        this.owner = this.part!;
+        if (this.part!.Slide?.CommonSlideData?.ShapeTree is { } tree)
             shapes.AddRange(this.ReadTree(tree, decorativeOnly: false));
 
         var title = this.part.Slide?.CommonSlideData?.ShapeTree?
@@ -51,15 +133,82 @@ sealed class SlideReader
             .FirstOrDefault(IsTitlePlaceholder)?
             .TextBody?.InnerText;
 
+        var slide = this.part.Slide;
+
         return new Slide
         {
             Number = number,
             Shapes = shapes,
             Background = this.ReadBackground(),
+            OwnBackground = slide?.CommonSlideData?.Background is { } own ? this.ReadBackgroundElement(own, this.part) : null,
             Title = string.IsNullOrWhiteSpace(title) ? null : title,
-            Notes = this.ReadNotes()
+            Notes = this.ReadNotes(),
+
+            // Read as the attribute's token: show="0" and show="false" are both "hidden".
+            IsHidden = OoxmlUnits.EnumAttribute(slide, "show") is "0" or "false",
+            Transition = slide is null ? null : SlideTransitionXml.Read(slide),
+            Animations = slide is null ? [] : SlideTimingXml.Read(slide)
         };
     }
+
+    /// <summary>The placeholder type token (<c>title</c>, <c>body</c>, <c>ftr</c>...), read from the attribute.</summary>
+    static string? PlaceholderTypeOf(PlaceholderShape? placeholder)
+        => placeholder is null ? null : OoxmlUnits.EnumAttribute(placeholder, "type") ?? "obj";
+
+    /// <summary>
+    /// What clicking a drawing does — an <c>a:hlinkClick</c> on its non-visual properties or a run's.
+    /// </summary>
+    SlideHyperlink? ReadHyperlink(OpenXmlElement? link)
+    {
+        if (link is null)
+            return null;
+
+        var id = link.GetAttributes().FirstOrDefault(x => x.LocalName == "id").Value;
+        var action = OoxmlUnits.EnumAttribute(link, "action");
+        var tooltip = OoxmlUnits.EnumAttribute(link, "tooltip");
+
+        if (action is "ppaction://media" or "ppaction://noaction")
+            return null;
+
+        if (action is not null && action.StartsWith("ppaction://hlinksldjump", StringComparison.Ordinal))
+        {
+            var target = string.IsNullOrEmpty(id) ? null : this.owner.Parts.FirstOrDefault(x => x.RelationshipId == id).OpenXmlPart as SlidePart;
+            return target is null ? null : new SlideHyperlink(null, SlideIndexOf(target)) { Tooltip = tooltip };
+        }
+
+        if (!string.IsNullOrEmpty(id) && this.owner.HyperlinkRelationships.FirstOrDefault(x => x.Id == id) is { } relationship)
+            return new SlideHyperlink(relationship.Uri.OriginalString, null, action) { Tooltip = tooltip };
+
+        return action is null ? null : new SlideHyperlink(null, null, action) { Tooltip = tooltip };
+    }
+
+    /// <summary>A slide part's position in the running order, for a link that jumps to it.</summary>
+    int? SlideIndexOf(SlidePart target)
+    {
+        var presentation = this.part?.GetParentParts().OfType<PresentationPart>().FirstOrDefault();
+        var ids = presentation?.Presentation?.SlideIdList?.Elements<SlideId>().ToList();
+        if (presentation is null || ids is null)
+            return null;
+
+        var relationship = presentation.Parts.FirstOrDefault(x => ReferenceEquals(x.OpenXmlPart, target)).RelationshipId;
+        var index = ids.FindIndex(x => x.RelationshipId?.Value == relationship);
+        return index < 0 ? null : index;
+    }
+
+    static TextAutofit AutofitOf(OpenXmlElement? bodyProperties)
+    {
+        if (bodyProperties?.GetFirstChild<D.NormalAutoFit>() is not null)
+            return TextAutofit.ShrinkOnOverflow;
+
+        return bodyProperties?.GetFirstChild<D.ShapeAutoFit>() is not null ? TextAutofit.ResizeShape : TextAutofit.None;
+    }
+
+    static ShapeTextDirection DirectionOf(OpenXmlElement? bodyProperties) => OoxmlUnits.EnumAttribute(bodyProperties, "vert") switch
+    {
+        "vert" or "eaVert" or "wordArtVert" or "mongolianVert" => ShapeTextDirection.Rotate90,
+        "vert270" => ShapeTextDirection.Rotate270,
+        _ => ShapeTextDirection.Horizontal
+    };
 
     bool ShowsMasterShapes() => this.layout?.SlideLayout?.ShowMasterShapes?.Value ?? true;
 
@@ -158,6 +307,8 @@ sealed class SlideReader
                             Element = editable ? group : null,
                             Group = parentGroup,
                             Space = space,
+                            Id = group.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0,
+                            Hyperlink = this.ReadHyperlink(group.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.HyperlinkOnClick),
                             Name = group.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Name?.Value
                         };
                     }
@@ -211,9 +362,17 @@ sealed class SlideReader
         }
 
         var text = this.ReadTextBody(shape.TextBody, placeholder, inherited);
+        var bodyProperties = shape.TextBody?.BodyProperties;
+        var inheritedBody = inherited?.TextBody?.BodyProperties;
 
         return new SlideShape
         {
+            Id = shape.NonVisualShapeProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0,
+            Shadow = this.drawing.ReadShadow(shape.ShapeProperties) ?? this.drawing.ReadShadow(inherited?.ShapeProperties),
+            Hyperlink = this.ReadHyperlink(shape.NonVisualShapeProperties?.NonVisualDrawingProperties?.HyperlinkOnClick),
+            PlaceholderType = PlaceholderTypeOf(placeholder),
+            Autofit = bodyProperties is not null && bodyProperties.HasChildren ? AutofitOf(bodyProperties) : AutofitOf(inheritedBody),
+            TextDirection = OoxmlUnits.EnumAttribute(bodyProperties, "vert") is not null ? DirectionOf(bodyProperties) : DirectionOf(inheritedBody),
             X = OoxmlUnits.EmuToPixels(offset.X?.Value ?? 0),
             Y = OoxmlUnits.EmuToPixels(offset.Y?.Value ?? 0),
             Width = OoxmlUnits.EmuToPixels(extents.Cx?.Value ?? 0),
@@ -357,10 +516,14 @@ sealed class SlideReader
         var properties = body.GetFirstChild<D.BodyProperties>();
         var normalAutofit = properties?.GetFirstChild<D.NormalAutoFit>();
 
+        // A placeholder that says nothing about anchoring takes its layout's - a title centred on the
+        // layout is centred on every slide using it.
+        var inheritedProperties = inherited?.TextBody?.BodyProperties;
+
         return new ShapeTextBody(paragraphs)
         {
             Element = body,
-            Anchor = properties?.Anchor?.Value switch
+            Anchor = (properties?.Anchor?.Value ?? inheritedProperties?.Anchor?.Value) switch
             {
                 var v when v == D.TextAnchoringTypeValues.Center => TextAnchor.Middle,
                 var v when v == D.TextAnchoringTypeValues.Bottom => TextAnchor.Bottom,
@@ -427,8 +590,17 @@ sealed class SlideReader
                     break;
 
                 case D.Field field:
-                    // Slide numbers and dates render as whatever text PowerPoint last cached.
-                    runs.Add(new StyledRun(field.Text?.Text ?? string.Empty, this.ApplyRunProperties(style, field.RunProperties)));
+                    // A slide number shows the number of the slide it is on - which is the whole point
+                    // of it, and what goes stale in the cached text the moment a slide moves. Other
+                    // fields render as whatever text PowerPoint last cached. The live number is only
+                    // drawn when it is the same length as the cache, so the caret offsets the editor
+                    // walks (which count the cached text) stay true.
+                    var cached = field.Text?.Text ?? string.Empty;
+                    var shown = OoxmlUnits.EnumAttribute(field, "type") == "slidenum" && this.number > 0
+                        ? this.number.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        : cached;
+
+                    runs.Add(new StyledRun(shown.Length == cached.Length ? shown : cached, this.ApplyRunProperties(style, field.RunProperties)));
                     break;
             }
         }
@@ -475,7 +647,12 @@ sealed class SlideReader
 
     TextStyle ReadRunStyleDefaults(D.TextParagraphPropertiesType? levelProperties)
     {
-        var style = TextStyle.Default with { FontSize = OoxmlUnits.PointsToPixels(18) };
+        // Body text with no face of its own is set in the theme's minor font, as PowerPoint sets it.
+        var style = TextStyle.Default with
+        {
+            FontSize = OoxmlUnits.PointsToPixels(18),
+            FontFamily = this.fonts.Minor ?? TextStyle.Default.FontFamily
+        };
         return levelProperties?.GetFirstChild<D.DefaultRunProperties>() is { } defaults
             ? this.ApplyRunProperties(style, defaults)
             : style;
@@ -521,9 +698,36 @@ sealed class SlideReader
             style = style with { Highlight = this.drawing.ReadColor(highlight) };
 
         // A '+' prefix means "the theme's major or minor font", which is resolved by the font scheme
-        // rather than being a family name in its own right.
-        if (properties.GetFirstChild<D.LatinFont>()?.Typeface?.Value is { } typeface && !typeface.StartsWith('+'))
-            style = style with { FontFamily = typeface };
+        // rather than being a family name in its own right - and is what makes a theme switch change
+        // the deck's type.
+        if (properties.GetFirstChild<D.LatinFont>()?.Typeface?.Value is { } typeface)
+        {
+            if (!typeface.StartsWith('+'))
+                style = style with { FontFamily = typeface };
+            else if (this.fonts.Resolve(typeface) is { } themed)
+                style = style with { FontFamily = themed };
+        }
+
+        // Superscript and subscript: baseline is a percentage of the font size, in thousandths.
+        if (OoxmlUnits.EnumAttribute(properties, "baseline") is { } baseline &&
+            int.TryParse(baseline, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var shift))
+        {
+            style = shift == 0
+                ? style with { BaselineShift = 0, SizeScale = 0 }
+                : style with { BaselineShift = shift / 100000d, SizeScale = 0.66 };
+        }
+
+        // A linked run takes the theme's hyperlink colour and an underline, as PowerPoint draws it,
+        // whatever colour the run itself carries.
+        if (properties.GetFirstChild<D.HyperlinkOnClick>() is { } link && this.ReadHyperlink(link) is { } target)
+        {
+            style = style with
+            {
+                Link = SlideHyperlinkCodec.Encode(target),
+                Color = this.colors.Resolve("hlink") ?? style.Color,
+                Underline = UnderlineStyle.Single
+            };
+        }
 
         return style;
     }
@@ -619,7 +823,7 @@ sealed class SlideReader
         if (blip?.Embed?.Value is not { } relationshipId)
             return null;
 
-        if (this.part.GetPartById(relationshipId) is not ImagePart imagePart)
+        if (this.owner.GetPartById(relationshipId) is not ImagePart imagePart)
             return null;
 
         byte[] data;
@@ -645,6 +849,13 @@ sealed class SlideReader
             Geometry = ShapeGeometry.None,
             Image = data,
             Rotation = transform?.Rotation?.Value is { } rotation ? OoxmlUnits.AngleToDegrees(rotation) : 0,
+            FlipHorizontal = transform?.HorizontalFlip?.Value ?? false,
+            FlipVertical = transform?.VerticalFlip?.Value ?? false,
+            Outline = this.drawing.ReadOutline(picture.ShapeProperties),
+            Shadow = this.drawing.ReadShadow(picture.ShapeProperties),
+            Id = picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0,
+            Hyperlink = this.ReadHyperlink(picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.HyperlinkOnClick),
+            Media = SlideMediaXml.Read(picture, this.owner),
             Name = picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Name?.Value
         };
     }
@@ -690,6 +901,8 @@ sealed class SlideReader
             Width = OoxmlUnits.EmuToPixels(extents.Cx?.Value ?? 0),
             Height = OoxmlUnits.EmuToPixels(extents.Cy?.Value ?? 0),
             Geometry = ShapeGeometry.Line,
+            Id = connection.NonVisualConnectionShapeProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0,
+            Rotation = transform?.Rotation?.Value is { } rotation ? OoxmlUnits.AngleToDegrees(rotation) : 0,
             Outline = this.drawing.ReadOutline(connection.ShapeProperties) ?? new ShapeOutline(new ArgbColor(255, 0, 0, 0), 1),
             FlipHorizontal = transform?.HorizontalFlip?.Value ?? false,
             FlipVertical = transform?.VerticalFlip?.Value ?? false
@@ -699,20 +912,46 @@ sealed class SlideReader
     SlideShape? ReadTable(GraphicFrame frame)
     {
         var table = frame.Graphic?.GraphicData?.GetFirstChild<D.Table>();
+
+        var transform = frame.Transform;
+        var offset = transform?.Offset;
+        var extents = transform?.Extents;
+
         if (table is null)
         {
             var uri = frame.Graphic?.GraphicData?.Uri?.Value ?? string.Empty;
+
+            if (uri == SlideChartXml.ChartUri && offset is not null && extents is not null &&
+                SlideChartXml.PartOf(frame, this.owner) is { } chartPart &&
+                SlideChartXml.Read(chartPart, this.drawing.ReadColor) is { } chart)
+            {
+                return new SlideShape
+                {
+                    X = OoxmlUnits.EmuToPixels(offset.X?.Value ?? 0),
+                    Y = OoxmlUnits.EmuToPixels(offset.Y?.Value ?? 0),
+                    Width = OoxmlUnits.EmuToPixels(extents.Cx?.Value ?? 0),
+                    Height = OoxmlUnits.EmuToPixels(extents.Cy?.Value ?? 0),
+                    Geometry = ShapeGeometry.None,
+                    Chart = chart with
+                    {
+                        // Series without a colour of their own take the theme's accents in turn.
+                        Series = chart.Series.Select((s, i) => s.Color is null ? s with { Color = this.colors.Resolve($"accent{i % 6 + 1}") } : s).ToList()
+                    },
+                    Id = frame.NonVisualGraphicFrameProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0,
+                    Name = frame.NonVisualGraphicFrameProperties?.NonVisualDrawingProperties?.Name?.Value
+                };
+            }
+
             var kind = uri.Contains("chart") ? "Chart" : uri.Contains("diagram") ? "SmartArt" : "Embedded object";
 
             this.unsupported.Report(new UnsupportedFeature("slide", kind, UnsupportedSeverity.NotRendered));
             return null;
         }
 
-        var transform = frame.Transform;
-        var offset = transform?.Offset;
-        var extents = transform?.Extents;
         if (offset is null || extents is null)
             return null;
+
+        var style = SlideTableStyles.Resolve(table, this.colors);
 
         var columnWidths = table.TableGrid?.Elements<D.GridColumn>()
             .Select(x => OoxmlUnits.EmuToPixels(x.Width?.Value ?? 0))
@@ -721,44 +960,96 @@ sealed class SlideReader
         var rowHeights = new List<double>();
         var rows = new List<IReadOnlyList<SlideTableCell>>();
 
+        var rowIndex = 0;
         foreach (var row in table.Elements<D.TableRow>())
         {
             rowHeights.Add(OoxmlUnits.EmuToPixels(row.Height?.Value ?? 0));
             var cells = new List<SlideTableCell>();
+            var columnIndex = 0;
 
             foreach (var cell in row.Elements<D.TableCell>())
             {
                 var merged = (cell.HorizontalMerge?.Value ?? false) || (cell.VerticalMerge?.Value ?? false);
+                var text = this.ReadTextBody(cell.TextBody, null, null);
+                var fill = this.drawing.ReadFill(cell.TableCellProperties).Solid;
+
+                // The table style supplies what the cell does not say itself: the header band, the
+                // banded rows and the header's white bold text.
+                if (style is not null)
+                {
+                    fill ??= style.FillFor(rowIndex, columnIndex);
+                    if (text is not null && style.IsHeader(rowIndex, columnIndex))
+                        text = SlideTableStyles.Header(text, style.HeaderInk);
+                }
+
                 cells.Add(new SlideTableCell(
-                    this.ReadTextBody(cell.TextBody, null, null),
-                    this.drawing.ReadFill(cell.TableCellProperties).Solid,
+                    text,
+                    fill,
                     (int)(cell.GridSpan?.Value ?? 1),
                     (int)(cell.RowSpan?.Value ?? 1),
                     merged));
+
+                columnIndex++;
             }
 
             rows.Add(cells);
+            rowIndex++;
         }
 
         return new SlideShape
         {
+            Id = frame.NonVisualGraphicFrameProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0,
             X = OoxmlUnits.EmuToPixels(offset.X?.Value ?? 0),
             Y = OoxmlUnits.EmuToPixels(offset.Y?.Value ?? 0),
             Width = OoxmlUnits.EmuToPixels(extents.Cx?.Value ?? 0),
             Height = OoxmlUnits.EmuToPixels(extents.Cy?.Value ?? 0),
             Geometry = ShapeGeometry.None,
-            Table = new SlideTable(columnWidths, rowHeights, rows),
+            Table = new SlideTable(columnWidths, rowHeights, rows) { StyleId = table.TableProperties?.GetFirstChild<D.TableStyleId>()?.Text, StyleFlags = SlideTableStyles.FlagsOf(table.TableProperties) },
             Name = frame.NonVisualGraphicFrameProperties?.NonVisualDrawingProperties?.Name?.Value
         };
     }
 
     ShapeFill ReadBackground()
     {
-        var background = this.part.Slide?.CommonSlideData?.Background
-            ?? this.layout?.SlideLayout?.CommonSlideData?.Background
-            ?? this.master?.SlideMaster?.CommonSlideData?.Background;
+        if (this.part?.Slide?.CommonSlideData?.Background is { } own)
+            return this.ReadBackgroundElement(own, this.part!);
 
-        if (background?.BackgroundProperties is { } properties)
+        if (this.layout?.SlideLayout?.CommonSlideData?.Background is { } fromLayout)
+            return this.ReadBackgroundElement(fromLayout, this.layout);
+
+        if (this.master?.SlideMaster?.CommonSlideData?.Background is { } fromMaster)
+            return this.ReadBackgroundElement(fromMaster, this.master);
+
+        // No background written anywhere: PowerPoint paints bg1, the theme's first light colour —
+        // which is what makes a dark theme's slides dark.
+        return this.colors.Resolve("bg1") is { } ground ? new ShapeFill { Solid = ground } : ShapeFill.None;
+    }
+
+    /// <summary>
+    /// One <c>p:bg</c>, resolved against the part it is written in — a picture background's
+    /// relationship lives on that part, not on the slide.
+    /// </summary>
+    internal ShapeFill ReadBackgroundElement(Background background, OpenXmlPart owner)
+    {
+        if (background.BackgroundProperties?.GetFirstChild<D.BlipFill>() is { } blipFill &&
+            blipFill.Blip?.Embed?.Value is { } embed &&
+            owner.Parts.FirstOrDefault(x => x.RelationshipId == embed).OpenXmlPart is ImagePart image)
+        {
+            try
+            {
+                using var stream = image.GetStream();
+                using var copy = new MemoryStream();
+                stream.CopyTo(copy);
+                return new ShapeFill { Image = copy.ToArray() };
+            }
+            catch (Exception ex)
+            {
+                this.unsupported.Report(new UnsupportedFeature("media", "Background picture", UnsupportedSeverity.NotRendered, ex.Message));
+                return ShapeFill.None;
+            }
+        }
+
+        if (background.BackgroundProperties is { } properties)
             return this.drawing.ReadFill(properties);
 
         // A background can also be a reference into the theme's fill style list, which the viewer
@@ -783,7 +1074,7 @@ sealed class SlideReader
     /// </remarks>
     string? ReadNotes()
     {
-        var tree = this.part.NotesSlidePart?.NotesSlide?.CommonSlideData?.ShapeTree;
+        var tree = this.part?.NotesSlidePart?.NotesSlide?.CommonSlideData?.ShapeTree;
         if (tree is null)
             return null;
 

@@ -100,9 +100,11 @@ Rules worth knowing:
 - **From the current slide**, not from the top. Pass `0` for a run-through.
 - Starting a show **clears the selection**; ending one leaves the editor on the slide the show ended on
   and puts focus back on the surface.
-- **No `F5` on the editor**, unlike the viewer. Blazor fixes `preventDefault` at render time, one
-  keystroke behind the handler that decides it, so a bound `F5` would sometimes reload the page — and
-  on the web that loses an unsaved deck. Do not add one.
+- **`F5` / `Shift+F5`** play from the beginning / current slide. On Blazor `wwwroot/slideEditor.js`
+  suppresses them (and the editor's Ctrl combos) synchronously — never rely on `@onkeydown:preventDefault`
+  for F5, it is one keystroke late and reloads the page. On MAUI use `SlideEditor.HandleShortcut(SlideShortcut.X)`.
+- `StartPresentingAsync(from, presenterView: true)` / `StartPresenting(from, presenterView: true)` opens
+  presenter view (current + next slide, notes, timer, black/white).
 - `IsPresenting` is **not** a two-way parameter here (it is on `SlideView`). There is no
   `@bind-IsPresenting` on `SlideEditorView`; call the method.
 
@@ -303,13 +305,40 @@ c.Notes; c.SetNotes("...");    // creates notes page + notes master if missing; 
 `SlideRail` is a standalone control on both hosts (`Controller` = the editor's controller); its logic is
 `SlideRailController` (tap = open slide, drag = `MoveSlide`).
 
-## Not implemented
+## PowerPoint feature set (all on `SlideEditorController`, one undo step per command)
 
-- **Soft line breaks** (`a:br`) — read and rendered, but they contribute no characters to the offset
-  space, so the caret cannot sit on one and Shift+Enter does not insert one.
-- **Rotation** handles — a rotated shape renders rotated and can be moved/resized, but the drag works
-  in unrotated slide coordinates.
-- Everything the viewer does not render — see `document-viewer.md`.
+- **Shape Format**: `SetShapeFill(SlideFillSpec.Color/Theme/LinearGradient/None)`, `SetShapeOutlineColor/Weight/Dash`,
+  `RemoveShapeOutline`, `SetShapeShadow`, `ApplyQuickStyle`, `SetShapeSize(w, h, lockAspect)`,
+  `AlignToSlide` + `Align(ShapeAlignment)`, `Distribute(horizontally)`, `RotateBy`, `SetRotation`, `Flip`.
+  Rotation handle above the frame; Shift snaps 15 degrees.
+- **Selection**: `SelectedShapes`, `ToggleSelected`, `SelectShapes`, `SelectAllShapes`; marquee drag on empty
+  slide; `Group()` / `Ungroup()` (real `p:grpSp`); `SmartGuides`, `SnapDistance`, `ShowGridlines`, `ShowGuides`, `ShowRuler`.
+  MAUI touch has no modifiers: set `SlideEditor.ShiftHeld` / `ControlHeld` from a keyboard hook.
+- **Text**: `InsertLineBreak` (Shift+Enter, `a:br`), `GrowFont(±1)`, `ChangeCase(TextCase)`, `ClearFormatting`,
+  `ToggleSuperscript/Subscript`, `SetCharacterSpacing` (saved, not drawn yet), `SetLineSpacing`, `SetParagraphAlignment`,
+  `SetTextAnchor`, `SetTextDirection(ShapeTextDirection)`, `SetAutofit(TextAutofit)`.
+- **Links**: `SetHyperlink(new SlideHyperlink(url))` or `new SlideHyperlink(null, Slide: n)`; on the caret's run or the whole shape. Followed in a show.
+- **Design**: `ApplyTheme(SlideThemeDefinition.BuiltIn[i])`, `ApplyColorVariant`, `SetSlideSize(w, h)` (1280x720 = 16:9, 960x720 = 4:3),
+  `SetBackground(SlideBackgroundSpec, applyToAll)`, `ResetBackground`.
+- **Transitions**: `SetTransition(SlideTransition, applyToAll)`, `SetTransitionKind(SlideTransitionKind)`, `UpdateTransition`,
+  `ApplyTransitionToAll`; kinds None/Fade/Push/Wipe/Split/Reveal/Cover/Zoom/Morph.
+- **Animations**: `Animate(SlideAnimationEffect, add)`, `UpdateAnimation`, `MoveAnimation`, `RemoveAnimation`, `ShowAnimationMarkers`;
+  triggers `SlideAnimationTrigger.OnClick/WithPrevious/AfterPrevious`. Stored in `p:timing`.
+- **Show**: `ToggleHideSlide`, `CreateShow(fromCurrent)`.
+- **Insert**: `AddChart(SlideChart)` / `SetChartData`, `AddMedia(bytes, type, isVideo, poster)`, `AddIcon`, `InsertField(SlideFieldKind)`,
+  `ApplyHeaderFooter(SlideHeaderFooter, applyToAll)`.
+- **Views**: `ViewMode` = `SlideEditorViewMode.Normal/Outline/SlideSorter/NotesPage/SlideMaster`; `Outline`/`SetOutline`; `Master`.
+  `Zoom` (null = fit, 0.25 to 4), Ctrl+wheel / pinch.
+- **Sections**: `AddSection`, `RenameSection`, `RemoveSection(i, withSlides)`, `MoveSection`.
+- **Replace**: `ReplaceCurrent`, `ReplaceAll`.
+- **Export** (view): `ExportSlidePng(slide, width)`, `ExportSlidesPng(width)`, `ExportPdf()`; or `SlideExporter` directly.
+
+Status bar members on `SlideEditorView` (both hosts): `CurrentSlideIndex`, `SlideCount`, `EffectiveZoom`
+(read-only), `Zoom` and `ViewMode` (two-way; Blazor `@bind-Zoom`, `@bind-ViewMode`), `ShowNotes`, and
+`StatusChanged` (Blazor also `StatusUpdated` event). `FileMenuRequested` shows a File button — the backstage is the host's.
+
+Limits: no separate audience window on Blazor; media plays through the host, not inline; charts carry no embedded workbook.
+Everything the viewer does not render — see `document-viewer.md`.
 
 ## Saving
 
@@ -330,14 +359,13 @@ row. You do not build any of it; it is what the control renders.
 Do **not** hand-roll a formatting strip beside this control. Use `ToolbarContent` (Blazor) /
 `ToolbarItems` (MAUI) to add your own commands — they land in their own group that never collapses.
 
-The tab strip is off by default; turn it on only when the editor is the whole application. Below
-600px the bar switches itself to `Simplified` — no code needed.
+The tab strip is on by default (PowerPoint's tab set plus contextual Shape Format / Table / Chart /
+Slide Master tabs). Below 600px the bar switches itself to `Simplified` — no code needed.
 
 ## Toolbar
 
-Two ribbon tabs: **Home** (Slide nav, Font, Paragraph) and **Insert** (text box, shape, table, picture,
-delete). Do not add Layout or Zoom tabs - a slide is a fixed artboard always scaled to fit, so it is
-never clipped and there is nothing to pan or zoom.
+Tabs: Home, Insert, Design, Transitions, Animations, Slide Show, View, plus contextual tabs. Do not
+duplicate them in `ToolbarContent`. New PowerPoint icons live in `Icons/OfficeIcons.PowerPoint.cs` (`SlideIcon`), no emoji.
 
 Inserting a picture goes through the same shared path as the document editor: camera/gallery on
 iOS and Android, a filtered native file dialog on every desktop head.

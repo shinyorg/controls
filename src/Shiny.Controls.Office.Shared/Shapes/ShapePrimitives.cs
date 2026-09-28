@@ -54,7 +54,49 @@ public sealed record ShapeFill
     /// <summary>Gradient direction in degrees, clockwise from the positive x axis.</summary>
     public double GradientAngle { get; init; }
 
-    public bool IsEmpty => this.Solid is null && this.GradientStops.Count == 0;
+    /// <summary>
+    /// An encoded picture stretched over the area, for a <c>a:blipFill</c> — a slide background set
+    /// from a photograph, say. Null for every other fill.
+    /// </summary>
+    public byte[]? Image { get; init; }
+
+    public bool IsEmpty => this.Solid is null && this.GradientStops.Count == 0 && this.Image is null;
 }
 
-public sealed record ShapeOutline(ArgbColor Color, double Width, bool Dashed = false);
+/// <summary>The dash patterns DrawingML's <c>a:prstDash</c> offers that the editor writes.</summary>
+public enum LineDash
+{
+    Solid,
+    Dot,
+    Dash,
+    LargeDash,
+    DashDot,
+    LongDashDot,
+    LongDashDotDot,
+    SystemDash,
+    SystemDot
+}
+
+public sealed record ShapeOutline(ArgbColor Color, double Width, bool Dashed = false)
+{
+    /// <summary>
+    /// The exact dash pattern. <see cref="Dashed"/> is kept for the painters that only care whether a
+    /// line is broken; this is what the slide painter and the ribbon read.
+    /// </summary>
+    public LineDash Dash { get; init; } = Dashed ? LineDash.Dash : LineDash.Solid;
+}
+
+/// <summary>
+/// A drop shadow behind a shape — DrawingML's <c>a:outerShdw</c>, which is what PowerPoint's Shape
+/// Effects ▸ Shadow presets write.
+/// </summary>
+/// <param name="Color">Shadow colour, alpha included.</param>
+/// <param name="Blur">Blur radius, in pixels.</param>
+/// <param name="Distance">How far the shadow is offset, in pixels.</param>
+/// <param name="Direction">Direction of the offset in degrees, clockwise from the positive x axis.</param>
+public sealed record ShapeShadow(ArgbColor Color, double Blur, double Distance, double Direction)
+{
+    public double OffsetX => this.Distance * Math.Cos(this.Direction * Math.PI / 180);
+
+    public double OffsetY => this.Distance * Math.Sin(this.Direction * Math.PI / 180);
+}

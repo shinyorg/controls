@@ -4,7 +4,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime Js
 
-<div class="shiny-slides @(IsPresenting ? "shiny-slides-presenting" : null) @Class"
+<div class="shiny-slides @(IsPresenting ? "shiny-slides-presenting" : null) @(IsPresenting && PresenterView ? "shiny-slides-presenter" : null) @Class"
      @ref="schemeHost"
      style="@(IsPresenting ? null : Style)"
      tabindex="0"
@@ -13,13 +13,48 @@
      @onkeydown="OnKeyDown"
      @onkeydown:preventDefault="preventKeyDefault">
 
-    <SKCanvasView @ref="canvas"
-                  class="shiny-slides-canvas"
-                  IgnorePixelScaling="false"
-                  OnPaintSurface="OnPaint"
-                  @onclick="OnClick" />
+    <div class="shiny-slides-stage">
+        <SKCanvasView @ref="canvas"
+                      class="shiny-slides-canvas"
+                      IgnorePixelScaling="false"
+                      OnPaintSurface="OnPaint"
+                      @onclick="OnClick" />
+    </div>
 
-    @if (IsPresenting && ShowPresenterControls)
+    @if (IsPresenting && PresenterView && show is { } presenter)
+    {
+        @*
+            PowerPoint's Presenter View: the slide the room sees on the left; the next slide, the notes,
+            the clock and the controls on the right. Keys still go to the whole surface.
+        *@
+        <aside class="shiny-slides-presenter-side" @onclick:stopPropagation="true">
+            <div class="shiny-slides-presenter-top">
+                <span class="shiny-slides-timer" aria-label="Elapsed time">@FormatTime(presenter.Elapsed)</span>
+                <button type="button" class="shiny-slides-btn shiny-slides-btn-text" @onclick="TogglePause">@(presenter.IsPaused ? "Resume" : "Pause")</button>
+                <span class="shiny-slides-counter">Slide @presenter.Progress.Position of @presenter.Progress.Count</span>
+            </div>
+
+            <div class="shiny-slides-next-label">@(presenter.NextSlideIndex is null ? "End of slide show" : "Next slide")</div>
+            <div class="shiny-slides-next">
+                <SKCanvasView @ref="nextCanvas" IgnorePixelScaling="false" OnPaintSurface="OnPaintNext" />
+            </div>
+
+            <div class="shiny-slides-presenter-notes" style="font-size:@(notesSize)px">
+                @(string.IsNullOrWhiteSpace(CurrentNotes) ? "No notes on this slide." : CurrentNotes)
+            </div>
+
+            <div class="shiny-slides-presenter-bar">
+                <button type="button" class="shiny-slides-btn" aria-label="Previous" @onclick="Previous">&lsaquo;</button>
+                <button type="button" class="shiny-slides-btn" aria-label="Next" @onclick="Next">&rsaquo;</button>
+                <button type="button" class="shiny-slides-btn shiny-slides-btn-text" aria-pressed="@(presenter.Screen == SlideShowScreen.Black)" @onclick="ToggleBlack">Black</button>
+                <button type="button" class="shiny-slides-btn shiny-slides-btn-text" aria-pressed="@(presenter.Screen == SlideShowScreen.White)" @onclick="ToggleWhite">White</button>
+                <button type="button" class="shiny-slides-btn shiny-slides-btn-text" aria-label="Smaller notes" @onclick="() => notesSize = Math.Max(10, notesSize - 2)">A&minus;</button>
+                <button type="button" class="shiny-slides-btn shiny-slides-btn-text" aria-label="Larger notes" @onclick="() => notesSize = Math.Min(40, notesSize + 2)">A+</button>
+                <button type="button" class="shiny-slides-btn shiny-slides-btn-text" @onclick="StopPresentingAsync">End Show</button>
+            </div>
+        </aside>
+    }
+    else if (IsPresenting && ShowPresenterControls)
     {
         @if (notesShown)
         {
@@ -27,13 +62,11 @@
         }
 
         <div class="shiny-slides-chrome" @onclick:stopPropagation="true">
-            <button type="button" class="shiny-slides-btn" aria-label="Previous slide"
-                    disabled="@(controller?.CanGoPrevious != true)" @onclick="Previous">&lsaquo;</button>
+            <button type="button" class="shiny-slides-btn" aria-label="Previous slide" @onclick="Previous">&lsaquo;</button>
 
-            <span class="shiny-slides-counter">@(SlideIndex + 1) / @(controller?.Count ?? 0)</span>
+            <span class="shiny-slides-counter">@(show is { } running ? $"{running.Progress.Position} / {running.Progress.Count}" : $"{SlideIndex + 1} / {controller?.Count ?? 0}")</span>
 
-            <button type="button" class="shiny-slides-btn" aria-label="Next slide"
-                    disabled="@(controller?.CanGoNext != true)" @onclick="Next">&rsaquo;</button>
+            <button type="button" class="shiny-slides-btn" aria-label="Next slide" @onclick="Next">&rsaquo;</button>
 
             @if (DeckHasNotes)
             {
@@ -52,9 +85,202 @@
     const double BackClickZone = 0.25;
 
     SKCanvasView? canvas;
+    SKCanvasView? nextCanvas;
     SkiaTextMeasurer? measurer;
     SlidePainter? painter;
+    SlideShowPainter? showPainter;
     SlideController? controller;
+
+    /// <summary>The running show: slide, click, transition and clock. Null when not presenting.</summary>
+    SlideShowController? show;
+    System.Threading.Timer? ticker;
+    int ticking;
+    double notesSize = 18;
+
+    /// <summary>
+    /// Present in PowerPoint's Presenter View: the slide beside the next one, the notes, a timer and the
+    /// controls, all on this one screen. Off by default — the plain show is what a projector wants.
+    /// </summary>
+    [Parameter] public bool PresenterView { get; set; }
+
+    /// <summary>The show being presented, for a host driving it from its own controls.</summary>
+    public SlideShowController? Show => this.show;
+
+    /// <summary>
+    /// Raised when a show link or a click on an external hyperlink wants a page opened. Unhandled, the
+    /// link opens in a new browser tab.
+    /// </summary>
+    [Parameter] public EventCallback<string> LinkClicked { get; set; }
+
+    static string FormatTime(TimeSpan time)
+        => time.TotalHours >= 1 ? time.ToString(@"h\:mm\:ss") : time.ToString(@"mm\:ss");
+
+    void TogglePause() => this.show?.TogglePause();
+
+    void ToggleBlack() => this.show?.ToggleBlack();
+
+    void ToggleWhite() => this.show?.ToggleWhite();
+
+    /// <summary>Starts or ends the show engine to match <see cref="IsPresenting"/>.</summary>
+    void SyncShow()
+    {
+        if (this.IsPresenting && this.show is null && this.Deck is { Slides.Count: > 0 } deck)
+        {
+            this.show = new SlideShowController(deck, this.SlideIndex);
+            this.show.Changed += this.OnShowChanged;
+            this.show.Ended += this.OnShowEnded;
+            this.StartTicking();
+        }
+        else if (!this.IsPresenting && this.show is { } running)
+        {
+            running.Changed -= this.OnShowChanged;
+            running.Ended -= this.OnShowEnded;
+            this.show = null;
+            this.StopTicking();
+        }
+    }
+
+    void OnShowChanged(object? sender, EventArgs e)
+    {
+        if (this.show is { } running && this.controller is { } c && c.Index != running.SlideIndex)
+        {
+            // The viewer's own index follows the show, so the host's binding does too.
+            c.Index = running.SlideIndex;
+        }
+
+        this.StartTicking();
+        this.canvas?.Invalidate();
+        this.nextCanvas?.Invalidate();
+        _ = this.InvokeAsync(this.StateHasChanged);
+    }
+
+    void OnShowEnded(object? sender, EventArgs e) => _ = this.InvokeAsync(this.StopPresentingAsync);
+
+    /// <summary>
+    /// A frame clock while something moves — a transition, an effect, a timed advance, or the presenter's
+    /// timer. About 30 frames a second: smooth enough for a fade, and gentle on a Blazor Server circuit.
+    /// </summary>
+    void StartTicking()
+    {
+        if (this.ticker is not null)
+            return;
+
+        this.ticker = new System.Threading.Timer(_ => _ = this.InvokeAsync(this.OnTick), null, 0, 33);
+    }
+
+    void StopTicking()
+    {
+        this.ticker?.Dispose();
+        this.ticker = null;
+    }
+
+    void OnTick()
+    {
+        if (this.show is not { } running)
+        {
+            this.StopTicking();
+            return;
+        }
+
+        // Re-entrancy guard: a slow frame must not queue a pile of ticks behind it.
+        if (Interlocked.Exchange(ref this.ticking, 1) == 1)
+            return;
+
+        try
+        {
+            running.Tick();
+            this.canvas?.Invalidate();
+
+            if (this.PresenterView)
+            {
+                // The clock ticks once a second whether or not anything moves.
+                this.StateHasChanged();
+                return;
+            }
+
+            if (!running.IsAnimating)
+                this.StopTicking();
+        }
+        finally
+        {
+            this.ticking = 0;
+        }
+    }
+
+    void OnPaintNext(SKPaintSurfaceEventArgs e)
+    {
+        var surface = e.Surface.Canvas;
+        surface.Clear(new SKColor(0x20, 0x20, 0x20));
+
+        if (this.painter is null || this.Deck is not { } deck || this.show?.NextSlideIndex is not { } next)
+            return;
+
+        var width = e.Info.Width / this.dpr;
+        var height = e.Info.Height / this.dpr;
+        var fit = Math.Min(width / deck.SlideWidth, height / deck.SlideHeight);
+
+        this.painter.Paint(surface, new SlidePaintRequest
+        {
+            Slide = deck.Slides[next],
+            Watermark = this.Watermark,
+            SlideWidth = deck.SlideWidth,
+            SlideHeight = deck.SlideHeight,
+            DestinationX = (width - deck.SlideWidth * fit) / 2,
+            DestinationY = (height - deck.SlideHeight * fit) / 2,
+            DestinationWidth = deck.SlideWidth * fit,
+            DestinationHeight = deck.SlideHeight * fit,
+            Theme = SlideTheme.Presentation,
+            Scale = (float)this.dpr,
+            DrawBorder = false
+        });
+    }
+
+    /// <summary>A click in a show: a link or a clip under the pointer first, then forward (or back, down the left edge).</summary>
+    async Task OnShowClickAsync(SlideShowController running, MouseEventArgs e)
+    {
+        if (this.Deck is { } deck && this.measurer is not null && this.lastWidth > 0)
+        {
+            var fit = Math.Min(this.lastWidth / deck.SlideWidth, this.lastHeight / deck.SlideHeight);
+            var x = (e.OffsetX - (this.lastWidth - deck.SlideWidth * fit) / 2) / fit;
+            var y = (e.OffsetY - (this.lastHeight - deck.SlideHeight * fit) / 2) / fit;
+
+            if (running.MediaAt(x, y) is { Media: { } media } && this.module is not null)
+            {
+                try
+                {
+                    if (media.ReadAll() is { } bytes)
+                    {
+                        using var stream = new MemoryStream(bytes);
+                        using var reference = new DotNetStreamReference(stream);
+                        await this.module.InvokeVoidAsync("playMedia", this.schemeHost, reference, media.ContentType, media.IsVideo);
+                    }
+                }
+                catch (JSException)
+                {
+                }
+
+                return;
+            }
+
+            if (running.HyperlinkAt(x, y, this.measurer) is { } link)
+            {
+                if (running.Follow(link) is { } url)
+                {
+                    if (this.LinkClicked.HasDelegate)
+                        await this.LinkClicked.InvokeAsync(url);
+                    else if (this.module is not null)
+                        await this.module.InvokeVoidAsync("openLink", url);
+                }
+
+                return;
+            }
+        }
+
+        if (e.OffsetX < this.lastWidth * BackClickZone)
+            running.Previous();
+        else
+            running.Next(fromClick: true);
+    }
     bool preventKeyDefault;
     bool applyingParameters;
     bool presentingApplied;
@@ -138,15 +364,27 @@
     public SlideController? Controller => this.controller;
 
     /// <summary>Speaker notes on the slide being shown, if it has any.</summary>
-    public string? CurrentNotes => this.controller?.Current?.Notes;
+    public string? CurrentNotes => this.show?.Current?.Notes ?? this.controller?.Current?.Notes;
 
     bool DeckHasNotes => this.Deck?.Slides.Any(x => !string.IsNullOrWhiteSpace(x.Notes)) == true;
 
-    /// <summary>Advance one slide. Clamped at the end of the deck.</summary>
-    public void Next() => this.controller?.Next();
+    /// <summary>Advance one slide — or, in a show, one click of its animations. Clamped at the end of the deck.</summary>
+    public void Next()
+    {
+        if (this.show is { } running)
+            running.Next();
+        else
+            this.controller?.Next();
+    }
 
-    /// <summary>Go back one slide. Clamped at the start of the deck.</summary>
-    public void Previous() => this.controller?.Previous();
+    /// <summary>Go back one slide (or click). Clamped at the start of the deck.</summary>
+    public void Previous()
+    {
+        if (this.show is { } running)
+            running.Previous();
+        else
+            this.controller?.Previous();
+    }
 
     /// <summary>Start the show. A no-op without a deck.</summary>
     public Task StartPresentingAsync()
@@ -178,6 +416,8 @@
 
         if (!value)
             this.notesShown = false;
+
+        this.SyncShow();
 
         if (this.IsPresentingChanged.HasDelegate)
             await this.IsPresentingChanged.InvokeAsync(value);
@@ -292,6 +532,10 @@
         {
             this.applyingParameters = false;
         }
+
+        // A host that binds IsPresenting (the editor does) starts the show here rather than through
+        // StartPresentingAsync.
+        this.SyncShow();
     }
 
     async void OnControllerChanged(object? sender, EventArgs e)
@@ -338,6 +582,17 @@
             this.lastWidth = width;
             this.lastHeight = height;
             this.controller.Resize(width, height);
+        }
+
+        if (this.show is { } running && this.Deck is { } deck)
+        {
+            this.showPainter ??= new SlideShowPainter(this.painter);
+            this.showPainter.Paint(surface, running.Frame(), deck, width, height, scale, this.Watermark);
+
+            if (running.IsAnimating)
+                this.StartTicking();
+
+            return;
         }
 
         if (this.controller.Mode == SlideViewMode.Grid)
@@ -460,10 +715,16 @@
             this.controller.Previous();
     }
 
-    void OnClick(MouseEventArgs e)
+    async Task OnClick(MouseEventArgs e)
     {
         if (this.controller is null)
             return;
+
+        if (this.show is { } running)
+        {
+            await this.OnShowClickAsync(running, e);
+            return;
+        }
 
         if (this.IsPresenting)
         {
@@ -494,6 +755,23 @@
             return;
 
         this.preventKeyDefault = true;
+
+        // A running show: PowerPoint's keys — next and back through the clicks, B and W for a blank
+        // screen, Home and End, and a typed-in-order Escape out.
+        if (this.show is { } running)
+        {
+            switch (e.Key)
+            {
+                case "Escape": await this.StopPresentingAsync(); return;
+                case "ArrowRight" or "ArrowDown" or "PageDown" or " " or "Enter" or "n" or "N": running.Next(); return;
+                case "ArrowLeft" or "ArrowUp" or "PageUp" or "Backspace" or "p" or "P": running.Previous(); return;
+                case "Home": running.First(); return;
+                case "End": running.Last(); return;
+                case "b" or "B" or ".": running.ToggleBlack(); return;
+                case "w" or "W" or ",": running.ToggleWhite(); return;
+                default: this.preventKeyDefault = false; return;
+            }
+        }
 
         switch (e.Key)
         {
@@ -533,6 +811,16 @@
     {
         if (this.controller is not null)
             this.controller.Changed -= this.OnControllerChanged;
+
+        this.StopTicking();
+        if (this.show is { } running)
+        {
+            running.Changed -= this.OnShowChanged;
+            running.Ended -= this.OnShowEnded;
+            this.show = null;
+        }
+
+        this.showPainter?.Dispose();
 
         if (this.module is not null)
         {

@@ -109,6 +109,29 @@ static class ShapeTextEditor
         if (end <= start)
             return;
 
+        // A line break is zero-width at the offset of the text after it, so a caret "after" it and one
+        // "at the start of the next line" are the same offset. A deleted span takes only the breaks
+        // strictly inside it: deleting the whole of one line's text must not also join it to the next.
+        // Backspace over a break is the controller's, which removes the break alone.
+        var position = 0;
+        foreach (var child in paragraph.ChildElements.ToList())
+        {
+            switch (child)
+            {
+                case D.Run run:
+                    position += (run.Text?.Text ?? string.Empty).Length;
+                    break;
+
+                case D.Field field:
+                    position += (field.Text?.Text ?? string.Empty).Length;
+                    break;
+
+                case D.Break when position > start && position < end:
+                    child.Remove();
+                    break;
+            }
+        }
+
         var cursor = 0;
         foreach (var (element, segment) in Segments(paragraph).ToList())
         {
@@ -292,13 +315,19 @@ static class ShapeTextEditor
     /// <summary>Appends one paragraph's content onto another, which is what Backspace at offset 0 does.</summary>
     public static void Merge(D.Paragraph target, D.Paragraph source)
     {
+        // In front of the target's end mark, which must stay the paragraph's last child.
+        var mark = target.GetFirstChild<D.EndParagraphRunProperties>();
+
         foreach (var child in source.ChildElements.ToList())
         {
             if (child is D.ParagraphProperties or D.EndParagraphRunProperties)
                 continue;
 
             child.Remove();
-            target.AppendChild(child);
+            if (mark is not null)
+                target.InsertBefore(child, mark);
+            else
+                target.AppendChild(child);
         }
 
         source.Remove();
@@ -399,7 +428,7 @@ static class ShapeTextEditor
     /// type for every one of these (<c>a:uLn</c> among them), and the local names are what the schema
     /// is actually written in.
     /// </remarks>
-    static int OrderOf(OpenXmlElement element) => element.LocalName switch
+    internal static int OrderOf(OpenXmlElement element) => element.LocalName switch
     {
         "ln" => 0,
         "noFill" or "solidFill" or "gradFill" or "blipFill" or "pattFill" or "grpFill" => 1,
@@ -452,6 +481,15 @@ static class ShapeTextEditor
             new D.RgbColorModelHex { Val = $"{color.R:X2}{color.G:X2}{color.B:X2}" }));
     };
 
+    /// <summary>A theme colour for the text (<c>a:schemeClr</c>), so it follows the theme.</summary>
+    public static Action<D.RunProperties> SetThemeColor(string scheme) => properties =>
+    {
+        foreach (var existing in properties.ChildElements.Where(IsFill).ToList())
+            existing.Remove();
+
+        InsertOrdered(properties, new D.SolidFill(SlideSchemeColor.Build(scheme)));
+    };
+
     /// <summary>
     /// Sets or clears the highlight behind a run.
     /// </summary>
@@ -475,6 +513,202 @@ static class ShapeTextEditor
     };
 
     static bool IsFill(OpenXmlElement element) => OrderOf(element) == 1;
+
+    /// <summary>
+    /// Links a run, or unlinks it when <paramref name="relationshipId"/> and <paramref name="action"/>
+    /// are both null.
+    /// </summary>
+    /// <remarks>
+    /// <c>a:hlinkClick</c> has its own slot near the end of <c>a:rPr</c>, after the fonts. An empty
+    /// <c>r:id</c> is legal and is what a show-jump action ("next slide") carries.
+    /// </remarks>
+    public static Action<D.RunProperties> SetHyperlink(string? relationshipId, string? action) => properties =>
+    {
+        foreach (var existing in properties.Elements<D.HyperlinkOnClick>().ToList())
+            existing.Remove();
+
+        if (relationshipId is null && action is null)
+            return;
+
+        var link = new D.HyperlinkOnClick { Id = relationshipId ?? string.Empty };
+        if (action is not null)
+            link.Action = action;
+
+        InsertOrdered(properties, link);
+    };
+
+    /// <summary>Superscript (positive), subscript (negative) or neither (zero), as a percentage of the size.</summary>
+    public static Action<D.RunProperties> SetBaseline(int percent) => properties =>
+        properties.Baseline = percent == 0 ? null : percent * 1000;
+
+    /// <summary>Character spacing in points — <c>spc</c>, stored in hundredths of a point.</summary>
+    public static Action<D.RunProperties> SetCharacterSpacing(double points) => properties =>
+        properties.Spacing = Math.Abs(points) < 0.01 ? null : (int)Math.Round(points * 100);
+
+    /// <summary>
+    /// Clears Font ▸ Clear All Formatting: every run property but the language, and the colour, font,
+    /// highlight and link children.
+    /// </summary>
+    /// <remarks>
+    /// The language stays because it is not formatting — it is what spelling and hyphenation read —
+    /// and a link stays because PowerPoint's Clear Formatting does not remove links either.
+    /// </remarks>
+    public static Action<D.RunProperties> ClearFormatting() => properties =>
+    {
+        var language = properties.Language?.Value;
+        var alternative = properties.AlternativeLanguage?.Value;
+        var links = properties.Elements<D.HyperlinkOnClick>().Select(x => (OpenXmlElement)x.CloneNode(true)).ToList();
+
+        properties.ClearAllAttributes();
+        properties.RemoveAllChildren();
+
+        if (language is not null)
+            properties.Language = language;
+
+        if (alternative is not null)
+            properties.AlternativeLanguage = alternative;
+
+        foreach (var link in links)
+            InsertOrdered(properties, link);
+    };
+
+    /// <summary>Line spacing as a multiple of single — <c>a:lnSpc/a:spcPct</c>.</summary>
+    public static Action<D.ParagraphProperties> SetLineSpacing(double multiple) => properties =>
+    {
+        foreach (var existing in properties.Elements<D.LineSpacing>().ToList())
+            existing.Remove();
+
+        InsertOrdered(properties, new D.LineSpacing(new D.SpacingPercent { Val = (int)Math.Round(Math.Clamp(multiple, 0.5, 10) * 100000) }));
+    };
+
+    /// <summary>Space before or after a paragraph, in points — <c>a:spcBef</c>/<c>a:spcAft</c>.</summary>
+    public static Action<D.ParagraphProperties> SetParagraphSpacing(double? before, double? after) => properties =>
+    {
+        if (before is { } b)
+        {
+            foreach (var existing in properties.Elements<D.SpaceBefore>().ToList())
+                existing.Remove();
+
+            InsertOrdered(properties, new D.SpaceBefore(new D.SpacingPoints { Val = (int)Math.Round(Math.Max(0, b) * 100) }));
+        }
+
+        if (after is { } a)
+        {
+            foreach (var existing in properties.Elements<D.SpaceAfter>().ToList())
+                existing.Remove();
+
+            InsertOrdered(properties, new D.SpaceAfter(new D.SpacingPoints { Val = (int)Math.Round(Math.Max(0, a) * 100) }));
+        }
+    };
+
+    /// <summary>
+    /// Inserts a soft line break (<c>a:br</c>) at an offset — Shift+Enter.
+    /// </summary>
+    /// <remarks>
+    /// The break takes a copy of the run properties either side of it, which is what PowerPoint writes:
+    /// an <c>a:br</c> carries its own <c>a:rPr</c> so the empty line it opens has a height.
+    /// </remarks>
+    public static void InsertBreak(D.Paragraph paragraph, int offset)
+    {
+        SplitRunAt(paragraph, offset);
+
+        var cursor = 0;
+        OpenXmlElement? after = null;
+        D.RunProperties? model = null;
+
+        foreach (var child in paragraph.ChildElements)
+        {
+            if (child is D.ParagraphProperties)
+            {
+                after = child;
+                continue;
+            }
+
+            var length = child switch
+            {
+                D.Run run => (run.Text?.Text ?? string.Empty).Length,
+                D.Field field => (field.Text?.Text ?? string.Empty).Length,
+                _ => 0
+            };
+
+            if (child is D.EndParagraphRunProperties || cursor + length > offset)
+                break;
+
+            // Everything wholly before the offset, and any breaks sitting exactly at it: a second break
+            // at the same offset goes after the first.
+            cursor += length;
+            after = child;
+
+            if (child is D.Run { RunProperties: { } runProperties })
+                model = runProperties;
+        }
+
+        var properties = model?.CloneNode(true) as D.RunProperties
+            ?? (paragraph.GetFirstChild<D.EndParagraphRunProperties>() is { } end ? CloneAsRunProperties(end) : new D.RunProperties { Language = "en-US" });
+
+        var lineBreak = new D.Break(properties);
+
+        if (after is null)
+            paragraph.PrependChild(lineBreak);
+        else
+            paragraph.InsertAfter(lineBreak, after);
+    }
+
+    /// <summary>The breaks sitting at an offset — zero-width, so several can share one.</summary>
+    public static IReadOnlyList<D.Break> BreaksAt(D.Paragraph paragraph, int offset)
+    {
+        var result = new List<D.Break>();
+        var cursor = 0;
+
+        foreach (var child in paragraph.ChildElements)
+        {
+            switch (child)
+            {
+                case D.Run run:
+                    cursor += (run.Text?.Text ?? string.Empty).Length;
+                    break;
+
+                case D.Field field:
+                    cursor += (field.Text?.Text ?? string.Empty).Length;
+                    break;
+
+                case D.Break lineBreak when cursor == offset:
+                    result.Add(lineBreak);
+                    break;
+            }
+
+            if (cursor > offset)
+                break;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Rewrites the case of the text in a range — Change Case — run by run, so no formatting moves.
+    /// </summary>
+    public static void ChangeCase(D.Paragraph paragraph, int start, int end, Func<string, int, string> transform)
+    {
+        if (end <= start)
+            return;
+
+        SplitRunAt(paragraph, start);
+        SplitRunAt(paragraph, end);
+
+        // The paragraph's text before the change, so a sentence-case rule can see what precedes the
+        // piece it is rewriting.
+        var cursor = 0;
+        foreach (var (element, segment) in Segments(paragraph).ToList())
+        {
+            var segmentStart = cursor;
+            cursor += segment.Length;
+
+            if (element is not D.Run run || segmentStart >= end || cursor <= start)
+                continue;
+
+            SetText(run, transform(run.Text?.Text ?? string.Empty, segmentStart));
+        }
+    }
 
     public static Action<D.ParagraphProperties> SetAlignment(TextAlignment alignment) => properties =>
         properties.Alignment = alignment switch

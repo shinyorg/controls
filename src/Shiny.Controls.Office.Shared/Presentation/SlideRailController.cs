@@ -1,7 +1,14 @@
 namespace Shiny.Controls.Office.Presentation;
 
 /// <summary>One thumbnail in the rail, in the rail's viewport coordinates.</summary>
-public readonly record struct SlideRailItem(int Index, Slide Slide, double X, double Y, double Width, double Height, bool IsSelected);
+public readonly record struct SlideRailItem(int Index, Slide Slide, double X, double Y, double Width, double Height, bool IsSelected)
+{
+    /// <summary>The slide is hidden from the show — the rail dims it and strikes its number.</summary>
+    public bool IsHidden => this.Slide.IsHidden;
+}
+
+/// <summary>A section header in the rail: its name, whether it is folded, and where it is drawn.</summary>
+public readonly record struct SlideRailSection(int Index, SlideSection Section, double X, double Y, double Width, double Height, bool IsCollapsed);
 
 /// <summary>
 /// The slide rail beside the editor: a scrolling column of thumbnails that picks the slide being edited
@@ -18,13 +25,19 @@ public readonly record struct SlideRailItem(int Index, Slide Slide, double X, do
 /// selects a slide on a touch screen where every press wobbles. Dropping moves the slide through the
 /// editor's <see cref="SlideEditorController.MoveSlide"/>, so it is one undo step like the buttons.
 /// </para>
+/// <para>
+/// A deck with sections shows a header above each one; tapping it folds the section away, as
+/// PowerPoint's rail does. The fold is view state, not something saved in the file.
+/// </para>
 /// </remarks>
 public sealed class SlideRailController
 {
     readonly SlideEditorController editor;
+    readonly HashSet<string> collapsed = [];
 
     double scrollY;
     int pressed = -1;
+    int pressedSection = -1;
     double pressX;
     double pressY;
     double pointerY;
@@ -48,6 +61,9 @@ public sealed class SlideRailController
     /// <summary>The column on the left that carries each slide's number.</summary>
     public double NumberWidth { get; set; } = 22;
 
+    /// <summary>A section header's height.</summary>
+    public double SectionHeight { get; set; } = 24;
+
     /// <summary>How far a press must travel before it is a drag rather than a tap.</summary>
     public double DragThreshold { get; set; } = 6;
 
@@ -67,7 +83,89 @@ public sealed class SlideRailController
 
     double Pitch => this.ThumbnailHeight + this.Gap;
 
-    public double ContentHeight => this.editor.Count * this.Pitch + this.Gap;
+    /// <summary>One row of the rail's layout, in content coordinates (before scrolling).</summary>
+    readonly record struct Row(bool IsSection, int Index, double Top, double Height);
+
+    /// <summary>
+    /// The rail's rows top to bottom: a header per section, then the section's slides unless it is
+    /// folded. A deck without sections is only slides.
+    /// </summary>
+    List<Row> Rows()
+    {
+        var rows = new List<Row>();
+        var y = this.Gap;
+
+        // The Slide Master view lists the master and its layouts instead, the layouts indented and
+        // smaller under their master, as PowerPoint's does.
+        if (this.editor.IsEditingMaster)
+        {
+            var pages = this.editor.Master.Pages;
+            for (var i = 0; i < pages.Count; i++)
+            {
+                var height = pages[i].IsMaster ? this.ThumbnailHeight : this.ThumbnailHeight * this.LayoutScale;
+                rows.Add(new Row(false, i, y, height));
+                y += height + this.Gap;
+            }
+
+            return rows;
+        }
+
+        var sections = this.editor.Deck.Sections;
+        var count = this.editor.Count;
+
+        if (sections.Count == 0)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                rows.Add(new Row(false, i, y, this.ThumbnailHeight));
+                y += this.Pitch;
+            }
+
+            return rows;
+        }
+
+        var placed = new HashSet<int>();
+        for (var s = 0; s < sections.Count; s++)
+        {
+            rows.Add(new Row(true, s, y, this.SectionHeight));
+            y += this.SectionHeight + this.Gap / 2;
+
+            var section = sections[s];
+            if (section.FirstSlide < 0)
+                continue;
+
+            for (var i = section.FirstSlide; i < section.FirstSlide + section.SlideCount && i < count; i++)
+            {
+                placed.Add(i);
+                if (this.IsCollapsed(s))
+                    continue;
+
+                rows.Add(new Row(false, i, y, this.ThumbnailHeight));
+                y += this.Pitch;
+            }
+        }
+
+        // A slide no section lists still has to be reachable.
+        for (var i = 0; i < count; i++)
+        {
+            if (placed.Add(i))
+            {
+                rows.Add(new Row(false, i, y, this.ThumbnailHeight));
+                y += this.Pitch;
+            }
+        }
+
+        return rows;
+    }
+
+    public double ContentHeight
+    {
+        get
+        {
+            var rows = this.Rows();
+            return rows.Count == 0 ? this.Gap : rows[^1].Top + rows[^1].Height + this.Gap;
+        }
+    }
 
     public void Resize(double width, double height)
     {
@@ -87,14 +185,24 @@ public sealed class SlideRailController
             this.Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Scrolls just enough to bring a slide's thumbnail fully into view.</summary>
+    /// <summary>Scrolls just enough to bring a slide's thumbnail fully into view, unfolding its section.</summary>
     public void EnsureVisible(int index)
     {
         if (index < 0 || index >= this.editor.Count)
             return;
 
-        var top = this.Gap + index * this.Pitch;
-        var bottom = top + this.ThumbnailHeight;
+        var sections = this.editor.Deck.Sections;
+        for (var s = 0; s < sections.Count; s++)
+        {
+            if (sections[s].Contains(index) && this.IsCollapsed(s))
+                this.collapsed.Remove(Key(sections[s], s));
+        }
+
+        if (this.Rows().FirstOrDefault(x => !x.IsSection && x.Index == index) is not { Height: > 0 } row)
+            return;
+
+        var top = row.Top;
+        var bottom = top + row.Height;
 
         if (top - this.Gap < this.scrollY)
             this.scrollY = top - this.Gap;
@@ -110,26 +218,95 @@ public sealed class SlideRailController
     void ClampScroll()
         => this.scrollY = Math.Clamp(this.scrollY, 0, Math.Max(0, this.ContentHeight - this.ViewportHeight));
 
+    /// <summary>How big a layout's thumbnail is beside its master's, in the Slide Master view.</summary>
+    public double LayoutScale { get; set; } = 0.8;
+
     /// <summary>The thumbnails intersecting the viewport. Off-screen slides are never painted.</summary>
     public IEnumerable<SlideRailItem> VisibleItems()
     {
         var width = this.ThumbnailWidth;
-        var height = this.ThumbnailHeight;
         var x = this.Gap + this.NumberWidth;
         var slides = this.editor.Deck.Slides;
+        var master = this.editor.IsEditingMaster ? this.editor.Master : null;
 
-        for (var i = 0; i < slides.Count; i++)
+        foreach (var row in this.Rows())
         {
-            var y = this.Gap + i * this.Pitch - this.scrollY;
-            if (y + height < 0)
+            if (row.IsSection)
+                continue;
+
+            var y = row.Top - this.scrollY;
+            if (y + row.Height < 0)
                 continue;
 
             if (y > this.ViewportHeight)
                 yield break;
 
-            yield return new SlideRailItem(i, slides[i], x, y, width, height, i == this.editor.Index);
+            if (master is not null)
+            {
+                if (master.PageModel(row.Index) is not { } page)
+                    continue;
+
+                var indent = master.Pages[row.Index].IsMaster ? 0 : width * (1 - this.LayoutScale);
+                yield return new SlideRailItem(row.Index, page, x + indent, y, width - indent, row.Height, row.Index == master.PageIndex);
+                continue;
+            }
+
+            yield return new SlideRailItem(row.Index, slides[row.Index], x, y, width, row.Height, row.Index == this.editor.Index);
         }
     }
+
+    /// <summary>The section headers intersecting the viewport.</summary>
+    public IEnumerable<SlideRailSection> VisibleSections()
+    {
+        var sections = this.editor.Deck.Sections;
+
+        foreach (var row in this.Rows())
+        {
+            if (!row.IsSection)
+                continue;
+
+            var y = row.Top - this.scrollY;
+            if (y + row.Height < 0 || y > this.ViewportHeight)
+                continue;
+
+            yield return new SlideRailSection(row.Index, sections[row.Index], this.Gap / 2, y, this.ViewportWidth - this.Gap, row.Height, this.IsCollapsed(row.Index));
+        }
+    }
+
+    /// <summary>Whether a section is folded away.</summary>
+    public bool IsCollapsed(int section)
+        => this.editor.Deck.Sections.ElementAtOrDefault(section) is { } value && this.collapsed.Contains(Key(value, section));
+
+    /// <summary>Folds a section away, or unfolds it.</summary>
+    public void ToggleSection(int section)
+    {
+        if (this.editor.Deck.Sections.ElementAtOrDefault(section) is not { } value)
+            return;
+
+        var key = Key(value, section);
+        if (!this.collapsed.Remove(key))
+            this.collapsed.Add(key);
+
+        this.ClampScroll();
+        this.Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Folds or unfolds every section — PowerPoint's Collapse All / Expand All.</summary>
+    public void SetAllCollapsed(bool collapse)
+    {
+        this.collapsed.Clear();
+        if (collapse)
+        {
+            var sections = this.editor.Deck.Sections;
+            for (var i = 0; i < sections.Count; i++)
+                this.collapsed.Add(Key(sections[i], i));
+        }
+
+        this.ClampScroll();
+        this.Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    static string Key(SlideSection section, int index) => section.Id ?? $"#{index}";
 
     /// <summary>The slide whose row is under a point — the number column counts — or -1.</summary>
     public int ItemAt(double x, double y)
@@ -137,12 +314,30 @@ public sealed class SlideRailController
         if (x < 0 || x > this.ViewportWidth)
             return -1;
 
-        var content = y + this.scrollY - this.Gap / 2;
-        if (content < 0)
+        var content = y + this.scrollY;
+        foreach (var row in this.Rows())
+        {
+            if (!row.IsSection && content >= row.Top - this.Gap / 2 && content < row.Top + row.Height + this.Gap / 2)
+                return row.Index;
+        }
+
+        return -1;
+    }
+
+    /// <summary>The section whose header is under a point, or -1.</summary>
+    public int SectionAt(double x, double y)
+    {
+        if (x < 0 || x > this.ViewportWidth)
             return -1;
 
-        var index = (int)(content / this.Pitch);
-        return index < this.editor.Count ? index : -1;
+        var content = y + this.scrollY;
+        foreach (var row in this.Rows())
+        {
+            if (row.IsSection && content >= row.Top && content < row.Top + row.Height)
+                return row.Index;
+        }
+
+        return -1;
     }
 
     /// <summary>
@@ -156,14 +351,39 @@ public sealed class SlideRailController
             if (!this.dragging)
                 return null;
 
-            var content = this.pointerY + this.scrollY - this.Gap / 2;
-            return Math.Clamp((int)Math.Round(content / this.Pitch), 0, this.editor.Count);
+            var content = this.pointerY + this.scrollY;
+            var slides = this.Rows().Where(x => !x.IsSection).ToList();
+            if (slides.Count == 0)
+                return 0;
+
+            // The gap nearest the pointer: before a row whose middle is below it, or after the last.
+            foreach (var row in slides)
+            {
+                if (content < row.Top + row.Height / 2)
+                    return row.Index;
+            }
+
+            return slides[^1].Index + 1;
         }
     }
 
     /// <summary>The y of the insertion line for <see cref="DropGap"/>, in viewport coordinates.</summary>
     public double? DropIndicatorY
-        => this.DropGap is { } gap ? this.Gap / 2 + gap * this.Pitch - this.scrollY : null;
+    {
+        get
+        {
+            if (this.DropGap is not { } gap)
+                return null;
+
+            var slides = this.Rows().Where(x => !x.IsSection).ToList();
+            var before = slides.FirstOrDefault(x => x.Index == gap);
+            if (before.Height > 0)
+                return before.Top - this.Gap / 2 - this.scrollY;
+
+            var last = slides.LastOrDefault();
+            return last.Top + last.Height + this.Gap / 2 - this.scrollY;
+        }
+    }
 
     /// <summary>
     /// Whether dropping here would move anything. Dropping a slide into the gap on either side of
@@ -174,15 +394,16 @@ public sealed class SlideRailController
 
     // ---- pointer ----
 
-    /// <summary>Starts a press. Returns true when it landed on a slide.</summary>
+    /// <summary>Starts a press. Returns true when it landed on a slide or a section header.</summary>
     public bool PointerDown(double x, double y)
     {
-        this.pressed = this.ItemAt(x, y);
+        this.pressedSection = this.SectionAt(x, y);
+        this.pressed = this.pressedSection >= 0 ? -1 : this.ItemAt(x, y);
         this.pressX = x;
         this.pressY = y;
         this.pointerY = y;
         this.dragging = false;
-        return this.pressed >= 0;
+        return this.pressed >= 0 || this.pressedSection >= 0;
     }
 
     public void PointerMove(double x, double y)
@@ -194,7 +415,7 @@ public sealed class SlideRailController
 
         if (!this.dragging)
         {
-            if (this.editor.IsReadOnly || this.editor.Count < 2 ||
+            if (this.editor.IsReadOnly || this.editor.Count < 2 || this.editor.IsEditingMaster ||
                 Math.Abs(y - this.pressY) < this.DragThreshold && Math.Abs(x - this.pressX) < this.DragThreshold)
             {
                 return;
@@ -213,9 +434,17 @@ public sealed class SlideRailController
         this.Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Ends a press: a tap opens the slide, a drag moves it.</summary>
+    /// <summary>Ends a press: a tap opens the slide (or folds a section), a drag moves it.</summary>
     public void PointerUp()
     {
+        if (this.pressedSection >= 0)
+        {
+            var section = this.pressedSection;
+            this.pressedSection = -1;
+            this.ToggleSection(section);
+            return;
+        }
+
         var from = this.pressed;
         var wasDragging = this.dragging;
         var gap = this.DropGap;
@@ -225,6 +454,14 @@ public sealed class SlideRailController
 
         if (from < 0)
             return;
+
+        if (this.editor.IsEditingMaster)
+        {
+            // Pages are not reordered; a tap opens one.
+            this.editor.Master.PageIndex = from;
+            this.Changed?.Invoke(this, EventArgs.Empty);
+            return;
+        }
 
         if (!wasDragging)
         {
@@ -245,6 +482,7 @@ public sealed class SlideRailController
     public void PointerCancel()
     {
         this.pressed = -1;
+        this.pressedSection = -1;
         this.dragging = false;
         this.Changed?.Invoke(this, EventArgs.Empty);
     }

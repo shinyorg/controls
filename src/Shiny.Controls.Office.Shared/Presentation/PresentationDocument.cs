@@ -82,9 +82,62 @@ public sealed class SlideDeck : OfficeDocument
     }
 
     /// <summary>Slide width in pixels at 96 dpi. 960x540 for the usual 16:9 deck.</summary>
-    public double SlideWidth { get; }
+    public double SlideWidth { get; private set; }
 
-    public double SlideHeight { get; }
+    public double SlideHeight { get; private set; }
+
+    /// <summary>Raised when Design ▸ Slide Size (or its undo) changes the slide dimensions.</summary>
+    public event EventHandler? SlideSizeChanged;
+
+    /// <summary>Takes a new slide size into the model and re-reads every slide at it.</summary>
+    internal void ApplySlideSize(double width, double height)
+    {
+        this.SlideWidth = width;
+        this.SlideHeight = height;
+        this.SlideSizeChanged?.Invoke(this, EventArgs.Empty);
+        this.ReprojectAll();
+    }
+
+    /// <summary>
+    /// Re-reads every slide — after an edit to something they all inherit from: the theme, a master, a
+    /// layout.
+    /// </summary>
+    internal void ReprojectAll()
+    {
+        for (var i = 0; i < this.parts.Count; i++)
+        {
+            this.slides[i] = new SlideReader(this.parts[i], this.sink).Read(i + 1);
+            this.dirty.Add(this.parts[i]);
+        }
+
+        this.contentChanged = true;
+        this.MarkDirty();
+        this.ContentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// The deck's sections, in order — empty for a deck without any. Read fresh each time, so it is
+    /// always the running order's.
+    /// </summary>
+    public IReadOnlyList<SlideSection> Sections => SlideSectionXml.Read(this);
+
+    /// <summary>A section was added, renamed, removed or moved.</summary>
+    internal void SectionsChanged()
+    {
+        this.contentChanged = true;
+        this.MarkDirty();
+        this.ContentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>The slide master parts, for the Slide Master view.</summary>
+    internal IReadOnlyList<SlideMasterPart> MasterParts => this.document.PresentationPart?.SlideMasterParts.ToList() ?? [];
+
+    /// <summary>A layout or master changed: every slide using it is re-read and the part saved.</summary>
+    internal void TemplateChanged(OpenXmlPart part)
+    {
+        this.MarkPartDirty(part);
+        this.ReprojectAll();
+    }
 
     public double AspectRatio => this.SlideHeight <= 0 ? 16d / 9 : this.SlideWidth / this.SlideHeight;
 
@@ -277,6 +330,10 @@ public sealed class SlideDeck : OfficeDocument
 
         return part.GetIdOfPart(image);
     }
+
+    /// <summary>A package-level media part (audio or video), which slides relate to rather than own.</summary>
+    internal MediaDataPart CreateMediaPart(string contentType, string extension)
+        => this.document.CreateMediaDataPart(contentType, extension);
 
     /// <summary>Re-reads one slide from its (now edited) XML and marks it for saving.</summary>
     internal void Reproject(int slide)

@@ -289,13 +289,36 @@ public static class ShapePainting
 
         stroke.Color = ToSk(outline.Color);
         stroke.StrokeWidth = (float)outline.Width;
-        stroke.PathEffect = outline.Dashed
-            ? SKPathEffect.CreateDash([(float)outline.Width * 3, (float)outline.Width * 2], 0)
-            : null;
+        stroke.PathEffect = DashEffect(outline);
 
         canvas.DrawPath(path, stroke);
         stroke.PathEffect?.Dispose();
         stroke.PathEffect = null;
+    }
+
+    /// <summary>
+    /// The path effect for an outline's dash pattern, in multiples of its width as DrawingML defines
+    /// them — or null for a solid line.
+    /// </summary>
+    public static SKPathEffect? DashEffect(ShapeOutline outline)
+    {
+        float[]? pattern = outline.Dash switch
+        {
+            LineDash.Dot or LineDash.SystemDot => [1, 1],
+            LineDash.Dash => [4, 3],
+            LineDash.LargeDash => [8, 3],
+            LineDash.DashDot => [4, 3, 1, 3],
+            LineDash.LongDashDot => [8, 3, 1, 3],
+            LineDash.LongDashDotDot => [8, 3, 1, 3, 1, 3],
+            LineDash.SystemDash => [3, 1],
+            _ => outline.Dashed ? [3, 2] : null
+        };
+
+        if (pattern is null)
+            return null;
+
+        var width = (float)Math.Max(0.5, outline.Width);
+        return SKPathEffect.CreateDash(pattern.Select(x => x * width).ToArray(), 0);
     }
 
     static SKColor ToSk(ArgbColor color) => new(color.R, color.G, color.B, color.A);

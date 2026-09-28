@@ -50,6 +50,22 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, IDisposable
         ["Constantia"] = ["Caladea", "Georgia", "Times New Roman"],
         ["Corbel"] = ["Carlito", "Helvetica Neue", "Arial"],
         ["Segoe UI"] = ["Carlito", "Helvetica Neue", "Arial", "Helvetica"],
+
+        // The slide themes' faces. Each ends on the bundled Carlito or Caladea, so a browser (which
+        // has no system fonts) still sets a theme in a proportional face of the right kind rather than
+        // the monospace fallback.
+        ["Arial"] = ["Helvetica", "Helvetica Neue", "Carlito"],
+        ["Helvetica"] = ["Arial", "Helvetica Neue", "Carlito"],
+        ["Verdana"] = ["Arial", "Helvetica Neue", "Carlito"],
+        ["Tahoma"] = ["Verdana", "Arial", "Carlito"],
+        ["Trebuchet MS"] = ["Arial", "Helvetica Neue", "Carlito"],
+        ["Century Gothic"] = ["Futura", "Avenir Next", "Arial", "Carlito"],
+        ["Gill Sans MT"] = ["Gill Sans", "Arial", "Carlito"],
+        ["Georgia"] = ["Times New Roman", "Times", "Caladea"],
+        ["Times New Roman"] = ["Times", "Georgia", "Caladea"],
+        ["Garamond"] = ["EB Garamond", "Georgia", "Times New Roman", "Caladea"],
+        ["Palatino Linotype"] = ["Palatino", "Georgia", "Caladea"],
+        ["Book Antiqua"] = ["Palatino", "Georgia", "Caladea"],
         ["Wingdings"] = ["Apple Symbols", "Segoe UI Symbol", "Arial Unicode MS"],
         ["Symbol"] = ["Apple Symbols", "Segoe UI Symbol", "Arial Unicode MS"]
     };

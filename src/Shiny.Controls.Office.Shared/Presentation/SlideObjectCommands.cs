@@ -134,6 +134,27 @@ public sealed class SlideClip
     /// <summary>How many shapes the clip holds.</summary>
     public int Count => this.Elements.Count;
 
+    /// <summary>Copies several shapes off a slide, keeping their stacking order. Null when none can be copied.</summary>
+    public static SlideClip? Copy(SlideDeck deck, int slide, IReadOnlyList<int> shapes)
+    {
+        var clips = shapes.OrderBy(x => x).Select(x => Copy(deck, slide, x)).OfType<SlideClip>().ToList();
+        if (clips.Count <= 1)
+            return clips.FirstOrDefault();
+
+        var parts = new Dictionary<string, OpenXmlPart>();
+        var links = new Dictionary<string, Uri>();
+        foreach (var clip in clips)
+        {
+            foreach (var (id, part) in clip.Parts)
+                parts[id] = part;
+
+            foreach (var (id, uri) in clip.Links)
+                links[id] = uri;
+        }
+
+        return new SlideClip(clips.SelectMany(x => x.Elements).ToList(), parts, links, slide, deck);
+    }
+
     /// <summary>Copies a shape off a slide. Null when the shape cannot be copied (a layout's, say).</summary>
     public static SlideClip? Copy(SlideDeck deck, int slide, int shape)
     {
