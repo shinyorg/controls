@@ -78,6 +78,9 @@ sealed class WordStyleResolver
 
     public TextStyle DefaultRunStyle => this.documentRunDefault;
 
+    /// <summary>The theme's font pair, for resolving a style definition that is not in the document yet.</summary>
+    public ThemeFonts ThemeFonts => this.themeFonts;
+
     /// <summary>Every style definition, keyed by id.</summary>
     public IReadOnlyDictionary<string, Style> Styles => this.styles;
 

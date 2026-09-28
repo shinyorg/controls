@@ -50,7 +50,11 @@ public sealed partial class WordDocument
         {
             try
             {
-                root.Save();
+                // Only a root still attached as its part's root: an undo that swapped the part's root
+                // for a restored copy leaves the old one detached, and saving it would write stale XML
+                // over the part.
+                if (root.OpenXmlPart is { } part && ReferenceEquals(part.RootElement, root))
+                    root.Save();
             }
             catch (Exception)
             {

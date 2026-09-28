@@ -119,6 +119,48 @@ public sealed partial class WordDocument
         }
     }
 
+    /// <summary>
+    /// Works out, for each paragraph that ends a section, how the section after it starts.
+    /// </summary>
+    /// <remarks>
+    /// A section's break type is recorded on the section itself — at its <em>end</em>, like every other
+    /// section property — so whether a new page follows paragraph N is decided by the next
+    /// <c>w:sectPr</c> in the document, not by the one in paragraph N. Only this pass can see both.
+    /// </remarks>
+    void ApplySectionBreaks()
+    {
+        var next = TypeOf(this.body?.Elements<SectionProperties>().LastOrDefault());
+
+        for (var top = this.blocks.Count - 1; top >= 0; top--)
+        {
+            if (this.blocks[top] is not DocumentParagraph paragraph)
+                continue;
+
+            var own = paragraph.Element?.ParagraphProperties?.GetFirstChild<SectionProperties>();
+            if (own is null)
+            {
+                if (paragraph.Format.SectionBreak != SectionBreakKind.None)
+                    this.blocks[top] = paragraph with { Format = paragraph.Format with { SectionBreak = SectionBreakKind.None } };
+
+                continue;
+            }
+
+            if (paragraph.Format.SectionBreak != next)
+                this.blocks[top] = paragraph with { Format = paragraph.Format with { SectionBreak = next } };
+
+            next = TypeOf(own);
+        }
+
+        static SectionBreakKind TypeOf(SectionProperties? section)
+            => OoxmlUnits.EnumAttribute(section?.GetFirstChild<SectionType>(), "val") switch
+            {
+                "continuous" => SectionBreakKind.Continuous,
+                "evenPage" => SectionBreakKind.EvenPage,
+                "oddPage" => SectionBreakKind.OddPage,
+                _ => SectionBreakKind.NextPage
+            };
+    }
+
     /// <summary>Removes a top-level block, its element and its projection together.</summary>
     internal void RemoveTopBlock(int top) => this.RemoveBlock(top);
 }

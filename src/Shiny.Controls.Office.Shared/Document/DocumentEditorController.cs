@@ -33,6 +33,44 @@ public sealed record CaretFormat
 
     /// <summary>How deeply nested that list item is, zero-based. Zero when it is not in a list.</summary>
     public int ListLevel { get; init; }
+
+    /// <summary>The caret paragraph's style id — what the style gallery lights. "Normal" when it names none.</summary>
+    public string StyleId { get; init; } = "Normal";
+
+    public bool Superscript { get; init; }
+    public bool Subscript { get; init; }
+
+    /// <summary>Line spacing as a multiple of single — 1.0, 1.15, 1.5, 2.0.</summary>
+    public double LineSpacing { get; init; } = 1.0;
+
+    /// <summary>Space above the paragraph, in points.</summary>
+    public double SpaceBefore { get; init; }
+
+    /// <summary>Space below the paragraph, in points.</summary>
+    public double SpaceAfter { get; init; }
+
+    /// <summary>Left indent in pixels.</summary>
+    public double IndentLeft { get; init; }
+
+    public double IndentRight { get; init; }
+
+    /// <summary>First-line indent in pixels; negative for a hanging indent.</summary>
+    public double IndentFirstLine { get; init; }
+
+    /// <summary>The paragraph's shading, or null.</summary>
+    public ArgbColor? Shading { get; init; }
+
+    /// <summary>The paragraph's borders, or null.</summary>
+    public ParagraphBorders? Borders { get; init; }
+
+    /// <summary>True inside a table cell — the cue for the contextual Table tab.</summary>
+    public bool IsInTable { get; init; }
+
+    /// <summary>The hyperlink under the caret, or null.</summary>
+    public string? Hyperlink { get; init; }
+
+    /// <summary>True when the text at the caret is a tracked insertion or deletion.</summary>
+    public TextRevision Revision { get; init; }
 }
 
 public enum CaretMove
@@ -104,6 +142,7 @@ public sealed partial class DocumentEditorController : DocumentController
         {
             this.DropPendingIfCaretMoved();
             this.RefreshCaretFormat();
+            this.NotifyPageIfMoved();
             this.RaiseChanged();
         };
 
@@ -479,7 +518,7 @@ public sealed partial class DocumentEditorController : DocumentController
             // The common path stays a single command. A transaction closes as a composite, which ends
             // the coalescing run - so wrapping every keystroke in one would make each character its
             // own undo step.
-            this.document.Execute(new InsertTextCommand(at, text));
+            this.ExecuteInsert(at, text);
         }
         else
         {
@@ -492,7 +531,7 @@ public sealed partial class DocumentEditorController : DocumentController
             // would leave the caret carrying a format nobody chose.
             using (this.document.Undo.BeginTransaction("Typing"))
             {
-                this.document.Execute(new InsertTextCommand(at, text));
+                this.ExecuteInsert(at, text);
 
                 foreach (var change in formats)
                     this.document.Execute(new FormatRunsCommand(new DocumentRange(at, end), change));
@@ -553,15 +592,44 @@ public sealed partial class DocumentEditorController : DocumentController
         if (caret.Offset > 0)
         {
             var from = caret with { Offset = caret.Offset - 1 };
+
+            if (this.document.IsTrackingRevisions)
+            {
+                // Tracked: the character stays, struck through, and the caret steps back over it.
+                if (!this.IsDeletedAt(from))
+                    this.document.Execute(new TrackedDeleteCommand(new DocumentRange(from, caret), this.Author, DateTime.UtcNow, this.NextRevisionId()));
+
+                this.Selection.MoveTo(from);
+                this.AfterEdit();
+                return;
+            }
+
             this.document.Execute(new DeleteRangeCommand(new DocumentRange(from, caret)));
             this.Selection.MoveTo(from);
             this.AfterEdit();
             return;
         }
 
+        if (this.document.IsTrackingRevisions)
+        {
+            // Joining paragraphs is not tracked; the caret just moves back into the one above.
+            this.Move(CaretMove.Left);
+            return;
+        }
+
         // At the very start of a paragraph, backspace joins it to the one above.
         if (caret.Block == 0)
             return;
+
+        // Unless the one above is in another container - the paragraph after a table, or the first in
+        // a cell. Nothing joins across that boundary; Word steps the caret over it instead.
+        if (!this.CanJoin(caret.Block - 1, caret.Block))
+        {
+            if (this.Document.CellOf(caret.Block) is null)
+                this.Move(CaretMove.Left);
+
+            return;
+        }
 
         var previousLength = this.LengthOf(caret.Block - 1);
         this.document.Execute(new MergeParagraphCommand(caret.Block - 1));
@@ -584,12 +652,27 @@ public sealed partial class DocumentEditorController : DocumentController
 
         if (caret.Offset < length)
         {
-            this.document.Execute(new DeleteRangeCommand(new DocumentRange(caret, caret with { Offset = caret.Offset + 1 })));
+            var next = caret with { Offset = caret.Offset + 1 };
+
+            if (this.document.IsTrackingRevisions)
+            {
+                if (!this.IsDeletedAt(caret))
+                    this.document.Execute(new TrackedDeleteCommand(new DocumentRange(caret, next), this.Author, DateTime.UtcNow, this.NextRevisionId()));
+
+                this.Selection.MoveTo(next);
+                this.AfterEdit();
+                return;
+            }
+
+            this.document.Execute(new DeleteRangeCommand(new DocumentRange(caret, next)));
             this.AfterEdit();
             return;
         }
 
-        if (caret.Block + 1 >= this.Document.Paragraphs.Count)
+        if (this.document.IsTrackingRevisions)
+            return;
+
+        if (caret.Block + 1 >= this.Document.Paragraphs.Count || !this.CanJoin(caret.Block, caret.Block + 1))
             return;
 
         this.document.Execute(new MergeParagraphCommand(caret.Block));
@@ -602,9 +685,49 @@ public sealed partial class DocumentEditorController : DocumentController
             return this.Selection.Focus;
 
         var range = this.Selection.Range;
+
+        if (this.document.IsTrackingRevisions)
+        {
+            // The deleted text stays in place, struck through; whatever replaces it goes after it.
+            this.document.Execute(new TrackedDeleteCommand(range, this.Author, DateTime.UtcNow, this.NextRevisionId()));
+
+            var after = this.ClampPosition(range.End);
+            this.Selection.MoveTo(after);
+            return after;
+        }
+
         this.document.Execute(new DeleteRangeCommand(range));
         this.Selection.MoveTo(range.Start);
         return range.Start;
+    }
+
+    /// <summary>True when the character at a position is tracked-deleted text.</summary>
+    bool IsDeletedAt(DocumentPosition position)
+    {
+        if (this.Document.Paragraphs.ElementAtOrDefault(position.Block) is not { } paragraph)
+            return false;
+
+        var cursor = 0;
+        foreach (var run in paragraph.Runs)
+        {
+            if (position.Offset >= cursor && position.Offset < cursor + run.Length)
+                return run.Style.Revision == TextRevision.Deleted;
+
+            cursor += run.Length;
+        }
+
+        return false;
+    }
+
+    /// <summary>A position pulled back inside the document after an edit that may have shortened it.</summary>
+    DocumentPosition ClampPosition(DocumentPosition position)
+    {
+        var count = this.Document.Paragraphs.Count;
+        if (count == 0)
+            return DocumentPosition.Start;
+
+        var block = Math.Clamp(position.Block, 0, count - 1);
+        return new DocumentPosition(block, Math.Clamp(position.Offset, 0, this.LengthOf(block)));
     }
 
     // ---- formatting ----
@@ -701,6 +824,11 @@ public sealed partial class DocumentEditorController : DocumentController
     {
         if (this.IsReadOnlyDocument)
             return false;
+
+        // In a table Tab walks the cells - Word's own rule, and the only way through a table from the
+        // keyboard. A list inside a cell still nests, which is why the list test comes first there.
+        if (this.IsInTable && !this.SelectionTouchesAList())
+            return this.TabInTable(backwards: shift);
 
         if (this.SelectionTouchesAList())
         {
@@ -2035,6 +2163,7 @@ public sealed partial class DocumentEditorController : DocumentController
         this.Find.Invalidate();
         this.RefreshCaretFormat();
         this.ScrollCaretIntoView();
+        this.InvalidateStatistics();
         this.RaiseChanged();
     }
 
@@ -2085,7 +2214,22 @@ public sealed partial class DocumentEditorController : DocumentController
                 _ => ListStyle.Numbered
             },
 
-            ListLevel = paragraph.List?.Numbering?.Level ?? 0
+            ListLevel = paragraph.List?.Numbering?.Level ?? 0,
+
+            StyleId = paragraph.Element?.ParagraphProperties?.ParagraphStyleId?.Val?.Value ?? "Normal",
+            Superscript = style.BaselineShift > 0,
+            Subscript = style.BaselineShift < 0,
+            LineSpacing = Math.Round(paragraph.Format.LineSpacing, 2),
+            SpaceBefore = OoxmlUnits.PixelsToPointsApprox(paragraph.Format.SpaceBefore),
+            SpaceAfter = OoxmlUnits.PixelsToPointsApprox(paragraph.Format.SpaceAfter),
+            IndentLeft = paragraph.Format.IndentLeft,
+            IndentRight = paragraph.Format.IndentRight,
+            IndentFirstLine = paragraph.Format.IndentFirstLine,
+            Shading = paragraph.Format.Shading,
+            Borders = paragraph.Format.Borders,
+            IsInTable = this.Document.CellOf(this.Selection.Focus.Block) is not null,
+            Hyperlink = style.Link,
+            Revision = style.Revision
         };
 
         // Layered over what the document says, in the order they were chosen. Without this the toolbar
@@ -2094,7 +2238,11 @@ public sealed partial class DocumentEditorController : DocumentController
         foreach (var change in this.pending)
             format = change.PreviewCaret?.Invoke(format) ?? format;
 
+        var previousStyle = this.CaretFormat.StyleId;
         this.CaretFormat = format;
+
+        if (!string.Equals(previousStyle, format.StyleId, StringComparison.Ordinal))
+            this.CurrentStyleChanged?.Invoke(this, EventArgs.Empty);
     }
 }
 

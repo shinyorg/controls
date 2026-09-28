@@ -27,7 +27,15 @@ public sealed record DocumentTheme
 
         // The ring takes the page's own ground rather than staying white, which on a dark page would
         // be a brighter mark than the handle it is meant to separate.
-        TouchHandleRing = new ArgbColor(255, 0x1E, 0x1E, 0x1E)
+        TouchHandleRing = new ArgbColor(255, 0x1E, 0x1E, 0x1E),
+        RevisionInk = new ArgbColor(255, 0xE8, 0x7A, 0xD2),
+        CommentFill = new ArgbColor(60, 0xF2, 0xC8, 0x11),
+        CommentFillActive = new ArgbColor(110, 0xF2, 0xC8, 0x11),
+        CommentBalloon = new ArgbColor(255, 0x3A, 0x35, 0x22),
+        CommentBalloonBorder = new ArgbColor(255, 0x8A, 0x74, 0x20),
+        CommentText = new ArgbColor(255, 0xEE, 0xEE, 0xEE),
+        FormattingMark = new ArgbColor(255, 0x7F, 0xA4, 0xE6),
+        WatermarkInk = new ArgbColor(70, 0x90, 0x90, 0x90)
     };
 
     public ArgbColor PageBackground { get; init; } = new(255, 255, 255, 255);
@@ -71,6 +79,26 @@ public sealed record DocumentTheme
 
     /// <summary>The spelling squiggle. Red by convention, and the one place a document may not override.</summary>
     public ArgbColor SpellingUnderline { get; init; } = new(255, 0xD1, 0x34, 0x38);
+
+    /// <summary>Tracked insertions and deletions are drawn in this, the way Word colours a reviewer's changes.</summary>
+    public ArgbColor RevisionInk { get; init; } = new(255, 0xB0, 0x1E, 0x8A);
+
+    /// <summary>The wash over commented text.</summary>
+    public ArgbColor CommentFill { get; init; } = new(70, 0xF2, 0xC8, 0x11);
+
+    /// <summary>The wash over the comment the caret is in.</summary>
+    public ArgbColor CommentFillActive { get; init; } = new(130, 0xF2, 0xC8, 0x11);
+
+    /// <summary>A comment balloon's background and edge.</summary>
+    public ArgbColor CommentBalloon { get; init; } = new(255, 0xFF, 0xF8, 0xDC);
+    public ArgbColor CommentBalloonBorder { get; init; } = new(255, 0xD9, 0xB3, 0x2C);
+    public ArgbColor CommentText { get; init; } = new(255, 0x33, 0x33, 0x33);
+
+    /// <summary>Paragraph marks and space dots when formatting marks are shown.</summary>
+    public ArgbColor FormattingMark { get; init; } = new(255, 0x6E, 0x8F, 0xC9);
+
+    /// <summary>A text watermark's ink. Word's default is silver at half opacity.</summary>
+    public ArgbColor WatermarkInk { get; init; } = new(90, 0xA0, 0xA0, 0xA0);
 
     /// <summary>
     /// When true the document's own colours are discarded in favour of <see cref="Text"/>.
@@ -167,6 +195,18 @@ public sealed record DocumentPaintRequest
 
     /// <summary>Height of one sheet, in the same units as the layout.</summary>
     public double PageHeight { get; init; }
+
+    /// <summary>Draw paragraph marks and space dots — Show/Hide ¶.</summary>
+    public bool ShowFormattingMarks { get; init; }
+
+    /// <summary>Comment anchors and balloons, placed by <see cref="DocumentEditorController.CommentMarks"/>.</summary>
+    public IReadOnlyList<DocumentCommentMark> Comments { get; init; } = [];
+
+    /// <summary>The document's page colour, drawn instead of the theme's paper when set.</summary>
+    public ArgbColor? PageColor { get; init; }
+
+    /// <summary>A text watermark from the document itself, drawn diagonally across each page.</summary>
+    public string? WatermarkText { get; init; }
 }
 
 
@@ -226,8 +266,9 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             Snap(request.PageX + request.PageWidth, request.Scale),
             (float)request.Viewport.Height);
 
-        this.fill.Color = ToSk(theme.PageBackground);
+        this.fill.Color = ToSk(request.PageColor ?? theme.PageBackground);
         canvas.DrawRect(panel, this.fill);
+        this.DrawTextWatermark(canvas, panel, request, theme);
 
         // Behind the text and pinned to the panel rather than to the flow: reflow has no pages, so a
         // mark that scrolled with the content would slide away and leave most of the document unmarked.
@@ -254,7 +295,8 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
                 Snap(request.PageX + request.PageWidth, request.Scale),
                 Snap(top + request.PageHeight, request.Scale));
 
-            this.PaintPaper(canvas, paper, theme, request.Watermark);
+            this.PaintPaper(canvas, paper, theme, request.Watermark, request.PageColor);
+            this.DrawTextWatermark(canvas, paper, request, theme);
 
             // Clipped to the sheet: a paragraph whose last line straddles the boundary is drawn on
             // both pages, and without the clip the overhang would spill into the gap below.
@@ -296,7 +338,126 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
 
                 canvas.Restore();
             }
+
+            if (entry.Footnotes is { } notes)
+            {
+                // At the foot of the text area, above the bottom margin, under a short rule — Word's
+                // separator is a third of the column.
+                var notesTop = top + setup.MarginTop + setup.ContentHeight - notes.Height;
+
+                canvas.Save();
+                canvas.ClipRect(paper);
+                canvas.Translate((float)request.ResolvedContentX, (float)notesTop);
+
+                this.stroke.Color = ToSk(theme.Rule);
+                this.stroke.StrokeWidth = 1;
+                canvas.DrawLine(0, -6, (float)(setup.ContentWidth / 3), -6, this.stroke);
+
+                foreach (var block in notes.Blocks)
+                    this.PaintBlock(canvas, block, theme, request.PageColor ?? theme.PageBackground);
+
+                canvas.Restore();
+            }
+
+            // Balloons after everything on the page, and outside its clip: they sit in the markup area
+            // to the right of the paper as well as over its margin.
+            if (request.Comments.Count > 0)
+            {
+                canvas.Save();
+                canvas.Translate(
+                    (float)request.ResolvedContentX,
+                    (float)(top + setup.MarginTop - entry.Page.FlowTop));
+
+                foreach (var mark in request.Comments)
+                {
+                    if (mark.Balloon is not { } balloon || balloon.Y < entry.Page.FlowTop || balloon.Y >= entry.Page.FlowBottom)
+                        continue;
+
+                    this.PaintBalloon(canvas, mark, balloon, theme);
+                }
+
+                canvas.Restore();
+            }
         }
+    }
+
+    /// <summary>A comment balloon: the box, the author, the text, and a leader back to the anchor.</summary>
+    void PaintBalloon(SKCanvas canvas, DocumentCommentMark mark, GridRectLike balloon, DocumentTheme theme)
+    {
+        var rect = new SKRect((float)balloon.X, (float)balloon.Y, (float)balloon.Right, (float)balloon.Bottom);
+
+        // The leader runs from the end of the anchor's first line out to the balloon.
+        if (mark.Anchor.Count > 0)
+        {
+            var anchor = mark.Anchor[0];
+            this.stroke.Color = ToSk(theme.CommentBalloonBorder);
+            this.stroke.StrokeWidth = mark.IsCurrent ? 1.5f : 1f;
+            canvas.DrawLine((float)anchor.Right, (float)anchor.Bottom, rect.Left, rect.Top + 8, this.stroke);
+        }
+
+        this.fill.Color = ToSk(theme.CommentBalloon);
+        canvas.DrawRoundRect(rect, 4, 4, this.fill);
+
+        this.stroke.Color = ToSk(theme.CommentBalloonBorder);
+        this.stroke.StrokeWidth = mark.IsCurrent ? 2f : 1f;
+        canvas.DrawRoundRect(rect, 4, 4, this.stroke);
+        this.stroke.StrokeWidth = 1;
+
+        var authorStyle = TextStyle.Default with { FontSize = 11, Bold = true, Color = theme.CommentText };
+        var bodyStyle = TextStyle.Default with { FontSize = 11, Color = theme.CommentText };
+
+        canvas.Save();
+        canvas.ClipRect(rect);
+
+        this.fill.Color = ToSk(theme.CommentText);
+        canvas.DrawText(mark.Comment.Author, rect.Left + 6, rect.Top + 14, SKTextAlign.Left, measurer.GetFont(authorStyle), this.fill);
+
+        // Wrapped to the balloon by the same engine the page uses, so a long comment breaks between words.
+        var engine = new TextLayoutEngine(measurer);
+        var lines = engine.Layout([new StyledRun(mark.Comment.Text.Replace('\n', ' '), bodyStyle)], Math.Max(10, rect.Width - 12));
+        var y = rect.Top + 20;
+
+        foreach (var line in lines)
+        {
+            if (y + line.Height > rect.Bottom)
+                break;
+
+            foreach (var piece in line.Runs)
+            {
+                if (piece.Text.Length > 0)
+                    canvas.DrawText(piece.Text, rect.Left + 6 + (float)piece.X, y + (float)line.Ascent, SKTextAlign.Left, measurer.GetFont(bodyStyle), this.fill);
+            }
+
+            y += (float)line.Height;
+        }
+
+        canvas.Restore();
+    }
+
+    /// <summary>The document's own text watermark — a diagonal mark across the page, under the text.</summary>
+    void DrawTextWatermark(SKCanvas canvas, SKRect page, DocumentPaintRequest request, DocumentTheme theme)
+    {
+        if (string.IsNullOrWhiteSpace(request.WatermarkText))
+            return;
+
+        var text = request.WatermarkText!;
+        var diagonal = Math.Sqrt((page.Width * page.Width) + (page.Height * page.Height));
+        var style = TextStyle.Default with { FontFamily = "Calibri", FontSize = 100, Bold = true };
+        var font = measurer.GetFont(style);
+        var width = font.MeasureText(text);
+
+        // Sized to run most of the way along the diagonal, which is what Word's automatic size does.
+        var scale = width > 0 ? (float)(diagonal * 0.7 / width) : 1f;
+
+        canvas.Save();
+        canvas.ClipRect(page);
+        canvas.Translate(page.MidX, page.MidY);
+        canvas.RotateDegrees(-45);
+        canvas.Scale(scale);
+
+        this.fill.Color = ToSk(theme.WatermarkInk);
+        canvas.DrawText(text, 0, (float)(font.Metrics.CapHeight / 2), SKTextAlign.Center, font, this.fill);
+        canvas.Restore();
     }
 
     /// <summary>A sheet of paper: a soft drop shadow, the page itself, and a hairline edge.</summary>
@@ -306,7 +467,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
     /// the side it is offset towards gains a second, darker line against the surround, so the page
     /// looks like it has a 2px border on one side and a 1px border on the other.
     /// </remarks>
-    void PaintPaper(SKCanvas canvas, SKRect paper, DocumentTheme theme, OfficeWatermark? watermark)
+    void PaintPaper(SKCanvas canvas, SKRect paper, DocumentTheme theme, OfficeWatermark? watermark, ArgbColor? pageColor = null)
     {
         using (var blur = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 3f))
         {
@@ -316,7 +477,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             this.fill.MaskFilter = null;
         }
 
-        this.fill.Color = ToSk(theme.PageBackground);
+        this.fill.Color = ToSk(pageColor ?? theme.PageBackground);
         canvas.DrawRect(paper, this.fill);
 
         // Per page, under the text. Drawn on the paper rather than across the surround so it lands the
@@ -366,6 +527,21 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             }
         }
 
+        foreach (var mark in request.Comments)
+        {
+            this.fill.Color = ToSk(mark.IsCurrent ? theme.CommentFillActive : theme.CommentFill);
+
+            foreach (var rect in mark.Anchor)
+            {
+                if (rect.Bottom < flowTop || rect.Y > flowBottom)
+                    continue;
+
+                // An anchor on an empty range is a point: drawn as a narrow flag rather than nothing.
+                var right = rect.Width < 3 ? rect.X + 4 : rect.Right;
+                canvas.DrawRect(new SKRect((float)rect.X, (float)rect.Y, (float)right, (float)rect.Bottom), this.fill);
+            }
+        }
+
         // Selection goes under the text: painting it over would wash out the glyphs it is meant to
         // highlight.
         if (request.Selection.Count > 0)
@@ -388,7 +564,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             if (block.Y > flowBottom)
                 break;
 
-            this.PaintBlock(canvas, block, theme, theme.PageBackground);
+            this.PaintBlock(canvas, block, theme, request.PageColor ?? theme.PageBackground, request.ShowFormattingMarks);
         }
 
         // Squiggles go over the text: they mark it rather than sit behind it, and a wash underneath
@@ -476,16 +652,16 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
     /// What the block is painted on: the page, or the shading of the table cell it sits in. Ink is made
     /// legible against this rather than against the page - see <see cref="InkContrast"/>.
     /// </param>
-    void PaintBlock(SKCanvas canvas, LaidOutBlock block, DocumentTheme theme, ArgbColor ground)
+    void PaintBlock(SKCanvas canvas, LaidOutBlock block, DocumentTheme theme, ArgbColor ground, bool marks = false)
     {
         switch (block)
         {
             case LaidOutParagraph paragraph:
-                this.PaintParagraph(canvas, paragraph, theme, ground);
+                this.PaintParagraph(canvas, paragraph, theme, ground, marks);
                 break;
 
             case LaidOutTable table:
-                this.PaintTable(canvas, table, theme, ground);
+                this.PaintTable(canvas, table, theme, ground, marks);
                 break;
 
             case LaidOutRule rule:
@@ -496,7 +672,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
         }
     }
 
-    void PaintParagraph(SKCanvas canvas, LaidOutParagraph paragraph, DocumentTheme theme, ArgbColor ground)
+    void PaintParagraph(SKCanvas canvas, LaidOutParagraph paragraph, DocumentTheme theme, ArgbColor ground, bool marks = false)
     {
         if (paragraph.Format.Shading is { } shading)
         {
@@ -526,6 +702,85 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             this.fill.Color = ToSk(Ink(style.Color, theme, ground));
             canvas.DrawText(label, (float)paragraph.LabelX, (float)baseline, SKTextAlign.Left, measurer.GetFont(style), this.fill);
         }
+
+        if (paragraph.Format.Borders is { Any: true } borders)
+            this.PaintBorders(canvas, paragraph, borders, theme, ground);
+
+        if (marks)
+            this.PaintMarks(canvas, paragraph, theme);
+    }
+
+    /// <summary>Rules along a paragraph's edges, a little outside the text they frame.</summary>
+    void PaintBorders(SKCanvas canvas, LaidOutParagraph paragraph, ParagraphBorders borders, DocumentTheme theme, ArgbColor ground)
+    {
+        const float Pad = 2;
+
+        var left = (float)paragraph.X - Pad;
+        var right = (float)(paragraph.X + paragraph.Width) + Pad;
+        var top = (float)paragraph.Y - Pad;
+        var bottom = (float)(paragraph.Y + paragraph.Height) + Pad;
+
+        this.stroke.Color = ToSk(Ink(borders.Color, theme, ground));
+        this.stroke.StrokeWidth = (float)Math.Max(0.75, borders.Width);
+
+        if (borders.Top)
+            canvas.DrawLine(left, top, right, top, this.stroke);
+
+        if (borders.Bottom)
+            canvas.DrawLine(left, bottom, right, bottom, this.stroke);
+
+        if (borders.Left)
+            canvas.DrawLine(left, top, left, bottom, this.stroke);
+
+        if (borders.Right)
+            canvas.DrawLine(right, top, right, bottom, this.stroke);
+
+        this.stroke.StrokeWidth = 1;
+    }
+
+    /// <summary>
+    /// Show/Hide ¶: a pilcrow at the end of the paragraph and a raised dot for every space.
+    /// </summary>
+    void PaintMarks(SKCanvas canvas, LaidOutParagraph paragraph, DocumentTheme theme)
+    {
+        this.fill.Color = ToSk(theme.FormattingMark);
+
+        foreach (var line in paragraph.Lines)
+        {
+            var baseline = paragraph.Y + line.Y + line.Ascent;
+
+            foreach (var run in line.Runs)
+            {
+                if (run.IsAtomic || run.Text.Length == 0)
+                    continue;
+
+                var font = measurer.GetFont(run.Style);
+                for (var i = 0; i < run.Text.Length; i++)
+                {
+                    if (run.Text[i] != ' ')
+                        continue;
+
+                    var before = measurer.Measure(run.Text.AsSpan(0, i), run.Style).Width;
+                    var after = measurer.Measure(run.Text.AsSpan(0, i + 1), run.Style).Width;
+                    var cx = (float)(paragraph.X + run.X + ((before + after) / 2));
+                    canvas.DrawCircle(cx, (float)(baseline - (run.Style.FontSize * 0.3)), 0.9f, this.fill);
+                }
+
+                _ = font;
+            }
+        }
+
+        var last = paragraph.Lines.Count > 0 ? paragraph.Lines[^1] : null;
+        if (last is null)
+            return;
+
+        var end = last.Runs.Count > 0 ? last.Runs[^1] : null;
+        var x = end is null ? paragraph.X : paragraph.X + end.X + end.Width;
+        var style = end?.Style ?? paragraph.LabelStyle;
+        if (style.FontSize <= 0)
+            style = TextStyle.Default;
+
+        canvas.DrawText("\u00B6", (float)x + 1, (float)(paragraph.Y + last.Y + last.Ascent), SKTextAlign.Left, measurer.GetFont(style with { Bold = false, Italic = false, BaselineShift = 0, SizeScale = 1 }), this.fill);
     }
 
     /// <summary>Draws the frame and handles around the selected inline object.</summary>
@@ -609,15 +864,21 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
                 this.fill);
         }
 
-        var color = style.Link is not null
-            ? InkContrast.Legible(theme.Link, ground)
-            : Ink(style.Color, theme, ground);
+        var color = style.Revision != TextRevision.None
+            ? InkContrast.Legible(theme.RevisionInk, ground)
+            : style.Link is not null
+                ? InkContrast.Legible(theme.Link, ground)
+                : Ink(style.Color, theme, ground);
 
         this.fill.Color = ToSk(color);
         canvas.DrawText(run.Text, (float)x, (float)y, SKTextAlign.Left, font, this.fill);
 
-        var underline = style.Underline != UnderlineStyle.None || style.Link is not null;
-        if (underline || style.Strike)
+        // A tracked insertion is underlined and a deletion struck through, in the reviewer's ink, over
+        // whatever formatting the text has of its own - Word's simple markup.
+        var underline = style.Underline != UnderlineStyle.None || style.Link is not null || style.Revision == TextRevision.Inserted;
+        var strike = style.Strike || style.Revision == TextRevision.Deleted;
+
+        if (underline || strike)
         {
             this.stroke.Color = ToSk(color);
             this.stroke.StrokeWidth = Math.Max(1, (float)(style.FontSize / 14));
@@ -634,7 +895,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
                 }
             }
 
-            if (style.Strike)
+            if (strike)
             {
                 var middle = (float)(y - style.FontSize * 0.28);
                 canvas.DrawLine((float)x, middle, (float)(x + run.Width), middle, this.stroke);
@@ -687,7 +948,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
         canvas.Restore();
     }
 
-    void PaintTable(SKCanvas canvas, LaidOutTable table, DocumentTheme theme, ArgbColor ground)
+    void PaintTable(SKCanvas canvas, LaidOutTable table, DocumentTheme theme, ArgbColor ground, bool marks = false)
     {
         foreach (var cell in table.Cells)
         {
@@ -705,7 +966,7 @@ public sealed class DocumentPainter(SkiaTextMeasurer measurer) : IDisposable
             }
 
             foreach (var block in cell.Blocks)
-                this.PaintBlock(canvas, block, theme, cellGround);
+                this.PaintBlock(canvas, block, theme, cellGround, marks);
 
             if (!table.HasBorders)
                 continue;

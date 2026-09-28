@@ -42,6 +42,12 @@ public sealed record StyledRun(string Text, TextStyle Style)
     /// <summary>The <c>w:id</c> of the footnote this run references, or null for an ordinary run.</summary>
     public int? FootnoteId { get; init; }
 
+    /// <summary>
+    /// Set on a tab that runs to a right-aligned tab stop: the leader character drawn across it
+    /// (<c>'.'</c> for dots), or a space for none.
+    /// </summary>
+    public char? RightTabLeader { get; init; }
+
     /// <summary>How much of the offset space the run covers — see <see cref="SourceLength"/>.</summary>
     public int Length => this.IsBreak ? 0 : this.Inline is not null ? 1 : this.SourceLength >= 0 ? this.SourceLength : this.Text.Length;
 }
@@ -177,8 +183,10 @@ public sealed class TextLayoutEngine(ITextMeasurer measurer)
             indent = 0;
         }
 
-        foreach (var run in runs)
+        for (var runIndex = 0; runIndex < runs.Count; runIndex++)
         {
+            var run = runs[runIndex];
+
             if (run.IsBreak)
             {
                 Flush(lastLineOfParagraph: true);
@@ -205,6 +213,32 @@ public sealed class TextLayoutEngine(ITextMeasurer measurer)
 
                 // One character, so caret arithmetic after it stays right.
                 sourceOffset++;
+                continue;
+            }
+
+            if (run.RightTabLeader is { } leader)
+            {
+                // A right-aligned tab stop: the tab stretches so whatever follows it on the line ends at
+                // the right margin — the page number at the end of a table-of-contents line.
+                var rest = 0d;
+                for (var j = runIndex + 1; j < runs.Count && !runs[j].IsBreak; j++)
+                    rest += runs[j].Inline?.Width ?? this.Measurer.Measure(runs[j].Text, runs[j].Style).Width;
+
+                var used = current.Sum(p => p.Width);
+                var space = this.Measurer.Measure(" ", run.Style).Width;
+                var tabWidth = Math.Max(space, width - indent - used - rest - 1);
+
+                var fill = string.Empty;
+                if (leader != ' ')
+                {
+                    var dot = Math.Max(1, this.Measurer.Measure(leader.ToString(), run.Style).Width);
+                    var count = (int)Math.Floor((tabWidth - (space * 2)) / dot);
+                    fill = count > 0 ? new string(leader, count) : string.Empty;
+                }
+
+                var metrics = this.Measurer.LineMetrics(run.Style);
+                current.Add(new PendingPiece(fill, run.Style, tabWidth, metrics.Ascent, metrics.Descent, null, sourceOffset, run.Length));
+                sourceOffset += run.Length;
                 continue;
             }
 

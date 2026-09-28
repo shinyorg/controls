@@ -22,9 +22,31 @@ public abstract record DocumentCommand : IEditCommand<WordDocument>
 }
 
 /// <summary>Inserts text at a position.</summary>
-public sealed record InsertTextCommand(DocumentPosition At, string Text) : DocumentCommand
+/// <remarks>
+/// Mergeable: a run of keystrokes at consecutive positions folds into one undo step, closed at the
+/// end of each word. Merging is decided from the positions alone, so a click elsewhere mid-word starts a
+/// new step without anything having to tell the stack the caret moved.
+/// </remarks>
+public sealed record InsertTextCommand(DocumentPosition At, string Text) : DocumentCommand, IMergeableCommand<WordDocument>
 {
     public override string Name => "Typing";
+
+    public bool TryMerge(IEditCommand<WordDocument> next, out IEditCommand<WordDocument> merged)
+    {
+        merged = this;
+
+        if (next is not InsertTextCommand other ||
+            other.At.Block != this.At.Block ||
+            other.At.Offset != this.At.Offset + this.Text.Length ||
+            this.Text.Length == 0 ||
+            char.IsWhiteSpace(this.Text[^1]))
+        {
+            return false;
+        }
+
+        merged = this with { Text = this.Text + other.Text };
+        return true;
+    }
 
     public override IEditCommand<WordDocument> Apply(WordDocument context)
     {
@@ -221,7 +243,8 @@ public enum RunFormatKind
     FontFamily,
     FontSize,
     Color,
-    Highlight
+    Highlight,
+    VerticalPosition
 }
 
 public sealed record RunFormatChange(string Name, Action<RunProperties> Apply)
@@ -262,6 +285,32 @@ public sealed record RunFormatChange(string Name, Action<RunProperties> Apply)
 
     public static RunFormatChange Highlight(ArgbColor? color) => new(color is null ? "Remove Highlight" : "Highlight", WordParagraphEditor.SetHighlight(color))
         { Kind = RunFormatKind.Highlight, PreviewCaret = f => f with { Highlight = color } };
+
+    public static RunFormatChange Vertical(VerticalPosition position) => new(
+        position switch
+        {
+            VerticalPosition.Superscript => "Superscript",
+            VerticalPosition.Subscript => "Subscript",
+            _ => "Baseline"
+        },
+        WordParagraphEditor.SetVerticalPosition(position))
+    {
+        Kind = RunFormatKind.VerticalPosition,
+        PreviewCaret = f => f with
+        {
+            Superscript = position == VerticalPosition.Superscript,
+            Subscript = position == VerticalPosition.Subscript
+        }
+    };
+
+    /// <summary>Every direct character property removed — Clear All Formatting.</summary>
+    public static RunFormatChange Clear() => new("Clear Formatting", WordParagraphEditor.ClearRunFormatting());
+
+    /// <summary>Replaces the character formatting with a copy — the format painter's stroke.</summary>
+    public static RunFormatChange CopyFrom(RunProperties? source) => new("Format Painter", WordParagraphEditor.CopyRunFormatting(source));
+
+    /// <summary>A character style such as <c>Hyperlink</c>; null removes it.</summary>
+    public static RunFormatChange CharacterStyle(string? styleId) => new("Character Style", WordParagraphEditor.SetRunStyle(styleId));
 }
 
 /// <summary>Applies paragraph-level formatting to every paragraph a range touches.</summary>
@@ -294,6 +343,49 @@ public sealed record ParagraphFormatChange(string Name, Action<ParagraphProperti
 
     public static ParagraphFormatChange Style(string? styleId)
         => new("Paragraph Style", WordParagraphEditor.SetStyle(styleId));
+
+    public static ParagraphFormatChange Spacing(double? lineMultiple, double? beforePoints, double? afterPoints)
+        => new(lineMultiple is null ? "Paragraph Spacing" : "Line Spacing", WordParagraphEditor.SetSpacing(lineMultiple, beforePoints, afterPoints));
+
+    public static ParagraphFormatChange Indent(double? left, double? right, double? firstLine)
+        => new("Indent", WordParagraphEditor.SetIndentation(left, right, firstLine));
+
+    public static ParagraphFormatChange Shading(ArgbColor? color)
+        => new("Shading", WordParagraphEditor.SetShading(color));
+
+    public static ParagraphFormatChange Border(ParagraphBorders? borders)
+        => new("Borders", WordParagraphEditor.SetBorders(borders));
+
+    /// <summary>
+    /// The paragraph's own formatting replaced with a copy of another's, keeping its list membership
+    /// and any section break it ends.
+    /// </summary>
+    public static ParagraphFormatChange CopyFrom(ParagraphProperties source) => new("Format Painter", properties =>
+    {
+        foreach (var child in properties.ChildElements.ToList())
+        {
+            if (child is not (NumberingProperties or SectionProperties or ParagraphMarkRunProperties))
+                child.Remove();
+        }
+
+        foreach (var child in source.ChildElements)
+        {
+            if (child is NumberingProperties or SectionProperties or ParagraphMarkRunProperties or ParagraphPropertiesChange)
+                continue;
+
+            WordParagraphEditor.InsertOrdered(properties, child.CloneNode(true));
+        }
+    });
+
+    /// <summary>Back to Normal with no direct paragraph formatting, keeping lists and section breaks.</summary>
+    public static ParagraphFormatChange ClearDirect() => new("Clear Formatting", properties =>
+    {
+        foreach (var child in properties.ChildElements.ToList())
+        {
+            if (child is not (NumberingProperties or SectionProperties or ParagraphMarkRunProperties or ParagraphPropertiesChange))
+                child.Remove();
+        }
+    });
 }
 
 /// <summary>

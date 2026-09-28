@@ -138,7 +138,9 @@ public sealed record DocumentParagraph(IReadOnlyList<StyledRun> Runs, ParagraphF
         .Select(x => x.Text));
 
     static string TextOf(StyledRun run)
-        => run.Inline is not null || run.SourceLength >= 0
+        => run.RightTabLeader is not null
+            ? run.Text
+            : run.Inline is not null || run.SourceLength >= 0
             ? new string(WordParagraphEditor.ObjectPlaceholder[0], run.Length)
             : run.Text;
 }

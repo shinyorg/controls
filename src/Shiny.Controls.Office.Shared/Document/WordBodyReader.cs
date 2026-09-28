@@ -31,6 +31,9 @@ sealed class WordBodyReader(
     /// </remarks>
     readonly DrawingReader drawing = new(ThemeColors.From(main.ThemePart));
 
+    /// <summary>The leader of the paragraph being read's right tab stop, while it is being read.</summary>
+    char? rightTabLeader;
+
     /// <summary>Re-projects one paragraph after its XML has been edited.</summary>
     public DocumentParagraph Reread(Paragraph paragraph) => this.ReadParagraph(paragraph);
 
@@ -111,7 +114,32 @@ sealed class WordBodyReader(
         }
 
         var label = this.ReadListLabel(paragraph, properties, styleId, runStyle, ref format);
-        var runs = this.ReadInlines(paragraph, runStyle).ToList();
+
+        // A right tab stop turns the paragraph's tabs into ones that push what follows them to the
+        // right margin — the shape of every table-of-contents line.
+        var rightTab = properties?.Tabs?.Elements<TabStop>()
+            .FirstOrDefault(x => OoxmlUnits.EnumAttribute(x, "val") == "right");
+
+        this.rightTabLeader = rightTab is null
+            ? null
+            : OoxmlUnits.EnumAttribute(rightTab, "leader") switch
+            {
+                "dot" => '.',
+                "hyphen" => '-',
+                "underscore" => '_',
+                "middleDot" => '\u00B7',
+                _ => ' '
+            };
+
+        List<StyledRun> runs;
+        try
+        {
+            runs = this.ReadInlines(paragraph, runStyle).ToList();
+        }
+        finally
+        {
+            this.rightTabLeader = null;
+        }
 
         return new DocumentParagraph(runs, format)
         {
@@ -372,8 +400,12 @@ sealed class WordBodyReader(
 
                 case TabChar:
                     // A real tab needs tab stops the reflow view does not model; four spaces is the
-                    // honest approximation and keeps indented text from collapsing.
-                    yield return new StyledRun("    ", style);
+                    // honest approximation and keeps indented text from collapsing. A right-aligned
+                    // stop is the exception, and the one that matters: it is how a TOC line ends.
+                    yield return this.rightTabLeader is { } leader
+                        ? new StyledRun("    ", style) { SourceLength = 4, RightTabLeader = leader }
+                        : new StyledRun("    ", style);
+
                     break;
 
                 case Break br:
@@ -397,8 +429,12 @@ sealed class WordBodyReader(
 
                     break;
 
-                case Picture:
-                    unsupported.Report(new UnsupportedFeature("document", "VML picture", UnsupportedSeverity.NotRendered));
+                case Picture picture:
+                    // A header's VML WordArt is a watermark, which the painter draws from the document's
+                    // WatermarkText; anything else in VML is not drawn and is said so.
+                    if (!picture.Descendants().Any(x => x.LocalName == "textpath"))
+                        unsupported.Report(new UnsupportedFeature("document", "VML picture", UnsupportedSeverity.NotRendered));
+
                     break;
 
                 case SymbolChar symbol:

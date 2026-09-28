@@ -58,6 +58,7 @@ public sealed partial class WordDocument : OfficeDocument
         this.RefreshNoteNumbers(force: true);
         this.blocks.AddRange(this.reader.ReadBody(this.body));
         this.sequencer.Apply(this.blocks);
+        this.ApplySectionBreaks();
         this.RebuildStory();
         this.ReadReviewParts();
 
@@ -435,6 +436,7 @@ public sealed partial class WordDocument : OfficeDocument
         // inserted or deleted one renumbers the rest of its list.
         this.RefreshNoteNumbers(force: false);
         this.sequencer.Apply(this.blocks);
+        this.ApplySectionBreaks();
         this.RebuildStory();
         this.ReadReviewParts();
 
