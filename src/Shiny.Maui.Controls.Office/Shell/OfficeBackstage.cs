@@ -410,7 +410,16 @@ public class OfficeBackstage : ContentView
     }
 
 
-    static FlexLayout Tiles() => new() { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap, Direction = Microsoft.Maui.Layouts.FlexDirection.Row };
+    static FlexLayout Tiles() => new()
+    {
+        Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
+        Direction = Microsoft.Maui.Layouts.FlexDirection.Row,
+
+        // Rows packed at the top rather than stretched to share the height, which on iOS squashed a
+        // wrapped row up over the first one's labels.
+        AlignContent = Microsoft.Maui.Layouts.FlexAlignContent.Start,
+        AlignItems = Microsoft.Maui.Layouts.FlexAlignItems.Start
+    };
 
 
     void OnTemplatesChanged()
@@ -473,6 +482,9 @@ public class OfficeBackstage : ContentView
         name.WidthRequest = w;
 
         var stack = new VerticalStackLayout { Spacing = 6, Margin = new Thickness(0, 0, 16, 16) };
+
+        // A tile is its picture's size, never squeezed to fit a row (flex items shrink by default).
+        FlexLayout.SetShrink(stack, 0);
         stack.Children.Add(frame);
         stack.Children.Add(name);
 
