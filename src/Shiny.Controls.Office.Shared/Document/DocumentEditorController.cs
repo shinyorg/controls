@@ -269,7 +269,11 @@ public sealed partial class DocumentEditorController : DocumentController
         {
             try
             {
-                await Task.Delay(delayMilliseconds, cancellationToken).ConfigureAwait(false);
+                // Back on the caller's context after the delay, deliberately: the refresh reads the
+                // layout and calls the platform checker, and on iOS that is UITextChecker - UIKit,
+                // which refuses a thread-pool call. Resuming off-thread made every re-check after an
+                // edit fail silently, so the squiggles vanished on the first keystroke for good.
+                await Task.Delay(delayMilliseconds, cancellationToken);
                 await this.RefreshSpellingAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
