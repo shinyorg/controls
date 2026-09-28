@@ -94,15 +94,6 @@ public partial class NotebookEditorPage : ContentPage
             : $"{this.notebook.Sections.Count} sections · {this.notebook.AllPages().Count()} pages · " +
               $"{this.edits} edits{(this.notebook.IsDirty ? " · unsaved" : string.Empty)}";
 
-    protected override void OnHandlerChanged()
-    {
-        base.OnHandlerChanged();
-        if (this.Handler is null)
-        {
-            this.Editor.NotebookChanged -= this.OnNotebookChanged;
-            this.Editor.DropRejected -= this.OnDropRejected;
-            this.notebook?.Dispose();
-            this.notebook = null;
-        }
-    }
+    // No disposal in OnHandlerChanged: Shell drops the handler on every flyout switch but keeps this
+    // page. See DocumentEditorPage for the iOS hang that caused.
 }

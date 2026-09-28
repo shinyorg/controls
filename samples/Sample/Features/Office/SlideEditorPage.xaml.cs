@@ -73,15 +73,6 @@ public partial class SlideEditorPage : ContentPage
             ? "loading"
             : $"Slide {this.Editor.CurrentSlideIndex + 1} of {this.Editor.SlideCount} · {this.Editor.ViewMode} · {Math.Round(this.Editor.EffectiveZoom * 100)}% · {this.edits} edits{(this.deck.IsDirty ? " · unsaved" : string.Empty)}";
 
-    protected override void OnHandlerChanged()
-    {
-        base.OnHandlerChanged();
-        if (this.Handler is null)
-        {
-            this.Editor.DeckChanged -= this.OnDeckChanged;
-            this.Editor.DropRejected -= this.OnDropRejected;
-            this.deck?.Dispose();
-            this.deck = null;
-        }
-    }
+    // No disposal in OnHandlerChanged: Shell drops the handler on every flyout switch but keeps this
+    // page. See DocumentEditorPage for the iOS hang that caused.
 }

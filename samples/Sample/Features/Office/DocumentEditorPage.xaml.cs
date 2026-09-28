@@ -184,20 +184,12 @@ public partial class DocumentEditorPage : ContentPage
             : "No platform spell checker on this target — set DocumentEditorView.SpellChecker to supply one.";
     }
 
-    protected override void OnHandlerChanged()
-    {
-        base.OnHandlerChanged();
-        if (this.Handler is null)
-        {
-            this.Editor.DocumentChanged -= this.OnDocumentChanged;
-            this.Editor.DropRejected -= this.OnDropRejected;
-            this.Editor.SaveRequested -= this.OnSaveRequested;
-            this.Editor.SaveAsRequested -= this.OnSaveAsRequested;
-            this.Editor.ExportRequested -= this.OnExportRequested;
-            this.Editor.PrintRequested -= this.OnPrintRequested;
-            this.Editor.DocumentOpened -= this.OnDocumentOpened;
-            this.document?.Dispose();
-            this.document = null;
-        }
-    }
+    // No OnHandlerChanged teardown, deliberately. Shell drops this page's handler whenever another
+    // flyout item is picked, but keeps the page and gives it a new handler on the way back. Disposing
+    // the document there left the editor holding a dead package: the return trip's layout pass read it
+    // and threw out of LayoutSubviews, and on iOS 26+ that unwinds through UIKit's observation tracking
+    // and leaves it pointing at a dead stack frame - the app then spins and crashes later in
+    // setLeftBarButtonItem, nowhere near the cause. Swapping the document off the editor there instead
+    // is no better: it rebuilds the ribbon in the middle of Shell's handler teardown, leaving hosted
+    // views handler-less under live parents. The page lives as long as the Shell, so the document does too.
 }

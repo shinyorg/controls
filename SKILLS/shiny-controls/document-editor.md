@@ -39,6 +39,14 @@ using var document = await WordDocument.OpenAsync("report.docx", editable: true)
 <office:DocumentEditor x:Name="BareEditor" Document="{Binding Document}" />
 ```
 
+**Lifetime (MAUI):** never dispose the document in the page's `OnHandlerChanged` when `Handler` is
+null. Shell drops a page's handler on every flyout switch but keeps the page and re-lays it out on
+the way back, so the editor would read a disposed package in `LayoutSubviews` — on iOS 26+ that
+exception poisons UIKit's observation tracking and the app later hangs/crashes in
+`setLeftBarButtonItem`. Swapping `Document` there is no better (it rebuilds the ribbon mid-teardown).
+Dispose when the page is truly done with it (or when replacing it); the same applies to
+`Workbook`, `SlideDeck` and `NotebookDocument` on their editors.
+
 ## The Word window (Office shell) — on by default
 
 `DocumentEditorView` wraps itself in `OfficeShell` (see `office-shell.md`) with every part already wired
