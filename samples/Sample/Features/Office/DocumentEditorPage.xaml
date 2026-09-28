@@ -8,26 +8,24 @@
     <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="8">
 
         <HorizontalStackLayout Grid.Row="0" Spacing="8">
+            <Button Text="Shell" Clicked="OnToggleShell" />
             <Button Text="Toolbar" Clicked="OnToggleToolbar" />
             <Button Text="Theme" Clicked="OnToggleTheme" />
             <Button x:Name="SpellButton" Clicked="OnToggleSpelling" />
             <Button x:Name="MarginButton" Clicked="OnCycleMargins" />
-            <Button Text="Read Mode" Clicked="OnReadMode" />
-            <Button Text="Navigation" Clicked="OnNavigation" />
         </HorizontalStackLayout>
 
+        <!-- Word's whole window: title bar, ribbon, ruler, navigation and comments panes, status bar
+             (page, words, language, view modes, zoom) and the File backstage. The status bar is the
+             real one now; the label below only reports what the host did with a Save or an Export. -->
         <Border Grid.Row="1" StrokeThickness="1">
-            <office:DocumentEditorView x:Name="Editor" />
+            <office:DocumentEditorView x:Name="Editor" UserName="Sample User" />
         </Border>
 
-        <VerticalStackLayout Grid.Row="2" Spacing="2">
-            <!-- A stand-in status bar: DocumentEditorView.Statistics and StatisticsChanged are what a
-                 real one binds to. -->
-            <Label x:Name="StatisticsLabel" FontSize="12" />
-            <Label x:Name="StatusLabel"
-                   FontSize="12"
-                   Opacity="0.7"
-                   LineBreakMode="WordWrap" />
-        </VerticalStackLayout>
+        <Label Grid.Row="2"
+               x:Name="StatusLabel"
+               FontSize="12"
+               Opacity="0.7"
+               LineBreakMode="WordWrap" />
     </Grid>
 </ContentPage>

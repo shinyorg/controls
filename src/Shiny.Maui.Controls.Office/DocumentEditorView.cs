@@ -36,6 +36,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
     readonly Grid root;
     readonly Grid body;
     readonly Grid overlay;
+    readonly OfficeShell shell;
     readonly OfficeFindBar findBar = new();
     readonly ColorPickerButton textColor;
     readonly List<ItemBinding> bindings = [];
@@ -89,28 +90,22 @@ public partial class DocumentEditorView : ContentView, IDisposable
         this.body.Add(this.editor);
         Grid.SetColumn(this.editor, 1);
 
-        this.root = new Grid
-        {
-            RowDefinitions =
-            {
-                new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Star)
-            }
-        };
-
-        this.root.Add(this.ribbon);
+        // The editor and the panels that float over it (replace, symbols, the read-mode exit) - the
+        // shell's content slot.
+        this.root = new Grid();
         this.root.Add(this.body);
-        Grid.SetRow(this.body, 1);
-
-        // Panels (replace, symbols, the read-mode exit) float over the page rather than pushing it.
         this.root.Add(this.overlay);
-        Grid.SetRow(this.overlay, 1);
 
         this.editor.DocumentChanged += this.OnDocumentChanged;
         this.editor.ShortcutRequested += this.OnShortcutRequested;
-        this.Content = this.root;
+
+        // Word's window around it all. Built whole, up front, and switched part by part with
+        // IsVisible: the AppKit head never realises a child added after the first layout.
+        this.shell = new OfficeShell { App = Shiny.Controls.Office.Shell.OfficeApp.Word };
+        this.Content = this.shell;
 
         this.BuildBar();
+        this.BuildShell();
         this.AttachDrop();
     }
 
@@ -155,7 +150,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
         propertyChanged: (b, _, value) =>
         {
             var view = (DocumentEditorView)b;
-            view.editor.IsReadOnly = (bool)value || view.ReadMode;
+            view.ApplyEditorReadOnly();
             view.RefreshBar();
         });
 
@@ -649,6 +644,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
         // next keystroke goes nowhere, which reads as the editor having stopped working.
         this.editor.FocusEditor();
         this.RefreshBar();
+        this.RefreshShell();
         this.DocumentChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -678,6 +674,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
 
         this.RebuildStylesMenu();
         this.RefreshNavigationPane();
+        this.OnShellControllerAttached();
         this.RefreshBar();
     }
 
@@ -685,9 +682,14 @@ public partial class DocumentEditorView : ContentView, IDisposable
     {
         this.RefreshBar();
         this.RefreshNavigationPane();
+        this.RefreshShell();
     }
 
-    void OnStatisticsChanged(object? sender, EventArgs e) => this.StatisticsChanged?.Invoke(this, EventArgs.Empty);
+    void OnStatisticsChanged(object? sender, EventArgs e)
+    {
+        this.RefreshStatus();
+        this.StatisticsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     void OnZoomChanged(object? sender, EventArgs e)
     {
@@ -699,18 +701,24 @@ public partial class DocumentEditorView : ContentView, IDisposable
         if (Math.Abs(this.Zoom - controller.Zoom) > 0.0001)
             this.Zoom = controller.Zoom;
 
+        this.RefreshStatus();
+        this.RefreshRuler();
         this.ZoomChanged?.Invoke(this, controller.Zoom);
     }
 
     void OnCurrentStyleChanged(object? sender, EventArgs e)
     {
         if (this.editor.Controller is { } controller)
+        {
+            this.styleGallery.SelectedStyleId = controller.CurrentStyleId;
             this.CurrentStyleChanged?.Invoke(this, controller.CurrentStyleId);
+        }
     }
 
     void OnDocumentChanged(object? sender, EventArgs e)
     {
         this.RefreshBar();
+        this.RefreshTitle();
         this.DocumentChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -720,7 +728,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
         var controller = this.editor.Controller;
         var format = controller?.CaretFormat ?? CaretFormat.Default;
         var loaded = controller is not null;
-        var editable = loaded && !this.IsReadOnly && !this.ReadMode;
+        var editable = loaded && !this.IsReadOnly && !this.ReadMode && this.EditMode != Shiny.Controls.Office.Shell.OfficeEditMode.Viewing;
 
         foreach (var binding in this.bindings)
         {
@@ -852,10 +860,15 @@ public partial class DocumentEditorView : ContentView, IDisposable
     static Color ToColor(ArgbColor value)
         => Color.FromRgba(value.R / 255f, value.G / 255f, value.B / 255f, value.A / 255f);
 
+    /// <summary>
+    /// The File button: the backstage's door while the shell is on (and <see cref="FileRequested"/> still
+    /// fires), or the host's hook when only <see cref="ShowFileButton"/> asks for it.
+    /// </summary>
     void ApplyFileButton(bool show)
     {
-        this.ribbon.ApplicationButtonText = show ? "File" : null;
-        this.ribbon.ApplicationButtonCommand = show ? new Command(() => this.FileRequested?.Invoke(this, EventArgs.Empty)) : null;
+        var on = show || this.ShowShell;
+        this.ribbon.ApplicationButtonText = on ? "File" : null;
+        this.ribbon.ApplicationButtonCommand = on ? new Command(() => this.FileRequested?.Invoke(this, EventArgs.Empty)) : null;
     }
 
     /// <summary>

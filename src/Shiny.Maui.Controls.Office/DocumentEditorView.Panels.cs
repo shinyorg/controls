@@ -556,6 +556,30 @@ public partial class DocumentEditorView
 
     void ApplyNavigationPane()
     {
+        // With the shell on, the shell's navigation pane is the one; the hand-built one is only the
+        // shell-less layout's.
+        if (this.ShowShell)
+        {
+            if (this.navigationPane is not null)
+                this.body.Remove(this.navigationPane);
+
+            this.navigationPane = null;
+            this.navigationList = null;
+            this.shell.IsLeftPaneOpen = this.ShowNavigationPane;
+            this.RefreshNavigation();
+            this.RefreshBar();
+            return;
+        }
+
+        this.shell.IsLeftPaneOpen = false;
+
+        if (this.navigationPane is not null)
+        {
+            this.body.Remove(this.navigationPane);
+            this.navigationPane = null;
+            this.navigationList = null;
+        }
+
         if (!this.ShowNavigationPane)
         {
             if (this.navigationPane is not null)
@@ -651,7 +675,7 @@ public partial class DocumentEditorView
         {
             this.layoutBeforeReadMode = this.editor.PageLayout;
             this.editor.PageLayout = DocumentPageLayout.Reflow;
-            this.editor.IsReadOnly = true;
+            this.ApplyEditorReadOnly();
 
             var exit = new Button { Text = "Exit Read Mode", FontSize = 13, Padding = new Thickness(14, 6), AutomationId = "DocExitReadMode" };
             exit.Command = new Command(() => this.ReadMode = false);
@@ -661,7 +685,7 @@ public partial class DocumentEditorView
         else
         {
             this.editor.PageLayout = this.layoutBeforeReadMode;
-            this.editor.IsReadOnly = this.IsReadOnly;
+            this.ApplyEditorReadOnly();
 
             if (this.exitReadMode is not null)
                 this.overlay.Remove(this.exitReadMode);
@@ -671,6 +695,7 @@ public partial class DocumentEditorView
 
         this.ApplyChromeVisibility();
         this.RefreshBar();
+        this.RefreshShell();
     }
 
     /// <summary>The ribbon shows when the toolbar is on and read mode is off.</summary>

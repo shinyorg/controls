@@ -1,6 +1,7 @@
 using Shiny.Controls.Office.Document;
 using Shiny.Controls.Office.Packaging;
 using Shiny.Controls.Office.Skia;
+using Shiny.Controls.Office.Shell;
 using Shiny.Controls.Office.Spelling;
 using Shiny.Maui.Controls.Office;
 
@@ -48,28 +49,75 @@ public partial class DocumentEditorPage : ContentPage
         this.Editor.Document = this.document;
         this.Editor.DocumentChanged += this.OnDocumentChanged;
         this.Editor.DropRejected += this.OnDropRejected;
-        this.Editor.StatisticsChanged += this.OnStatisticsChanged;
-        this.Editor.ZoomChanged += this.OnZoomChanged;
+        this.Editor.SaveRequested += this.OnSaveRequested;
+        this.Editor.SaveAsRequested += this.OnSaveAsRequested;
+        this.Editor.ExportRequested += this.OnExportRequested;
+        this.Editor.PrintRequested += this.OnPrintRequested;
+        this.Editor.DocumentOpened += this.OnDocumentOpened;
+        this.Editor.RecentFiles =
+        [
+            new OfficeRecentFile("Quarterly report.docx", "Documents", DateTimeOffset.Now.AddHours(-3)) { IsPinned = true },
+            new OfficeRecentFile("Letter to landlord.docx", "Documents", DateTimeOffset.Now.AddDays(-2))
+        ];
 
         this.UpdateStatus();
-        this.UpdateStatistics();
     }
 
-    /// <summary>Page, word count and zoom — what Word's status bar shows along the bottom.</summary>
-    void UpdateStatistics()
+    // The shell does no I/O: Save, Save As, Export and Print are the host's. This sample writes to the
+    // cache directory and says where, which is enough to show each one arriving.
+
+    void OnSaveRequested(object? sender, EventArgs e)
     {
-        var stats = this.Editor.Statistics;
-        this.StatisticsLabel.Text =
-            $"Page {stats.CurrentPage} of {stats.Pages}   ·   {stats.Words:N0} words   ·   {this.Editor.Zoom * 100:0}%";
+        if (this.document is null)
+            return;
+
+        var path = Path.Combine(FileSystem.CacheDirectory, (this.Editor.DocumentName ?? "Document1") + ".docx");
+        File.WriteAllBytes(path, this.document.ToArray());
+        this.Editor.SaveState = OfficeSaveState.SavedLocally;
+        this.StatusLabel.Text = $"Saved to {path}";
     }
 
-    void OnStatisticsChanged(object? sender, EventArgs e) => this.UpdateStatistics();
+    void OnSaveAsRequested(object? sender, OfficeFileFormat format)
+        => this.OnExportRequested(sender, format);
 
-    void OnZoomChanged(object? sender, double zoom) => this.UpdateStatistics();
+    void OnExportRequested(object? sender, OfficeFileFormat format)
+    {
+        if (this.document is null)
+            return;
 
-    void OnReadMode(object? sender, EventArgs e) => this.Editor.ReadMode = !this.Editor.ReadMode;
+        var path = Path.Combine(FileSystem.CacheDirectory, format.FileNameFor(this.Editor.DocumentName));
 
-    void OnNavigation(object? sender, EventArgs e) => this.Editor.ShowNavigationPane = !this.Editor.ShowNavigationPane;
+        if (format.Id == OfficeFileFormats.Pdf.Id)
+        {
+            using var stream = File.Create(path);
+            var pages = this.Editor.ExportPdf(stream);
+            this.StatusLabel.Text = $"Exported {pages} page(s) to {path}";
+        }
+        else if (format.Id == OfficeFileFormats.Docx.Id)
+        {
+            File.WriteAllBytes(path, this.document.ToArray());
+            this.StatusLabel.Text = $"Saved a copy to {path}";
+        }
+        else
+        {
+            this.StatusLabel.Text = $"{format.Id} export is left to the host.";
+        }
+    }
+
+    /// <summary>MAUI has no print dialog of its own; the PDF is what a host would hand to the platform's.</summary>
+    void OnPrintRequested(object? sender, EventArgs e)
+        => this.OnExportRequested(sender, OfficeFileFormats.Pdf);
+
+    void OnDocumentOpened(object? sender, WordDocument opened)
+    {
+        // The view opened a template itself; the page owns disposal, so it takes the new one over.
+        var previous = this.document;
+        this.document = opened;
+        previous?.Dispose();
+        this.StatusLabel.Text = $"New document from a template: {this.Editor.DocumentName}";
+    }
+
+    void OnToggleShell(object? sender, EventArgs e) => this.Editor.ShowShell = !this.Editor.ShowShell;
 
     /// <summary>
     /// A dropped file the editor would not take.
@@ -143,8 +191,11 @@ public partial class DocumentEditorPage : ContentPage
         {
             this.Editor.DocumentChanged -= this.OnDocumentChanged;
             this.Editor.DropRejected -= this.OnDropRejected;
-            this.Editor.StatisticsChanged -= this.OnStatisticsChanged;
-            this.Editor.ZoomChanged -= this.OnZoomChanged;
+            this.Editor.SaveRequested -= this.OnSaveRequested;
+            this.Editor.SaveAsRequested -= this.OnSaveAsRequested;
+            this.Editor.ExportRequested -= this.OnExportRequested;
+            this.Editor.PrintRequested -= this.OnPrintRequested;
+            this.Editor.DocumentOpened -= this.OnDocumentOpened;
             this.document?.Dispose();
             this.document = null;
         }
