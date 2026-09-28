@@ -291,7 +291,14 @@ public partial class DocumentController
             return this.layout;
         }
 
-        this.layout = this.engine.Layout(this.Document.Blocks, width);
+        // Reflow has no page foot to put footnotes at, so they follow the text, under a rule — the
+        // endnote form. Print places them per page instead; see FootnotesFor.
+        var notes = this.IsPaginated ? [] : this.Document.Footnotes;
+        IReadOnlyList<DocumentBlock> source = notes.Count == 0
+            ? this.Document.Blocks
+            : [.. this.Document.Blocks, new DocumentRule(), .. notes.SelectMany(x => x.Blocks)];
+
+        this.layout = this.engine.Layout(source, width);
         this.laidOutWidth = width;
         this.IndexStory(this.layout);
         this.laidOutFontGeneration = generation;

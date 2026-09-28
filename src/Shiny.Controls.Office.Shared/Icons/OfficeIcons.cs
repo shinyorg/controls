@@ -951,7 +951,7 @@ public static class OfficeIcons
             OfficeIconShape.Rectangle(13f, 11.5f, 5.5f, 5f, 0.5f)
         ],
 
-        _ => []
+        _ => WordIcons.Shapes(icon) ?? []
     };
 
 
