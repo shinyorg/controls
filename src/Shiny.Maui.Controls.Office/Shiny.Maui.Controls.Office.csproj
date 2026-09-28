@@ -60,6 +60,11 @@
         <Compile Include="Platforms/Apple/**/*.cs"/>
     </ItemGroup>
 
+    <!-- Without this the iOS keyboard inset (DocumentEditor.iOS.cs) was never compiled at all. -->
+    <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'ios'">
+        <Compile Include="Platforms/iOS/**/*.cs"/>
+    </ItemGroup>
+
     <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'macos'">
         <Compile Include="Platforms/AppKit/**/*.cs"/>
     </ItemGroup>

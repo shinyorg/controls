@@ -25,7 +25,7 @@ namespace Shiny.Maui.Controls.Office;
 public partial class SlideEditor : ContentView, IDisposable
 {
     readonly SKCanvasView canvas;
-    readonly Entry input;
+    readonly OfficeTextInput input;
     readonly AbsoluteLayout root;
     readonly SkiaTextMeasurer measurer = new();
     readonly SlidePainter painter;
@@ -45,7 +45,7 @@ public partial class SlideEditor : ContentView, IDisposable
 
         // A one-character-wide entry parked at the caret rather than an offscreen one: the soft
         // keyboard and the IME candidate window both position themselves relative to this control.
-        this.input = new Entry
+        this.input = new OfficeTextInput
         {
             Opacity = 0.01,
             WidthRequest = 1,
@@ -56,6 +56,7 @@ public partial class SlideEditor : ContentView, IDisposable
         };
 
         this.input.TextChanged += this.OnInputTextChanged;
+        this.input.EmptyBackspace += (_, _) => this.HandleKey(EditorKey.Backspace);
         this.input.Completed += this.OnInputCompleted;
         this.input.Focused += this.OnInputFocused;
         this.input.Unfocused += this.OnInputUnfocused;
@@ -491,6 +492,9 @@ public partial class SlideEditor : ContentView, IDisposable
         }
 
         var text = e.NewTextValue ?? string.Empty;
+        if (this.IsClearEcho(text))
+            return;
+
 #if MACOS
         this.sawInputSinceFocus = true;
 #endif
@@ -557,6 +561,36 @@ public partial class SlideEditor : ContentView, IDisposable
         this.suppressInputEvents = true;
         this.input.Text = string.Empty;
         this.suppressInputEvents = false;
+
+        // Called from inside the entry's own TextChanged, MAUI queues the write instead of applying it,
+        // so it lands - and raises TextChanged("") - after the guard above has been released. Read as
+        // typing, that echo is a shrink and Backspaces away the character just inserted: on iOS every
+        // keystroke appeared and vanished. Remember that a clear is still in flight so the handler can
+        // recognise its echo.
+        this.clearInFlight = !string.IsNullOrEmpty(this.input.Text);
+    }
+
+    /// <summary>A <see cref="ClearInput"/> MAUI deferred, whose <c>TextChanged("")</c> is still to come.</summary>
+    bool clearInFlight;
+
+    /// <summary>
+    /// Swallows the echo of a deferred <see cref="ClearInput"/>. True when <paramref name="text"/> is it.
+    /// </summary>
+    bool IsClearEcho(string text)
+    {
+        if (!this.clearInFlight)
+            return false;
+
+        this.clearInFlight = false;
+        if (text.Length != 0)
+            return false;
+
+#if !MACOS
+        // The clear reached the native field, so nothing typed so far is still in it. (AppKit keeps the
+        // native text regardless, which is what consumedInput exists for.)
+        this.consumedInput = string.Empty;
+#endif
+        return true;
     }
 
     void OnInputFocused(object? sender, FocusEventArgs e)

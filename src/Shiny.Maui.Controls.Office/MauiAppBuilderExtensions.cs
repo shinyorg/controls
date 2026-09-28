@@ -33,6 +33,13 @@ public static class MauiAppBuilderExtensions
             handlers.AddHandler<SkiaSharp.Views.Maui.Controls.SKCanvasView, MacOSSKCanvasViewHandler>());
 #endif
 
+#if IOS || MACCATALYST
+        // The editors' hidden entry: UIKit drops a Backspace in an empty field, which is where the
+        // editors keep it. See OfficeTextInput.
+        builder.ConfigureMauiHandlers(handlers =>
+            handlers.AddHandler<OfficeTextInput, OfficeTextInputHandler>());
+#endif
+
         return builder;
     }
 }
