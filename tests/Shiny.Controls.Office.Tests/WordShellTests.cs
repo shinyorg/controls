@@ -190,4 +190,20 @@ public class WordShellTests
         png.Length.ShouldBeGreaterThan(100);
         png[1].ShouldBe((byte)'P');
     }
+
+    [Fact]
+    public async Task ACommentCanBeJumpedToAndQuoted()
+    {
+        var (document, controller) = await OpenAsync();
+        using var _ = document;
+        var body = document.Paragraphs.ToList().FindIndex(p => p.PlainText.StartsWith("Plain body text"));
+        controller.Selection.Select(new DocumentPosition(body, 0), new DocumentPosition(body, 10));
+        var comment = controller.AddComment("Check this")!;
+
+        controller.Selection.MoveTo(new DocumentPosition(0, 0));
+        controller.GoToComment(comment.Id).ShouldBeTrue();
+        controller.Selection.IsEmpty.ShouldBeFalse();
+        controller.CommentedText(controller.Comments[0]).ShouldBe("Plain body");
+        controller.GoToComment("nope").ShouldBeFalse();
+    }
 }
