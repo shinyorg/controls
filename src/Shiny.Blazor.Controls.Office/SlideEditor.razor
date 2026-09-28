@@ -485,6 +485,15 @@
                 await this.RequestAsync("replace");
                 return;
 
+            // Save and Print are the window's: a surrounding view with the Office shell answers them.
+            case "s" or "S" when command && !e.ShiftKey && this.CommandRequested.HasDelegate:
+                await this.RequestAsync("save");
+                return;
+
+            case "p" or "P" when command && !e.ShiftKey && this.CommandRequested.HasDelegate:
+                await this.RequestAsync("print");
+                return;
+
             // Ctrl+Shift+> and < grow and shrink the font, a step on the size ladder.
             case ">" or "." when command && e.ShiftKey:
                 this.controller.GrowFont(1);

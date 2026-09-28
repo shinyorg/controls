@@ -31,6 +31,7 @@ public class OfficeStatusBar : ContentView
     readonly Label percent;
     readonly Border percentButton;
     readonly HorizontalStackLayout zoomGroup;
+    readonly Border fitButton;
     readonly Dictionary<OfficeStatusItem, View> itemViews = new();
     readonly List<(OfficeViewMode Mode, Border Button)> modeButtons = [];
     bool syncingSlider;
@@ -76,6 +77,14 @@ public class OfficeStatusBar : ContentView
     public static readonly BindableProperty IsCompactProperty = BindableProperty.Create(
         nameof(IsCompact), typeof(bool), typeof(OfficeStatusBar), false,
         propertyChanged: (b, _, _) => ((OfficeStatusBar)b).ApplyVisibility());
+
+    public static readonly BindableProperty ShowFitToWindowProperty = BindableProperty.Create(
+        nameof(ShowFitToWindow), typeof(bool), typeof(OfficeStatusBar), false,
+        propertyChanged: (b, _, _) => ((OfficeStatusBar)b).ApplyVisibility());
+
+    public static readonly BindableProperty IsFittedProperty = BindableProperty.Create(
+        nameof(IsFitted), typeof(bool), typeof(OfficeStatusBar), false,
+        propertyChanged: (b, _, _) => ((OfficeStatusBar)b).PaintFit());
 
     public static readonly BindableProperty PageWidthProperty = BindableProperty.Create(nameof(PageWidth), typeof(double), typeof(OfficeStatusBar), 0d);
     public static readonly BindableProperty PageHeightProperty = BindableProperty.Create(nameof(PageHeight), typeof(double), typeof(OfficeStatusBar), 0d);
@@ -145,6 +154,12 @@ public class OfficeStatusBar : ContentView
         this.zoomGroup.Children.Add(this.sliderHost);
         this.zoomGroup.Children.Add(this.zoomIn);
         this.zoomGroup.Children.Add(this.percentButton);
+
+        // PowerPoint's "Fit slide to current window". Built with the bar and shown by IsVisible.
+        this.fitButton = ShellChrome.IconButton(OfficeShellIcon.FitToWindow, "Fit slide to current window", this.FitToWindow, size: 14);
+        this.fitButton.Padding = new Thickness(5, 3);
+        this.fitButton.AutomationId = "OfficeStatusFitToWindow";
+        this.zoomGroup.Children.Add(this.fitButton);
 
         var right = new HorizontalStackLayout { Spacing = 4, VerticalOptions = LayoutOptions.Center, Padding = new Thickness(0, 0, 8, 0) };
         right.Children.Add(this.focus);
@@ -228,6 +243,20 @@ public class OfficeStatusBar : ContentView
         set => this.SetValue(ShowViewModesProperty, value);
     }
 
+    /// <summary>PowerPoint's "Fit slide to current window" button after the percentage. Off by default.</summary>
+    public bool ShowFitToWindow
+    {
+        get => (bool)this.GetValue(ShowFitToWindowProperty);
+        set => this.SetValue(ShowFitToWindowProperty, value);
+    }
+
+    /// <summary>Draws the fit button pressed: the zoom is following the window rather than a set percentage.</summary>
+    public bool IsFitted
+    {
+        get => (bool)this.GetValue(IsFittedProperty);
+        set => this.SetValue(IsFittedProperty, value);
+    }
+
     /// <summary>Phone width: the slider and view modes give way. Set by <see cref="OfficeShell"/>.</summary>
     public bool IsCompact
     {
@@ -251,6 +280,9 @@ public class OfficeStatusBar : ContentView
 
     public event EventHandler<OfficeViewMode>? ViewModeChanged;
 
+    /// <summary>The fit button was pressed. The host works out the zoom and feeds it back through <see cref="Zoom"/>.</summary>
+    public event EventHandler? FitToWindowRequested;
+
     /// <summary>The percentage was pressed outside an <see cref="OfficeShell"/>, which would otherwise show its zoom dialog.</summary>
     public event EventHandler? ZoomDialogRequested;
 
@@ -263,6 +295,9 @@ public class OfficeStatusBar : ContentView
         this.BuildViewModes();
     }
 
+
+    /// <summary>Presses the fit button. Test seam.</summary>
+    public void FitToWindow() => this.FitToWindowRequested?.Invoke(this, EventArgs.Empty);
 
     public void ZoomIn() => this.Zoom = this.ZoomModel.StepZoom(this.Zoom, 1);
 
@@ -362,6 +397,21 @@ public class OfficeStatusBar : ContentView
     }
 
 
+    void PaintFit()
+    {
+        if (this.fitButton is null)
+            return;
+
+        if (this.IsFitted)
+            this.fitButton.SetDynamicResource(BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerHighest);
+        else
+        {
+            this.fitButton.RemoveDynamicResource(BackgroundColorProperty);
+            this.fitButton.BackgroundColor = Colors.Transparent;
+        }
+    }
+
+
     void ApplyVisibility()
     {
         if (this.focus is null)
@@ -371,6 +421,8 @@ public class OfficeStatusBar : ContentView
         this.viewModes.IsVisible = this.ShowViewModes && !this.IsCompact;
         this.zoomGroup.IsVisible = this.ShowZoom;
         this.sliderHost.IsVisible = this.ShowZoomSlider && !this.IsCompact;
+        this.fitButton.IsVisible = this.ShowFitToWindow;
+        this.PaintFit();
     }
 
 

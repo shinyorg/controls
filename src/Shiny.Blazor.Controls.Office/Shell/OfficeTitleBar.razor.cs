@@ -135,7 +135,13 @@ public partial class OfficeTitleBar : ComponentBase, IDisposable
 
     string EffectiveInitials => this.Options?.EffectiveInitials ?? OfficeColorText.Initials(this.UserName);
 
-    bool ShowResults => this.searchFocused && this.query.Trim().Length > 0;
+    bool ShowResults => this.searchFocused && !this.resultsDismissed && this.query.Trim().Length > 0;
+
+    /// <summary>
+    /// A query handed to <see cref="SearchSubmitted"/> is being answered by the editor; the "No commands
+    /// match" list would otherwise stay open over whatever the editor shows, until the next keystroke.
+    /// </summary>
+    bool resultsDismissed;
 
     /// <summary>The matches the dropdown is showing.</summary>
     internal IReadOnlyList<OfficeCommandMatch> Results => this.results;
@@ -235,6 +241,7 @@ public partial class OfficeTitleBar : ComponentBase, IDisposable
     {
         this.query = text;
         this.active = 0;
+        this.resultsDismissed = false;
         this.results = this.CommandIndex?.Search(text) ?? [];
     }
 
@@ -273,7 +280,10 @@ public partial class OfficeTitleBar : ComponentBase, IDisposable
         }
 
         if (this.query.Trim() is { Length: > 0 } text)
+        {
+            this.resultsDismissed = true;
             await this.SearchSubmitted.InvokeAsync(text);
+        }
     }
 
     async Task RunAsync(OfficeCommand command)
