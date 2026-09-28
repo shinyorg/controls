@@ -242,6 +242,7 @@ public partial class DocumentEditor : ContentView, IDisposable
             IsSpellCheckEnabled = this.IsSpellCheckEnabled
         };
         this.controller.Changed += this.OnControllerChanged;
+        this.controller.LinkActivated += this.OnLinkActivated;
 
         if (this.Width > 0 && this.Height > 0)
             this.controller.Resize(this.Width, this.Height);
@@ -330,7 +331,12 @@ public partial class DocumentEditor : ContentView, IDisposable
                 ? this.controller.TouchHandleRects()
                 : [],
 
-            ObjectChrome = this.BuildObjectChrome()
+            ObjectChrome = this.BuildObjectChrome(),
+
+            ShowFormattingMarks = this.controller.ShowFormattingMarks,
+            Comments = this.controller.CommentMarks(),
+            PageColor = this.controller.PageColor,
+            WatermarkText = this.controller.WatermarkText
         });
     }
 
@@ -520,6 +526,10 @@ public partial class DocumentEditor : ContentView, IDisposable
                     this.controller.Selection.MoveTo(tapped);
                     this.FocusEditor();
                 }
+
+                // A gesture that made a selection is what the format painter is waiting for.
+                if (!this.panMoved)
+                    this.controller.CompletePointerGesture();
 
                 this.panning = false;
                 this.panMoved = false;
@@ -923,6 +933,10 @@ public partial class DocumentEditor : ContentView, IDisposable
             case EditorKey.Underline: this.controller.ToggleUnderline(); break;
             case EditorKey.Undo: this.controller.Undo(); break;
             case EditorKey.Redo: this.controller.Redo(); break;
+            case EditorKey.Copy: _ = this.CopyAsync(); return true;
+            case EditorKey.Cut: _ = this.CutAsync(); return true;
+            case EditorKey.Paste: _ = this.PasteAsync(); return true;
+            case EditorKey.Escape: return this.controller.Execute(WordCommand.Cancel);
             default: return false;
         }
 
@@ -935,7 +949,10 @@ public partial class DocumentEditor : ContentView, IDisposable
     void Detach()
     {
         if (this.controller is not null)
+        {
             this.controller.Changed -= this.OnControllerChanged;
+            this.controller.LinkActivated -= this.OnLinkActivated;
+        }
     }
 
     /// <summary>
