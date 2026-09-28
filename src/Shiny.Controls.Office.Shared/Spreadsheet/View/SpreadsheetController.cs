@@ -21,7 +21,7 @@ public enum EditCommitDirection
 /// That is what keeps MAUI and Blazor genuinely identical — the only thing either host owns is turning
 /// a platform event into a call on this class, and putting a text box on screen when editing starts.
 /// </remarks>
-public sealed class SpreadsheetController
+public sealed partial class SpreadsheetController
 {
     /// <summary>
     /// Where each sheet was left: its selection, its scroll position and its column and row sizes.
@@ -83,7 +83,10 @@ public sealed class SpreadsheetController
         this.Workbook = workbook;
         this.sheet = sheet;
         this.Metrics = GridMetrics.FromWorksheet(sheet);
+        this.ApplyHeadings();
         this.Viewport = new GridViewport(this.Metrics);
+        this.zoom = Math.Clamp(sheet.ZoomScale, MinZoom, MaxZoom);
+        this.ApplyViewportSize();
         this.Selection = new SpreadsheetSelection();
         this.Selection.Changed += (_, _) => this.RaiseChanged();
         this.Find = new SpreadsheetFinder(this);
@@ -184,7 +187,9 @@ public sealed class SpreadsheetController
         // A remembered metrics object carries the column widths the user dragged out by hand. Rebuilding
         // it from the sheet would throw those away every time a tab was clicked.
         this.Metrics = remembered?.Metrics ?? GridMetrics.FromWorksheet(target);
+        this.ApplyHeadings();
         this.Viewport = new GridViewport(this.Metrics) { Width = this.Viewport.Width, Height = this.Viewport.Height };
+        this.selectedChart = null;
 
         if (remembered is null)
         {
@@ -200,10 +205,12 @@ public sealed class SpreadsheetController
             this.Selection.ExtendTo(remembered.Active);
     }
 
+    /// <summary>The size of the surface the grid is drawn on, in the host's own units.</summary>
     public void Resize(double width, double height)
     {
-        this.Viewport.Width = width;
-        this.Viewport.Height = height;
+        this.hostWidth = width;
+        this.hostHeight = height;
+        this.ApplyViewportSize();
         this.RaiseChanged();
     }
 
@@ -318,9 +325,20 @@ public sealed class SpreadsheetController
     /// </remarks>
     public bool UsesTouch { get; private set; }
 
-    public void PointerDown(double x, double y, bool extend = false, PointerKind kind = PointerKind.Mouse)
+    /// <param name="x">Horizontal position in the host's units; the controller takes the zoom out.</param>
+    /// <param name="y">Vertical position, likewise.</param>
+    /// <param name="extend">Shift held: extend the selection rather than move it.</param>
+    /// <param name="kind">Mouse, pen or finger — they mean different gestures.</param>
+    /// <param name="modifier">Ctrl or Cmd held: a click on a link follows it.</param>
+    public void PointerDown(double x, double y, bool extend = false, PointerKind kind = PointerKind.Mouse, bool modifier = false)
     {
+        x /= this.zoom;
+        y /= this.zoom;
+
         this.CommitEdit(EditCommitDirection.None);
+
+        if (this.PointerDownOverlay(x, y, kind, modifier))
+            return;
 
         if (kind == PointerKind.Touch)
         {
@@ -410,6 +428,12 @@ public sealed class SpreadsheetController
 
     public void PointerMove(double x, double y)
     {
+        x /= this.zoom;
+        y /= this.zoom;
+
+        if (this.PointerMoveOverlay(x, y))
+            return;
+
         switch (this.drag)
         {
             case DragMode.Panning:
@@ -485,6 +509,9 @@ public sealed class SpreadsheetController
 
     public void PointerUp()
     {
+        if (this.PointerUpOverlay())
+            return;
+
         if (this.drag is DragMode.Panning or DragMode.ExtendingFromHandle)
         {
             var wasPan = this.drag == DragMode.Panning;
@@ -529,18 +556,32 @@ public sealed class SpreadsheetController
 
     public void DoubleClick(double x, double y)
     {
+        x /= this.zoom;
+        y /= this.zoom;
+
+        // A double-click on a column divider fits the column, as in Excel.
         var hit = this.Viewport.HitTest(x, y);
-        if (hit.Target == HitTarget.Cell)
+        if (hit.Target == HitTarget.ColumnResize)
         {
-            this.Selection.MoveTo(hit.Cell);
+            if (!(hit.Cell.Column >= this.Selection.Range.Left && hit.Cell.Column <= this.Selection.Range.Right))
+                this.Selection.SelectColumn(hit.Cell.Column);
+
+            this.AutoFitColumns();
+            return;
+        }
+
+        if (hit.Target == HitTarget.Cell && this.ChartAt(x, y) is null)
+        {
+            this.Selection.MoveTo(this.sheet.MergeAt(hit.Cell)?.TopLeft ?? hit.Cell);
             this.BeginEdit();
         }
     }
 
+    /// <summary>Scrolls by a delta in the host's units.</summary>
     public void Scroll(double dx, double dy)
     {
         this.ApplyScrollLimits();
-        this.Viewport.ScrollBy(dx, dy);
+        this.Viewport.ScrollBy(dx / this.zoom, dy / this.zoom);
         this.RaiseChanged();
     }
 
@@ -598,7 +639,11 @@ public sealed class SpreadsheetController
     /// <summary>Clears the contents of the selection, leaving formatting intact.</summary>
     public void ClearSelection()
     {
-        this.Workbook.Execute(new ClearRangeCommand(this.sheet.Name, this.Selection.Range));
+        // Delete with a chart selected deletes the chart, not the cells under it.
+        if (this.DeleteSelectedChart())
+            return;
+
+        this.Workbook.Execute(new ClearRangeCommand(this.sheet.Name, this.DataSelection));
         this.SetClipboard(null);
         this.RaiseChanged();
     }
@@ -1080,6 +1125,12 @@ public sealed class SpreadsheetController
         // What was undone may have been a sheet edit, in which case the sheet on screen has just been
         // renamed, hidden or deleted out from under this controller.
         this.AfterSheetsChanged(this.Appeared(before) ?? this.sheet.Name);
+
+        // The step may have hidden rows, frozen a pane or resized a band through the file; the grid's
+        // geometry is re-read rather than patched.
+        this.selectedChart = this.selectedChart is { } chart && this.sheet.ChartById(chart) is null ? null : this.selectedChart;
+        this.RefreshMetrics();
+        this.RaiseChanged();
     }
 
     public void Redo()
@@ -1089,6 +1140,12 @@ public sealed class SpreadsheetController
         var before = this.CurrentSheetNames();
         this.Workbook.Undo.Redo();
         this.AfterSheetsChanged(this.Appeared(before) ?? this.sheet.Name);
+
+        // The step may have hidden rows, frozen a pane or resized a band through the file; the grid's
+        // geometry is re-read rather than patched.
+        this.selectedChart = this.selectedChart is { } chart && this.sheet.ChartById(chart) is null ? null : this.selectedChart;
+        this.RefreshMetrics();
+        this.RaiseChanged();
     }
 
     HashSet<string> CurrentSheetNames()
@@ -1380,6 +1437,11 @@ public sealed class SpreadsheetController
             return;
         }
 
+        // Data validation is checked against what was typed, before it is written. A refused value never
+        // reaches the cell - the dialog says why, and the cell keeps what it had.
+        if (!this.PassesValidation(cell, text))
+            return;
+
         this.Workbook.Execute(new SetCellValueCommand(sheetName, cell, ParseInput(text)));
     }
 
@@ -1413,5 +1475,9 @@ public sealed class SpreadsheetController
         return CellValue.FromText(text);
     }
 
-    void RaiseChanged() => this.Changed?.Invoke(this, EventArgs.Empty);
+    void RaiseChanged()
+    {
+        this.Changed?.Invoke(this, EventArgs.Empty);
+        this.AnnounceStatistics();
+    }
 }

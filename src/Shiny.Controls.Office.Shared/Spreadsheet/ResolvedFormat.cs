@@ -62,6 +62,9 @@ public sealed record ResolvedFormat
     public bool WrapText { get; init; }
     public int Indent { get; init; }
 
+    /// <summary>The four edges drawn around the cell. <see cref="CellBorders.None"/> when it has none.</summary>
+    public CellBorders Borders { get; init; } = CellBorders.None;
+
     /// <summary>Resolves <see cref="CellHorizontalAlignment.General"/> against the value being shown.</summary>
     public CellHorizontalAlignment EffectiveAlignment(CellValueKind kind)
     {
@@ -75,4 +78,56 @@ public sealed record ResolvedFormat
             _ => CellHorizontalAlignment.Left
         };
     }
+}
+
+/// <summary>The line styles a cell edge can be drawn in — Excel's <c>ST_BorderStyle</c>.</summary>
+public enum CellBorderStyle
+{
+    None,
+    Thin,
+    Medium,
+    Thick,
+    Dashed,
+    Dotted,
+    Double,
+    Hair,
+    MediumDashed,
+    DashDot,
+    MediumDashDot,
+    DashDotDot,
+    MediumDashDotDot,
+    SlantDashDot
+}
+
+/// <summary>One edge of a cell's border: how it is drawn and in what colour.</summary>
+/// <param name="Style">The line style. <see cref="CellBorderStyle.None"/> means no edge.</param>
+/// <param name="Color">The colour. Transparent means "automatic" — the sheet's ink.</param>
+public readonly record struct BorderEdge(CellBorderStyle Style, ArgbColor Color)
+{
+    /// <summary>
+    /// The value a <see cref="CellFormatChange"/> uses to take an edge away, as distinct from null,
+    /// which leaves it alone.
+    /// </summary>
+    public static readonly BorderEdge None = new(CellBorderStyle.None, ArgbColor.Transparent);
+
+    public static BorderEdge Thin(ArgbColor color = default) => new(CellBorderStyle.Thin, color);
+
+    public bool IsVisible => this.Style != CellBorderStyle.None;
+
+    /// <summary>How wide the edge paints, in device-independent pixels.</summary>
+    public double Width => this.Style switch
+    {
+        CellBorderStyle.Medium or CellBorderStyle.MediumDashed or CellBorderStyle.MediumDashDot
+            or CellBorderStyle.MediumDashDotDot or CellBorderStyle.SlantDashDot => 2,
+        CellBorderStyle.Thick or CellBorderStyle.Double => 3,
+        _ => 1
+    };
+}
+
+/// <summary>A cell's four edges. Null means no edge on that side.</summary>
+public sealed record CellBorders(BorderEdge? Left, BorderEdge? Right, BorderEdge? Top, BorderEdge? Bottom)
+{
+    public static readonly CellBorders None = new(null, null, null, null);
+
+    public bool IsEmpty => this.Left is null && this.Right is null && this.Top is null && this.Bottom is null;
 }

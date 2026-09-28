@@ -32,4 +32,12 @@ sealed class WorkbookCalcContext(Workbook workbook, TimeProvider time) : ICalcCo
         var worksheet = workbook.Sheets.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
         return worksheet is null ? CellValue.Blank : worksheet.GetValue(cell);
     }
+
+    public FormulaNode? ResolveName(string name, string? sheet) => workbook.ResolveNameNode(name, sheet ?? this.CurrentSheet);
+
+    public bool IsRowHidden(string? sheet, int row)
+        => workbook.Find(sheet ?? this.CurrentSheet)?.IsRowHidden(row) ?? false;
+
+    public string? GetFormula(string? sheet, CellRef cell)
+        => workbook.Find(sheet ?? this.CurrentSheet)?.GetFormula(cell);
 }

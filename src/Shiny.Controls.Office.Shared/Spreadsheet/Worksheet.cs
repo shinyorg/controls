@@ -8,7 +8,7 @@ namespace Shiny.Controls.Office.Spreadsheet;
 /// <summary>
 /// One sheet of a <see cref="Workbook"/>, read and written directly against its OOXML element tree.
 /// </summary>
-public sealed class Worksheet
+public sealed partial class Worksheet
 {
     readonly Workbook workbook;
     readonly WorksheetPart part;

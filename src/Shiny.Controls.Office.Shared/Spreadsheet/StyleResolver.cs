@@ -178,8 +178,154 @@ public sealed class StyleResolver
         if (cellFormat.Alignment is { } alignment)
             result = ApplyAlignment(result, alignment);
 
+        if (cellFormat.BorderId?.Value is { } borderId and > 0)
+            result = this.ApplyBorder(result, borderId);
+
         return result;
     }
+
+    ResolvedFormat ApplyBorder(ResolvedFormat format, uint borderId)
+    {
+        var borders = this.Stylesheet?.Borders;
+        if (borders is null || borderId >= borders.Count() || borders.ElementAt((int)borderId) is not Border border)
+            return format;
+
+        var result = new CellBorders(
+            this.EdgeOf(border.LeftBorder),
+            this.EdgeOf(border.RightBorder),
+            this.EdgeOf(border.TopBorder),
+            this.EdgeOf(border.BottomBorder));
+
+        return result.IsEmpty ? format : format with { Borders = result };
+    }
+
+    BorderEdge? EdgeOf(BorderPropertiesType? edge)
+    {
+        // The attribute's own text, not the typed value's ToString(): OpenXml v3's enums are record
+        // structs whose ToString() names the type, so a string match against it never succeeds.
+        var style = BorderStyleOf(edge?.Style?.InnerText);
+        if (style == CellBorderStyle.None)
+            return null;
+
+        var color = this.ResolveColor(edge!.Color) ?? ArgbColor.Transparent;
+        return new BorderEdge(style, color);
+    }
+
+    /// <summary>ST_BorderStyle text to the model's enum. Unknown text reads as no edge.</summary>
+    internal static CellBorderStyle BorderStyleOf(string? text) => text switch
+    {
+        "thin" => CellBorderStyle.Thin,
+        "medium" => CellBorderStyle.Medium,
+        "thick" => CellBorderStyle.Thick,
+        "dashed" => CellBorderStyle.Dashed,
+        "dotted" => CellBorderStyle.Dotted,
+        "double" => CellBorderStyle.Double,
+        "hair" => CellBorderStyle.Hair,
+        "mediumDashed" => CellBorderStyle.MediumDashed,
+        "dashDot" => CellBorderStyle.DashDot,
+        "mediumDashDot" => CellBorderStyle.MediumDashDot,
+        "dashDotDot" => CellBorderStyle.DashDotDot,
+        "mediumDashDotDot" => CellBorderStyle.MediumDashDotDot,
+        "slantDashDot" => CellBorderStyle.SlantDashDot,
+        _ => CellBorderStyle.None
+    };
+
+    /// <summary>The model's enum back to ST_BorderStyle text.</summary>
+    internal static string BorderStyleText(CellBorderStyle style) => style switch
+    {
+        CellBorderStyle.Thin => "thin",
+        CellBorderStyle.Medium => "medium",
+        CellBorderStyle.Thick => "thick",
+        CellBorderStyle.Dashed => "dashed",
+        CellBorderStyle.Dotted => "dotted",
+        CellBorderStyle.Double => "double",
+        CellBorderStyle.Hair => "hair",
+        CellBorderStyle.MediumDashed => "mediumDashed",
+        CellBorderStyle.DashDot => "dashDot",
+        CellBorderStyle.MediumDashDot => "mediumDashDot",
+        CellBorderStyle.DashDotDot => "dashDotDot",
+        CellBorderStyle.MediumDashDotDot => "mediumDashDotDot",
+        CellBorderStyle.SlantDashDot => "slantDashDot",
+        _ => "none"
+    };
+
+    /// <summary>
+    /// A theme colour by Excel's index: 0/1 background and text, 2/3 the second pair, 4-9 accents one to
+    /// six, 10/11 the hyperlink colours. Office's defaults stand in when the workbook has no theme.
+    /// </summary>
+    public ArgbColor ThemeColor(int index)
+    {
+        if (index >= 0 && index < this.themeColors.Count)
+            return this.themeColors[index];
+
+        uint[] office =
+        [
+            0xFFFFFFFF, 0xFF000000, 0xFFE7E6E6, 0xFF44546A, 0xFF4472C4, 0xFFED7D31,
+            0xFFA5A5A5, 0xFFFFC000, 0xFF5B9BD5, 0xFF70AD47, 0xFF0563C1, 0xFF954F72
+        ];
+
+        return ArgbColor.FromUInt32(office[Math.Clamp(index, 0, office.Length - 1)]);
+    }
+
+    /// <summary>Resolves an OOXML colour element — rgb, theme with tint, or indexed — against this workbook.</summary>
+    internal ArgbColor? ColorOf(ColorType? color) => this.ResolveColor(color);
+
+    /// <summary>
+    /// A differential format — what a conditional-format rule or a table style lays over a cell — read
+    /// from <c>&lt;dxfs&gt;</c>.
+    /// </summary>
+    public DxfFormat ResolveDifferential(uint dxfId)
+    {
+        var dxfs = this.Stylesheet?.DifferentialFormats;
+        if (dxfs is null || dxfId >= dxfs.Count())
+            return DxfFormat.Empty;
+
+        if (dxfs.ElementAt((int)dxfId) is not DocumentFormat.OpenXml.Spreadsheet.DifferentialFormat dxf)
+            return DxfFormat.Empty;
+
+        var result = DxfFormat.Empty;
+
+        if (dxf.Font is { } font)
+        {
+            result = result with
+            {
+                Bold = font.GetFirstChild<Bold>() is { } b ? (b.Val is null || b.Val.Value) : null,
+                Italic = font.GetFirstChild<Italic>() is { } i ? (i.Val is null || i.Val.Value) : null,
+                Strike = font.GetFirstChild<Strike>() is { } s ? (s.Val is null || s.Val.Value) : null,
+                Underline = font.GetFirstChild<Underline>() is { } u ? u.Val?.InnerText != "none" : null,
+                Foreground = this.ResolveColor(font.GetFirstChild<DocumentFormat.OpenXml.Spreadsheet.Color>())
+            };
+        }
+
+        if (dxf.Fill?.PatternFill is { } pattern)
+        {
+            // A dxf fill is the opposite way round to a cell fill: the visible colour of a solid dxf is
+            // bgColor, and Excel writes fgColor alongside it only sometimes.
+            var color = this.ResolveColor(pattern.BackgroundColor) ?? this.ResolveColor(pattern.ForegroundColor);
+            if (color is { } fill)
+                result = result with { Background = fill };
+        }
+
+        if (dxf.NumberingFormat?.FormatCode?.Value is { } code)
+            result = result with { NumberFormatCode = code };
+
+        if (dxf.Border is { } border)
+        {
+            result = result with
+            {
+                Borders = new CellBorders(
+                    this.EdgeOf(border.LeftBorder),
+                    this.EdgeOf(border.RightBorder),
+                    this.EdgeOf(border.TopBorder),
+                    this.EdgeOf(border.BottomBorder))
+            };
+        }
+
+        return result;
+    }
+
+    /// <summary>Forgets every resolved style, after the stylesheet has been rewritten underneath it.</summary>
+    internal void Invalidate() => this.cache.Clear();
 
     string NumberFormatCode(uint id)
     {

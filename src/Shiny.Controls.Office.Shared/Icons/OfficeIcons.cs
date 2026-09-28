@@ -199,7 +199,47 @@ public enum OfficeIcon
     Notes,
 
     /// <summary>A slide split into a title bar and two panes: its layout.</summary>
-    SlideLayout
+    SlideLayout,
+
+    // ---- the spreadsheet ribbon's Excel-parity set (artwork in OfficeIcons.Excel.cs) ----
+
+    MergeCells,
+    BorderBottom,
+    BorderAll,
+    BorderOutside,
+    BorderNone,
+    FreezePanes,
+    SortAscending,
+    SortDescending,
+    Filter,
+    FilterClear,
+    ConditionalFormat,
+    FormatAsTable,
+    CellStyles,
+    ChartColumn,
+    ChartBar,
+    ChartLine,
+    ChartPie,
+    ChartArea,
+    NewNote,
+    DeleteNote,
+    ShowNotes,
+    Hyperlink,
+    Function,
+    NameManager,
+    DefineName,
+    Calculate,
+    Gridlines,
+    Headings,
+    FormulaBar,
+    ShowFormulas,
+    DataValidation,
+    FillDown,
+    FormatCells,
+    Zoom100,
+    GoTo,
+    RowHeight,
+    CustomSort
 }
 
 
@@ -222,7 +262,7 @@ public enum OfficeIcon
 /// say "Calibri, 11pt, red".
 /// </para>
 /// </remarks>
-public static class OfficeIcons
+public static partial class OfficeIcons
 {
     /// <summary>The grid every icon is drawn on. Hosts scale it to whatever the button offers.</summary>
     public const float Grid = 24f;
@@ -951,7 +991,7 @@ public static class OfficeIcons
             OfficeIconShape.Rectangle(13f, 11.5f, 5.5f, 5f, 0.5f)
         ],
 
-        _ => []
+        _ => ExcelShapes(icon)
     };
 
 

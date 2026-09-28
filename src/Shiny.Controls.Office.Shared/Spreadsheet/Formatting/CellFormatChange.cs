@@ -44,6 +44,37 @@ public sealed record CellFormatChange
     /// <summary>An Excel number format code, or the empty string for General.</summary>
     public string? NumberFormatCode { get; init; }
 
+    /// <summary>The left edge. <see cref="BorderEdge.None"/> removes it; null leaves it alone.</summary>
+    public BorderEdge? BorderLeft { get; init; }
+
+    /// <inheritdoc cref="BorderLeft"/>
+    public BorderEdge? BorderRight { get; init; }
+
+    /// <inheritdoc cref="BorderLeft"/>
+    public BorderEdge? BorderTop { get; init; }
+
+    /// <inheritdoc cref="BorderLeft"/>
+    public BorderEdge? BorderBottom { get; init; }
+
+    bool TouchesBorders => this.BorderLeft is not null || this.BorderRight is not null || this.BorderTop is not null || this.BorderBottom is not null;
+
+    CellBorders ApplyBorders(CellBorders borders)
+    {
+        if (!this.TouchesBorders)
+            return borders;
+
+        static BorderEdge? Edge(BorderEdge? change, BorderEdge? current)
+            => change is { } edge ? (edge.IsVisible ? edge : null) : current;
+
+        var result = new CellBorders(
+            Edge(this.BorderLeft, borders.Left),
+            Edge(this.BorderRight, borders.Right),
+            Edge(this.BorderTop, borders.Top),
+            Edge(this.BorderBottom, borders.Bottom));
+
+        return result.IsEmpty ? CellBorders.None : result;
+    }
+
     /// <summary>
     /// Replaces the whole format rather than merging into it. Set by <see cref="Clear"/>.
     /// </summary>
@@ -65,7 +96,8 @@ public sealed record CellFormatChange
         this.Foreground is null && this.Background is null &&
         this.HorizontalAlignment is null && this.VerticalAlignment is null &&
         this.WrapText is null && this.Indent is null &&
-        this.NumberFormatCode is null;
+        this.NumberFormatCode is null &&
+        !this.TouchesBorders;
 
     /// <summary>Folds this change into an existing format.</summary>
     public ResolvedFormat ApplyTo(ResolvedFormat format)
@@ -89,7 +121,8 @@ public sealed record CellFormatChange
             // Indent is clamped rather than validated: Excel's own limit is 250, and a toolbar's
             // "decrease indent" on an unindented cell would otherwise write -1 and be rejected on save.
             Indent = Math.Clamp(this.Indent ?? start.Indent, 0, 250),
-            NumberFormatCode = this.NumberFormatCode ?? start.NumberFormatCode
+            NumberFormatCode = this.NumberFormatCode ?? start.NumberFormatCode,
+            Borders = this.ApplyBorders(start.Borders)
         };
     }
 }

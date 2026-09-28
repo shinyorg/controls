@@ -100,7 +100,7 @@ static class ConditionalFunctions
     }
 
     /// <summary>Indexes satisfying every (range, criterion) pair starting at <paramref name="start"/>.</summary>
-    static IEnumerable<int> MatchingIndexes(CalcArguments a, int start)
+    internal static IEnumerable<int> MatchingIndexes(CalcArguments a, int start)
     {
         var ranges = new List<List<CellValue>>();
         var predicates = new List<Func<CellValue, bool>>();
