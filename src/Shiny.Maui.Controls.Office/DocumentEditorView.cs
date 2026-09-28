@@ -849,6 +849,17 @@ public partial class DocumentEditorView : ContentView, IDisposable
             return;
         }
 
+        // Inside the shell the title bar above already carries the accent, so the tab strip stays on
+        // the theme and the accent marks only the File button and the selected tab (as on Blazor).
+        // Painting the strip too put the File button - accent-ink on an ink background - out of sight.
+        if (this.ShowShell)
+        {
+            this.ribbon.HeaderBackgroundColor = null;
+            this.ribbon.HeaderForegroundColor = null;
+            this.ribbon.AccentColor = ToColor(accent.Color);
+            return;
+        }
+
         this.ribbon.HeaderBackgroundColor = ToColor(accent.Color);
         this.ribbon.HeaderForegroundColor = ToColor(accent.Ink);
 

@@ -88,6 +88,7 @@ public partial class DocumentEditorView
             var view = (DocumentEditorView)b;
             view.ApplyShell();
             view.ApplyNavigationPane();
+            view.ApplyAccent();
             view.ApplyFileButton(view.ShowFileButton);
         });
 
