@@ -31,6 +31,49 @@ public sealed record ParagraphFormat
 
     /// <summary>Heading level, 1-9, or 0 when this is body text. Drives outline and navigation.</summary>
     public int OutlineLevel { get; init; }
+
+    /// <summary>The paragraph's borders (<c>w:pBdr</c>), or null when it has none.</summary>
+    public ParagraphBorders? Borders { get; init; }
+
+    /// <summary>
+    /// The section break this paragraph ends with, when its <c>w:pPr</c> carries a <c>w:sectPr</c>.
+    /// </summary>
+    public SectionBreakKind SectionBreak { get; init; }
+
+    /// <summary>True when the paragraph must open a new page (<c>w:pageBreakBefore</c>).</summary>
+    public bool PageBreakBefore { get; init; }
+}
+
+
+/// <summary>Which edges of a paragraph carry a rule, and in what colour.</summary>
+public sealed record ParagraphBorders
+{
+    public bool Top { get; init; }
+    public bool Bottom { get; init; }
+    public bool Left { get; init; }
+    public bool Right { get; init; }
+
+    /// <summary>Line weight in pixels.</summary>
+    public double Width { get; init; } = 1;
+
+    public ArgbColor Color { get; init; } = new(255, 0, 0, 0);
+
+    public bool Any => this.Top || this.Bottom || this.Left || this.Right;
+}
+
+
+/// <summary>What kind of section break a paragraph closes a section with.</summary>
+public enum SectionBreakKind
+{
+    None,
+
+    /// <summary>The next section starts on a new page — the common kind.</summary>
+    NextPage,
+
+    /// <summary>The next section carries on on the same page.</summary>
+    Continuous,
+    EvenPage,
+    OddPage
 }
 
 /// <summary>A paragraph's reference into <c>numbering.xml</c> — which list it is in, and how deep.</summary>
@@ -76,7 +119,28 @@ public sealed record DocumentParagraph(IReadOnlyList<StyledRun> Runs, ParagraphF
     /// <summary>The named style this paragraph came from, useful for outline extraction.</summary>
     public string? StyleName { get; init; }
 
-    public string PlainText => string.Concat(this.Runs.Where(x => !x.IsBreak).Select(x => x.Text));
+    /// <summary>
+    /// The paragraph's text in the offset space every <see cref="DocumentPosition"/> uses.
+    /// </summary>
+    /// <remarks>
+    /// An inline object or other atomic mark contributes one placeholder character
+    /// (<c>U+FFFC</c>) rather than nothing: the caret steps over it as one character, so a text that
+    /// left it out was one short for every picture in the paragraph — and a caret could never reach the
+    /// end of a line ending in an image.
+    /// </remarks>
+    public string PlainText => string.Concat(this.Runs.Where(x => !x.IsBreak).Select(TextOf));
+
+    /// <summary>
+    /// What a reader sees: the text with object placeholders and tracked deletions left out.
+    /// </summary>
+    public string VisibleText => string.Concat(this.Runs
+        .Where(x => !x.IsBreak && x.Inline is null && x.SourceLength < 0 && x.Style.Revision != TextRevision.Deleted)
+        .Select(x => x.Text));
+
+    static string TextOf(StyledRun run)
+        => run.Inline is not null || run.SourceLength >= 0
+            ? new string(WordParagraphEditor.ObjectPlaceholder[0], run.Length)
+            : run.Text;
 }
 
 public sealed record DocumentTableCell(IReadOnlyList<DocumentBlock> Blocks)

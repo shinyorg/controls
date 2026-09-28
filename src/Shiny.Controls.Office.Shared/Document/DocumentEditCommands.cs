@@ -72,21 +72,61 @@ public sealed record DeleteRangeCommand(DocumentRange Range) : DocumentCommand
         if (first is null || last is null)
             return new NoOpCommand();
 
-        // Trim both ends, drop everything between, then join the survivors.
+        var firstTop = context.TopOf(range.Start.Block);
+        var lastTop = context.TopOf(range.End.Block);
+
+        if (ReferenceEquals(first.Parent, last.Parent))
+        {
+            // Trim both ends, drop everything between - paragraphs, tables, anything - then join the
+            // survivors. The same whether the two ends are body paragraphs or share a table cell.
+            WordParagraphEditor.Delete(first, range.Start.Offset, WordParagraphEditor.LengthOf(first));
+            WordParagraphEditor.Delete(last, 0, range.End.Offset);
+
+            while (first.NextSibling() is { } between && !ReferenceEquals(between, last))
+                between.Remove();
+
+            WordParagraphEditor.Merge(first, last);
+
+            if (context.Blocks[firstTop] is DocumentParagraph)
+            {
+                // Body level: every top-level block after the first, up to and including the last, is
+                // gone from the XML; the projection has to lose them too.
+                for (var top = lastTop; top > firstTop; top--)
+                    context.RemoveProjection(top);
+            }
+
+            context.ReprojectTop(firstTop);
+
+            // The span the snapshot came from was several blocks; the edit collapsed it to one. Undo
+            // has to replace what is there *now*, not what was captured.
+            return restore with { RemovedCount = 1 };
+        }
+
+        // The two ends are in different containers - body text on one side of a table and a cell on
+        // the other, or two different cells. Nothing can be joined across that boundary, so the text
+        // in range is removed and the structure is left standing, which is what Word does too.
         WordParagraphEditor.Delete(first, range.Start.Offset, WordParagraphEditor.LengthOf(first));
         WordParagraphEditor.Delete(last, 0, range.End.Offset);
 
-        for (var block = range.End.Block - 1; block > range.Start.Block; block--)
-            context.RemoveBlock(block);
+        for (var paragraph = range.Start.Block + 1; paragraph < range.End.Block; paragraph++)
+        {
+            var top = context.TopOf(paragraph);
+            if (top > firstTop && top < lastTop)
+                continue;
 
-        WordParagraphEditor.Merge(first, last);
-        context.RemoveBlockAfter(range.Start.Block);
-        context.Reproject(range.Start.Block);
+            if (context.ParagraphElementAt(paragraph) is { } inner)
+                WordParagraphEditor.Delete(inner, 0, WordParagraphEditor.LengthOf(inner));
+        }
 
-        // The span the snapshot came from was several paragraphs; the edit collapsed it to one. Undo
-        // has to replace what is there *now*, not what was captured, or it removes a paragraph that
-        // was never part of the edit.
-        return restore with { RemovedCount = 1 };
+        // Whole top-level blocks strictly between the two ends go entirely.
+        for (var top = lastTop - 1; top > firstTop; top--)
+            context.RemoveTopBlock(top);
+
+        context.ReprojectTop(firstTop);
+        if (lastTop != firstTop)
+            context.ReprojectTop(firstTop + 1);
+
+        return restore with { RemovedCount = lastTop == firstTop ? 1 : 2 };
     }
 }
 
@@ -102,7 +142,7 @@ public sealed record SplitParagraphCommand(DocumentPosition At) : DocumentComman
             return new NoOpCommand();
 
         var tail = WordParagraphEditor.Split(paragraph, this.At.Offset);
-        context.InsertBlockAfter(this.At.Block, tail);
+        context.ParagraphInserted(this.At.Block, tail);
         context.Reproject(this.At.Block);
 
         return new MergeParagraphCommand(this.At.Block);
@@ -118,13 +158,13 @@ public sealed record MergeParagraphCommand(int Block) : DocumentCommand
     {
         var first = context.ParagraphElementAt(this.Block);
         var second = context.ParagraphElementAt(this.Block + 1);
-        if (first is null || second is null)
+        if (first is null || second is null || !ReferenceEquals(first.Parent, second.Parent))
             return new NoOpCommand();
 
         var joinAt = new DocumentPosition(this.Block, WordParagraphEditor.LengthOf(first));
 
         WordParagraphEditor.Merge(first, second);
-        context.RemoveBlockAfter(this.Block);
+        context.ParagraphRemoved(this.Block + 1);
         context.Reproject(this.Block);
 
         return new SplitParagraphCommand(joinAt);
@@ -444,7 +484,7 @@ public sealed record ResizeInlineObjectCommand(DocumentPosition At, double Width
             return new NoOpCommand();
 
         // The size before the change is the undo, and it has to be read before the write.
-        var before = context.Blocks.ElementAtOrDefault(this.At.Block) is DocumentParagraph projected
+        var before = context.Paragraphs.ElementAtOrDefault(this.At.Block) is { } projected
             ? SizeAt(projected, this.At.Offset)
             : null;
 
@@ -480,7 +520,7 @@ public sealed record ResizeInlineObjectCommand(DocumentPosition At, double Width
             if (run.IsBreak)
                 continue;
 
-            var length = run.Inline is null ? run.Text.Length : 1;
+            var length = run.Length;
 
             if (run.Inline is { } inline && offset >= cursor && offset < cursor + length)
                 return (inline.Width, inline.Height);
@@ -492,7 +532,11 @@ public sealed record ResizeInlineObjectCommand(DocumentPosition At, double Width
     }
 }
 
-/// <summary>Inserts a table as a new block after <paramref name="Block"/>.</summary>
+/// <summary>Inserts a table as a new block after top-level block <paramref name="Block"/>.</summary>
+/// <remarks>
+/// <paramref name="Block"/> indexes <see cref="WordDocument.Blocks"/>, not the story: a table goes
+/// between two body-level blocks, never inside a paragraph.
+/// </remarks>
 /// <remarks>
 /// After rather than at, and followed by an empty paragraph, because a table needs a paragraph on the
 /// far side of it to be reachable: with nothing after it there is no caret position below the table

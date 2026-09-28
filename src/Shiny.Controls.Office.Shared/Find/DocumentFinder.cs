@@ -36,12 +36,12 @@ public sealed class DocumentFinder(DocumentEditorController controller) : FindCo
     /// <inheritdoc/>
     protected override IReadOnlyList<DocumentFindMatch> Collect(string query, FindOptions options)
     {
-        var blocks = controller.Document.Blocks;
+        var blocks = controller.Document.Paragraphs;
         var results = new List<DocumentFindMatch>();
 
         for (var i = 0; i < blocks.Count; i++)
         {
-            if (blocks[i] is not DocumentParagraph paragraph)
+            if (blocks[i] is not { } paragraph)
                 continue;
 
             foreach (var match in TextSearch.Matches(paragraph.PlainText, query, options))

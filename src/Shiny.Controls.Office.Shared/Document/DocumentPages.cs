@@ -119,7 +119,11 @@ public sealed class DocumentHeaderFooterSet
 /// header out is document work, and because doing it only for the pages actually on screen means a
 /// hundred-page document lays out two headers per frame rather than a hundred.
 /// </remarks>
-public sealed record DocumentPageView(DocumentPage Page, DocumentChromeLayout? Header, DocumentChromeLayout? Footer);
+public sealed record DocumentPageView(DocumentPage Page, DocumentChromeLayout? Header, DocumentChromeLayout? Footer)
+{
+    /// <summary>The footnotes cited on this page, laid out to sit at its foot. Null when there are none.</summary>
+    public DocumentChromeLayout? Footnotes { get; init; }
+}
 
 
 /// <summary>One page of a paginated document.</summary>
@@ -284,7 +288,8 @@ public sealed class DocumentPagination
         IReadOnlyList<LaidOutBlock> blocks,
         double flowHeight,
         PageSetup setup,
-        double gap = 24
+        double gap = 24,
+        IReadOnlyList<NoteReservation>? notes = null
     )
     {
         ArgumentNullException.ThrowIfNull(blocks);
@@ -294,20 +299,55 @@ public sealed class DocumentPagination
         var breaks = new List<double> { 0 };
         var pageTop = 0d;
 
+        // Footnotes are drawn at the foot of the page that cites them, so the room they take is room
+        // the body does not have. Each is charged to the page where its citing line lands; a line whose
+        // note would not fit moves to the next page along with the note.
+        var sorted = notes is { Count: > 0 } ? notes.OrderBy(x => x.FlowY).ToList() : null;
+        var next = 0;
+        var reserved = 0d;
+
         foreach (var atom in Atoms(blocks))
         {
+            var pending = 0d;
+            var cursor = next;
+
+            if (sorted is not null)
+            {
+                while (cursor < sorted.Count && sorted[cursor].FlowY < atom.Bottom)
+                {
+                    pending += sorted[cursor].Height;
+                    cursor++;
+                }
+
+                // The separator rule above the first note on a page.
+                if (pending > 0 && reserved == 0)
+                    pending += NoteSeparatorHeight;
+            }
+
             // Nothing to do for the atom that opens the page it is already on.
             if (atom.Top <= pageTop && !atom.StartsPage)
+            {
+                reserved += pending;
+                next = cursor;
                 continue;
+            }
 
             var forced = atom.StartsPage && atom.Top > pageTop;
-            var overflows = atom.Bottom - pageTop > contentHeight && atom.Top > pageTop;
+            var overflows = atom.Bottom - pageTop + reserved + pending > contentHeight && atom.Top > pageTop;
 
             if (!forced && !overflows)
+            {
+                reserved += pending;
+                next = cursor;
                 continue;
+            }
 
             pageTop = atom.Top;
             breaks.Add(pageTop);
+
+            // The new page starts with only this atom's notes charged against it.
+            reserved = pending > 0 && reserved > 0 ? pending + NoteSeparatorHeight : pending;
+            next = cursor;
         }
 
         var pages = new List<DocumentPage>(breaks.Count);
@@ -374,4 +414,13 @@ public sealed class DocumentPagination
     }
 
     readonly record struct Atom(double Top, double Bottom, bool StartsPage);
+
+    /// <summary>The space a note separator takes above the first note on a page.</summary>
+    public const double NoteSeparatorHeight = 12;
 }
+
+
+/// <summary>A footnote's claim on the page its citing line lands on.</summary>
+/// <param name="FlowY">The top of the line the reference is on, in flow coordinates.</param>
+/// <param name="Height">The note's laid-out height.</param>
+public readonly record struct NoteReservation(double FlowY, double Height);

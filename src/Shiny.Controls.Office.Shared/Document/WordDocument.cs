@@ -27,11 +27,12 @@ namespace Shiny.Controls.Office.Document;
 /// changing how it is read.
 /// </para>
 /// </remarks>
-public sealed class WordDocument : OfficeDocument
+public sealed partial class WordDocument : OfficeDocument
 {
     readonly WordprocessingDocument document;
     readonly List<DocumentBlock> blocks = new();
     readonly WordBodyReader reader;
+    readonly WordStyleResolver styles;
     readonly WordNumbering numbering;
     readonly NumberingSequencer sequencer;
     readonly Body? body;
@@ -46,6 +47,7 @@ public sealed class WordDocument : OfficeDocument
             ?? throw new InvalidDataException("The package has no main document part.");
 
         var styles = new WordStyleResolver(main);
+        this.styles = styles;
         this.numbering = new WordNumbering(main);
         this.reader = new WordBodyReader(main, styles, this.numbering, unsupported);
         this.sequencer = new NumberingSequencer(this.numbering);
@@ -53,8 +55,11 @@ public sealed class WordDocument : OfficeDocument
 
         this.DefaultStyle = styles.DefaultRunStyle;
         this.Page = ReadPageSetup(main);
+        this.RefreshNoteNumbers(force: true);
         this.blocks.AddRange(this.reader.ReadBody(this.body));
         this.sequencer.Apply(this.blocks);
+        this.RebuildStory();
+        this.ReadReviewParts();
 
         this.RereadHeadersFooters();
 
@@ -98,15 +103,14 @@ public sealed class WordDocument : OfficeDocument
 
     /// <summary>Headings in document order, for a navigation pane or outline.</summary>
     public IEnumerable<(int Level, string Text)> Outline()
-        => this.blocks
-            .OfType<DocumentParagraph>()
-            .Where(x => x.Format.OutlineLevel > 0 && x.PlainText.Length > 0)
-            .Select(x => (x.Format.OutlineLevel, x.PlainText));
+        => this.story
+            .Where(x => x.Format.OutlineLevel > 0 && x.VisibleText.Length > 0)
+            .Select(x => (x.Format.OutlineLevel, x.VisibleText));
 
     /// <summary>The whole document as plain text, one line per paragraph.</summary>
     public string PlainText => string.Join(
         Environment.NewLine,
-        this.blocks.OfType<DocumentParagraph>().Select(x => x.PlainText));
+        this.story.Select(x => x.VisibleText));
 
     public static async Task<WordDocument> OpenAsync(
         string path,
@@ -172,6 +176,7 @@ public sealed class WordDocument : OfficeDocument
         // brand new numbering.xml that would otherwise never reach the package, leaving every
         // paragraph pointing at a definition the saved file does not contain.
         this.document.MainDocumentPart?.NumberingDefinitionsPart?.Numbering?.Save();
+        this.SaveAuxiliaryParts();
 
         this.document.Save();
         this.contentChanged = false;
@@ -244,8 +249,9 @@ public sealed class WordDocument : OfficeDocument
         return max + 1;
     }
 
-    internal Paragraph? ParagraphElementAt(int block)
-        => this.BlockElementAt(block) as Paragraph;
+    /// <summary>The <c>w:p</c> behind a paragraph of the story, wherever it sits — body or table cell.</summary>
+    internal Paragraph? ParagraphElementAt(int paragraph)
+        => paragraph >= 0 && paragraph < this.story.Count ? this.story[paragraph].Element : null;
 
     /// <summary>
     /// The body element a block was read from, whatever kind it is.
@@ -265,28 +271,88 @@ public sealed class WordDocument : OfficeDocument
         }
         : null;
 
-    /// <summary>Re-reads one block from its (now edited) XML.</summary>
-    internal void Reproject(int block)
+    /// <summary>
+    /// Re-reads the paragraph at a story index from its (now edited) XML.
+    /// </summary>
+    /// <remarks>
+    /// The whole top-level block it lives in is re-read, which for a paragraph in a table cell means the
+    /// table. A table projects its cells as nested records, so there is no cheaper way to replace one
+    /// paragraph deep inside it — and a table is small next to the cost of getting that wrong.
+    /// </remarks>
+    internal void Reproject(int paragraph)
     {
-        if (block < 0 || block >= this.blocks.Count)
+        var top = this.TopOf(paragraph);
+        if (top < 0)
             return;
 
-        if (this.BlockElementAt(block) is { } element)
-            this.blocks[block] = this.reader.RereadBlock(element);
+        this.RereadTop(top);
+        this.MarkChanged();
+    }
+
+    /// <summary>Re-reads one top-level block.</summary>
+    internal void ReprojectTop(int top)
+    {
+        this.RereadTop(top);
+        this.MarkChanged();
+    }
+
+    void RereadTop(int top)
+    {
+        if (top < 0 || top >= this.blocks.Count)
+            return;
+
+        if (this.BlockElementAt(top) is { } element)
+            this.blocks[top] = this.reader.RereadBlock(element);
+    }
+
+    /// <summary>Inserts a projection for a new top-level element placed after top-level block <paramref name="top"/>.</summary>
+    internal void InsertBlockAfter(int top, OpenXmlElement element)
+    {
+        this.blocks.Insert(top + 1, this.reader.RereadBlock(element));
+        this.MarkChanged();
+    }
+
+    /// <summary>
+    /// Brings the projection up to date after a new <c>w:p</c> was placed straight after the paragraph at
+    /// story index <paramref name="after"/>, in the same container.
+    /// </summary>
+    internal void ParagraphInserted(int after, Paragraph element)
+    {
+        var top = this.TopOf(after);
+        if (top < 0)
+            return;
+
+        if (this.blocks[top] is DocumentParagraph)
+            this.blocks.Insert(top + 1, this.reader.RereadBlock(element));
+        else
+            this.RereadTop(top);
 
         this.MarkChanged();
     }
 
-    internal void InsertBlockAfter(int block, OpenXmlElement element)
+    /// <summary>
+    /// Brings the projection up to date after the paragraph at story index <paramref name="paragraph"/>
+    /// was taken out of the XML — merged into its neighbour, typically.
+    /// </summary>
+    internal void ParagraphRemoved(int paragraph)
     {
-        this.blocks.Insert(block + 1, this.reader.RereadBlock(element));
+        var top = this.TopOf(paragraph);
+        if (top < 0)
+            return;
+
+        if (this.blocks[top] is DocumentParagraph)
+            this.blocks.RemoveAt(top);
+        else
+            this.RereadTop(top);
+
         this.MarkChanged();
     }
 
-    internal void RemoveBlockAfter(int block)
+    /// <summary>Drops the projection of a top-level block whose element is already gone.</summary>
+    internal void RemoveProjection(int top)
     {
-        if (block + 1 < this.blocks.Count)
-            this.blocks.RemoveAt(block + 1);
+        if (top >= 0 && top < this.blocks.Count)
+            this.blocks.RemoveAt(top);
 
         this.MarkChanged();
     }
@@ -305,7 +371,15 @@ public sealed class WordDocument : OfficeDocument
     /// Clones the paragraphs a range touches, so an edit can be reversed by putting them back.
     /// </summary>
     internal RestoreBlocksCommand CaptureRange(DocumentRange range)
-        => this.CaptureBlocks(range.Start.Block, range.End.Block - range.Start.Block + 1);
+    {
+        var first = this.TopOf(range.Start.Block);
+        var last = this.TopOf(range.End.Block);
+
+        if (first < 0 || last < 0)
+            return new RestoreBlocksCommand(0, 0, []);
+
+        return this.CaptureBlocks(first, last - first + 1);
+    }
 
     internal RestoreBlocksCommand CaptureBlocks(int start, int count)
     {
@@ -359,7 +433,10 @@ public sealed class WordDocument : OfficeDocument
         // Every edit path lands here, which makes it the one place list numbering can be brought back
         // into agreement with the block order: a re-projected item keeps the number it had, and an
         // inserted or deleted one renumbers the rest of its list.
+        this.RefreshNoteNumbers(force: false);
         this.sequencer.Apply(this.blocks);
+        this.RebuildStory();
+        this.ReadReviewParts();
 
         this.contentChanged = true;
         this.MarkDirty();
@@ -576,26 +653,20 @@ public sealed class WordDocument : OfficeDocument
     void ReportUnsupported(MainDocumentPart main)
     {
         // Everything here is preserved in the package - the viewer simply does not show it, and saying
-        // so is better than letting someone assume a document has no comments because none appeared.
-        if (main.Document?.Body?.Descendants<CommentRangeStart>().Any() == true)
-            this.Unsupported.Report(new UnsupportedFeature("document", "Comments", UnsupportedSeverity.NotRendered));
-
-        if (main.FootnotesPart is not null || main.EndnotesPart is not null)
-            this.Unsupported.Report(new UnsupportedFeature("document", "Footnotes and endnotes", UnsupportedSeverity.NotRendered));
+        // so is better than letting someone assume a document has no endnotes because none appeared.
+        // Comments, footnotes and tracked changes used to be listed here; they are drawn now.
+        if (main.EndnotesPart?.Endnotes?.Elements<Endnote>().Any(x => (x.Id?.Value ?? 0) > 0) == true)
+        {
+            this.Unsupported.Report(new UnsupportedFeature(
+                "document", "Endnotes", UnsupportedSeverity.NotRendered,
+                "Endnote references are numbered; the notes themselves are not drawn."));
+        }
 
         if ((main.HeaderParts.Any() || main.FooterParts.Any()) && !this.HeadersFooters.HasAny)
         {
             this.Unsupported.Report(new UnsupportedFeature(
                 "document", "Headers and footers", UnsupportedSeverity.NotRendered,
                 "The parts are in the package but no section references them."));
-        }
-
-        if (main.Document?.Body?.Descendants<InsertedRun>().Any() == true ||
-            main.Document?.Body?.Descendants<DeletedRun>().Any() == true)
-        {
-            this.Unsupported.Report(new UnsupportedFeature(
-                "document", "Tracked changes", UnsupportedSeverity.NotRendered,
-                "Insertions render as normal text; deletions are hidden."));
         }
 
         if (main.VbaProjectPart is not null)

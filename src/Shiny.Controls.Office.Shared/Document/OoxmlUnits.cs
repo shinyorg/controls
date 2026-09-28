@@ -81,4 +81,8 @@ public static class OoxmlUnits
 
         return null;
     }
+
+    /// <summary>Any attribute's value by local name, whatever its namespace. See <see cref="EnumAttribute"/>.</summary>
+    public static string? Attribute(DocumentFormat.OpenXml.OpenXmlElement? element, string localName)
+        => EnumAttribute(element, localName);
 }
