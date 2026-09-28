@@ -172,7 +172,17 @@ sealed class SheetDialogHost : ContentView
             body.Add(view.Row);
         }
 
-        stack.Add(new ScrollView { Content = body, MaximumHeightRequest = 420 });
+        // The fields scroll, the title and buttons do not - so the scroller gets what the host has left
+        // after them. A fixed 420 overflowed any editor shorter than the dialog (a tablet's sample page,
+        // every phone in landscape) and cut OK / Cancel off below the card with no way to reach them.
+        var reserve = (dialog.Tabs.Count > 1 ? 60 : 20) + 170;
+        // The host is hidden until Show makes it visible - after this runs - and a hidden view has no
+        // size, so its parent (which it fills) is the measure on the first open.
+        var available = this.Height > 0 ? this.Height : (this.Parent as VisualElement)?.Height ?? 0;
+        if (available <= 0)
+            available = 800;
+
+        stack.Add(new ScrollView { Content = body, MaximumHeightRequest = Math.Clamp(available - reserve, 100, 420) });
 
         this.error = new Label { TextColor = Colors.Firebrick, FontSize = 12, IsVisible = false };
         stack.Add(this.error);
