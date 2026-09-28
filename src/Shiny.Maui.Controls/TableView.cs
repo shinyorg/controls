@@ -18,6 +18,7 @@ public partial class TableView : ContentView
     VerticalStackLayout rootLayout = default!;
     TvTableRoot root = default!;
     bool isRendering;
+    bool renderPending;
     IDisposable? viewItemsSourceSubscription;
     readonly List<TvTableSection> generatedSections = new();
     DragSortController? dragSort;
@@ -234,10 +235,43 @@ public partial class TableView : ContentView
 
 
 
-    void OnRootChanged(object? sender, EventArgs e)
+    void OnRootChanged(object? sender, EventArgs e) => ScheduleRender();
+
+    /// <summary>
+    /// Re-renders once the change that asked for it has finished, and once however many asked.
+    /// </summary>
+    /// <remarks>
+    /// <para>⚠️ <b>Never synchronously from a section or root change.</b> Those arrive from inside a
+    /// property write — most often a <see cref="Cells.SwitchCell"/> whose <c>On</c> shows or hides a
+    /// section. <see cref="RenderSections"/> detaches every cell, and a detached cell loses its
+    /// <i>inherited</i> BindingContext, so a bound <c>On</c> fell to <c>false</c> and was written into
+    /// the very <c>Switch</c> still mid-<c>IsToggled</c>. MAUI queues a re-entrant write and replays it
+    /// when the first returns: the switch went back off, which re-rendered, which queued another off/on
+    /// pair — an endless loop that hung the app the moment a section-revealing switch was turned on.
+    /// Run afterwards, the detach and re-attach settle before anything is written back.</para>
+    /// <para>Coalesced as well: one write that shows or hides several sections is one re-render, not
+    /// one each. With no dispatcher (a bare unit test), it renders inline as it always did.</para>
+    /// </remarks>
+    void ScheduleRender()
     {
-        RenderSections();
-        ModelChanged?.Invoke(this, EventArgs.Empty);
+        var dispatcher = this.Dispatcher;
+        if (dispatcher is null)
+        {
+            RenderSections();
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        if (renderPending)
+            return;
+
+        renderPending = true;
+        dispatcher.Dispatch(() =>
+        {
+            renderPending = false;
+            RenderSections();
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        });
     }
 
     // ---------- Drag sort plumbing (see DragSortController) ----------
@@ -411,10 +445,7 @@ public partial class TableView : ContentView
         RenderSections();
     }
 
-    void OnGeneratedSectionChanged(object? sender, EventArgs e)
-    {
-        RenderSections();
-    }
+    void OnGeneratedSectionChanged(object? sender, EventArgs e) => ScheduleRender();
 
 
 

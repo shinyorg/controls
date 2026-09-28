@@ -6,7 +6,9 @@ A settings-style table view with 14+ built-in cell types, section grouping, drag
 
 `TableSection.IsVisible` is live and safe to bind — a section that flips re-renders the table, and a
 hidden section draws nothing at all, including no section separator on either side of it. Binding it
-to a feature flag or a mode switch is the intended use.
+to a feature flag or a mode switch is the intended use — including to a `SwitchCell` in the same
+table. The re-render runs on the dispatcher just after the change, not inside it, and several sections
+changing together re-render once.
 
 | Basic | Dynamic | Drag & Sort | Pickers | Styling |
 |:---:|:---:|:---:|:---:|:---:|

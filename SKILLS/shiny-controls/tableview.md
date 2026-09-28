@@ -376,7 +376,9 @@ All cells inherit these properties:
 
 `IsVisible` is live and safe to bind — a section that flips re-renders the table, and a hidden section
 draws nothing at all: no header, no cells, and **no section separator on either side of it**. Binding
-it to a feature flag or a mode switch is the intended use.
+it to a feature flag or a mode switch is the intended use, **including to a `SwitchCell.On` in the same
+table** (a Features switch that reveals that feature's settings section). The re-render is dispatched to
+just after the change and coalesced, so no workaround — such as pinning cell BindingContexts — is needed.
 
 > Note the difference from a **cell's** `IsVisible`, which a section reads when it renders and never
 > again. A cell whose visibility is set after the section is built may never appear; a section's can
