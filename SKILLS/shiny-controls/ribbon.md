@@ -250,6 +250,8 @@ Setting `ContextTitle` captions the coloured band above the strip and marks the 
 its visibility to what the tab is about is what makes it appear. When the showing tab stops being
 selectable the ribbon falls back to the nearest one that still is (`RibbonTabChangeReason.Fallback`),
 so a vanished selection never leaves an empty body. `ContextColor` overrides the tertiary accent.
+Tab titles are single-line and never clipped (the strip scrolls instead), so do not shorten a long
+contextual title like "Shape Format" to make it fit.
 
 ## Display mode
 

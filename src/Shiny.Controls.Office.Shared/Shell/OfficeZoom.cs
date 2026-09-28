@@ -189,6 +189,23 @@ public sealed class OfficeZoomModel
     }
 
 
+    /// <summary>
+    /// The zoom a page opens at when nobody has chosen one: 100% when the page fits the viewport,
+    /// otherwise page-width fit - Word on a phone, where a 100% Letter page is twice the screen's width.
+    /// </summary>
+    /// <param name="pageWidth">The page's width at 100%, in the viewport's unit. Zero or less gives 100%.</param>
+    /// <param name="viewportWidth">The editor's visible width. Zero or less (not laid out yet) gives 100%.</param>
+    /// <param name="gutter">Room left either side of the page, as the Page Width preset leaves.</param>
+    /// <remarks>Never zooms in: a page narrower than the viewport opens at 100%, not stretched to fill it.</remarks>
+    public double OpeningZoom(double pageWidth, double viewportWidth, double gutter = 24)
+    {
+        if (pageWidth <= 0 || viewportWidth <= 0 || viewportWidth >= pageWidth + (gutter * 2))
+            return this.Clamp(1);
+
+        return Math.Min(this.Clamp(1), this.Fit(pageWidth, viewportWidth, gutter));
+    }
+
+
     /// <summary>"100%" — whole percents, the way the status bar shows it.</summary>
     public static string Format(double zoom, CultureInfo? culture = null)
         => Math.Round(zoom * 100).ToString("0", culture ?? CultureInfo.CurrentCulture) + "%";

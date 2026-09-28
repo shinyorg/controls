@@ -22,7 +22,7 @@ namespace Shiny.Maui.Controls.Office;
 /// </remarks>
 public partial class SpreadsheetView
 {
-    static readonly OfficeZoomModel ShellZoom = new(0.1, 4.0, 1.0);
+    static readonly OfficeZoomModel ShellZoom = new(SpreadsheetController.MinZoom, SpreadsheetController.MaxZoom, 1.0);
 
     readonly OfficeCommandIndex commands = new();
     readonly OfficeStatusItem modeItem = new("mode", "Ready");
@@ -62,7 +62,7 @@ public partial class SpreadsheetView
 
     public static readonly BindableProperty TemplatesProperty = BindableProperty.Create(
         nameof(Templates), typeof(IEnumerable<OfficeTemplate>), typeof(SpreadsheetView), null,
-        propertyChanged: (b, _, n) => ((SpreadsheetView)b).backstage.Templates = (IEnumerable<OfficeTemplate>?)n ?? SpreadsheetTemplates.All);
+        propertyChanged: (b, _, n) => ((SpreadsheetView)b).backstage.Templates = (IEnumerable<OfficeTemplate>?)n ?? TemplateThumbnailCache.SpreadsheetReady ?? SpreadsheetTemplates.All);
 
     public static readonly BindableProperty RecentFilesProperty = BindableProperty.Create(
         nameof(RecentFiles), typeof(IEnumerable<OfficeRecentFile>), typeof(SpreadsheetView), null,
@@ -171,7 +171,12 @@ public partial class SpreadsheetView
         };
         this.statusBar.PropertyChanged += this.OnStatusBarPropertyChanged;
 
-        this.backstage = new OfficeBackstage { Templates = SpreadsheetTemplates.All };
+        this.backstage = new OfficeBackstage { Templates = TemplateThumbnailCache.SpreadsheetReady ?? SpreadsheetTemplates.All };
+        this.backstage.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(OfficeBackstage.IsOpen) && this.backstage.IsOpen)
+                _ = this.LoadTemplateThumbnailsAsync();
+        };
         this.backstage.TemplateSelected += (_, t) => _ = this.OnTemplateSelectedAsync(t);
         this.backstage.RecentFileSelected += (_, f) => this.RecentFileSelected?.Invoke(this, f);
         this.backstage.OpenRequested += (_, _) => this.OpenRequested?.Invoke(this, EventArgs.Empty);
@@ -413,6 +418,22 @@ public partial class SpreadsheetView
 
 
     // ---- backstage ----
+
+    /// <summary>
+    /// Gives the built-in templates a picture of their first sheet, as PowerPoint's have of their first
+    /// slide. Drawn once per process the first time a backstage opens; a host's own list is left alone.
+    /// </summary>
+    async Task LoadTemplateThumbnailsAsync()
+    {
+        if (this.Templates is not null)
+            return;
+
+        var templates = await TemplateThumbnailCache.Spreadsheet;
+        if (this.Dispatcher is { IsDispatchRequired: true } dispatcher)
+            dispatcher.Dispatch(() => this.backstage.Templates = this.Templates ?? templates);
+        else
+            this.backstage.Templates = this.Templates ?? templates;
+    }
 
     async Task OnTemplateSelectedAsync(OfficeTemplate template)
     {

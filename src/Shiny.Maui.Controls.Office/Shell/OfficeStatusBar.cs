@@ -32,6 +32,7 @@ public class OfficeStatusBar : ContentView
     readonly Border percentButton;
     readonly HorizontalStackLayout zoomGroup;
     readonly Border fitButton;
+    readonly Grid fitHost;
     readonly Dictionary<OfficeStatusItem, View> itemViews = new();
     readonly List<(OfficeViewMode Mode, Border Button)> modeButtons = [];
     bool syncingSlider;
@@ -95,7 +96,8 @@ public class OfficeStatusBar : ContentView
 
     public OfficeStatusBar()
     {
-        this.HeightRequest = 28;
+        // 32, not 28: the rule takes a pixel and the buttons' hit areas are 28 tall.
+        this.HeightRequest = 32;
         this.SetDynamicResource(BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainer);
 
         this.left = new HorizontalStackLayout { Spacing = 0, VerticalOptions = LayoutOptions.Center, Padding = new Thickness(8, 0) };
@@ -150,16 +152,17 @@ public class OfficeStatusBar : ContentView
         ShellChrome.OnTap(this.percentButton, this.OpenZoomDialog);
 
         this.zoomGroup = new HorizontalStackLayout { Spacing = 0, VerticalOptions = LayoutOptions.Center };
-        this.zoomGroup.Children.Add(this.zoomOut);
+        this.zoomGroup.Children.Add(TouchTarget(this.zoomOut));
         this.zoomGroup.Children.Add(this.sliderHost);
-        this.zoomGroup.Children.Add(this.zoomIn);
+        this.zoomGroup.Children.Add(TouchTarget(this.zoomIn));
         this.zoomGroup.Children.Add(this.percentButton);
 
         // PowerPoint's "Fit slide to current window". Built with the bar and shown by IsVisible.
         this.fitButton = ShellChrome.IconButton(OfficeShellIcon.FitToWindow, "Fit slide to current window", this.FitToWindow, size: 14);
         this.fitButton.Padding = new Thickness(5, 3);
         this.fitButton.AutomationId = "OfficeStatusFitToWindow";
-        this.zoomGroup.Children.Add(this.fitButton);
+        this.fitHost = TouchTarget(this.fitButton);
+        this.zoomGroup.Children.Add(this.fitHost);
 
         var right = new HorizontalStackLayout { Spacing = 4, VerticalOptions = LayoutOptions.Center, Padding = new Thickness(0, 0, 8, 0) };
         right.Children.Add(this.focus);
@@ -376,13 +379,49 @@ public class OfficeStatusBar : ContentView
             var button = ShellChrome.IconButton(mode.Icon, mode.Text, () => this.SelectViewMode(m.Id), size: 14);
             button.Padding = new Thickness(5, 3);
             this.modeButtons.Add((mode, button));
-            this.viewModes.Children.Add(button);
+            this.viewModes.Children.Add(TouchTarget(button));
         }
 
         if (this.SelectedViewMode is null && this.EffectiveViewModes.Count > 0)
             this.SelectedViewMode = OfficeViewModes.DefaultId(this.EffectiveApp);
 
         this.PaintViewModes();
+    }
+
+
+    /// <summary>The smallest hit area a status-bar icon button gets, whatever its drawn size.</summary>
+    internal const double MinimumTargetWidth = 32;
+    internal const double MinimumTargetHeight = 28;
+
+    /// <summary>
+    /// Wraps a small drawn button in a transparent hit area at least <see cref="MinimumTargetWidth"/> ×
+    /// <see cref="MinimumTargetHeight"/>. The pressed background stays the size of the glyph (Office's
+    /// look); only the tap area grows — a 24×20 view mode button was too small to hit with a finger.
+    /// </summary>
+    internal static Grid TouchTarget(Border button)
+    {
+        var host = new Grid
+        {
+            MinimumWidthRequest = MinimumTargetWidth,
+            MinimumHeightRequest = MinimumTargetHeight,
+            BackgroundColor = Colors.Transparent,
+            VerticalOptions = LayoutOptions.Center
+        };
+
+        // Move the tap from the drawn button to the host, so it fires once and across the whole area.
+        foreach (var gesture in button.GestureRecognizers.ToList())
+        {
+            button.GestureRecognizers.Remove(gesture);
+            host.GestureRecognizers.Add(gesture);
+        }
+
+        button.InputTransparent = true;
+        button.HorizontalOptions = LayoutOptions.Center;
+        button.VerticalOptions = LayoutOptions.Center;
+        SemanticProperties.SetDescription(host, SemanticProperties.GetDescription(button));
+        ToolTipProperties.SetText(host, ToolTipProperties.GetText(button));
+        host.Children.Add(button);
+        return host;
     }
 
 
@@ -425,7 +464,7 @@ public class OfficeStatusBar : ContentView
         this.viewModes.IsVisible = this.ShowViewModes && !this.IsCompact;
         this.zoomGroup.IsVisible = this.ShowZoom;
         this.sliderHost.IsVisible = this.ShowZoomSlider && !this.IsCompact;
-        this.fitButton.IsVisible = this.ShowFitToWindow;
+        this.fitHost.IsVisible = this.ShowFitToWindow;
         this.PaintFit();
     }
 

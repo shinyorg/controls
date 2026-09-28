@@ -275,6 +275,16 @@ public class OfficeShell : ContentView
 
     void OnSlotChanged(string name, View? old, View? value)
     {
+        // A bar the editor hides (Word with its shell and toolbar off) must take its row with it. The
+        // hosts are Auto rows; left visible around a hidden bar they kept a band where it had been.
+        if (name is nameof(this.TitleBar) or nameof(this.Ribbon) or nameof(this.Ruler) or nameof(this.VerticalRuler) or nameof(this.StatusBar))
+        {
+            if (old is not null)
+                old.PropertyChanged -= this.OnBarPropertyChanged;
+            if (value is not null)
+                value.PropertyChanged += this.OnBarPropertyChanged;
+        }
+
         switch (name)
         {
             case nameof(this.TitleBar):
@@ -329,6 +339,15 @@ public class OfficeShell : ContentView
         this.PushApp();
         this.ApplyLayout();
     }
+
+
+    void OnBarPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == IsVisibleProperty.PropertyName)
+            this.ApplyLayout();
+    }
+
+    static bool Shown(View? bar) => bar is { IsVisible: true };
 
 
     void OnApplicationButton(object? sender, EventArgs e) => this.IsBackstageOpen = true;
@@ -429,11 +448,11 @@ public class OfficeShell : ContentView
         var layout = this.ShellLayout;
         var focus = this.IsFocusMode;
 
-        this.titleHost.IsVisible = !focus && this.TitleBar is not null;
-        this.ribbonHost.IsVisible = !focus && this.Ribbon is not null;
-        this.statusHost.IsVisible = !focus && this.StatusBar is not null;
-        this.rulerHost.IsVisible = !focus && layout.ShowRulers && this.Ruler is not null;
-        this.verticalRulerHost.IsVisible = !focus && layout.ShowRulers && this.VerticalRuler is not null;
+        this.titleHost.IsVisible = !focus && Shown(this.TitleBar);
+        this.ribbonHost.IsVisible = !focus && Shown(this.Ribbon);
+        this.statusHost.IsVisible = !focus && Shown(this.StatusBar);
+        this.rulerHost.IsVisible = !focus && layout.ShowRulers && Shown(this.Ruler);
+        this.verticalRulerHost.IsVisible = !focus && layout.ShowRulers && Shown(this.VerticalRuler);
         this.leftHost.IsVisible = !focus && layout.ShowSidePanes && this.IsLeftPaneOpen && this.LeftPane is not null;
         this.rightHost.IsVisible = !focus && layout.ShowSidePanes && this.IsRightPaneOpen && this.RightPane is not null;
         this.backstageHost.IsVisible = this.IsBackstageOpen && this.Backstage is not null;

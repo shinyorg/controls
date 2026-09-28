@@ -246,9 +246,14 @@ public partial class Ribbon
 
     View BuildTabButton(RibbonTab tab)
     {
+        // One line, never wrapped: a tab title that wrapped ("Shape / Format") had its second line cut
+        // off by the strip, which on a portrait iPad read as a truncated contextual tab. The strip
+        // scrolls, so a title is always given its whole width.
         var label = new Label
         {
             Text = tab.Title,
+            LineBreakMode = LineBreakMode.NoWrap,
+            MaxLines = 1,
             VerticalTextAlignment = TextAlignment.Center,
             HorizontalTextAlignment = TextAlignment.Center
         }.WithFontSize(ShinyThemeKeys.Type.LabelLargeSize);
@@ -372,7 +377,19 @@ public partial class Ribbon
         {
             var isSelected = ReferenceEquals(tab, selected);
 
-            button.IsVisible = tab.IsVisible;
+            if (button.IsVisible != tab.IsVisible)
+            {
+                button.IsVisible = tab.IsVisible;
+
+                // A contextual tab is built hidden and shown later; iOS kept the width it measured while
+                // it had none and clipped its title. Measure it, and the strip around it, afresh.
+                if (tab.IsVisible)
+                {
+                    ((IView)label).InvalidateMeasure();
+                    ((IView)button).InvalidateMeasure();
+                    ((IView)this.tabStack).InvalidateMeasure();
+                }
+            }
             button.Opacity = tab.IsEnabled ? 1d : 0.38d;
 
             if (isSelected)

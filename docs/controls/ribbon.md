@@ -339,6 +339,10 @@ A contextual tab underlines in `ContextColor` (the theme's tertiary by default) 
 the permanent tabs use, so it reads as a different kind of thing rather than the selected one of the
 same kind.
 
+Tab titles are one line and never wrap or clip: on MAUI a tab shown after the strip was laid out (a
+contextual tab appearing on selection) is measured afresh, and a strip too narrow for every title
+scrolls rather than squeezing them — "Shape Format" on a portrait iPad keeps its whole title.
+
 ## Collapsing the ribbon
 
 `DisplayMode` is two-way on both hosts:

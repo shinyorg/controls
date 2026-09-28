@@ -927,7 +927,7 @@
         <OfficeBackstage DocumentName="@EffectiveDocumentName"
                          SelectedPage="backstagePage"
                          SelectedPageChanged="OnBackstagePageChangedAsync"
-                         Templates="@(Templates ?? WordTemplates.All)"
+                         Templates="@(Templates ?? TemplateThumbnailCache.Word ?? WordTemplates.All)"
                          RecentFiles="RecentFiles"
                          DocumentInfo="backstageInfo"
                          TemplateSelected="NewFromTemplateAsync"
@@ -1090,6 +1090,13 @@
 
     protected override void OnAfterRender(bool firstRender)
     {
+        if (!this.editorResizeHooked && this.editor is { } surface)
+        {
+            this.editorResizeHooked = true;
+            surface.ViewportResized += (_, _) => _ = this.InvokeAsync(this.ApplyOpeningZoomAsync);
+            surface.ControllerCreated += (_, _) => _ = this.InvokeAsync(this.ApplyOpeningZoomAsync);
+        }
+
         this.Subscribe();
         this.AfterShellRender();
     }
@@ -1181,6 +1188,9 @@
 
         var zoom = controller.Zoom;
         this.zoomOverride = zoom;
+
+        // A pinch or Ctrl+wheel is a chosen zoom: the opening fit is over.
+        this.zoomChosen = true;
 
         _ = this.InvokeAsync(async () =>
         {
@@ -1838,6 +1848,52 @@
         await this.SetZoomAsync(next);
     }
 
+    bool editorResizeHooked;
+    bool zoomChosen;
+    bool applyingOpeningZoom;
+    double? openingZoom;
+
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        // A host that passes Zoom has chosen one - unless it is only handing back (through @bind-Zoom)
+        // the fit this view picked itself.
+        if (parameters.TryGetValue<double>(nameof(this.Zoom), out var zoom)
+            && (this.openingZoom is not { } fitted || Math.Abs(fitted - zoom) > 0.0001))
+            this.zoomChosen = true;
+
+        return base.SetParametersAsync(parameters);
+    }
+
+    /// <summary>
+    /// Opens a page narrower than the viewport at page-width fit rather than 100% - on a phone a Letter
+    /// page at 100% ran off both sides. Only until a zoom is chosen: a <see cref="Zoom"/> the host
+    /// passes, the status bar, the ribbon or a pinch all win, and the fit never comes back. Re-evaluated
+    /// as the surface resizes while it is still in charge.
+    /// </summary>
+    async Task ApplyOpeningZoomAsync()
+    {
+        if (this.zoomChosen || this.ReadModeOn || this.LayoutMode != DocumentPageLayout.Print
+            || this.C is not { } controller || this.editor is not { ViewportWidth: > 0 } surface)
+            return;
+
+        var zoom = StatusZoomModel.OpeningZoom(controller.Document.Page.Width, surface.ViewportWidth);
+        if (Math.Abs(zoom - this.ZoomLevel) < 0.0001)
+            return;
+
+        this.openingZoom = zoom;
+        this.applyingOpeningZoom = true;
+        try
+        {
+            await this.SetZoomAsync(zoom);
+        }
+        finally
+        {
+            this.applyingOpeningZoom = false;
+        }
+
+        this.StateHasChanged();
+    }
+
     /// <summary>Sets the zoom so the page exactly spans the window. Only in print.</summary>
     async Task FitToWidth()
     {
@@ -1855,6 +1911,9 @@
 
     async Task SetZoomAsync(double value)
     {
+        if (!this.applyingOpeningZoom)
+            this.zoomChosen = true;
+
         this.zoomOverride = value;
 
         if (this.C is { } controller)

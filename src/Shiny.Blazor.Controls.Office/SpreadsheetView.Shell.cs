@@ -19,7 +19,7 @@ namespace Shiny.Blazor.Controls.Office;
 public partial class SpreadsheetView
 {
     /// <summary>The zoom range the grid supports (10–400%), so the slider cannot ask for 500%.</summary>
-    static readonly OfficeZoomModel ShellZoom = new(0.1, 4.0, 1.0);
+    static readonly OfficeZoomModel ShellZoom = new(SpreadsheetController.MinZoom, SpreadsheetController.MaxZoom, 1.0);
 
     readonly OfficeCommandIndex commands = new();
     readonly OfficeStatusItem modeItem = new("mode", "Ready");
@@ -192,6 +192,10 @@ public partial class SpreadsheetView
     {
         if (open && this.Workbook is { } book)
             this.documentInfo = SpreadsheetShell.DocumentInfo(book, this.EffectiveDocumentName);
+
+        // The built-in templates get a picture of their first sheet, drawn once per app on the first visit.
+        if (open && this.Templates is null)
+            TemplateThumbnailCache.EnsureSpreadsheet();
 
         this.backstageOpen = open;
         this.StateHasChanged();

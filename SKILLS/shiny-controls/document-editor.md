@@ -53,8 +53,8 @@ navigation pane, Styles dropdown instead of the gallery).
 | Ruler | `ShowRuler` | Print Layout only. Indents / tab stops of the caret paragraph, section left/right margins — dragging applies them (one undo step) |
 | Navigation pane | `ShowNavigationPane` (two-way; View › Navigation Pane, Ctrl+F) | headings (click to jump), search → Results (click selects the hit) |
 | Comments pane | `ShowCommentsPane` (two-way; ribbon Comments button) | every comment: author, date, quoted text; click jumps, delete per comment, New |
-| Status bar | `ShowStatusBar` | "Page X of Y" (click → nav pane), "N words" (click → Word Count), language; Read / Print / Web view buttons (= `ReadMode` / `PageLayout`); zoom slider two-way with `Zoom` |
-| Backstage | always (File) | `Templates` (null = `WordTemplates.All`: Blank, Report, Letter), `RecentFiles` (host list), Info (statistics); print preview |
+| Status bar | `ShowStatusBar` | "Page X of Y" (click → nav pane), "N words" (click → Word Count), language; Read / Print / Web view buttons (= `ReadMode` / `PageLayout`); zoom slider two-way with `Zoom` (25–400% = `DocumentController.MinimumZoom`/`MaximumZoom`) |
+| Backstage | always (File) | `Templates` (null = `WordTemplates.All`: Blank, Report, Letter — tiles get a first-page picture on first open, `OfficeTemplateThumbnails.Word()`), `RecentFiles` (host list), Info (statistics); print preview |
 
 Events (Blazor `EventCallback`, MAUI `EventHandler`): `SaveRequested`, `SaveAsRequested(OfficeFileFormat)`,
 `ExportRequested(OfficeFileFormat)`, `OpenRequested`, `RecentFileSelected(OfficeRecentFile)`,
@@ -625,6 +625,8 @@ while the caret is in a table, and **Shapes**. Do not add host chrome duplicatin
 Reading on a phone is covered by three things that already exist; do not reinvent them:
 - one-finger drag pans **both** axes (touch); ctrl-wheel and sideways wheel on desktop
 - pinch, or View ▸ Zoom (50-300% stops)
+- Print Layout opens a page wider than the viewport at page-width fit (both hosts) until a zoom is
+  chosen — so do NOT set `Zoom="1"` on a phone layout; setting `Zoom` at all turns the fit off
 - View ▸ Page Width, which spans the page across the window (print layout only)
 
 Spelling has three entry points: long-press/right-click menu, Review ▸ Proofing (toggle + prev/next,

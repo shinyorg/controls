@@ -35,10 +35,17 @@ public partial class DocumentController
 
     public DocumentViewport Viewport { get; }
 
+    /// <summary>The smallest zoom (25%). The status bar's zoom range is built from this and <see cref="MaximumZoom"/>.</summary>
+    public const double MinimumZoom = 0.25;
+
+    /// <summary>The largest zoom (400%).</summary>
+    public const double MaximumZoom = 4.0;
+
     /// <summary>
     /// Zoom factor, and it means two different things by design.
     /// </summary>
     /// <remarks>
+    /// Held between <see cref="MinimumZoom"/> and <see cref="MaximumZoom"/>.
     /// In <see cref="DocumentPageLayout.Reflow"/> it changes the measure, so zooming in re-wraps the
     /// text wider — which is what you want when the page is notional. In
     /// <see cref="DocumentPageLayout.Print"/> it is a straight scale, because the page is a real sheet
@@ -49,7 +56,7 @@ public partial class DocumentController
         get => this.zoom;
         set
         {
-            var clamped = Math.Clamp(value, 0.25, 4.0);
+            var clamped = Math.Clamp(value, MinimumZoom, MaximumZoom);
             if (Math.Abs(clamped - this.zoom) < 0.001)
                 return;
 

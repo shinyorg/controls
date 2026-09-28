@@ -122,7 +122,7 @@ public partial class SlideEditorView : IDisposable
 
     // ---- state ----
 
-    static readonly OfficeZoomModel StatusZoomModel = new(0.1, 4.0, 1.0);
+    static readonly OfficeZoomModel StatusZoomModel = new(SlideController.MinimumZoom, SlideController.MaximumZoom, 1.0);
 
     readonly OfficeCommandIndex commands = new();
     readonly OfficeStatusItem slideItem = new("slide", "Slide 1 of 1") { Tooltip = "The slide being edited" };
@@ -473,30 +473,7 @@ public partial class SlideEditorView : IDisposable
 
         try
         {
-            var list = new List<OfficeTemplate>();
-            foreach (var template in SlideTemplates.All)
-            {
-                if (template.IsBlank)
-                {
-                    list.Add(template);
-                    continue;
-                }
-
-                using var stream = SlideTemplates.Create(template.Id);
-                using var deck = SlideDeck.OpenAsync(stream).GetAwaiter().GetResult();
-                var png = SlideExporter.ToPng(deck, 0, 320);
-
-                list.Add(new OfficeTemplate(template.Id, template.Name)
-                {
-                    Description = template.Description,
-                    Category = template.Category,
-                    Open = template.Open,
-                    Tag = template.Tag,
-                    Thumbnail = "data:image/png;base64," + Convert.ToBase64String(png)
-                });
-            }
-
-            builtInTemplates = list;
+            builtInTemplates = OfficeTemplateThumbnails.Slides();
         }
         catch (Exception ex)
         {

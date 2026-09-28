@@ -57,7 +57,7 @@ The control is Excel's whole window, not a grid with a toolbar. It wraps itself 
 | Ribbon | **File** opens the backstage. **Comments**, the **Editing / Reviewing / Viewing** menu (Viewing makes the workbook read-only) and **Share** sit at the right end of the tab strip. Undo/Redo move to the title bar |
 | Comments pane | Every note in the workbook — `Sheet!Cell`, author, text — and a click selects the cell, switching sheets |
 | Status bar | **Ready / Enter / Edit** (typing over a cell is Enter, F2 is Edit), **"Average: 8  Count: 3  Sum: 24"** when the selection holds at least two values (hidden otherwise, as in Excel), **Normal / Page Layout / Page Break Preview**, and a zoom slider bound to `Zoom` (10–400%) |
-| Backstage | New (blank workbook plus Monthly budget, Invoice and Weekly schedule, built in code by `SpreadsheetTemplates`), Open, Info (sheets, cells with data, formulas, notes), Save, Save As, Print, Export |
+| Backstage | New (blank workbook plus Monthly budget, Invoice and Weekly schedule, built in code by `SpreadsheetTemplates`, each tile a picture of the top of its first sheet — `OfficeTemplateThumbnails.Spreadsheet()`), Open, Info (sheets, cells with data, formulas, notes), Save, Save As, Print, Export |
 
 **Page views.** Page Layout dashes the edges of the printed pages over the grid; Page Break Preview
 draws them solid blue, greys out everything off the pages and writes "Page n" on each. Pages are US

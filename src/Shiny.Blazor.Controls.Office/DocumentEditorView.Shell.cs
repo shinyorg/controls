@@ -125,7 +125,7 @@ public partial class DocumentEditorView
     readonly OfficeStatusItem languageItem = new("language", WordShell.LanguageText()) { Tooltip = "Proofing language" };
     readonly List<OfficeStatusItem> statusItems;
 
-    static readonly OfficeZoomModel StatusZoomModel = new(0.25, 4.0, 1.0);
+    static readonly OfficeZoomModel StatusZoomModel = new(DocumentController.MinimumZoom, DocumentController.MaximumZoom, 1.0);
 
     Ribbon? ribbonRef;
     Ribbon? syncedRibbon;
@@ -557,6 +557,7 @@ public partial class DocumentEditorView
     public Task OpenBackstageAsync()
     {
         this.backstageInfo = WordShell.DocumentInfo(this.C, this.EffectiveDocumentName, this.DocumentLocation);
+        this.EnsureTemplateThumbnails();
         this.backstageOpen = true;
         this.StateHasChanged();
         return Task.CompletedTask;
@@ -564,12 +565,25 @@ public partial class DocumentEditorView
 
     Task OnBackstageOpenChanged(bool open)
     {
+        if (open)
+            this.EnsureTemplateThumbnails();
+
         this.backstageOpen = open;
 
         if (!open && this.editor is { } surface)
             return surface.FocusAsync();
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Gives the built-in templates a picture of their first page, as PowerPoint's have of their title
+    /// slide. Drawn once per app on the first visit to the backstage; a host's own list is left alone.
+    /// </summary>
+    void EnsureTemplateThumbnails()
+    {
+        if (this.Templates is null)
+            TemplateThumbnailCache.EnsureWord();
     }
 
     async Task OnBackstagePageChangedAsync(OfficeBackstagePage page)
