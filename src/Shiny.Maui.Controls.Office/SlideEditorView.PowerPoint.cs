@@ -111,19 +111,21 @@ public partial class SlideEditorView
     /// <summary>Raised when anything a status bar shows changes: slide, count, zoom, notes or view.</summary>
     public event EventHandler? StatusChanged;
 
-    /// <summary>The File tab. When handled, the ribbon shows a File button that raises this.</summary>
+    /// <summary>
+    /// The File tab. With the shell on (the default) File opens the backstage and still raises this; with it
+    /// off, the ribbon shows File only while this is handled.
+    /// </summary>
     public event EventHandler? FileMenuRequested
     {
         add
         {
             this.fileMenuRequested += value;
-            this.ribbon.ApplicationButtonText = "File";
+            this.ApplyFileButton();
         }
         remove
         {
             this.fileMenuRequested -= value;
-            if (this.fileMenuRequested is null)
-                this.ribbon.ApplicationButtonText = null;
+            this.ApplyFileButton();
         }
     }
 
@@ -193,7 +195,7 @@ public partial class SlideEditorView
 
     SlideEditorController? C => this.editor.Controller;
 
-    bool Editable => !this.IsReadOnly && this.Deck is not null;
+    bool Editable => !this.EffectiveReadOnly && this.Deck is not null;
 
     bool HasShape => this.Editable && (this.C?.HasShapeSelection ?? false);
 
@@ -382,6 +384,7 @@ public partial class SlideEditorView
         this.masterTab = this.BuildMasterTab();
         this.ribbon.Tabs.Add(this.masterTab);
 
+        this.AfterBarBuilt();
         this.RefreshBar();
     }
 
@@ -784,6 +787,28 @@ public partial class SlideEditorView
         tab.Groups.Add(Group("Set Up", 90,
             this.Toggle(SlideIcon.HideSlide, "Hide Slide", () => this.Run(c => c.ToggleHideSlide()), () => this.C?.Current?.IsHidden == true,
                 () => this.Editable && (this.C?.Count ?? 0) > 0, RibbonItemSize.Large)));
+
+        // Export: the PDF and the pictures, through FileRequested - the host decides where they go.
+        var pdf = new RibbonButton
+        {
+            Text = "PDF",
+            Tooltip = "Export the deck as a PDF, a page per slide",
+            Size = RibbonItemSize.Large,
+            IconTemplate = SlideIconTemplate(SlideIcon.Export),
+            AutomationId = "SlideExportPdf",
+            Command = new Command(() => this.Export(Shiny.Controls.Office.Shell.OfficeFileFormats.Pdf))
+        };
+        this.gated.Add((pdf, () => this.Deck is not null));
+
+        var pictures = this.Menu(SlideIcon.Export, "Pictures", () => (this.Deck?.Slides.Count ?? 0) > 0, m =>
+        {
+            m.Add(new RibbonMenuEntry { Text = "This slide as PNG", Command = new Command(() => this.Export(Shiny.Controls.Office.Shell.OfficeFileFormats.Png)) });
+            m.Add(new RibbonMenuEntry { Text = "This slide as JPEG", Command = new Command(() => this.Export(Shiny.Controls.Office.Shell.OfficeFileFormats.Jpeg)) });
+            m.Add(new RibbonMenuEntry { Text = "All slides as PNG (.zip)", Command = new Command(() => this.Export(SlideExport.AllSlidesPng)) });
+        }, RibbonItemSize.Large);
+        pictures.Tooltip = "Export slides as pictures";
+
+        tab.Groups.Add(Group("Export", 70, pdf, pictures));
 
         return tab;
     }
@@ -1348,7 +1373,7 @@ public partial class SlideEditorView
         this.statusTools.Children.Add(StatusButton("+", "SlideStatusZoomIn", () => { this.C?.ZoomStep(1); this.SetZoom(this.C?.Zoom); }));
         this.statusTools.Children.Add(StatusButton("Fit", "SlideStatusFit", () => this.SetZoom(null)));
 
-        this.ribbon.ApplicationButtonCommand = new Command(() => this.fileMenuRequested?.Invoke(this, EventArgs.Empty));
+        this.ApplyFileButton();
 
         // The numbered click markers are the Animations tab's, as in PowerPoint.
         this.ribbon.TabChanged += (_, _) =>
@@ -1406,13 +1431,13 @@ public partial class SlideEditorView
             item.IsEnabled = this.HasTextOrShape;
 
         if (this.shapeFormatTab is not null)
-            this.shapeFormatTab.IsVisible = controller?.HasShapeSelection == true && !this.IsReadOnly;
+            this.shapeFormatTab.IsVisible = controller?.HasShapeSelection == true && !this.EffectiveReadOnly;
 
         if (this.tableDesignTab is not null && this.tableLayoutTab is not null)
-            this.tableDesignTab.IsVisible = this.tableLayoutTab.IsVisible = controller?.SelectedTable is not null && !this.IsReadOnly;
+            this.tableDesignTab.IsVisible = this.tableLayoutTab.IsVisible = controller?.SelectedTable is not null && !this.EffectiveReadOnly;
 
         if (this.chartTab is not null)
-            this.chartTab.IsVisible = controller?.SelectedChart is not null && !this.IsReadOnly;
+            this.chartTab.IsVisible = controller?.SelectedChart is not null && !this.EffectiveReadOnly;
 
         if (this.masterTab is not null)
             this.masterTab.IsVisible = controller?.ViewMode == SlideEditorViewMode.SlideMaster;
@@ -1478,6 +1503,7 @@ public partial class SlideEditorView
         this.RebuildAnimationPane();
         this.RebuildOutline();
         this.SyncStatus();
+        this.SyncShellStatus();
     }
 
     // ---- dialogs ----

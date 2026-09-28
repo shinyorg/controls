@@ -340,6 +340,48 @@ Status bar members on `SlideEditorView` (both hosts): `CurrentSlideIndex`, `Slid
 Limits: no separate audience window on Blazor; media plays through the host, not inline; charts carry no embedded workbook.
 Everything the viewer does not render — see `document-viewer.md`.
 
+## PowerPoint window (Office shell) — on by default
+
+`SlideEditorView` wraps itself in the Office shell (`OfficeApp.PowerPoint`, red). Behaviour change:
+existing views grow a title bar, the Office status bar and a File backstage; `ShowShell="false"`
+restores the old ribbon + slide + plain status line.
+
+- Switches: `ShowShell`, `ShowTitleBar`, `ShowStatusBar` (`ShowStatus=false` hides either bar),
+  `ShowBackstage` (off → File only raises `FileMenuRequested`), `ShowRibbonActions`.
+- Document: `DocumentName` (two-way, default "Presentation1"/file name), `DocumentLocation`,
+  `SaveState` (null = tracked), `AutoSave` (two-way; saves 2s after an edit when `FileRequested` is
+  handled), `UserName`, `Templates` (default `SlideTemplates.All`: Blank, Project update, Pitch deck,
+  Lesson), `RecentFiles`, `EditMode` (Viewing = read-only; Reviewing = Editing).
+- Events: `FileRequested` (`SlideFileRequest`: `Deck`, `SlideIndex`, `Format`, `FileName`, `Action`
+  Save/SaveAs/Export/Print, `WriteToAsync`, `ToBytesAsync`), `TemplateSelected`, `DeckReplaced`
+  (template opened by the view — bind the host's deck to it), `OpenRequested`, `RecentFileSelected`,
+  `ShareRequested`. `FileMenuRequested` still fires after the backstage opens.
+- Blazor unhandled `FileRequested`: downloads (pptx / pdf / png / jpg / zip of all slides); Print opens
+  the PDF in the print dialog. MAUI: nothing happens unless handled.
+- Status bar: "Slide X of Y", language, Notes toggle, Normal / Slide Sorter / Reading View (Reading =
+  the show from the current slide), zoom slider two-way with `Zoom`, Fit-to-window button (`Zoom=null`).
+- Ribbon Slide Show tab has an Export group (PDF, Pictures menu) on both hosts.
+- No Comments button (no slide comments engine).
+- Formats: `SlideExport.SaveAsFormats` (pptx, pdf, png) and `SlideExport.ExportFormats` (pdf, png,
+  `SlideExport.AllSlidesPng` zip, jpg). Helpers in `SlideShell` (SlideText, ViewModeId/ParseViewMode,
+  DocumentInfo, WordCount, Search, SplitShortcut).
+
+```razor
+<SlideEditorView Deck="deck" DeckReplaced="d => deck = d" @bind-Zoom="zoom"
+                 DocumentName="Quarterly Review" UserName="Allan Ritchie"
+                 RecentFiles="recent" FileRequested="SaveAsync" />
+```
+
+```csharp
+// MAUI
+slides.FileRequested += async (_, r) =>
+{
+    await using var file = File.Create(Path.Combine(FileSystem.AppDataDirectory, r.FileName));
+    await r.WriteToAsync(file);
+};
+slides.DeckReplaced += (_, deck) => this.Deck = deck;
+```
+
 ## Saving
 
 An unedited deck saves **byte-identical**. After an edit, the parts the reader materialised (every

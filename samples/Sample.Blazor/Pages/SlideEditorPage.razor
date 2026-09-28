@@ -8,20 +8,29 @@
 
 <h1>Slide Editor</h1>
 <p class="lead">
-    A <code>.pptx</code> editor. Two controls: <code>SlideEditor</code> is the bare surface,
-    <code>SlideEditorView</code> wraps it in a <code>ShinyToolbar</code> with the editing chrome.
+    A <code>.pptx</code> editor dressed as PowerPoint. <code>SlideEditorView</code> wraps the bare
+    <code>SlideEditor</code> surface in the Office shell: the red title bar (AutoSave, Save / Undo / Redo,
+    From Beginning, the presentation name, the command search), PowerPoint's ribbon with Editing / Share
+    at its right end, the status bar (slide counter, Notes, Normal / Slide Sorter / Reading View, zoom and
+    fit) and the File backstage — New from a template, Save As, Export to PDF or pictures, Print.
 </p>
 
 <div class="toolbar">
-    <label class="chk"><input type="checkbox" @bind="withToolbar" /> Toolbar wrapper</label>
+    <label class="chk"><input type="checkbox" @bind="withShell" /> Office shell</label>
+    <label class="chk"><input type="checkbox" @bind="withToolbar" /> Editor wrapper</label>
     <button class="btn" @onclick="ToggleTheme">@(dark ? "Follow page" : "Force dark")</button>
     <span class="status">@Status</span>
 </div>
 
-<div class="editor-host">
+<div class="editor-host @(withShell && withToolbar ? "is-shell" : null)">
     @if (withToolbar)
     {
         <SlideEditorView Deck="deck"
+                         ShowShell="withShell"
+                         DocumentName="Shiny Office"
+                         UserName="Allan Ritchie"
+                         RecentFiles="recent"
+                         DeckReplaced="d => deck = d"
                          @bind-SlideIndex="index"
                          Theme="@(dark ? SlideTheme.Dark : null)"
                          @bind-Zoom="zoom"
@@ -51,6 +60,14 @@
 @code {
     SlideDeck? deck;
     bool withToolbar = true;
+    bool withShell = true;
+
+    /// <summary>The host keeps the recent list; the backstage shows it and raises the pick.</summary>
+    readonly IReadOnlyList<Shiny.Controls.Office.Shell.OfficeRecentFile> recent =
+    [
+        new("Quarterly Review", "Documents", DateTimeOffset.Now.AddHours(-3)) { IsPinned = true },
+        new("Product Launch", "Documents › Marketing", DateTimeOffset.Now.AddDays(-2))
+    ];
     bool dark;
     int index;
     double? zoom;

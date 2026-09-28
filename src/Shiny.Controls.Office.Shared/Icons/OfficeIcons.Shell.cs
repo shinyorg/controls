@@ -61,7 +61,16 @@ public enum OfficeShellIcon
     Menu,
     Check,
     Collapse,
-    Expand
+    Expand,
+
+    /// <summary>PowerPoint's "Fit slide to current window" — a slide inside four corner brackets.</summary>
+    FitToWindow,
+
+    /// <summary>The status bar's Notes toggle — a page of lines.</summary>
+    Notes,
+
+    /// <summary>Start the slide show — PowerPoint's quick access "From Beginning".</summary>
+    SlideShow
 }
 
 
@@ -376,6 +385,10 @@ public static partial class OfficeIcons
 
         OfficeShellIcon.Collapse => [OfficeIconShape.Polyline(9.5f, 6f, 15.5f, 12f, 9.5f, 18f)],
         OfficeShellIcon.Expand => [OfficeIconShape.Polyline(6f, 9.5f, 12f, 15.5f, 18f, 9.5f)],
+
+        OfficeShellIcon.FitToWindow => SlideIcons.Shapes(SlideIcon.FitToWindow),
+        OfficeShellIcon.Notes => Shapes(OfficeIcon.Notes),
+        OfficeShellIcon.SlideShow => Shapes(OfficeIcon.SlideShow),
 
         _ => []
     };
