@@ -33,7 +33,7 @@ Every part is wired to the editor already, and each has its own switch:
 | Part | Switch | What it does |
 |---|---|---|
 | **Title bar** | `ShowTitleBar` | AutoSave (`AutoSave`), Save / Undo / Redo, the document name (`DocumentName`, default "Document1", renamed in place), the save status (`SaveState`; left null it reads "Unsaved changes" once the document is edited), the command search, the account (`UserName`, which also signs comments and tracked changes) |
-| **Ribbon** | `ShowToolbar` | Word's tabs as before. **File** opens the backstage. The right end carries **Comments**, **Editing / Reviewing / Viewing** (`EditMode`: Reviewing switches Track Changes on, Viewing makes the document read-only) and **Share** (`ShareRequested`). Home › Styles is the "AaBbCcDd" gallery (the plain Styles dropdown in the simplified phone ribbon, whose one-line rows are too short for it). Keyboard shortcuts moved out of the tooltips into each item's `Shortcut`, where the command search shows them too |
+| **Ribbon** | `ShowToolbar` | Word's tabs as before. **File** opens the backstage. The right end carries **Comments**, **Editing / Reviewing / Viewing** (`EditMode`: Reviewing switches Track Changes on, Viewing makes the document read-only) and **Share** (`ShareRequested`). Home › Styles is the "AaBbCcDd" gallery (the plain Styles dropdown in the MAUI simplified phone ribbon, whose one-line rows are too short for it). Keyboard shortcuts moved out of the tooltips into each item's `Shortcut`, where the command search shows them too |
 | **Ruler** | `ShowRuler` | Print Layout only. Shows the caret paragraph's indents and tab stops and the section's margins; dragging a marker indents the selected paragraphs, a click adds a tab stop, dragging a margin edge moves it — each one undo step. Tab stops are saved as `w:tabs` |
 | **Navigation pane** | `ShowNavigationPane` | The headings (click to jump; the one the caret is under is marked) and a search box whose Results tab lists every hit with its context. View › Navigation Pane, Ctrl+F and the status bar's page count open it |
 | **Comments pane** | `ShowCommentsPane` | Every comment with its author, date and the text it is anchored to. Click a card to select that text; delete one with its button; **New** comments on the selection |
@@ -115,7 +115,7 @@ below is a method on `DocumentEditorController` first — the ribbon on each hos
 it — so a host with its own chrome gets all of it without the ribbon.
 
 > **Behaviour change.** The ribbon is organised into Word's tabs — **Home · Insert · Design · Layout ·
-> References · Review · View**, plus a contextual **Table** tab — and the tab strip is **on by default**
+> References · Review · View · Shapes**, plus a contextual **Table** tab — and the tab strip is **on by default**
 > on both hosts (`ShowRibbonTabs`). Proofing moved from Home to **Review**, and zoom moved from Layout
 > to **View**. A host that turned the strip off to show a single row of Home commands should set
 > `ShowRibbonTabs="False"` explicitly.
@@ -129,6 +129,7 @@ it — so a host with its own chrome gets all of it without the ribbon.
 | **References** | Table of Contents (Insert, Update Table) · Footnotes (Insert Footnote, Next Footnote) |
 | **Review** | Proofing (Spelling, previous/next misspelling, Word Count) · Comments (New, Delete, Previous, Next, Show) · Tracking (Track Changes) · Changes (Accept, Reject, Previous, Next) |
 | **View** | Views (Read Mode, Print Layout, Web Layout) · Show (Navigation Pane, Formatting Marks) · Zoom |
+| **Shapes** | Rectangles · Basic · Arrows — a gallery of the twenty preset shapes, each drawn as the shape it inserts (see [Shapes are a tab](#shapes-are-a-tab-not-a-dropdown)) |
 | **Table** *(contextual)* | Rows & Columns (Insert Above/Below/Left/Right, Delete Rows/Columns/Table) · Merge (Merge Cells, Split Cells) |
 
 The **File** button opens the backstage (see [The Word window](#the-word-window)). It still raises
@@ -209,7 +210,9 @@ c.CurrentStyleChanged += ...;                                // the caret moved 
 Intense Quote, List Paragraph — followed by the document's own visible paragraph styles, each with the
 formatting to preview it in. Applying a built-in the document does not define writes Word's own
 definition (ids, names, `basedOn` chain) into `styles.xml` first, so it shows in Word's gallery by its
-usual name. Both ribbons carry a Styles dropdown; `Ctrl+Alt+1..3` apply the headings and `Ctrl+Shift+N`
+usual name. Home ▸ Styles shows them as Word's "AaBbCcDd" gallery while the shell is on, and as a
+Styles dropdown with `ShowShell="false"` — and, on MAUI, in the simplified phone ribbon, whose one-line
+rows are too short for a gallery. `Ctrl+Alt+1..3` apply the headings and `Ctrl+Shift+N`
 Normal.
 
 ### Insert
@@ -491,7 +494,8 @@ canvas. Unpinning removes it.
 ## The toolbar is a Ribbon
 
 The formatting bar is a [Ribbon](ribbon.md) on both hosts, replacing the single scrolling strip of
-icons it used to be. Font, Paragraph, Insert and Page, each titled.
+icons it used to be. It carries Word's eight tabs — Home, Insert, Design, Layout, References, Review,
+View and Shapes — plus the contextual Table tab, each group titled (see [Word's feature set](#words-feature-set)).
 
 Two things the strip could not do:
 
@@ -501,7 +505,8 @@ Two things the strip could not do:
   ribbon already has.
 - **Commands are grouped and captioned** instead of separated by anonymous hairlines.
 
-Undo and redo sit in the ribbon's quick access row, outside the tabs, so they never move or disappear.
+Undo and redo sit outside the tabs, so they never move or disappear: in the window's title bar when
+the shell is on (`ShowShell` with `ShowTitleBar`), in the ribbon's quick access row otherwise.
 
 **The tab strip is on by default** (`ShowRibbonTabs`) — with Word's eight tabs it is the only way to
 reach most of the editor. Turn it off only when a host shows its own tab of commands.
@@ -533,7 +538,7 @@ drawn at all — they would be two targets that do nothing a drag does not.
 
 Word's tabs, in Word's order — see [Word's feature set](#words-feature-set). The contextual **Table**
 tab appears only while the caret is in a table, as Word's Table Layout tab does. Undo and redo sit in
-the quick access row above the tabs.
+the title bar when the shell is on, and in the quick access row above the tabs when it is off.
 
 ## Reading a document on a phone
 
@@ -721,7 +726,7 @@ view.Watermark = new OfficeWatermark
 ```
 
 The editors carry a **Watermark** button — document in Design ▸ Page Background (as *Picture
-Watermark…*), slide in Insert, spreadsheet in Data ▸ Sheet. It picks a picture through exactly the same path as inserting one: camera or gallery on
+Watermark…*), slide in Design ▸ Watermark, spreadsheet in Insert (the Sheet group on MAUI, Watermark on Blazor). It picks a picture through exactly the same path as inserting one: camera or gallery on
 iOS and Android, the platform's own image-filtered dialog on a desktop, a file input in the browser.
 Once a mark is set the button clears it, because a picker that reopens on a document already stamped is
 a dead end.

@@ -644,27 +644,6 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
         }
     }
 
-    /// <summary>White or near-black for text on a <c>#RRGGBB</c> fill; null for anything else.</summary>
-    internal static string? ContrastInk(string color)
-    {
-        var hex = color.Trim().TrimStart('#');
-        if (hex.Length != 6 || !int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
-            return null;
-
-        static double Channel(int v)
-        {
-            var c = v / 255.0;
-            return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
-        }
-
-        var luminance =
-            (0.2126 * Channel((rgb >> 16) & 0xFF)) +
-            (0.7152 * Channel((rgb >> 8) & 0xFF)) +
-            (0.0722 * Channel(rgb & 0xFF));
-
-        return luminance > 0.179 ? "#1A1A1A" : "#FFFFFF";
-    }
-
     string? BodyStyle
         => string.IsNullOrWhiteSpace(this.BodyBackgroundColor) ? null : $"background:{this.BodyBackgroundColor};";
 

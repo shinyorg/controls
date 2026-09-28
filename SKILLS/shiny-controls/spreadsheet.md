@@ -522,8 +522,6 @@ foreach (var feature in collector.Features)
 Do not generate code that assumes these exist:
 
 - **Dynamic arrays** (UNIQUE, SORT, FILTER, spill ranges).
-- **Structural edits don't yet repoint** conditional formatting, validation, chart series or table
-  ranges — inserting/deleting rows repoints formulas, defined names and merges only.
 - **Row auto-height.** Wrapped text paints on several lines inside the row's height; rows do not grow.
 - Chart *editing* beyond insert, move, resize and delete — series, axes and chart styles cannot be
   changed; charts from Excel render with default styling. Pivot tables are preserved, not shown.
@@ -550,8 +548,8 @@ host's light/dark scheme live. Pass `SpreadsheetTheme.Light` / `.Dark` only to p
 
 ### Toolbar
 
-The bar is a [Ribbon](ribbon.md) on both hosts — titled groups, with undo/redo in the quick access
-row. You do not build any of it; it is what the control renders.
+The bar is a [Ribbon](ribbon.md) on both hosts — titled groups, with undo/redo in the shell's title
+bar (or the ribbon's quick access row when the shell or its title bar is off). You do not build any of it; it is what the control renders.
 
 Do **not** hand-roll a formatting strip beside this control. Use `ToolbarContent` (Blazor) /
 `ToolbarItems` (MAUI) to add your own commands — they land in their own group that never collapses.
@@ -564,7 +562,9 @@ tab. Below 600px the bar switches itself to `Simplified` — no code needed.
 
 On the controller: `Cut()`, `Copy()`, `Paste()`, `ClearClipboard()`, `CanPaste`, `Clipboard`,
 `ClipboardRange`, `ClipboardChanged`, and `InsertRows(count = 1)` / `InsertColumns(count = 1)` /
-`DeleteRows` / `DeleteColumns`.
+`DeleteRows` / `DeleteColumns` (Home ▸ Cells on the ribbon). A structural edit repoints formulas on
+every sheet, defined names, merged cells, conditional formatting, data validation, hyperlinks, notes,
+the AutoFilter, tables and charts (anchors and series) — no host fix-up needed.
 
 `ClipboardRange` is the source range of the pending cut or copy, and the control draws the animated
 dashed marching-ants border around it for you — do not draw your own, and do not repurpose

@@ -21,10 +21,9 @@ public readonly record struct DocumentFindMatch(int Block, int Start, int Length
 /// </summary>
 /// <remarks>
 /// <para>
-/// Paragraphs only, which is the same content the spelling pass walks and the same content the caret
-/// can reach: a position is a block plus an offset, and a table has no offset to land on. Text inside
-/// a table's cells is therefore not searched — reporting a count that included hits the arrows could
-/// never step to would be worse than not counting them.
+/// Walks <see cref="WordDocument.Paragraphs"/> — the story, every paragraph in reading order,
+/// including the ones inside table cells — which is the same index space the caret moves through, so
+/// every hit counted is one the arrows can step to and select.
 /// </para>
 /// <para>
 /// A hit is <em>selected</em> rather than merely scrolled to. Everything a person does after finding a

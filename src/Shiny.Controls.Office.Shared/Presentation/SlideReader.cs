@@ -39,7 +39,7 @@ sealed class SlideReader
         this.master = this.layout?.SlideMasterPart;
 
         var themePart = this.master?.ThemePart;
-        this.colors = ThemeColors.From(themePart);
+        this.colors = ThemeColors.From(themePart).WithMap(this.ColorMap(part.Slide?.ColorMapOverride));
         this.fonts = ThemeFonts.From(themePart);
         this.drawing = new DrawingReader(this.colors);
     }
@@ -54,10 +54,19 @@ sealed class SlideReader
         this.master = master;
 
         var themePart = master.ThemePart;
-        this.colors = ThemeColors.From(themePart);
+        this.colors = ThemeColors.From(themePart).WithMap(this.ColorMap(null));
         this.fonts = ThemeFonts.From(themePart);
         this.drawing = new DrawingReader(this.colors);
     }
+
+    /// <summary>
+    /// The colour map in force: the slide's override, else the layout's, else the master's own
+    /// <c>p:clrMap</c>. An override is a whole map, never a partial one, so the first one found wins.
+    /// </summary>
+    IReadOnlyDictionary<string, string>? ColorMap(ColorMapOverride? slideOverride)
+        => ThemeColors.ReadMap(slideOverride?.OverrideColorMapping)
+            ?? ThemeColors.ReadMap(this.layout?.SlideLayout?.ColorMapOverride?.OverrideColorMapping)
+            ?? ThemeColors.ReadMap(this.master?.SlideMaster?.ColorMap);
 
     /// <summary>
     /// A master or layout as a page: its placeholders included and editable, with the text they carry
@@ -361,7 +370,7 @@ sealed class SlideReader
                 "Freeform shapes are drawn as their bounding rectangle."));
         }
 
-        var text = this.ReadTextBody(shape.TextBody, placeholder, inherited);
+        var text = this.ReadTextBody(shape.TextBody, placeholder, inherited, shape);
         var bodyProperties = shape.TextBody?.BodyProperties;
         var inheritedBody = inherited?.TextBody?.BodyProperties;
 
@@ -428,7 +437,7 @@ sealed class SlideReader
         var synthetic = (D.Paragraph)first.CloneNode(true);
         synthetic.Append(new D.Run(new D.Text(prompt)));
 
-        var paragraph = this.ReadParagraph(synthetic, this.ResolveListStyle(placeholder, inherited), new ShapeNumbering());
+        var paragraph = this.ReadParagraph(synthetic, this.ResolveTextStyles(body, placeholder, inherited, null), new ShapeNumbering());
         paragraph = paragraph with
         {
             Runs = paragraph.Runs.Select(x => x with { Style = x.Style with { Color = PromptInk } }).ToList()
@@ -494,13 +503,13 @@ sealed class SlideReader
     /// copy re-wrapped as the other type, which is what this used to do — is what lets an edit to a
     /// cell's paragraphs reach the file.
     /// </remarks>
-    ShapeTextBody? ReadTextBody(OpenXmlCompositeElement? body, PlaceholderShape? placeholder, Shape? inherited)
+    ShapeTextBody? ReadTextBody(OpenXmlCompositeElement? body, PlaceholderShape? placeholder, Shape? inherited, Shape? shape = null)
     {
         if (body is null)
             return null;
 
         var paragraphs = new List<ShapeParagraph>();
-        OpenXmlCompositeElement? listStyle = this.ResolveListStyle(placeholder, inherited);
+        var listStyle = this.ResolveTextStyles(body, placeholder, inherited, shape);
 
         // One counter set per text body. A numbered list is a property of the shape it is in — two
         // bulleted placeholders on the same slide each start at one, and a counter shared across the
@@ -542,39 +551,126 @@ sealed class SlideReader
         };
     }
 
-    /// <summary>The list style that supplies default run formatting per outline level.</summary>
-    OpenXmlCompositeElement? ResolveListStyle(PlaceholderShape? placeholder, Shape? inherited)
+    /// <summary>
+    /// Every list style a text body inherits from, most specific first, plus the shape's own
+    /// <c>p:style</c> font colour.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// OOXML resolves each run property separately, walking: the run's <c>a:rPr</c> → the paragraph's
+    /// <c>a:pPr</c> → the shape's own <c>a:lstStyle</c> → the layout placeholder's <c>a:lstStyle</c> →
+    /// the master placeholder's <c>a:lstStyle</c> → the master's <c>p:txStyles</c> (title, body or other
+    /// by placeholder type) → the presentation's <c>p:defaultTextStyle</c>. The first one that states a
+    /// property supplies it.
+    /// </para>
+    /// <para>
+    /// This used to stop at the first list style with anything in it — usually the layout's — so a
+    /// layout that set only sizes hid the master's text colour, and text fell back to black. On a
+    /// theme with a dark background (Midnight) that was black text on navy.
+    /// </para>
+    /// </remarks>
+    TextInheritance ResolveTextStyles(OpenXmlCompositeElement? body, PlaceholderShape? placeholder, Shape? inherited, Shape? shape)
     {
-        if (inherited?.TextBody?.ListStyle is { } fromLayout && fromLayout.HasChildren)
-            return fromLayout;
+        var chain = new List<OpenXmlCompositeElement>();
 
-        var master = this.master?.SlideMaster;
+        void Add(OpenXmlCompositeElement? style)
+        {
+            if (style is not null && style.HasChildren && !chain.Contains(style))
+                chain.Add(style);
+        }
+
+        Add(body?.GetFirstChild<D.ListStyle>());
+        var own = chain.Count;
+
+        if (placeholder is not null)
+        {
+            Add(inherited?.TextBody?.ListStyle);
+
+            // The layout placeholder's own parent on the master. When the slide's placeholder matched
+            // the master directly (no layout placeholder), this is the same list style and is skipped.
+            Add(this.FindMasterPlaceholder(placeholder)?.TextBody?.ListStyle);
+        }
+
+        Add(MasterTextStyle(this.master?.SlideMaster, placeholder));
+
+        Add((this.master?.OpenXmlPackage as DocumentFormat.OpenXml.Packaging.PresentationDocument)?
+            .PresentationPart?.Presentation?.DefaultTextStyle);
+
+        // A shape's style reference (p:style/a:fontRef) colours its text below its own list style —
+        // it is how a filled shape PowerPoint inserts gets white text.
+        var fontColor = shape?.ShapeStyle?.FontReference is { } fontRef ? this.drawing.ReadColor(fontRef) : null;
+
+        return new TextInheritance(chain, own, fontColor);
+    }
+
+    /// <summary>
+    /// The master's text style a placeholder type draws from: title for titles, body for body, content
+    /// (<c>obj</c>, and a placeholder with no type, which means <c>obj</c>) and subtitle placeholders,
+    /// other for everything else — including text that is not in a placeholder at all.
+    /// </summary>
+    /// <remarks>
+    /// Not being a placeholder and being a placeholder with no type are different things: the first is
+    /// a plain text box, and handing it the body style gives it a bullet it never asked for.
+    /// </remarks>
+    static OpenXmlCompositeElement? MasterTextStyle(SlideMaster? master, PlaceholderShape? placeholder)
+    {
         if (master is null)
             return null;
 
-        // A shape that is not a placeholder is not a list. Falling back to the master's body style
-        // hands it the body bullet, so every plain text box grows a bullet it never asked for - and
-        // the space reserved for that bullet also throws off centred text.
-        if (placeholder?.Type?.Value is not { } type)
+        if (placeholder is null)
             return master.TextStyles?.OtherStyle;
 
+        var type = placeholder.Type?.Value;
         if (type == PlaceholderValues.Title || type == PlaceholderValues.CenteredTitle)
             return master.TextStyles?.TitleStyle;
 
-        if (type == PlaceholderValues.Body || type == PlaceholderValues.SubTitle)
+        if (type is null || type == PlaceholderValues.Body || type == PlaceholderValues.Object || type == PlaceholderValues.SubTitle)
             return master.TextStyles?.BodyStyle;
 
         return master.TextStyles?.OtherStyle;
     }
 
-    ShapeParagraph ReadParagraph(D.Paragraph paragraph, OpenXmlCompositeElement? listStyle, ShapeNumbering numbering)
+    /// <summary>
+    /// The master placeholder a placeholder ultimately inherits from, matched by kind: a title (or
+    /// centred title) to the master title, content/body/subtitle to the master body, and date, footer
+    /// and slide number to their own kind.
+    /// </summary>
+    Shape? FindMasterPlaceholder(PlaceholderShape placeholder)
+    {
+        if (this.master?.SlideMaster?.CommonSlideData?.ShapeTree is not { } tree)
+            return null;
+
+        var type = placeholder.Type?.Value;
+        var wanted =
+            type == PlaceholderValues.Title || type == PlaceholderValues.CenteredTitle ? PlaceholderValues.Title
+            : type is null || type == PlaceholderValues.Object || type == PlaceholderValues.SubTitle || type == PlaceholderValues.Body ? PlaceholderValues.Body
+            : type.Value;
+
+        return tree.Descendants<Shape>().FirstOrDefault(x =>
+            x.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?.PlaceholderShape is { } candidate &&
+            (candidate.Type?.Value ?? PlaceholderValues.Object) is var kind &&
+            (kind == wanted || (wanted == PlaceholderValues.Title && kind == PlaceholderValues.CenteredTitle)));
+    }
+
+    /// <summary>The list styles a text body inherits, most specific first.</summary>
+    /// <param name="Chain">Most specific first; the shape's own list style, when it has one, leads.</param>
+    /// <param name="OwnCount">1 when <paramref name="Chain"/> starts with the shape's own list style.</param>
+    /// <param name="FontColor">The shape's <c>p:style</c> font colour, which sits just under its own list style.</param>
+    sealed record TextInheritance(IReadOnlyList<OpenXmlCompositeElement> Chain, int OwnCount, ArgbColor? FontColor)
+    {
+        /// <summary>Each list style's definition for the level, most specific first.</summary>
+        public IReadOnlyList<D.TextParagraphPropertiesType> Levels(int level)
+            => this.Chain.Select(x => LevelProperties(x, level)).OfType<D.TextParagraphPropertiesType>().ToList();
+    }
+
+    ShapeParagraph ReadParagraph(D.Paragraph paragraph, TextInheritance inheritance, ShapeNumbering numbering)
     {
         var properties = paragraph.ParagraphProperties;
         var level = properties?.Level?.Value ?? 0;
 
-        // Level defaults come from the list style; the paragraph's own properties override them.
-        var levelDefaults = LevelProperties(listStyle, level);
-        var style = this.ReadRunStyleDefaults(levelDefaults);
+        // Level defaults come from the inherited list styles; the paragraph's own properties override them.
+        var levels = inheritance.Levels(level);
+        var style = this.ReadRunStyleDefaults(inheritance, level);
 
         var runs = new List<StyledRun>();
         foreach (var child in paragraph.ChildElements)
@@ -605,7 +701,7 @@ sealed class SlideReader
             }
         }
 
-        var alignment = (properties?.Alignment?.Value ?? levelDefaults?.Alignment?.Value) switch
+        var alignment = (properties?.Alignment?.Value ?? levels.Select(x => x.Alignment?.Value).FirstOrDefault(x => x is not null)) switch
         {
             var v when v == D.TextAlignmentTypeValues.Center => TextAlignment.Center,
             var v when v == D.TextAlignmentTypeValues.Right => TextAlignment.Right,
@@ -613,7 +709,7 @@ sealed class SlideReader
             _ => TextAlignment.Left
         };
 
-        var (listStyle_, bullet) = ReadBullet(properties, levelDefaults, level, numbering);
+        var (listStyle_, bullet) = ReadBullet(properties, levels.FirstOrDefault(StatesBullet), level, numbering);
 
         return new ShapeParagraph(runs)
         {
@@ -621,9 +717,9 @@ sealed class SlideReader
             Alignment = alignment,
             List = listStyle_,
             Bullet = bullet,
-            SpaceBefore = SpacingOf(properties?.SpaceBefore ?? levelDefaults?.SpaceBefore),
-            SpaceAfter = SpacingOf(properties?.SpaceAfter ?? levelDefaults?.SpaceAfter),
-            LineSpacing = LineSpacingOf(properties?.LineSpacing ?? levelDefaults?.LineSpacing)
+            SpaceBefore = SpacingOf(properties?.SpaceBefore ?? levels.Select(x => x.SpaceBefore).FirstOrDefault(x => x is not null)),
+            SpaceAfter = SpacingOf(properties?.SpaceAfter ?? levels.Select(x => x.SpaceAfter).FirstOrDefault(x => x is not null)),
+            LineSpacing = LineSpacingOf(properties?.LineSpacing ?? levels.Select(x => x.LineSpacing).FirstOrDefault(x => x is not null))
         };
     }
 
@@ -645,17 +741,44 @@ sealed class SlideReader
         _ => listStyle?.GetFirstChild<D.Level9ParagraphProperties>()
     };
 
-    TextStyle ReadRunStyleDefaults(D.TextParagraphPropertiesType? levelProperties)
+    /// <summary>True when a level definition says anything about bullets, turning them off included.</summary>
+    static bool StatesBullet(D.TextParagraphPropertiesType level)
+        => level.GetFirstChild<D.NoBullet>() is not null
+            || level.GetFirstChild<D.CharacterBullet>() is not null
+            || level.GetFirstChild<D.AutoNumberedBullet>() is not null;
+
+    /// <summary>
+    /// The run formatting a level starts from: every inherited <c>a:defRPr</c> applied least specific
+    /// first, so each property comes from the nearest style that states it.
+    /// </summary>
+    /// <remarks>
+    /// Text nobody coloured anywhere is <c>tx1</c> through the colour map — PowerPoint's own default,
+    /// and what follows a theme or variant onto a dark background — never a fixed black.
+    /// </remarks>
+    TextStyle ReadRunStyleDefaults(TextInheritance inheritance, int level)
     {
         // Body text with no face of its own is set in the theme's minor font, as PowerPoint sets it.
         var style = TextStyle.Default with
         {
             FontSize = OoxmlUnits.PointsToPixels(18),
-            FontFamily = this.fonts.Minor ?? TextStyle.Default.FontFamily
+            FontFamily = this.fonts.Minor ?? TextStyle.Default.FontFamily,
+            Color = this.colors.Resolve("tx1") ?? TextStyle.Default.Color
         };
-        return levelProperties?.GetFirstChild<D.DefaultRunProperties>() is { } defaults
-            ? this.ApplyRunProperties(style, defaults)
-            : style;
+
+        for (var i = inheritance.Chain.Count - 1; i >= 0; i--)
+        {
+            // The shape's style colour ranks just below its own list style.
+            if (i == inheritance.OwnCount - 1 && inheritance.FontColor is { } fontColor)
+                style = style with { Color = fontColor };
+
+            if (LevelProperties(inheritance.Chain[i], level)?.GetFirstChild<D.DefaultRunProperties>() is { } defaults)
+                style = this.ApplyRunProperties(style, defaults);
+        }
+
+        if (inheritance.OwnCount == 0 && inheritance.FontColor is { } styleColor)
+            style = style with { Color = styleColor };
+
+        return style;
     }
 
     /// <summary>

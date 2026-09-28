@@ -373,14 +373,30 @@ sealed class ThemeFonts
     };
 }
 
-/// <summary>A theme's colour scheme, with PowerPoint's index quirk applied.</summary>
+/// <summary>
+/// A theme's colour scheme, seen through a colour map.
+/// </summary>
+/// <remarks>
+/// Slide content names colours by <em>role</em> — <c>tx1</c>, <c>bg1</c>, <c>tx2</c>, <c>bg2</c> — and
+/// the master's <c>p:clrMap</c> (overridden by a layout's or slide's <c>p:clrMapOvr</c>) says which of
+/// the scheme's twelve slots each role is. The usual map sends <c>tx1</c> to <c>dk1</c>, but a dark
+/// master sends it to <c>lt1</c>; reading <c>tx1</c> as <c>dk1</c> regardless is what drew black text
+/// on a navy slide. Slot names (<c>dk1</c>, <c>lt1</c>, <c>accent1</c>...) are never remapped.
+/// </remarks>
 sealed class ThemeColors
 {
-    readonly Dictionary<string, ArgbColor> colors = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, ArgbColor> colors;
+    readonly IReadOnlyDictionary<string, string>? map;
+
+    ThemeColors(Dictionary<string, ArgbColor> colors, IReadOnlyDictionary<string, string>? map)
+    {
+        this.colors = colors;
+        this.map = map;
+    }
 
     public static ThemeColors From(ThemePart? part)
     {
-        var result = new ThemeColors();
+        var result = new ThemeColors(new Dictionary<string, ArgbColor>(StringComparer.OrdinalIgnoreCase), null);
         var scheme = part?.Theme?.ThemeElements?.ColorScheme;
         if (scheme is null)
             return result;
@@ -409,18 +425,44 @@ sealed class ThemeColors
         return result;
     }
 
+    /// <summary>The same scheme seen through a colour map (null keeps the default one).</summary>
+    public ThemeColors WithMap(IReadOnlyDictionary<string, string>? map) => new(this.colors, map);
+
+    /// <summary>
+    /// The role-to-slot assignments a <c>p:clrMap</c> or <c>a:overrideClrMapping</c> states, or null
+    /// when the element is absent or states none (<c>a:masterClrMapping</c>: "use the master's").
+    /// </summary>
+    public static IReadOnlyDictionary<string, string>? ReadMap(OpenXmlElement? element)
+    {
+        if (element is null)
+            return null;
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var attribute in element.GetAttributes())
+        {
+            if (string.IsNullOrEmpty(attribute.NamespaceUri) && !string.IsNullOrEmpty(attribute.Value))
+                map[attribute.LocalName] = attribute.Value!;
+        }
+
+        return map.Count == 0 ? null : map;
+    }
+
     public ArgbColor? Resolve(string name)
     {
-        // tx1/bg1 are aliases for dk1/lt1, and are what slide content actually references.
-        var key = name.ToLowerInvariant() switch
-        {
-            "tx1" => "dk1",
-            "bg1" => "lt1",
-            "tx2" => "dk2",
-            "bg2" => "lt2",
-            "phclr" => "accent1",
-            var other => other
-        };
+        var key = this.map is not null && this.map.TryGetValue(name, out var mapped)
+            ? mapped
+            : name.ToLowerInvariant() switch
+            {
+                // The default map: tx1/bg1 are dk1/lt1, and are what slide content actually references.
+                "tx1" => "dk1",
+                "bg1" => "lt1",
+                "tx2" => "dk2",
+                "bg2" => "lt2",
+                var other => other
+            };
+
+        if (string.Equals(key, "phClr", StringComparison.OrdinalIgnoreCase))
+            key = "accent1";
 
         return this.colors.TryGetValue(key, out var color) ? color : null;
     }

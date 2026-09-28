@@ -5,7 +5,7 @@ Two controls on both hosts, over the same packages as the viewers:
 | Control | What it is |
 |---|---|
 | `SlideEditor` | the lone editing surface — canvas, selection, caret, typing. No chrome. |
-| `SlideEditorView` | `SlideEditor` plus an editing toolbar and a status line |
+| `SlideEditorView` | `SlideEditor` inside PowerPoint's window — title bar, File backstage, the PowerPoint ribbon (Home · Insert · Design · Transitions · Animations · Slide Show · View + contextual tabs), ribbon actions and the Office status bar (`ShowShell="false"` drops back to ribbon + status line) |
 
 Same two constraints as everything else in these packages: **MAUI needs `UseShinyOffice()`** (it registers SkiaSharp, plus the AppKit canvas on `net10.0-macos`), **Blazor is
 WASM-only**, and on Blazor the container needs an **explicit height**.
@@ -320,6 +320,10 @@ c.Notes; c.SetNotes("...");    // creates notes page + notes master if missing; 
 - **Links**: `SetHyperlink(new SlideHyperlink(url))` or `new SlideHyperlink(null, Slide: n)`; on the caret's run or the whole shape. Followed in a show.
 - **Design**: `ApplyTheme(SlideThemeDefinition.BuiltIn[i])`, `ApplyColorVariant`, `SetSlideSize(w, h)` (1280x720 = 16:9, 960x720 = 4:3),
   `SetBackground(SlideBackgroundSpec, applyToAll)`, `ResetBackground`.
+  Text colour follows the theme: uncoloured text resolves through run → pPr → shape lstStyle → layout placeholder
+  → master placeholder → master `p:txStyles` → `p:defaultTextStyle`, ending at `tx1`, with scheme colours mapped by
+  `p:clrMap`/`p:clrMapOvr`. So don't hard-code a text colour to make a dark theme readable — use `a:schemeClr val="tx1"`
+  (or nothing) and let the theme decide.
 - **Transitions**: `SetTransition(SlideTransition, applyToAll)`, `SetTransitionKind(SlideTransitionKind)`, `UpdateTransition`,
   `ApplyTransitionToAll`; kinds None/Fade/Push/Wipe/Split/Reveal/Cover/Zoom/Morph.
 - **Animations**: `Animate(SlideAnimationEffect, add)`, `UpdateAnimation`, `MoveAnimation`, `RemoveAnimation`, `ShowAnimationMarkers`;
@@ -335,7 +339,7 @@ c.Notes; c.SetNotes("...");    // creates notes page + notes master if missing; 
 
 Status bar members on `SlideEditorView` (both hosts): `CurrentSlideIndex`, `SlideCount`, `EffectiveZoom`
 (read-only), `Zoom` and `ViewMode` (two-way; Blazor `@bind-Zoom`, `@bind-ViewMode`), `ShowNotes`, and
-`StatusChanged` (Blazor also `StatusUpdated` event). `FileMenuRequested` shows a File button — the backstage is the host's.
+`StatusChanged` (Blazor also `StatusUpdated` event). File opens the built-in backstage while the shell is on (`FileMenuRequested` is still raised after it opens); with `ShowShell="false"` or `ShowBackstage="false"` File only raises `FileMenuRequested`.
 
 Limits: no separate audience window on Blazor; media plays through the host, not inline; charts carry no embedded workbook.
 Everything the viewer does not render — see `document-viewer.md`.
@@ -395,8 +399,8 @@ darkens only the surround — a slide is an authored artboard and is never inver
 
 ### Toolbar
 
-The bar is a [Ribbon](ribbon.md) on both hosts — titled groups, with undo/redo in the quick access
-row. You do not build any of it; it is what the control renders.
+The bar is a [Ribbon](ribbon.md) on both hosts — titled groups, with undo/redo in the shell's title
+bar (or the ribbon's quick access row when the shell or its title bar is off). You do not build any of it; it is what the control renders.
 
 Do **not** hand-roll a formatting strip beside this control. Use `ToolbarContent` (Blazor) /
 `ToolbarItems` (MAUI) to add your own commands — they land in their own group that never collapses.

@@ -332,7 +332,8 @@ only toggles `IsVisible`, so the AppKit head renders it.
 ## The toolbar is a Ribbon
 
 The formatting bar is a [Ribbon](ribbon.md) on both hosts, replacing the single scrolling strip of
-icons it used to be. Slide, Font, Paragraph and Insert, each titled — slide navigation leads, because which slide you are on is navigation rather than formatting.
+icons it used to be. It carries PowerPoint's tabs — Home, Insert, Design, Transitions, Animations, Slide
+Show and View, plus the contextual tabs — each group titled (see [The toolbar](#the-toolbar)).
 
 Two things the strip could not do:
 
@@ -342,12 +343,14 @@ Two things the strip could not do:
   ribbon already has.
 - **Commands are grouped and captioned** instead of separated by anonymous hairlines.
 
-Undo and redo sit in the ribbon's quick access row, outside the tabs, so they never move or disappear.
+Undo and redo sit outside the tabs, so they never move or disappear: in the window's title bar when
+the shell is on (`ShowShell` with `ShowTitleBar`), in the ribbon's quick access row otherwise.
 
 **The tab strip is on by default** now that the editor carries PowerPoint's full set of tabs
 (`ShowRibbonTabs` on Blazor turns it off for a single-row bar). **File opens the backstage** while the
-shell is on (see [The PowerPoint window](#the-powerpoint-window)); with `ShowShell="false"` it is a
-hook only — handle `FileMenuRequested` and the ribbon shows a File button that raises it.
+shell is on (see [The PowerPoint window](#the-powerpoint-window)); `FileMenuRequested` is raised
+either way. With `ShowShell="false"` (or `ShowBackstage="false"`) File only raises `FileMenuRequested`,
+and the ribbon shows it only when that event is handled.
 
 **Below 600px wide the bar runs in `Simplified` mode** — one dense row, every item small, group titles
 dropped. Group collapsing is the wrong answer at phone width: it folds groups into dropdowns
@@ -400,7 +403,12 @@ Shortcuts: <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd>/<kbd>U</kbd>, <kbd>Ctrl</kb
 links jump.
 
 **Design.** Seven built-in themes (`SlideThemeDefinition.BuiltIn`) each with colour **variants**;
-applying one rewrites the theme part's colour scheme and major/minor fonts. **Slide size** 16:9, 4:3 or
+applying one rewrites the theme part's colour scheme and major/minor fonts. Text follows the theme
+because run formatting is resolved down the full OOXML chain — run → paragraph → the shape's list style
+→ layout placeholder → master placeholder → master text styles (title/body/other) → the presentation's
+default text style — and scheme colours (`tx1`, `bg1`, `tx2`…) go through the master's colour map and
+any layout/slide `clrMapOvr`. Text nobody coloured is `tx1`, so a dark theme such as Midnight or a
+**Dark** variant draws it light on the dark background, in the editor and the slideshow alike. **Slide size** 16:9, 4:3 or
 custom (content scales with it). **Format background** — solid, gradient or picture, this slide or all.
 
 **Transitions.** None, Fade, Push, Wipe, Split, Reveal, Cover, Zoom and Morph, with duration, direction,

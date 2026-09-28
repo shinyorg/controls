@@ -366,7 +366,8 @@ public static class SlideTemplates
 
     /// <summary>
     /// The text colour, stated on the placeholder as well as the master's text styles: a reader that
-    /// stops at the layout (ours included) would otherwise draw black text on Midnight's navy.
+    /// stops at the layout would otherwise draw black text on Midnight's navy. Ours walks the whole
+    /// chain to the master now, but other readers of the saved file may not.
     /// </summary>
     /// <remarks>A body placeholder states its bullets here too, for the same reason.</remarks>
     static D.ListStyle Inked(bool bulleted)

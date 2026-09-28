@@ -421,9 +421,9 @@ instead, so the current match is the one that looks different.
 `WordBoundaries.IsWordChar`, the same rule double-click selection uses, so `don` does not match
 `don't`. `TextSearch.Matches(text, query, options)` is public if you need the same matcher elsewhere.
 
-**Only paragraphs are searched.** Table cells are not: a `DocumentPosition` is a block and an offset,
-and a table has neither — counting hits the arrows could never reach would be worse than not counting
-them.
+**Table cells are searched too.** Find walks the story (`WordDocument.Paragraphs` — every paragraph in
+reading order, table cells included), so a hit inside a cell is counted, stepped onto and selected like
+any other; a vertically merged continuation cell contributes nothing, matching the layout.
 
 Wiring the bar by hand (it is what the three built-in toolbars host):
 
@@ -592,8 +592,8 @@ paper-white, say. The `ToolbarBackground` / `ToolbarForeground` / `ToolbarBorder
 
 ### Toolbar
 
-The bar is a [Ribbon](ribbon.md) on both hosts — titled groups, with undo/redo in the quick access
-row. You do not build any of it; it is what the control renders.
+The bar is a [Ribbon](ribbon.md) on both hosts — titled groups, with undo/redo in the shell's title
+bar (or the ribbon's quick access row when the shell or its title bar is off). You do not build any of it; it is what the control renders.
 
 Do **not** hand-roll a formatting strip beside this control. Use `ToolbarContent` (Blazor) /
 `ToolbarItems` (MAUI) to add your own commands — they land in their own group that never collapses.

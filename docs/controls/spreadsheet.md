@@ -304,7 +304,8 @@ Two things the strip could not do:
   ribbon already has.
 - **Commands are grouped and captioned** instead of separated by anonymous hairlines.
 
-Undo and redo sit in the ribbon's quick access row, outside the tabs, so they never move or disappear.
+Undo and redo sit outside the tabs, so they never move or disappear: in the window's title bar when
+the shell is on (`ShowShell` with `ShowTitleBar`), in the ribbon's quick access row otherwise.
 
 **The tab strip is on** — the strip is the only way to reach anything past Home. Setting
 `ShowTabs="false"` on Blazor does not hide the other tabs' commands: it folds those groups back onto the
@@ -375,24 +376,24 @@ A copied formula is rebased onto its new position — `=B1*2` copied one row dow
 exactly the cells it always pointed at, which is Excel's behaviour and the reason cut and copy are not
 the same operation with a flag. References held by *other* formulas to cut cells are not repointed.
 
-The Data tab's **Cells** group carries insert and delete for both axes. They act on the selection —
-`InsertRows(count)` opens blank rows *above* it and pushes everything below down, `InsertColumns(count)`
-opens columns to its *left*. Both shift formulas and merged ranges to follow. `DeleteRows` and
-`DeleteColumns` close the gap; a formula that pointed *into* the removed band becomes `#REF!`, as it
-does in Excel, and undo puts both the band and those formulas back. Delete had no button while the bar
-was one tab — deleting is destructive, and a destructive command wedged between a colour picker and
-clear-formatting is one misclick from a lost row. On a tab of its own, next to the insert pair whose
-icons it mirrors, it is where someone goes looking for it, and it is one Ctrl+Z away either way.
+Home ▸ **Cells** carries insert and delete for both axes, as Excel's does. **Insert** offers Insert
+Sheet Rows / Insert Sheet Columns / Insert Sheet, **Delete** the matching three. They act on the
+selection — `InsertRows(count)` opens blank rows *above* it and pushes everything below down,
+`InsertColumns(count)` opens columns to its *left*. Both carry the sheet along with the band: formulas
+(on every sheet), defined names, merged cells, conditional formatting, data validation, hyperlinks,
+notes, the AutoFilter, tables and charts (anchors and series). `DeleteRows` and `DeleteColumns` close
+the gap; a formula that pointed *into* the removed band becomes `#REF!`, as it does in Excel, and undo
+puts both the band and those formulas back.
 
-The **Columns** group is the width and visibility half. The *Width* button fits the selected columns to
-their contents; its chevron offers four fixed widths, narrowest first, including the sheet's own
-default — which is the only way back once a column has been dragged or fitted. Hide and unhide act on
-the selected columns, and both are recorded in the file.
+**Format** in the same group is the size and visibility half: Row Height…, AutoFit Column Width,
+Column Width…, a **Default Width** submenu of fixed widths (including the sheet's own default — the only
+way back once a column has been dragged or fitted), hide and unhide for rows and columns, all recorded
+in the file, and Format Cells….
 
-The **Functions** group gives SUM, AVERAGE, COUNT, MIN and MAX a button each, labelled with the formula
-name rather than a friendly one: the button writes `=AVERAGE(…)` into a cell, and that is the thing
-worth naming. Each picks its own range the way AutoSum does — the run above, the run to the left, or
-one total per column of a block.
+The functions live in two places. Home ▸ Editing's **AutoSum** split button writes SUM on its face and
+offers AVERAGE, COUNT, MIN and MAX on its chevron; the **Formulas** tab's Function Library has AutoSum
+again plus one menu per function category and Insert Function. Each picks its own range the way AutoSum
+does — the run above, the run to the left, or one total per column of a block.
 
 ## Excel features
 
