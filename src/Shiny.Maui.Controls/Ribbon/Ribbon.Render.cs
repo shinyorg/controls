@@ -517,6 +517,22 @@ public partial class Ribbon
             group.IsCollapsed = true;
             total -= Math.Max(0, widths[group] - CollapsedWidth);
         }
+
+        // Giving up a wide group can free more than the overflow was, and every smaller group given
+        // up before it then sits collapsed beside empty space (PowerPoint's Home tab on a portrait
+        // iPad kept only Slides open). Re-open, most important first, whatever fits again.
+        foreach (var group in Enumerable.Reverse(order))
+        {
+            if (!group.IsCollapsed)
+                continue;
+
+            var extra = Math.Max(0, widths[group] - CollapsedWidth);
+            if (total + extra > available)
+                continue;
+
+            group.IsCollapsed = false;
+            total += extra;
+        }
     }
 
 
