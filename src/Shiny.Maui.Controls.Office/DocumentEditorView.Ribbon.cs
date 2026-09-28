@@ -41,6 +41,7 @@ public partial class DocumentEditorView
         this.ribbon.Tabs.Add(OfficeRibbonItems.ShapesTab(g => this.Run(c => c.InsertShape(g, this.ShapeWidth, this.ShapeHeight))));
 
         this.RebuildStylesMenu();
+        this.AfterBarBuilt();
         this.RefreshBar();
     }
 
@@ -158,6 +159,10 @@ public partial class DocumentEditorView
 
         this.bindings.Add(new ItemBinding(this.stylesMenu, null, null, false));
         styles.Items.Add(this.stylesMenu);
+
+        // Word's own "AaBbCcDd" gallery. The shell layout shows it; the shell-less one keeps the dropdown.
+        this.bindings.Add(new ItemBinding(this.styleGallery, null, null, false));
+        styles.Items.Add(this.styleGallery);
         tab.Groups.Add(styles);
 
         // Editing: find, replace, select all.
