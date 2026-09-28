@@ -3,7 +3,8 @@
 [← All Shiny Controls](../../README.md)
 
 > Same packages as the viewers. Two controls: `DocumentEditor` is the lone editing surface;
-> `DocumentEditorView` is the same thing plus a formatting toolbar.
+> `DocumentEditorView` is the same thing dressed as Word — the [Office shell](office-shell.md)'s title
+> bar, ribbon, ruler, panes, status bar and File backstage, all wired to the editor.
 
 ```csharp
 using var document = await WordDocument.OpenAsync("report.docx", editable: true);
@@ -18,6 +19,90 @@ using var document = await WordDocument.OpenAsync("report.docx", editable: true)
 ```xml
 <office:DocumentEditorView Document="{Binding Document}" />
 ```
+
+## The Word window
+
+> **Behaviour change.** `DocumentEditorView` now wears the [Office shell](office-shell.md) by default,
+> modelled on Word for the web: an accent title bar, the ribbon, a ruler above the page, a navigation
+> pane on the left, a comments pane on the right, a status bar along the bottom and the File backstage.
+> Give the Blazor host more height (≈700px) than the bare ribbon needed. `ShowShell="false"` puts back
+> exactly the previous layout — the ribbon over the page with its own Undo/Redo and navigation pane.
+
+Every part is wired to the editor already, and each has its own switch:
+
+| Part | Switch | What it does |
+|---|---|---|
+| **Title bar** | `ShowTitleBar` | AutoSave (`AutoSave`), Save / Undo / Redo, the document name (`DocumentName`, default "Document1", renamed in place), the save status (`SaveState`; left null it reads "Unsaved changes" once the document is edited), the command search, the account (`UserName`, which also signs comments and tracked changes) |
+| **Ribbon** | `ShowToolbar` | Word's tabs as before. **File** opens the backstage. The right end carries **Comments**, **Editing / Reviewing / Viewing** (`EditMode`: Reviewing switches Track Changes on, Viewing makes the document read-only) and **Share** (`ShareRequested`). Home › Styles is the "AaBbCcDd" gallery. Keyboard shortcuts moved out of the tooltips into each item's `Shortcut`, where the command search shows them too |
+| **Ruler** | `ShowRuler` | Print Layout only. Shows the caret paragraph's indents and tab stops and the section's margins; dragging a marker indents the selected paragraphs, a click adds a tab stop, dragging a margin edge moves it — each one undo step. Tab stops are saved as `w:tabs` |
+| **Navigation pane** | `ShowNavigationPane` | The headings (click to jump; the one the caret is under is marked) and a search box whose Results tab lists every hit with its context. View › Navigation Pane, Ctrl+F and the status bar's page count open it |
+| **Comments pane** | `ShowCommentsPane` | Every comment with its author, date and the text it is anchored to. Click a card to select that text; delete one with its button; **New** comments on the selection |
+| **Status bar** | `ShowStatusBar` | "Page 2 of 5", "197 words" ("12 of 197 words" with a selection — click for Word Count), the proofing language; Focus; Read / Print / Web view buttons; the zoom slider, − / + and the percentage (which opens the Zoom dialog with page-width / text-width / whole-page presets) |
+| **Backstage** | File | Home and New offer `Templates` (null = the built-in **Blank**, **Report** and **Letter**, generated in code), `RecentFiles` (your list), Info with the document's statistics, Save, Save As, Print with a preview of the first page, Export |
+
+The command search (`CommandIndex`) holds the ribbon's commands plus the ones people look for on tabs
+not yet opened (Table, Page Break, Link, Comment, Header, Table of Contents, Track Changes, Landscape…).
+A query that matches no command searches the document instead.
+
+### Files are the host's
+
+The shell reads and writes nothing on its own; these are events. What happens when you leave one unhandled:
+
+| Event | Unhandled on Blazor | Unhandled on MAUI |
+|---|---|---|
+| `SaveRequested` | downloads the `.docx` | nothing |
+| `SaveAsRequested(OfficeFileFormat)` / `ExportRequested(…)` | downloads `.docx`, `.pdf`, `.txt` or `.html` | nothing |
+| `PrintRequested` | opens the browser's print dialog over a PDF of the document | nothing |
+| `NewDocumentRequested(OfficeTemplate)` | opens the template in place, raises `DocumentOpened(WordDocument)` | same |
+| `OpenRequested`, `RecentFileSelected(OfficeRecentFile)`, `ShareRequested`, `DocumentRenamed(string)` | — | — |
+
+```razor
+<div style="height:760px">
+    <DocumentEditorView Document="document"
+                        @bind-DocumentName="name"
+                        SaveState="saveState"
+                        UserName="Allan Ritchie"
+                        RecentFiles="recent"
+                        SaveRequested="SaveAsync"
+                        RecentFileSelected="OpenAsync" />
+</div>
+```
+
+```csharp
+editor.SaveRequested += async (_, _) => await File.WriteAllBytesAsync(path, editor.Document!.ToArray());
+editor.ExportRequested += (_, format) =>
+{
+    if (format.Id == OfficeFileFormats.Pdf.Id)
+    {
+        using var file = File.Create(Path.ChangeExtension(path, ".pdf"));
+        editor.ExportPdf(file);
+    }
+};
+```
+
+### PDF
+
+`ExportPdf(Stream)` on both views — or `DocumentPdfExporter.Export(document, stream, options)` in
+`Shiny.Controls.Office.Skia` for a document with no view — writes one PDF page per printed page. The
+document is laid out afresh in print layout at 100%, whatever the view is showing, and drawn by the same
+`DocumentPainter` as the screen, so headers, footers, footnotes, page colour and the text watermark come
+along and the editing overlays (caret, selection, squiggles, comment balloons) do not. Text stays text,
+with the fonts embedded. It works on WebAssembly. `DocumentPdfExporter.RenderPagePng(document, page,
+scale)` renders one page as a PNG — the backstage's print preview.
+
+### Building your own chrome
+
+Everything the view wires up is public: `Shiny.Controls.Office.Shell.WordShell` turns the controller into
+what the shell parts take (headings, search results, styles, ruler indents and tab stops in points,
+view-mode ids, document info, an HTML rendering), and the controller gained `CurrentTabStops` /
+`SetTabStops`, `GoToComment(id)` and `CommentedText(comment)`. `WordTemplates` builds the three
+templates.
+
+On MAUI the shell is built once and parts are shown and hidden rather than added later, so the AppKit head
+renders it; lists that change after layout (headings, comments, status text) may not repaint there until
+the window is resized.
+
+TODO: capture screenshots for the Word window (document-editor).
 
 Edits are surgical on the OOXML runs: a run is split only where an edit actually needs a boundary and
 is never rebuilt, so the language, proofing state and revision marks a run carries survive a
@@ -46,8 +131,9 @@ it — so a host with its own chrome gets all of it without the ribbon.
 | **View** | Views (Read Mode, Print Layout, Web Layout) · Show (Navigation Pane, Formatting Marks) · Zoom |
 | **Table** *(contextual)* | Rows & Columns (Insert Above/Below/Left/Right, Delete Rows/Columns/Table) · Merge (Merge Cells, Split Cells) |
 
-A **File** button is available as a hook for a backstage view: `ShowFileButton` + `FileRequested` on
-MAUI, `FileClicked` on Blazor. The editor has no File menu of its own.
+The **File** button opens the backstage (see [The Word window](#the-word-window)). It still raises
+`FileRequested` on MAUI and `FileClicked` on Blazor; with the shell off it is shown only when one of
+those is wired (`ShowFileButton` on MAUI), as before.
 
 ### Tables you can type in
 

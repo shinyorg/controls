@@ -311,7 +311,7 @@
     color: var(--shiny-color-on-surface-variant, #3B475B);
 }
 
-.dialog-error { color: var(--shiny-color-error, #BA1A1A); }
+.dialog-error { color: var(--shiny-color-error, #C20014); }
 
 .dialog-list {
     display: flex;
@@ -378,4 +378,157 @@
 .shiny-doc-editor-view.shiny-office-scoped {
     color: var(--shiny-color-on-surface, #161C23);
     background: var(--shiny-color-surface, #F6FAFE);
+}
+
+/* ---- the Word shell ---- */
+
+/* The shell is a child component: its root carries its own scope, so it is reached with ::deep. */
+.shiny-doc-editor-view.has-shell > ::deep .office-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.shiny-doc-editor-view.has-shell .doc-surface {
+    height: 100%;
+}
+
+.doc-comments-new {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 4px;
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.doc-comments-new:hover:not(:disabled) { background: color-mix(in srgb, currentColor 8%, transparent); }
+
+.doc-comments-new:disabled { opacity: 0.45; cursor: default; }
+
+.doc-comments-empty {
+    padding: 12px 2px;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    line-height: 1.45;
+}
+
+.doc-comments {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.doc-comment {
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 6px;
+    background: var(--shiny-color-surface, #F6FAFE);
+    overflow: hidden;
+}
+
+/* The comment the caret is in, marked the way Word marks the active card: the accent down its edge. */
+.doc-comment.on {
+    border-color: var(--shiny-color-primary, #0055D9);
+    box-shadow: inset 3px 0 0 var(--shiny-color-primary, #0055D9);
+}
+
+.doc-comment-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 8px 0 10px;
+}
+
+.doc-comment-avatar {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--shiny-color-primary-container, #C2D8FA);
+    color: var(--shiny-color-on-primary-container, #124294);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.doc-comment-meta {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.doc-comment-author {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.doc-comment-date {
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: 11px;
+}
+
+.doc-comment-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.doc-comment-delete:hover:not(:disabled) { opacity: 1; background: color-mix(in srgb, currentColor 10%, transparent); }
+
+.doc-comment-delete:disabled { opacity: 0.3; cursor: default; }
+
+.doc-comment-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 6px 10px 10px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.doc-comment-quote {
+    padding-left: 8px;
+    border-left: 2px solid var(--shiny-color-outline-variant, #BBC7DF);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: 12px;
+    font-style: italic;
+}
+
+.doc-comment-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+
+/* A printed page is white paper in both schemes. */
+.doc-print-preview {
+    display: block;
+    max-width: 100%;
+    margin: 0 auto;
+    background: #FFFFFF;
+    box-shadow: 0 1px 6px color-mix(in srgb, currentColor 30%, transparent);
 }
