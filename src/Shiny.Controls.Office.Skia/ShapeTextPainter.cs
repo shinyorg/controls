@@ -76,6 +76,11 @@ public static class ShapeTextPainter
                     var x = left + (float)run.X;
                     var glyphFont = measurer.GetFont(run.Style);
 
+                    // Superscript rides up and subscript down by a fraction of the full size, the
+                    // same arithmetic the document painter uses.
+                    var lineBaseline = baseline;
+                    baseline -= (float)(run.Style.BaselineShift * run.Style.FontSize);
+
                     // Behind the glyphs, and sized from the font's own metrics rather than the line's:
                     // a line box is as tall as its tallest run, so measuring the band from it would
                     // give a small highlighted word a stripe the height of the heading beside it.
@@ -106,6 +111,8 @@ public static class ShapeTextPainter
                         var middle = baseline - (float)(run.Style.FontSize * 0.28);
                         canvas.DrawLine(x, middle, x + (float)run.Width, middle, stroke);
                     }
+
+                    baseline = lineBaseline;
                 }
             }
         }

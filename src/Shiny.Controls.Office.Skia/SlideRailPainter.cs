@@ -42,14 +42,55 @@ public sealed class SlideRailPainter(SlidePainter slides) : IDisposable
         canvas.Scale(scale);
         canvas.Clear(ToSk(theme.Background));
 
+        // Section headers: a chevron that says whether it is folded, and the name.
+        foreach (var section in rail.VisibleSections())
+        {
+            this.fill.Color = ToSk(theme.Number);
+            var top = (float)section.Y;
+            var mid = top + (float)section.Height / 2;
+            var left = (float)section.X + 4;
+
+            using (var chevron = new SKPath())
+            {
+                if (section.IsCollapsed)
+                {
+                    chevron.MoveTo(left, mid - 4);
+                    chevron.LineTo(left + 5, mid);
+                    chevron.LineTo(left, mid + 4);
+                }
+                else
+                {
+                    chevron.MoveTo(left - 1, mid - 2.5f);
+                    chevron.LineTo(left + 3, mid + 2.5f);
+                    chevron.LineTo(left + 7, mid - 2.5f);
+                }
+
+                this.stroke.Color = ToSk(theme.Number);
+                this.stroke.StrokeWidth = 1.4f;
+                canvas.DrawPath(chevron, this.stroke);
+            }
+
+            var name = section.IsCollapsed ? $"{section.Section.Name} ({section.Section.SlideCount})" : section.Section.Name;
+            canvas.DrawText(name, left + 12, mid + 4, SKTextAlign.Left, this.font, this.fill);
+        }
+
         foreach (var item in rail.VisibleItems())
         {
-            var dimmed = item.Index == rail.DraggedIndex;
+            var dimmed = item.Index == rail.DraggedIndex || item.IsHidden;
 
             this.fill.Color = ToSk(item.IsSelected ? theme.Accent : theme.Number);
             var label = (item.Index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
             var width = this.font.MeasureText(label);
             canvas.DrawText(label, (float)(item.X - 6 - width), (float)(item.Y + 13), this.font, this.fill);
+
+            // A hidden slide's number is struck through, PowerPoint's mark for "the show skips this".
+            if (item.IsHidden)
+            {
+                this.stroke.Color = ToSk(theme.Number);
+                this.stroke.StrokeWidth = 1;
+                var strikeY = (float)(item.Y + 9);
+                canvas.DrawLine((float)(item.X - 7 - width), strikeY - 5, (float)(item.X - 5), strikeY + 3, this.stroke);
+            }
 
             canvas.Save();
             if (dimmed)

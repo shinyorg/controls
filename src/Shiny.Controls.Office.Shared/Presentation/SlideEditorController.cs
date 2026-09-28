@@ -33,7 +33,7 @@ public readonly record struct SlideRect(double X, double Y, double Width, double
 /// in. <see cref="ToSlide"/> and <see cref="ToViewport"/> are the only places the two meet.
 /// </para>
 /// </remarks>
-public sealed class SlideEditorController : SlideController
+public sealed partial class SlideEditorController : SlideController
 {
     readonly SlideDeck deck;
     readonly ITextMeasurer measurer;
@@ -89,6 +89,9 @@ public sealed class SlideEditorController : SlideController
     {
         this.dragging = ShapeHandle.None;
         this.selected = -1;
+        this.others.Clear();
+        this.marquee = null;
+        this.guides.Clear();
         this.IsEditingText = false;
         this.activeCell = null;
         this.enteredGroup = null;
@@ -98,8 +101,15 @@ public sealed class SlideEditorController : SlideController
         this.anchor = this.caret;
     }
 
+    /// <summary>Repaint request from a part of the editor that is not the controller itself — the master view.</summary>
+    internal void NotifyChanged() => this.RaiseChanged();
+
     void OnDeckContentChanged()
     {
+        // The master view's page is read from the template parts an undo may just have replaced.
+        if (this.IsEditingMaster)
+            this.master?.RefreshSilently();
+
         // The matches were collected from text that has just changed underneath them.
         this.Find.Invalidate();
         this.RefreshCaretFormat();
@@ -197,11 +207,14 @@ public sealed class SlideEditorController : SlideController
     /// </remarks>
     public IEnumerable<(ShapeHandle Handle, SlideRect Rect)> SelectionHandles()
     {
-        if (this.SelectionBounds() is not { } bounds)
+        // A multi-selection is moved as a whole but resized one shape at a time in PowerPoint, which
+        // draws no handles on it; nor on a group being entered.
+        if (this.SelectionBounds() is not { } bounds || this.others.Count > 0)
             yield break;
 
         var size = this.HandleSize;
         var half = size / 2;
+        var rotation = this.Selection?.Rotation ?? 0;
 
         var midX = bounds.X + bounds.Width / 2;
         var midY = bounds.Y + bounds.Height / 2;
@@ -215,7 +228,12 @@ public sealed class SlideEditorController : SlideController
         yield return (ShapeHandle.BottomLeft, Handle(bounds.X, bounds.Bottom));
         yield return (ShapeHandle.Left, Handle(bounds.X, midY));
 
-        SlideRect Handle(double x, double y) => new(x - half, y - half, size, size);
+        // Handles sit on the shape's rotated outline: each point is turned about the shape's centre.
+        SlideRect Handle(double x, double y)
+        {
+            var (rx, ry) = RotatePoint(x, y, midX, midY, rotation);
+            return new(rx - half, ry - half, size, size);
+        }
     }
 
     // ---- hit testing ----
@@ -255,7 +273,7 @@ public sealed class SlideEditorController : SlideController
                 if (!shape.IsEditable || !eligible(shape))
                     continue;
 
-                if (this.BoundsOf(shape) is { } bounds && bounds.Contains(viewportX, viewportY))
+                if (this.BoundsOf(shape) is { } bounds && ContainsRotated(bounds, shape.Rotation, viewportX, viewportY))
                     return i;
             }
 
@@ -272,15 +290,27 @@ public sealed class SlideEditorController : SlideController
     /// <summary>The handle under a point, or <see cref="ShapeHandle.None"/>.</summary>
     public ShapeHandle HandleAt(double viewportX, double viewportY)
     {
+        if (this.RotationHandle() is { } rotate && rotate.Contains(viewportX, viewportY))
+            return ShapeHandle.Rotate;
+
         foreach (var (handle, rect) in this.SelectionHandles())
         {
             if (rect.Contains(viewportX, viewportY))
                 return handle;
         }
 
-        return this.SelectionBounds()?.Contains(viewportX, viewportY) == true
-            ? ShapeHandle.Body
-            : ShapeHandle.None;
+        // Any shape in a multi-selection is a grip on the whole selection.
+        foreach (var index in this.SelectedShapes)
+        {
+            if (this.Current?.Shapes.ElementAtOrDefault(index) is { } shape &&
+                this.BoundsOf(shape) is { } bounds &&
+                ContainsRotated(bounds, shape.Rotation, viewportX, viewportY))
+            {
+                return ShapeHandle.Body;
+            }
+        }
+
+        return ShapeHandle.None;
     }
 
     /// <summary>The text position under a point inside the text being edited.</summary>
@@ -392,12 +422,14 @@ public sealed class SlideEditorController : SlideController
             ? shape
             : -1;
 
-        if (clamped == this.selected)
+        if (clamped == this.selected && this.others.Count == 0)
             return;
 
+        this.others.Clear();
         this.selected = clamped;
         this.IsEditingText = false;
         this.activeCell = null;
+        this.cellAnchor = null;
 
         // Selecting something outside the group that was entered leaves it.
         if (this.enteredGroup is { } group && this.Selection is { } now && !ReferenceEquals(now.Group, group))
@@ -469,10 +501,21 @@ public sealed class SlideEditorController : SlideController
     /// Returns true when the editor took the gesture, so a host knows whether to keep tracking the
     /// pointer or let it fall through to scrolling.
     /// </remarks>
-    public bool PointerDown(double x, double y, bool extendSelection = false)
+    /// <param name="extendSelection">Shift: extends a text selection, or adds a shape to the selection.</param>
+    /// <param name="toggleSelection">Ctrl/Cmd: adds a shape to the selection, or takes it out.</param>
+    public bool PointerDown(double x, double y, bool extendSelection = false, bool toggleSelection = false)
     {
+        if (this.Mode == SlideViewMode.Grid)
+            return this.SorterPointerDown(x, y);
+
+        if (this.IsEditingMaster)
+            return !this.IsReadOnly && this.Master.PointerDown(x, y);
+
         if (this.Mode != SlideViewMode.Single || this.IsReadOnly)
             return false;
+
+        this.guides.Clear();
+        this.marquee = null;
 
         if (this.IsEditingText)
         {
@@ -481,8 +524,17 @@ public sealed class SlideEditorController : SlideController
             if (this.SelectionBounds()?.Contains(x, y) == true)
             {
                 // Inside a table, a click in another cell moves the caret into that cell.
+                // Shift+click in another cell selects the block of cells between, for merge and shading.
+                if (this.activeCell is { } from && this.CellAt(x, y) is { } to && to != from && extendSelection)
+                {
+                    this.ExtendCellSelection(to.Row, to.Column);
+                    this.dragging = ShapeHandle.None;
+                    return true;
+                }
+
                 if (this.activeCell is { } current && this.CellAt(x, y) is { } cell && cell != current && !extendSelection)
                 {
+                    this.cellAnchor = null;
                     this.activeCell = cell;
                     this.anchor = this.caret = this.TextPositionAt(x, y) ?? this.Position(0, 0);
                     this.RefreshCaretFormat();
@@ -501,13 +553,18 @@ public sealed class SlideEditorController : SlideController
             this.EndTextEditing();
         }
 
+        // Shift or Ctrl on a shape adds it to the selection (or takes it out), and starts nothing.
+        if ((extendSelection || toggleSelection) && this.ShapeAt(x, y) is var toggled and >= 0)
+        {
+            this.ToggleSelected(toggled);
+            this.dragging = ShapeHandle.None;
+            return true;
+        }
+
         var handle = this.HandleAt(x, y);
         if (handle is not ShapeHandle.None && this.SelectionBounds() is { } bounds)
         {
-            this.dragging = handle;
-            this.dragStartX = x;
-            this.dragStartY = y;
-            this.dragOrigin = bounds;
+            this.BeginDrag(handle, x, y, bounds);
             return true;
         }
 
@@ -515,20 +572,38 @@ public sealed class SlideEditorController : SlideController
         this.Select(hit);
 
         if (hit < 0)
-            return false;
+        {
+            // A press on empty slide starts a marquee: drag out a box, and what is wholly inside it is
+            // selected.
+            this.marquee = (x, y, x, y);
+            return true;
+        }
 
         // A press on a freshly selected shape starts a move straight away, so selecting and dragging
         // are one gesture rather than two.
-        this.dragging = ShapeHandle.Body;
-        this.dragStartX = x;
-        this.dragStartY = y;
-        this.dragOrigin = this.SelectionBounds() ?? default;
+        this.BeginDrag(ShapeHandle.Body, x, y, this.SelectionBounds() ?? default);
         return true;
     }
 
-    /// <summary>Extends a drag, or a text selection.</summary>
-    public void PointerMove(double x, double y)
+    /// <summary>Extends a drag, a marquee, or a text selection.</summary>
+    /// <param name="constrain">
+    /// Shift held: a rotation snaps to 15°, a corner resize keeps the proportions, and a move sticks to
+    /// one axis — PowerPoint's Shift, in each case.
+    /// </param>
+    public void PointerMove(double x, double y, bool constrain = false)
     {
+        if (this.Mode == SlideViewMode.Grid)
+        {
+            this.SorterPointerMove(x, y);
+            return;
+        }
+
+        if (this.IsEditingMaster)
+        {
+            this.Master.PointerMove(x, y, constrain);
+            return;
+        }
+
         if (this.IsEditingText && this.dragging == ShapeHandle.None)
         {
             if (this.TextPositionAt(x, y) is { } position)
@@ -537,57 +612,72 @@ public sealed class SlideEditorController : SlideController
             return;
         }
 
-        if (this.dragging == ShapeHandle.None || this.Scale <= 0)
+        if (this.marquee is { } box)
+        {
+            this.marquee = (box.X1, box.Y1, x, y);
+            this.RaiseChanged();
+            return;
+        }
+
+        if (this.dragging == ShapeHandle.None || this.Scale <= 0 || this.Selection is not { } shape)
             return;
 
         var dx = (x - this.dragStartX) / this.Scale;
         var dy = (y - this.dragStartY) / this.Scale;
 
-        if (this.Selection is not { } shape)
-            return;
-
-        var slideBounds = new SlideRect(shape.X, shape.Y, shape.Width, shape.Height);
-        var origin = this.ToSlide(this.dragOrigin.X, this.dragOrigin.Y);
-        if (origin is null)
-            return;
-
-        var startX = origin.Value.X;
-        var startY = origin.Value.Y;
-        var startWidth = this.dragOrigin.Width / this.Scale;
-        var startHeight = this.dragOrigin.Height / this.Scale;
-
-        var next = this.dragging switch
+        if (this.dragging == ShapeHandle.Rotate)
         {
-            ShapeHandle.Body => new SlideRect(startX + dx, startY + dy, startWidth, startHeight),
-            ShapeHandle.Left => new SlideRect(startX + dx, startY, startWidth - dx, startHeight),
-            ShapeHandle.Right => new SlideRect(startX, startY, startWidth + dx, startHeight),
-            ShapeHandle.Top => new SlideRect(startX, startY + dy, startWidth, startHeight - dy),
-            ShapeHandle.Bottom => new SlideRect(startX, startY, startWidth, startHeight + dy),
-            ShapeHandle.TopLeft => new SlideRect(startX + dx, startY + dy, startWidth - dx, startHeight - dy),
-            ShapeHandle.TopRight => new SlideRect(startX, startY + dy, startWidth + dx, startHeight - dy),
-            ShapeHandle.BottomLeft => new SlideRect(startX + dx, startY, startWidth - dx, startHeight + dy),
-            ShapeHandle.BottomRight => new SlideRect(startX, startY, startWidth + dx, startHeight + dy),
-            _ => slideBounds
-        };
+            this.DragRotate(shape, x, y, constrain);
+            return;
+        }
 
-        this.Execute(new SetShapeBoundsCommand(
-            this.Index,
-            this.selected,
-            next.X,
-            next.Y,
-            Math.Max(4, next.Width),
-            Math.Max(4, next.Height)));
+        if (this.dragging == ShapeHandle.Body)
+        {
+            this.DragMove(dx, dy, constrain);
+            return;
+        }
+
+        this.DragResize(shape, dx, dy, constrain);
     }
 
     public void PointerUp()
     {
-        if (this.dragging == ShapeHandle.None)
+        if (this.Mode == SlideViewMode.Grid)
+        {
+            this.SorterPointerUp();
             return;
+        }
+
+        if (this.IsEditingMaster)
+        {
+            this.Master.PointerUp();
+            return;
+        }
+
+        if (this.marquee is { } box)
+        {
+            this.marquee = null;
+            this.SelectInside(box);
+            return;
+        }
+
+        var hadGuides = this.guides.Count > 0;
+        this.guides.Clear();
+
+        if (this.dragging == ShapeHandle.None)
+        {
+            if (hadGuides)
+                this.RaiseChanged();
+
+            return;
+        }
 
         this.dragging = ShapeHandle.None;
+        this.dragStart.Clear();
 
         // Ends the coalescing run, so the *next* drag is a separate undo step from this one.
         this.deck.Undo.BreakCoalescing();
+        this.RaiseChanged();
     }
 
     /// <summary>
@@ -596,7 +686,13 @@ public sealed class SlideEditorController : SlideController
     /// </summary>
     public void PointerDoubleClick(double x, double y)
     {
-        if (this.Mode != SlideViewMode.Single || this.IsReadOnly)
+        if (this.Mode == SlideViewMode.Grid)
+        {
+            this.SorterDoubleClick(x, y);
+            return;
+        }
+
+        if (this.Mode != SlideViewMode.Single || this.IsReadOnly || this.IsEditingMaster)
             return;
 
         var hit = this.ShapeAt(x, y);
@@ -726,6 +822,10 @@ public sealed class SlideEditorController : SlideController
         }
 
         var at = this.caret;
+
+        // A soft line break just before the caret is what Backspace removes first.
+        if (this.TryDeleteBreakAtCaret())
+            return;
 
         if (at.Offset > 0)
         {
@@ -1055,7 +1155,9 @@ public sealed class SlideEditorController : SlideController
         if (this.IsReadOnly || this.selected < 0 || this.Selection is null)
             return;
 
-        this.Execute(new DeleteShapeCommand(this.Index, this.selected));
+        // Back to front, so each index is still right when its turn comes; one undo step for all.
+        var targets = this.SelectedShapes.OrderByDescending(x => x).ToList();
+        this.Execute(new DeleteShapesCommand(this.Index, targets));
         this.ClearSelection();
     }
 
@@ -1252,7 +1354,19 @@ public sealed class SlideEditorController : SlideController
             return false;
 
         var step = fine ? this.FineNudgeDistance : this.NudgeDistance;
-        this.Execute(new SetShapeBoundsCommand(this.Index, this.selected, shape.X + dx * step, shape.Y + dy * step, shape.Width, shape.Height));
+
+        if (this.others.Count == 0)
+        {
+            this.Execute(new SetShapeBoundsCommand(this.Index, this.selected, shape.X + dx * step, shape.Y + dy * step, shape.Width, shape.Height));
+            return true;
+        }
+
+        var shapes = this.Current!.Shapes;
+        this.Execute(new SetShapesBoundsCommand(
+            this.Index,
+            this.SelectedShapes.Select(i => (i, shapes[i].X + dx * step, shapes[i].Y + dy * step, shapes[i].Width, shapes[i].Height)).ToList(),
+            "Nudge"));
+
         return true;
     }
 
@@ -1306,7 +1420,7 @@ public sealed class SlideEditorController : SlideController
     /// <summary>Copies the selected shape. Returns false when there was nothing to copy.</summary>
     public bool CopyShape()
     {
-        if (!this.CanCopyShape || SlideClip.Copy(this.deck, this.Index, this.selected) is not { } clip)
+        if (!this.CanCopyShape || SlideClip.Copy(this.deck, this.Index, this.SelectedShapes) is not { } clip)
             return false;
 
         this.Clipboard = clip;
@@ -1346,7 +1460,7 @@ public sealed class SlideEditorController : SlideController
     /// <summary>Copies the selected shape straight onto the same slide, offset — Ctrl+D.</summary>
     public void DuplicateShape()
     {
-        if (this.IsReadOnly || !this.CanCopyShape || SlideClip.Copy(this.deck, this.Index, this.selected) is not { } clip)
+        if (this.IsReadOnly || !this.CanCopyShape || SlideClip.Copy(this.deck, this.Index, this.SelectedShapes) is not { } clip)
             return;
 
         this.PasteCore(clip, 16);
@@ -1360,6 +1474,20 @@ public sealed class SlideEditorController : SlideController
 
         if (this.deck.TreeAt(this.Index)?.LastChild is { } added)
             this.Reselect(added);
+
+        // Several shapes pasted: all of them arrive selected, as they left.
+        if (clip.Count > 1 && this.deck.TreeAt(this.Index) is { } tree && this.Current is { } slide)
+        {
+            var pasted = tree.ChildElements.Reverse().Take(clip.Count).ToList();
+            foreach (var element in pasted.Skip(1))
+            {
+                var index = slide.Shapes.ToList().FindIndex(x => ReferenceEquals(x.Element, element));
+                if (index >= 0 && index != this.selected && !this.others.Contains(index))
+                    this.others.Add(index);
+            }
+
+            this.RaiseChanged();
+        }
     }
 
     // ---- layouts ----
@@ -1665,7 +1793,10 @@ public sealed class SlideEditorController : SlideController
             style.Highlight)
         {
             List = paragraph.List,
-            Level = paragraph.Level
+            Level = paragraph.Level,
+            Baseline = style.BaselineShift > 0 ? 30 : style.BaselineShift < 0 ? -25 : 0,
+            Link = style.Link,
+            LineSpacing = paragraph.LineSpacing
         };
     }
 }

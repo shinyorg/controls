@@ -104,10 +104,59 @@ sealed class DrawingReader(ThemeColors theme)
 
         // Width is in EMU; a line with no width is a hairline, which PowerPoint draws at 1px.
         var width = line.Width?.Value is { } w ? OoxmlUnits.EmuToPixels(w) : 1;
-        var dashed = line.GetFirstChild<PresetDash>()?.Val?.Value is { } dash &&
-                     dash != PresetLineDashValues.Solid;
+        var dash = MapDash(OoxmlUnits.EnumAttribute(line.GetFirstChild<PresetDash>(), "val"));
 
-        return new ShapeOutline(color.Value, Math.Max(0.5, width), dashed);
+        return new ShapeOutline(color.Value, Math.Max(0.5, width), dash != LineDash.Solid) { Dash = dash };
+    }
+
+    /// <summary>The dash pattern for an <c>a:prstDash val</c>, read as the spec's token.</summary>
+    public static LineDash MapDash(string? token) => token switch
+    {
+        "dot" => LineDash.Dot,
+        "dash" => LineDash.Dash,
+        "lgDash" => LineDash.LargeDash,
+        "dashDot" => LineDash.DashDot,
+        "lgDashDot" => LineDash.LongDashDot,
+        "lgDashDotDot" => LineDash.LongDashDotDot,
+        "sysDash" => LineDash.SystemDash,
+        "sysDot" or "sysDashDot" or "sysDashDotDot" => LineDash.SystemDot,
+        _ => LineDash.Solid
+    };
+
+    /// <summary>The <c>a:prstDash val</c> token for a pattern.</summary>
+    public static string DashToken(LineDash dash) => dash switch
+    {
+        LineDash.Dot => "dot",
+        LineDash.Dash => "dash",
+        LineDash.LargeDash => "lgDash",
+        LineDash.DashDot => "dashDot",
+        LineDash.LongDashDot => "lgDashDot",
+        LineDash.LongDashDotDot => "lgDashDotDot",
+        LineDash.SystemDash => "sysDash",
+        LineDash.SystemDot => "sysDot",
+        _ => "solid"
+    };
+
+    /// <summary>
+    /// The outer shadow in a shape's effect list, or null.
+    /// </summary>
+    /// <remarks>
+    /// Only <c>a:outerShdw</c>: it is what every Shadow preset in PowerPoint's Shape Effects gallery
+    /// writes, and the inner and perspective kinds would each need a painter of their own.
+    /// </remarks>
+    public ShapeShadow? ReadShadow(OpenXmlElement? properties)
+    {
+        var shadow = properties?.GetFirstChild<EffectList>()?.GetFirstChild<OuterShadow>();
+        if (shadow is null)
+            return null;
+
+        var color = this.ReadColor(shadow) ?? new ArgbColor(102, 0, 0, 0);
+
+        return new ShapeShadow(
+            color,
+            shadow.BlurRadius?.Value is { } blur ? OoxmlUnits.EmuToPixels(blur) : 0,
+            shadow.Distance?.Value is { } distance ? OoxmlUnits.EmuToPixels(distance) : 0,
+            shadow.Direction?.Value is { } direction ? OoxmlUnits.AngleToDegrees(direction) : 0);
     }
 
     /// <summary>
@@ -287,6 +336,40 @@ sealed class DrawingReader(ThemeColors theme)
         "gray" or "grey" => new ArgbColor(255, 128, 128, 128),
         "orange" => new ArgbColor(255, 255, 165, 0),
         _ => new ArgbColor(255, 128, 128, 128)
+    };
+}
+
+/// <summary>
+/// A theme's font scheme: the heading (major) and body (minor) Latin faces.
+/// </summary>
+/// <remarks>
+/// A run whose typeface is <c>+mj-lt</c> or <c>+mn-lt</c> names one of these rather than a family, which
+/// is how a deck's text follows a theme switch — every master text style is written that way.
+/// </remarks>
+sealed class ThemeFonts
+{
+    public string? Major { get; private init; }
+
+    public string? Minor { get; private init; }
+
+    public static ThemeFonts From(ThemePart? part)
+    {
+        var scheme = part?.Theme?.ThemeElements?.FontScheme;
+        return new ThemeFonts
+        {
+            Major = Clean(scheme?.MajorFont?.LatinFont?.Typeface?.Value),
+            Minor = Clean(scheme?.MinorFont?.LatinFont?.Typeface?.Value)
+        };
+
+        static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    /// <summary>The family a <c>+mj-*</c>/<c>+mn-*</c> reference means, or null when it is neither.</summary>
+    public string? Resolve(string typeface) => typeface switch
+    {
+        _ when typeface.StartsWith("+mj", StringComparison.Ordinal) => this.Major,
+        _ when typeface.StartsWith("+mn", StringComparison.Ordinal) => this.Minor,
+        _ => null
     };
 }
 

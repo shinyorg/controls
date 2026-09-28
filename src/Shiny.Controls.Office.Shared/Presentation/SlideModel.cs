@@ -67,6 +67,30 @@ public sealed record SlideShape
     /// </remarks>
     public bool IsGroup { get; init; }
 
+    /// <summary>The drawing's <c>cNvPr</c> id — what an animation's <c>p:spTgt spid</c> names it by.</summary>
+    public uint Id { get; init; }
+
+    /// <summary>A drop shadow, when the shape's effect list carries an outer shadow.</summary>
+    public ShapeShadow? Shadow { get; init; }
+
+    /// <summary>What clicking the shape itself does in a slide show — <c>a:hlinkClick</c> on its <c>cNvPr</c>.</summary>
+    public SlideHyperlink? Hyperlink { get; init; }
+
+    /// <summary>A chart's series and categories, when this is a graphic frame holding one.</summary>
+    public SlideChart? Chart { get; init; }
+
+    /// <summary>The embedded audio or video, when this picture is a media poster frame.</summary>
+    public SlideMedia? Media { get; init; }
+
+    /// <summary>The placeholder type (<c>title</c>, <c>body</c>, <c>ftr</c>, ...), or null for a free shape.</summary>
+    public string? PlaceholderType { get; init; }
+
+    /// <summary>How the shape's text reacts to overflowing it.</summary>
+    public TextAutofit Autofit { get; init; }
+
+    /// <summary>Which way the text runs inside the shape.</summary>
+    public ShapeTextDirection TextDirection { get; init; }
+
     /// <summary>True for a shape inside a group. It is only hit once the group has been entered.</summary>
     public bool IsInGroup => this.Group is not null;
 
@@ -117,6 +141,12 @@ public sealed record SlideTable(
     IReadOnlyList<double> RowHeights,
     IReadOnlyList<IReadOnlyList<SlideTableCell>> Rows)
 {
+    /// <summary>The table style's GUID (<c>a:tableStyleId</c>), or null for none.</summary>
+    public string? StyleId { get; init; }
+
+    /// <summary>Which of the style's bands are switched on.</summary>
+    public SlideTableStyleFlags StyleFlags { get; init; }
+
     /// <summary>
     /// A cell's rectangle relative to the table's top-left, with the table drawn at
     /// <paramref name="width"/> x <paramref name="height"/>.
@@ -187,6 +217,64 @@ public sealed record Slide
 
     /// <summary>The slide's title, taken from its title placeholder.</summary>
     public string? Title { get; init; }
+
+    /// <summary>
+    /// Hidden from the slide show — <c>show="0"</c> on the slide. Still edited, still in the rail.
+    /// </summary>
+    public bool IsHidden { get; init; }
+
+    /// <summary>How the slide arrives in a slide show, or null for a cut.</summary>
+    public SlideTransition? Transition { get; init; }
+
+    /// <summary>The slide's animation sequence, in play order.</summary>
+    public IReadOnlyList<SlideAnimation> Animations { get; init; } = [];
+
+    /// <summary>The background as written on the slide itself, rather than inherited. Null when it inherits.</summary>
+    public ShapeFill? OwnBackground { get; init; }
+}
+
+/// <summary>How a shape's text reacts to overflowing it — <c>a:bodyPr</c>'s autofit choice.</summary>
+public enum TextAutofit
+{
+    /// <summary>Text overflows the shape (<c>a:noAutofit</c>, or nothing written).</summary>
+    None,
+
+    /// <summary>The font shrinks to fit (<c>a:normAutofit</c>).</summary>
+    ShrinkOnOverflow,
+
+    /// <summary>The shape grows to fit its text (<c>a:spAutoFit</c>).</summary>
+    ResizeShape
+}
+
+/// <summary>Which way a shape's text runs — <c>a:bodyPr vert</c>.</summary>
+public enum ShapeTextDirection
+{
+    Horizontal,
+
+    /// <summary>Rotated a quarter turn clockwise (<c>vert</c>).</summary>
+    Rotate90,
+
+    /// <summary>Rotated a quarter turn anticlockwise (<c>vert270</c>).</summary>
+    Rotate270
+}
+
+/// <summary>
+/// Where a hyperlink goes: a web address, another slide, or one of PowerPoint's show actions.
+/// </summary>
+/// <param name="Url">An external address, for an ordinary link.</param>
+/// <param name="Slide">A zero-based slide index, for a jump to a slide in this deck.</param>
+/// <param name="Action">
+/// The raw <c>action</c> attribute — <c>ppaction://hlinkshowjump?jump=nextslide</c> and friends — when
+/// the link is one of PowerPoint's built-in show jumps.
+/// </param>
+public sealed record SlideHyperlink(string? Url, int? Slide = null, string? Action = null)
+{
+    /// <summary>A tooltip PowerPoint shows on hover (<c>tooltip</c>), if any.</summary>
+    public string? Tooltip { get; init; }
+
+    /// <summary>What the link does, for a status line or a tooltip.</summary>
+    public override string ToString()
+        => this.Url ?? (this.Slide is { } slide ? $"Slide {slide + 1}" : this.Action ?? string.Empty);
 }
 
 /// <summary>A layout a slide can be put on, as the current slide's master offers it.</summary>

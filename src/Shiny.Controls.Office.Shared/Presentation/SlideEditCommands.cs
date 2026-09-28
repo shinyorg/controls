@@ -378,11 +378,11 @@ public sealed record SetShapeFillCommand(int Slide, int Shape, ArgbColor? Color)
 
         if (this.Color is { } color)
         {
-            properties.Append(new D.SolidFill(new D.RgbColorModelHex { Val = Hex(color) }));
+            ShapePropertiesOrder.Insert(properties, new D.SolidFill(new D.RgbColorModelHex { Val = Hex(color) }));
         }
         else
         {
-            properties.Append(new D.NoFill());
+            ShapePropertiesOrder.Insert(properties, new D.NoFill());
         }
 
         context.Reproject(this.Slide);
@@ -450,7 +450,7 @@ public sealed record SetShapeOutlineCommand(int Slide, int Shape, ArgbColor? Col
 
         // a:ln comes after the fill in the sequence, and appending is only right because the fill is
         // written first - the schema is ordered and PowerPoint refuses a file that is not.
-        properties.Append(line);
+        ShapePropertiesOrder.Insert(properties, line);
 
         context.Reproject(this.Slide);
         return inverse;
@@ -675,6 +675,15 @@ public readonly record struct SlideCaretFormat(
 
     /// <summary>The paragraph's outline level, 0-8. What Tab moves.</summary>
     public int Level { get; init; }
+
+    /// <summary>Superscript (positive), subscript (negative) or neither — the percentage PowerPoint stores.</summary>
+    public int Baseline { get; init; }
+
+    /// <summary>The link on the text at the caret, encoded as <see cref="SlideHyperlinkCodec"/> writes it.</summary>
+    public string? Link { get; init; }
+
+    /// <summary>The paragraph's line spacing, as a multiple.</summary>
+    public double LineSpacing { get; init; } = 1;
 
     public static SlideCaretFormat Default => new(
         false, false, false, false, 18, "Calibri", new ArgbColor(255, 0, 0, 0), TextAlignment.Left);
