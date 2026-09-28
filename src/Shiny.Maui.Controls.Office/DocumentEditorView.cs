@@ -97,6 +97,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
         this.root.Add(this.overlay);
 
         this.editor.DocumentChanged += this.OnDocumentChanged;
+        this.editor.SizeChanged += (_, _) => this.ApplyOpeningZoom();
         this.editor.ShortcutRequested += this.OnShortcutRequested;
 
         // Word's window around it all. Built whole, up front, and switched part by part with
@@ -138,6 +139,12 @@ public partial class DocumentEditorView : ContentView, IDisposable
         propertyChanged: (b, _, value) =>
         {
             var view = (DocumentEditorView)b;
+
+            // Anyone but the opening fit choosing a zoom - the host, the status bar, a pinch written
+            // back - ends the fit for good.
+            if (!view.applyingOpeningZoom)
+                view.zoomChosen = true;
+
             view.editor.Zoom = (double)value;
             view.RefreshBar();
         });
@@ -676,6 +683,46 @@ public partial class DocumentEditorView : ContentView, IDisposable
         this.RefreshNavigationPane();
         this.OnShellControllerAttached();
         this.RefreshBar();
+        this.ApplyOpeningZoom();
+    }
+
+    bool zoomChosen;
+    bool applyingOpeningZoom;
+    bool openingZoomApplied;
+
+    /// <summary>
+    /// Opens a page narrower than the viewport at page-width fit rather than 100% - on an iPhone a
+    /// Letter page at 100% ran off both sides. Only until a zoom is chosen: a <see cref="Zoom"/> the
+    /// host set (even to 1), the status bar, or a pinch all win, and the fit never comes back.
+    /// Re-evaluated as the viewport changes (rotation) while it is still in charge.
+    /// </summary>
+    void ApplyOpeningZoom()
+    {
+        if (this.zoomChosen || (!this.openingZoomApplied && this.IsSet(ZoomProperty)))
+        {
+            this.zoomChosen = true;
+            return;
+        }
+
+        if (this.editor.Controller is not { } controller
+            || this.editor.PageLayout != DocumentPageLayout.Print
+            || this.editor.Width <= 0)
+            return;
+
+        var zoom = this.statusBar.ZoomModel.OpeningZoom(controller.Document.Page.Width, this.editor.Width);
+        if (Math.Abs(zoom - this.Zoom) < 0.0001)
+            return;
+
+        this.applyingOpeningZoom = true;
+        try
+        {
+            this.openingZoomApplied = true;
+            this.Zoom = zoom;
+        }
+        finally
+        {
+            this.applyingOpeningZoom = false;
+        }
     }
 
     void OnControllerChanged(object? sender, EventArgs e)
@@ -697,7 +744,7 @@ public partial class DocumentEditorView : ContentView, IDisposable
             return;
 
         // Written back so a two-way binding sees a pinch; the property's own handler is a no-op for the
-        // value the editor already has.
+        // value the editor already has. (A pinch is a chosen zoom, which ends the opening fit.)
         if (Math.Abs(this.Zoom - controller.Zoom) > 0.0001)
             this.Zoom = controller.Zoom;
 

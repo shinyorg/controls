@@ -651,7 +651,7 @@
     void RenderBackstage(RenderTreeBuilder __builder)
     {
         <OfficeBackstage DocumentName="@this.EffectiveDocumentName"
-                         Templates="@(this.Templates ?? SpreadsheetTemplates.All)"
+                         Templates="@(this.Templates ?? TemplateThumbnailCache.Spreadsheet ?? SpreadsheetTemplates.All)"
                          RecentFiles="this.RecentFiles"
                          DocumentInfo="this.documentInfo"
                          TemplateSelected="this.OnTemplateSelectedAsync"

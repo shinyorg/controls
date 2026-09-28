@@ -88,3 +88,15 @@
     opacity: 0.6;
     pointer-events: none;
 }
+
+/*
+    Touch: a 22px button is too small for a finger. The hit area grows to 32x28 on a coarse pointer;
+    the glyph stays 14px, so the bar keeps Office's look and only its height gives.
+*/
+@media (pointer: coarse) {
+    .office-status { height: 32px; }
+
+    .office-status__btn { min-width: 32px; height: 28px; }
+
+    .office-status__percent { height: 28px; }
+}

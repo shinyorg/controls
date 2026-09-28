@@ -33,7 +33,9 @@ public partial class DocumentEditorView
     readonly OfficeNavigationPane navigationPaneView = new();
     readonly VerticalStackLayout commentsList = new() { Spacing = 8, Padding = new Thickness(12, 4, 12, 12) };
     readonly OfficeSidePane commentsPane = new() { Title = "Comments" };
-    readonly OfficeStatusBar statusBar = new();
+    // The status bar's range is the editor's own clamp (25-400%), not the model's 10-500% default -
+    // otherwise the slider ran to 500% and the page stopped growing at 400%.
+    readonly OfficeStatusBar statusBar = new() { ZoomModel = new OfficeZoomModel(DocumentController.MinimumZoom, DocumentController.MaximumZoom, 1.0) };
     readonly OfficeBackstage backstage = new();
     readonly OfficeStyleGallery styleGallery = new() { Columns = 5 };
     readonly Image printPreview = new() { Aspect = Aspect.AspectFit, HeightRequest = 520 };
@@ -135,7 +137,7 @@ public partial class DocumentEditorView
     /// <summary>The backstage's templates. Null (the default) is <see cref="WordTemplates.All"/>: Blank, Report, Letter.</summary>
     public static readonly BindableProperty TemplatesProperty = BindableProperty.Create(
         nameof(Templates), typeof(IEnumerable<OfficeTemplate>), typeof(DocumentEditorView), null,
-        propertyChanged: (b, _, n) => ((DocumentEditorView)b).backstage.Templates = (IEnumerable<OfficeTemplate>?)n ?? WordTemplates.All);
+        propertyChanged: (b, _, n) => ((DocumentEditorView)b).backstage.Templates = (IEnumerable<OfficeTemplate>?)n ?? TemplateThumbnailCache.WordReady ?? WordTemplates.All);
 
     /// <summary>The backstage's recent files — the host's list.</summary>
     public static readonly BindableProperty RecentFilesProperty = BindableProperty.Create(
@@ -297,7 +299,7 @@ public partial class DocumentEditorView
         this.statusBar.PropertyChanged += this.OnStatusBarPropertyChanged;
 
         // Backstage
-        this.backstage.Templates = this.Templates ?? WordTemplates.All;
+        this.backstage.Templates = this.Templates ?? TemplateThumbnailCache.WordReady ?? WordTemplates.All;
         this.backstage.DocumentName = this.DocumentName;
         this.backstage.PrintPreview = this.printPreview;
         this.backstage.PropertyChanged += this.OnBackstagePropertyChanged;
@@ -822,8 +824,27 @@ public partial class DocumentEditorView
 
     void OnBackstagePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(OfficeBackstage.IsOpen) && this.backstage.IsOpen)
+            _ = this.LoadTemplateThumbnailsAsync();
+
         if (e.PropertyName == nameof(OfficeBackstage.SelectedPage) && this.backstage.SelectedPage == OfficeBackstagePage.Print)
             this.RefreshPrintPreview();
+    }
+
+    /// <summary>
+    /// Gives the built-in templates a picture of their first page, as PowerPoint's have of their first
+    /// slide. Drawn once per process the first time a backstage opens; a host's own list is left alone.
+    /// </summary>
+    async Task LoadTemplateThumbnailsAsync()
+    {
+        if (this.Templates is not null)
+            return;
+
+        var templates = await TemplateThumbnailCache.Word;
+        if (this.Dispatcher is { IsDispatchRequired: true } dispatcher)
+            dispatcher.Dispatch(() => this.backstage.Templates = this.Templates ?? templates);
+        else
+            this.backstage.Templates = this.Templates ?? templates;
     }
 
     void ScheduleRulerCommit()

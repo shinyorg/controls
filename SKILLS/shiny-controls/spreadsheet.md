@@ -78,7 +78,7 @@ height** — without one it collapses to zero and nothing appears.
   `SelectionStatistics.IsMeaningful`), Normal / Page Layout / Page Break Preview, and a zoom slider
   (10–400%) bound to `Zoom`;
 - the **backstage**: templates (blank, Monthly budget, Invoice, Weekly schedule — built in code by
-  `SpreadsheetTemplates`), recent files (host-supplied), Info with statistics (sheets, cells with data,
+  `SpreadsheetTemplates`, pictured on first open via `OfficeTemplateThumbnails.Spreadsheet()`), recent files (host-supplied), Info with statistics (sheets, cells with data,
   formulas, notes), Save, Save As / Export (xlsx, CSV of the active sheet, PDF), Print.
 
 Switches (all default `true`): `ShowShell` (false = the old ribbon + formula bar + grid + tabs),

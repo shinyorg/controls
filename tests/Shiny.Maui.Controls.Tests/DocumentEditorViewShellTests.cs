@@ -147,6 +147,25 @@ public class DocumentEditorViewShellTests
     }
 
     [Fact]
+    public async Task TheCommentsButtonFollowsThePaneWhateverOpensIt()
+    {
+        var view = await ViewAsync();
+
+        view.ShowCommentsPane = true;
+        view.RibbonActions.IsCommentsOpen.ShouldBeTrue();
+
+        view.CommentsPane.Close();
+        view.RibbonActions.IsCommentsOpen.ShouldBeFalse();
+
+        view.Shell.IsRightPaneOpen = true;
+        view.RibbonActions.IsCommentsOpen.ShouldBeTrue();
+
+        view.RibbonActions.ToggleComments();
+        view.Shell.IsRightPaneOpen.ShouldBeFalse();
+        view.ShowCommentsPane.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task APickedTemplateOpensWhenNobodyHandlesIt()
     {
         var view = await ViewAsync(WordTemplates.BlankId);

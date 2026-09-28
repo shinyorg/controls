@@ -27,7 +27,7 @@ namespace Shiny.Maui.Controls.Office;
 /// </remarks>
 public partial class SlideEditorView
 {
-    static readonly OfficeZoomModel ShellZoom = new(0.1, 4.0, 1.0);
+    static readonly OfficeZoomModel ShellZoom = new(SlideController.MinimumZoom, SlideController.MaximumZoom, 1.0);
 
     readonly OfficeShell shell = new() { App = OfficeApp.PowerPoint };
     readonly OfficeTitleBar titleBar = new() { DocumentName = OfficeAppInfo.PowerPoint.DefaultDocumentName };
@@ -536,33 +536,7 @@ public partial class SlideEditorView
             this.loadingThumbnails = true;
             try
             {
-                builtInTemplates = await Task.Run(() =>
-                {
-                    var list = new List<OfficeTemplate>();
-                    foreach (var template in SlideTemplates.All)
-                    {
-                        if (template.IsBlank)
-                        {
-                            list.Add(template);
-                            continue;
-                        }
-
-                        using var stream = SlideTemplates.Create(template.Id);
-                        using var deck = SlideDeck.OpenAsync(stream).GetAwaiter().GetResult();
-                        var png = SlideExporter.ToPng(deck, 0, 320);
-
-                        list.Add(new OfficeTemplate(template.Id, template.Name)
-                        {
-                            Description = template.Description,
-                            Category = template.Category,
-                            Open = template.Open,
-                            Tag = template.Tag,
-                            Thumbnail = "data:image/png;base64," + Convert.ToBase64String(png)
-                        });
-                    }
-
-                    return (IReadOnlyList<OfficeTemplate>)list;
-                });
+                builtInTemplates = await Task.Run(() => OfficeTemplateThumbnails.Slides());
             }
             catch (Exception ex)
             {

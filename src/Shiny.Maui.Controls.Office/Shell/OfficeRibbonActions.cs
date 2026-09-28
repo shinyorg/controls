@@ -218,13 +218,25 @@ public class OfficeRibbonActions : ContentView
         this.modeLabel.IsVisible = !iconsOnly;
         this.shareLabel.IsVisible = !iconsOnly;
 
+        var app = this.shellApp ?? ShellChrome.Ancestor<OfficeShell>(this)?.App ?? OfficeApp.Word;
+        var accent = this.ShareAccent ?? OfficeAppInfo.For(app).Accent.Color.ToColor();
+
+        // Pressed while the pane is open: a filled ground AND an accent outline, as on the web. The old
+        // SurfaceContainerHighest fill sat on the SurfaceContainer tab strip one tone away and read as
+        // not pressed at all on a device.
         this.comments.IsVisible = this.ShowComments;
         if (this.IsCommentsOpen)
-            this.comments.SetDynamicResource(BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerHighest);
+        {
+            this.comments.SetDynamicResource(BackgroundColorProperty, ShinyThemeKeys.Color.SecondaryContainer);
+            this.comments.Stroke = new SolidColorBrush(accent);
+            this.comments.StrokeThickness = 1;
+        }
         else
         {
             this.comments.RemoveDynamicResource(BackgroundColorProperty);
             this.comments.BackgroundColor = Colors.Transparent;
+            this.comments.Stroke = new SolidColorBrush(Colors.Transparent);
+            this.comments.StrokeThickness = 1;
         }
 
         this.mode.IsVisible = this.ShowEditMode;
@@ -232,7 +244,6 @@ public class OfficeRibbonActions : ContentView
         this.modeLabel.Text = OfficeEditModes.Title(this.EditMode);
 
         this.share.IsVisible = this.ShowShare;
-        var app = this.shellApp ?? ShellChrome.Ancestor<OfficeShell>(this)?.App ?? OfficeApp.Word;
-        this.share.BackgroundColor = this.ShareAccent ?? OfficeAppInfo.For(app).Accent.Color.ToColor();
+        this.share.BackgroundColor = accent;
     }
 }

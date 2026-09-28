@@ -195,6 +195,12 @@
     /// <summary>Raised when a new controller is created — a new document — so chrome can resubscribe.</summary>
     public event EventHandler? ControllerCreated;
 
+    /// <summary>Raised when the surface's size changes (it is first known at the first paint).</summary>
+    public event EventHandler? ViewportResized;
+
+    /// <summary>The surface's width in CSS pixels; zero until it has painted.</summary>
+    public double ViewportWidth => this.lastWidth;
+
     /// <summary>Puts the keyboard focus on the editor, so the platform starts sending it text.</summary>
     public async Task FocusAsync()
     {
@@ -354,6 +360,7 @@
             this.lastWidth = width;
             this.lastHeight = height;
             this.controller.Resize(width, height);
+            this.ViewportResized?.Invoke(this, EventArgs.Empty);
         }
 
         this.painter.Paint(e.Surface.Canvas, new DocumentPaintRequest
