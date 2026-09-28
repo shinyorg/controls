@@ -115,6 +115,37 @@ public sealed class SlideShowController
         this.EnterSlide(this.index, transition: false);
     }
 
+    /// <summary>
+    /// A preview of one slide — the Transitions and Animations tabs' Preview button: the slide's
+    /// transition in from the slide before it, then every click of its animations played in turn with
+    /// nobody clicking.
+    /// </summary>
+    /// <remarks>
+    /// A host paints it into the editor's own slide rectangle and stops when <see cref="IsPreviewDone"/>
+    /// says there is nothing left to play.
+    /// </remarks>
+    public static SlideShowController Preview(SlideDeck deck, int slide, Func<TimeSpan>? clock = null)
+    {
+        var show = new SlideShowController(deck, Math.Max(0, slide - 1), clock) { AutoPlayClicks = true, IsPreview = true };
+
+        if (slide > 0)
+            show.EnterSlide(slide, transition: true);
+        else
+            show.EnterSlide(slide, transition: false);
+
+        return show;
+    }
+
+    /// <summary>Plays each click's effects as soon as the one before finishes, for a preview.</summary>
+    public bool AutoPlayClicks { get; set; }
+
+    /// <summary>True for a controller made by <see cref="Preview"/>.</summary>
+    public bool IsPreview { get; private init; }
+
+    /// <summary>A preview has played its transition and every click, and nothing is still moving.</summary>
+    public bool IsPreviewDone
+        => this.Current is not { } slide || (this.click >= this.Clicks(slide) && !this.IsAnimating);
+
     public SlideDeck Deck => this.deck;
 
     /// <summary>The deck index of the slide on screen.</summary>
@@ -353,6 +384,10 @@ public sealed class SlideShowController
             if (this.previousIndex is not null && now - this.transitionStarted < this.TransitionLength())
                 return true;
 
+            // A preview keeps ticking until its last click has been started.
+            if (this.AutoPlayClicks && this.Current is { } previewed && this.click < this.Clicks(previewed))
+                return true;
+
             if (this.Current is { } slide)
             {
                 var elapsed = now - this.clickStarted;
@@ -379,7 +414,21 @@ public sealed class SlideShowController
         if (this.paused || this.atEnd || this.Screen != SlideShowScreen.Slide || this.Current is not { } slide)
             return false;
 
-        if (slide.Transition?.AdvanceAfter is not { } after)
+        if (this.AutoPlayClicks && this.click < this.Clicks(slide))
+        {
+            // The next click as soon as this one's effects are done (and the transition has landed).
+            var moment = this.clock();
+            var playedTo = SlideAnimationTimeline.Schedule(slide.Animations).Where(x => x.Click == this.click).Select(x => x.End).DefaultIfEmpty(TimeSpan.Zero).Max();
+            if (moment - this.clickStarted < playedTo || moment < this.clickStarted)
+                return false;
+
+            this.click++;
+            this.clickStarted = moment;
+            this.Changed?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
+        if (this.IsPreview || slide.Transition?.AdvanceAfter is not { } after)
             return false;
 
         var now = this.clock();

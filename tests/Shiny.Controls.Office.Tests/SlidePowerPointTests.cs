@@ -755,6 +755,34 @@ public class SlidePowerPointTests
     }
 
     [Fact]
+    public async Task APreviewPlaysTheTransitionThenEveryClickUnattended()
+    {
+        using var deck = await OpenAsync();
+        var c = Controller(deck);
+        c.SetTransitionKind(SlideTransitionKind.Fade);
+        c.Select(Callout(deck));
+        c.Animate(SlideAnimationEffect.Fade);
+        c.Select(Body(deck));
+        c.Animate(SlideAnimationEffect.Wipe);
+
+        var now = TimeSpan.Zero;
+        var preview = SlideShowController.Preview(deck, 1, () => now);
+        preview.SlideIndex.ShouldBe(1);
+        preview.Frame()!.Previous.ShouldNotBeNull();
+        preview.IsPreviewDone.ShouldBeFalse();
+
+        for (var i = 0; i < 100 && !preview.IsPreviewDone; i++)
+        {
+            now += TimeSpan.FromMilliseconds(50);
+            preview.Tick();
+        }
+
+        preview.IsPreviewDone.ShouldBeTrue();
+        preview.Click.ShouldBe(2);
+        preview.Frame()!.Shapes.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task BlackAndWhiteScreensTakeTheNextPress()
     {
         using var deck = await OpenAsync();

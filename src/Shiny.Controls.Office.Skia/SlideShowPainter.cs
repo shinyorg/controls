@@ -34,6 +34,31 @@ public sealed class SlideShowPainter(SlidePainter slides) : IDisposable
 
         canvas.Save();
         canvas.Scale(scale);
+        this.PaintFrame(canvas, frame, deck, width, height, watermark);
+        canvas.Restore();
+    }
+
+    /// <summary>
+    /// A frame inside a rectangle of a larger surface — the editor's slide area during a Preview — in
+    /// logical pixels, with the canvas already scaled to them.
+    /// </summary>
+    public void PaintInto(SKCanvas canvas, SlideShowFrame frame, SlideDeck deck, SKRect area, OfficeWatermark? watermark = null)
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        ArgumentNullException.ThrowIfNull(frame);
+
+        canvas.Save();
+        canvas.ClipRect(area);
+        this.fill.Color = SKColors.Black;
+        canvas.DrawRect(area, this.fill);
+        canvas.Translate(area.Left, area.Top);
+        this.PaintFrame(canvas, frame, deck, area.Width, area.Height, watermark);
+        canvas.Restore();
+    }
+
+    void PaintFrame(SKCanvas canvas, SlideShowFrame frame, SlideDeck deck, double width, double height, OfficeWatermark? watermark)
+    {
+        canvas.Save();
 
         if (frame.IsEnd || frame.Screen != SlideShowScreen.Slide)
         {
