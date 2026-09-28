@@ -6,7 +6,7 @@ namespace Shiny.Controls.Office.Shell;
 /// <summary>Which Office application an <c>OfficeShell</c> is dressed as.</summary>
 /// <remarks>
 /// The shell's structure is the same for all of them — title bar, ribbon, status bar, backstage. What
-/// the app changes is the accent, the letter on the app tile, the default document name, the native
+/// the app changes is the accent, the default document name, the native
 /// file format and the three view-mode buttons on the status bar.
 /// </remarks>
 public enum OfficeApp
@@ -28,7 +28,7 @@ public enum OfficeApp
 /// <summary>What an <see cref="OfficeApp"/> looks like in the shell's chrome.</summary>
 /// <param name="App">The app described.</param>
 /// <param name="Name">The product name, e.g. "Word".</param>
-/// <param name="Letter">The single letter drawn on the app tile in the title bar.</param>
+/// <param name="Letter">The app's single-letter mark (W / X / P). The title bar no longer draws a tile; kept for hosts that show their own.</param>
 /// <param name="Accent">The accent the title bar, backstage rail and ribbon header wear.</param>
 /// <param name="DefaultDocumentName">What an unsaved document is called — "Document1", "Book1".</param>
 /// <param name="DocumentNoun">What the app calls the thing it edits — "document", "workbook".</param>

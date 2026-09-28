@@ -45,7 +45,7 @@ public partial class OfficeShell : ComponentBase, IAsyncDisposable
     DotNetObjectReference<OfficeShell>? selfReference;
     bool disposed;
 
-    /// <summary>Which app the shell is dressed as: accent, app tile, formats, view modes.</summary>
+    /// <summary>Which app the shell is dressed as: accent, formats, view modes.</summary>
     [Parameter] public OfficeApp App { get; set; } = OfficeApp.Word;
 
     /// <summary>Overrides the app's accent. Any CSS colour.</summary>
