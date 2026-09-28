@@ -1017,9 +1017,12 @@ sealed class SlideReader
         if (this.layout?.SlideLayout?.CommonSlideData?.Background is { } fromLayout)
             return this.ReadBackgroundElement(fromLayout, this.layout);
 
-        return this.master?.SlideMaster?.CommonSlideData?.Background is { } fromMaster
-            ? this.ReadBackgroundElement(fromMaster, this.master)
-            : ShapeFill.None;
+        if (this.master?.SlideMaster?.CommonSlideData?.Background is { } fromMaster)
+            return this.ReadBackgroundElement(fromMaster, this.master);
+
+        // No background written anywhere: PowerPoint paints bg1, the theme's first light colour —
+        // which is what makes a dark theme's slides dark.
+        return this.colors.Resolve("bg1") is { } ground ? new ShapeFill { Solid = ground } : ShapeFill.None;
     }
 
     /// <summary>

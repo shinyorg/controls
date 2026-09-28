@@ -332,7 +332,7 @@
                     </RibbonGroup>
                     <RibbonGroup Title="Transition to This Slide" Priority="95">
                         <RibbonContent>
-                            <div class="slide-gallery" role="listbox" aria-label="Transitions">
+                            <div class="slide-gallery slide-gallery-tall" role="listbox" aria-label="Transitions">
                                 @foreach (var kind in TransitionKinds)
                                 {
                                     <button type="button" class="slide-gallery-item slide-gallery-word @((Transition?.Kind ?? SlideTransitionKind.None) == kind ? "on" : null)"

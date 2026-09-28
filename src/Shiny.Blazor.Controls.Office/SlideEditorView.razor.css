@@ -344,7 +344,7 @@
 .slide-gallery {
     display: grid;
     grid-auto-flow: column;
-    grid-template-rows: repeat(2, auto);
+    grid-template-rows: auto;
     gap: 3px;
     max-width: 520px;
     overflow-x: auto;
