@@ -48,9 +48,28 @@ public partial class DocumentEditorPage : ContentPage
         this.Editor.Document = this.document;
         this.Editor.DocumentChanged += this.OnDocumentChanged;
         this.Editor.DropRejected += this.OnDropRejected;
+        this.Editor.StatisticsChanged += this.OnStatisticsChanged;
+        this.Editor.ZoomChanged += this.OnZoomChanged;
 
         this.UpdateStatus();
+        this.UpdateStatistics();
     }
+
+    /// <summary>Page, word count and zoom — what Word's status bar shows along the bottom.</summary>
+    void UpdateStatistics()
+    {
+        var stats = this.Editor.Statistics;
+        this.StatisticsLabel.Text =
+            $"Page {stats.CurrentPage} of {stats.Pages}   ·   {stats.Words:N0} words   ·   {this.Editor.Zoom * 100:0}%";
+    }
+
+    void OnStatisticsChanged(object? sender, EventArgs e) => this.UpdateStatistics();
+
+    void OnZoomChanged(object? sender, double zoom) => this.UpdateStatistics();
+
+    void OnReadMode(object? sender, EventArgs e) => this.Editor.ReadMode = !this.Editor.ReadMode;
+
+    void OnNavigation(object? sender, EventArgs e) => this.Editor.ShowNavigationPane = !this.Editor.ShowNavigationPane;
 
     /// <summary>
     /// A dropped file the editor would not take.
@@ -124,6 +143,8 @@ public partial class DocumentEditorPage : ContentPage
         {
             this.Editor.DocumentChanged -= this.OnDocumentChanged;
             this.Editor.DropRejected -= this.OnDropRejected;
+            this.Editor.StatisticsChanged -= this.OnStatisticsChanged;
+            this.Editor.ZoomChanged -= this.OnZoomChanged;
             this.document?.Dispose();
             this.document = null;
         }

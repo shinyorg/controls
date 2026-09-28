@@ -12,16 +12,22 @@
             <Button Text="Theme" Clicked="OnToggleTheme" />
             <Button x:Name="SpellButton" Clicked="OnToggleSpelling" />
             <Button x:Name="MarginButton" Clicked="OnCycleMargins" />
+            <Button Text="Read Mode" Clicked="OnReadMode" />
+            <Button Text="Navigation" Clicked="OnNavigation" />
         </HorizontalStackLayout>
 
         <Border Grid.Row="1" StrokeThickness="1">
             <office:DocumentEditorView x:Name="Editor" />
         </Border>
 
-        <Label Grid.Row="2"
-               x:Name="StatusLabel"
-               FontSize="12"
-               Opacity="0.7"
-               LineBreakMode="WordWrap" />
+        <VerticalStackLayout Grid.Row="2" Spacing="2">
+            <!-- A stand-in status bar: DocumentEditorView.Statistics and StatisticsChanged are what a
+                 real one binds to. -->
+            <Label x:Name="StatisticsLabel" FontSize="12" />
+            <Label x:Name="StatusLabel"
+                   FontSize="12"
+                   Opacity="0.7"
+                   LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
     </Grid>
 </ContentPage>

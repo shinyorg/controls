@@ -10,7 +10,7 @@
     The lone editor: a canvas and the hidden input the platform types into. No chrome of any kind —
     DocumentEditorView adds that. Anything a toolbar needs is on Controller.
 *@
-<div class="shiny-doc-editor @Class"
+<div class="shiny-doc-editor @(this.controller?.IsFormatPainterActive == true ? "painting" : null) @Class"
      style="@Style"
      @ref="host"
      @onwheel="OnWheel"
@@ -180,6 +180,21 @@
     /// <summary>The live controller — selection, caret format, formatting commands, undo.</summary>
     public DocumentEditorController? Controller => this.controller;
 
+    /// <summary>
+    /// Raised for a shortcut the surface cannot handle itself — Find, Replace, Link, New Comment, Word
+    /// Count — so the chrome around it can open its UI.
+    /// </summary>
+    [Parameter] public EventCallback<WordCommand> ShortcutRequested { get; set; }
+
+    /// <summary>
+    /// Raised when a hyperlink to outside the document is followed (Ctrl+click). Left unbound, the
+    /// link opens in a new browser tab.
+    /// </summary>
+    [Parameter] public EventCallback<DocumentLinkEventArgs> LinkClicked { get; set; }
+
+    /// <summary>Raised when a new controller is created — a new document — so chrome can resubscribe.</summary>
+    public event EventHandler? ControllerCreated;
+
     /// <summary>Puts the keyboard focus on the editor, so the platform starts sending it text.</summary>
     public async Task FocusAsync()
     {
@@ -247,10 +262,15 @@
         if (this.controller is null || !ReferenceEquals(this.controller.Document, this.Document))
         {
             if (this.controller is not null)
+            {
                 this.controller.Changed -= this.OnControllerChanged;
+                this.controller.LinkActivated -= this.OnLinkActivated;
+            }
 
             this.controller = new DocumentEditorController(this.Document, this.measurer, this.SpellChecker);
             this.controller.Changed += this.OnControllerChanged;
+            this.controller.LinkActivated += this.OnLinkActivated;
+            this.ControllerCreated?.Invoke(this, EventArgs.Empty);
 
             if (this.lastWidth > 0)
                 this.controller.Resize(this.lastWidth, this.lastHeight);
@@ -363,7 +383,11 @@
                 ? this.controller.TouchHandleRects()
                 : [],
 
-            ObjectChrome = this.BuildObjectChrome()
+            ObjectChrome = this.BuildObjectChrome(),
+            ShowFormattingMarks = this.controller.ShowFormattingMarks,
+            Comments = this.controller.CommentMarks(),
+            PageColor = this.controller.PageColor,
+            WatermarkText = this.controller.WatermarkText
         });
     }
 
@@ -391,6 +415,10 @@
             return;
 
         this.spellingMenu = null;
+
+        // Ctrl/Cmd+click follows a hyperlink rather than placing the caret in it - Word's gesture.
+        if ((e.CtrlKey || e.MetaKey) && e.PointerType != "touch" && this.controller.ActivateLinkAt(e.OffsetX, e.OffsetY))
+            return;
 
         // Objects first: a picture sits on top of the text it displaces, so a click inside one is
         // always about the picture even though there is a caret position underneath it.
@@ -485,8 +513,13 @@
 
     void OnPointerUp(PointerEventArgs e)
     {
+        var wasSelecting = this.dragging;
         this.dragging = false;
         this.controller?.EndObjectDrag();
+
+        // The format painter paints on the selection a drag has just made.
+        if (wasSelecting)
+            this.controller?.CompletePointerGesture();
 
         // A press that went nowhere was a tap, and a tap places the caret.
         if (this.panning && !this.panMoved && this.tapCandidate is { } tapped)
@@ -522,6 +555,8 @@
             this.controller.SelectParagraphAt(position);
         else
             this.controller.SelectWordAt(position);
+
+        this.controller.CompletePointerGesture();
 
         // Pointerup has already cleared the drag flag, but a click arriving without one would leave a
         // stray move able to collapse the selection that was just made.
@@ -759,9 +794,16 @@
 
         switch (inputType)
         {
+            case "insertFromPaste":
+                // Normally consumed by the paste listener, which can see the clipboard; a paste that
+                // only reached here still pastes, as plain text.
+                if (!string.IsNullOrEmpty(data))
+                    this.controller.Paste(data);
+
+                break;
+
             case "insertText":
             case "insertCompositionText":
-            case "insertFromPaste":
             case "insertReplacementText":
                 if (!string.IsNullOrEmpty(data))
                     this.controller.InsertText(data);
@@ -811,6 +853,11 @@
             case "Home": this.controller.Move(e.MetaKey || e.CtrlKey ? CaretMove.DocumentStart : CaretMove.LineStart, extend); break;
             case "End": this.controller.Move(e.MetaKey || e.CtrlKey ? CaretMove.DocumentEnd : CaretMove.LineEnd, extend); break;
 
+            case "Escape":
+                if (!this.controller.Execute(WordCommand.Cancel))
+                    this.preventKeyDefault = false;
+                break;
+
             case "Tab":
                 // Inside a list this nests the item; anywhere else it inserts a tab. Either way the
                 // browser must not move focus out of the editor, which is what its default does.
@@ -821,44 +868,177 @@
 
                 break;
 
-            case "a" when e.CtrlKey || e.MetaKey:
-                this.controller.SelectAll();
-                break;
-
-            case "b" when e.CtrlKey || e.MetaKey:
-                this.controller.ToggleBold();
-                await this.RaiseChangedAsync();
-                break;
-
-            case "i" when e.CtrlKey || e.MetaKey:
-                this.controller.ToggleItalic();
-                await this.RaiseChangedAsync();
-                break;
-
-            case "u" when e.CtrlKey || e.MetaKey:
-                this.controller.ToggleUnderline();
-                await this.RaiseChangedAsync();
-                break;
-
-            case "z" when e.CtrlKey || e.MetaKey:
-                if (e.ShiftKey)
-                    this.controller.Redo();
-                else
-                    this.controller.Undo();
-
-                await this.RaiseChangedAsync();
-                break;
-
-            case "y" when e.CtrlKey || e.MetaKey:
-                this.controller.Redo();
-                await this.RaiseChangedAsync();
-                break;
-
             default:
-                // Everything else - printable characters included - arrives through beforeinput, which
-                // is what makes IME and dictation work. Swallowing it here would break both.
-                this.preventKeyDefault = false;
+                await this.HandleShortcutKeyAsync(e);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Word's shortcuts, resolved by the shared table so both hosts mean the same thing by each key.
+    /// </summary>
+    /// <remarks>
+    /// Anything unhandled — printable characters included — is let through to arrive via beforeinput,
+    /// which is what makes IME and dictation work. Paste is also let through: the browser only hands
+    /// the clipboard to the paste event, which the input module forwards to <see cref="HandlePaste"/>.
+    /// </remarks>
+    async Task HandleShortcutKeyAsync(KeyboardEventArgs e)
+    {
+        this.preventKeyDefault = false;
+
+        if (this.controller is not { } controller)
+            return;
+
+        var command = e.CtrlKey || e.MetaKey;
+        if (!command && !(e.Key == "F3" && e.ShiftKey) && e.Key != "Escape")
+            return;
+
+        var resolved = WordShortcuts.Resolve(e.Key, command, e.ShiftKey, e.AltKey);
+
+        switch (resolved)
+        {
+            case WordCommand.None:
+                return;
+
+            case WordCommand.Paste:
+                return;
+
+            case WordCommand.PasteText:
+                this.preventKeyDefault = true;
+                await this.PasteAsync(plainText: true);
+                return;
+
+            case WordCommand.Copy:
+                this.preventKeyDefault = true;
+                await this.CopyAsync();
+                return;
+
+            case WordCommand.Cut:
+                this.preventKeyDefault = true;
+                await this.CutAsync();
+                return;
+        }
+
+        if (WordShortcuts.IsHostCommand(resolved))
+        {
+            this.preventKeyDefault = true;
+            if (this.ShortcutRequested.HasDelegate)
+                await this.ShortcutRequested.InvokeAsync(resolved);
+
+            return;
+        }
+
+        if (controller.Execute(resolved))
+        {
+            this.preventKeyDefault = true;
+            await this.RaiseChangedAsync();
+        }
+    }
+
+    // ---- clipboard ----
+
+    /// <summary>Copies the selection — rich inside the editor, plain text on the system clipboard.</summary>
+    public async Task CopyAsync()
+    {
+        if (this.controller is null)
+            return;
+
+        await this.WriteClipboardAsync(this.controller.Copy());
+    }
+
+    /// <summary>Cuts the selection to the clipboard.</summary>
+    public async Task CutAsync()
+    {
+        if (this.controller is null || this.ReadOnly)
+            return;
+
+        await this.WriteClipboardAsync(this.controller.Cut());
+        await this.RaiseChangedAsync();
+    }
+
+    /// <summary>
+    /// Pastes from the system clipboard, keeping formatting when it holds what this editor copied.
+    /// </summary>
+    /// <remarks>
+    /// Reading the clipboard from a button needs the browser's permission; when it is refused the
+    /// editor's own last copy is pasted instead, which is right whenever that copy came from here.
+    /// </remarks>
+    public async Task PasteAsync(bool plainText = false)
+    {
+        if (this.controller is null || this.ReadOnly)
+            return;
+
+        string? text = null;
+        try
+        {
+            if (this.inputModule is not null)
+                text = await this.inputModule.InvokeAsync<string?>("readClipboard");
+        }
+        catch (JSException)
+        {
+            text = null;
+        }
+
+        if (plainText)
+        {
+            text ??= DocumentClipboard.Current?.PlainText;
+            if (!string.IsNullOrEmpty(text))
+                this.controller.PasteText(text);
+        }
+        else
+        {
+            this.controller.Paste(text);
+        }
+
+        await this.RaiseChangedAsync();
+        this.focusInput = true;
+        this.StateHasChanged();
+    }
+
+    /// <summary>The browser's paste event, forwarded by the input module with the clipboard's text.</summary>
+    [JSInvokable]
+    public async Task HandlePaste(string? text)
+    {
+        if (this.controller is null || this.ReadOnly)
+            return;
+
+        this.controller.Paste(text);
+        await this.RaiseChangedAsync();
+    }
+
+    async Task WriteClipboardAsync(string text)
+    {
+        if (this.inputModule is null || string.IsNullOrEmpty(text))
+            return;
+
+        try
+        {
+            await this.inputModule.InvokeVoidAsync("writeClipboard", text);
+        }
+        catch (JSException ex)
+        {
+            // The internal copy still works; only other applications miss out.
+            Console.Error.WriteLine($"[Shiny.Office] Could not write the clipboard: {ex.Message}");
+        }
+    }
+
+    // ---- links ----
+
+    async void OnLinkActivated(object? sender, DocumentLinkEventArgs e)
+    {
+        if (this.LinkClicked.HasDelegate)
+        {
+            await this.LinkClicked.InvokeAsync(e);
+            return;
+        }
+
+        try
+        {
+            await this.Js.InvokeVoidAsync("open", e.Target, "_blank", "noopener");
+        }
+        catch (Exception)
+        {
+            // A blocked popup is the browser's call, not an editor failure.
         }
     }
 
@@ -893,7 +1073,10 @@
     public async ValueTask DisposeAsync()
     {
         if (this.controller is not null)
+        {
             this.controller.Changed -= this.OnControllerChanged;
+            this.controller.LinkActivated -= this.OnLinkActivated;
+        }
 
         await this.scheme.DisposeAsync();
 

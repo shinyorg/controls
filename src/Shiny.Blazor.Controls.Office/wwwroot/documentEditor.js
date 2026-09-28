@@ -22,8 +22,17 @@ export function attach(element, dotNet) {
     // to be cleared afterwards or the IME keeps appending to stale content.
     const onCompositionEnd = () => { element.textContent = ''; };
 
+    // Paste arrives here with the clipboard's contents, which beforeinput does not carry for a
+    // contenteditable - its data is null and the text is only on dataTransfer.
+    const onPaste = e => {
+        e.preventDefault();
+        const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+        dotNet.invokeMethodAsync('HandlePaste', text ?? '');
+    };
+
     element.addEventListener('beforeinput', onBeforeInput);
     element.addEventListener('compositionend', onCompositionEnd);
+    element.addEventListener('paste', onPaste);
 
     // Wrapped for .NET: a plain object cannot be marshalled back as an IJSObjectReference, and the
     // resulting deserialisation failure surfaces as "the listener silently never attached".
@@ -31,6 +40,7 @@ export function attach(element, dotNet) {
         dispose: () => {
             element.removeEventListener('beforeinput', onBeforeInput);
             element.removeEventListener('compositionend', onCompositionEnd);
+            element.removeEventListener('paste', onPaste);
         }
     });
 }
@@ -44,4 +54,20 @@ export function focus(element) {
 export function detach(handle) {
     handle?.dispose?.();
     DotNet.disposeJSObjectReference?.(handle);
+}
+
+/// Puts plain text on the system clipboard. Needs a secure context; the caller treats a refusal as
+/// "only the editor's own clipboard has it".
+export async function writeClipboard(text) {
+    if (navigator.clipboard?.writeText)
+        await navigator.clipboard.writeText(text ?? '');
+}
+
+/// Reads the system clipboard's text for a Paste button, or null when the browser will not allow it.
+export async function readClipboard() {
+    try {
+        return navigator.clipboard?.readText ? await navigator.clipboard.readText() : null;
+    } catch {
+        return null;
+    }
 }

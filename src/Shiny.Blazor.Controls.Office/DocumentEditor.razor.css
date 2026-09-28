@@ -106,3 +106,8 @@
     outline-offset: -6px;
     background: color-mix(in srgb, var(--shiny-color-primary, #0055D9) 8%, transparent);
 }
+
+/* The format painter is loaded: the pointer says so, the way Word's brush cursor does. */
+.shiny-doc-editor.painting {
+    cursor: copy;
+}
