@@ -63,6 +63,27 @@ class RibbonGroupView : Grid
             this.collapsed = value;
             this.openView.IsVisible = !value;
             this.collapsedView.IsVisible = value;
+
+            // On iOS a subtree that was hidden keeps whatever arrangement it had while hidden: a group
+            // that starts collapsed and then opens (rotating an iPad to landscape) showed its Styles
+            // gallery as an empty frame, every cell arranged at zero size. Re-lay the open form out
+            // once it is visible - after this layout pass, from inside which it would be swallowed.
+            if (!value)
+                this.Dispatcher?.Dispatch(() => InvalidateTree(this.openView));
+        }
+    }
+
+    static void InvalidateTree(IView view)
+    {
+        view.InvalidateMeasure();
+
+        if (view is IVisualTreeElement element)
+        {
+            foreach (var child in element.GetVisualChildren())
+            {
+                if (child is IView childView)
+                    InvalidateTree(childView);
+            }
         }
     }
 
