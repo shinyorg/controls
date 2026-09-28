@@ -79,3 +79,54 @@ export function wake(element) {
     const entry = element && registry.get(element);
     entry?.wake();
 }
+
+/// Opens an external link from a show, in a new tab so the show keeps its place.
+export function openLink(url) {
+    if (url)
+        window.open(url, '_blank', 'noopener');
+}
+
+/// Plays an embedded clip over the show: a full-window <video> (or <audio>) on a dark scrim, closed by
+/// a click outside it, Escape, or the clip ending. The bytes arrive as a stream reference and become a
+/// blob URL, which is revoked when the player goes.
+export async function playMedia(host, streamRef, contentType, isVideo) {
+    if (!host || !streamRef)
+        return;
+
+    const buffer = await streamRef.arrayBuffer();
+    const url = URL.createObjectURL(new Blob([buffer], { type: contentType || (isVideo ? 'video/mp4' : 'audio/mpeg') }));
+
+    const scrim = document.createElement('div');
+    scrim.className = 'shiny-slides-media';
+    scrim.style.cssText = 'position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85)';
+
+    const player = document.createElement(isVideo ? 'video' : 'audio');
+    player.src = url;
+    player.controls = true;
+    player.autoplay = true;
+    player.style.cssText = isVideo ? 'max-width:92%;max-height:92%' : 'width:min(480px,90%)';
+
+    const onKey = e => {
+        if (e.key === 'Escape') {
+            e.stopPropagation();
+            e.preventDefault();
+            close();
+        }
+    };
+
+    const close = () => {
+        player.pause();
+        scrim.remove();
+        URL.revokeObjectURL(url);
+        document.removeEventListener('keydown', onKey, true);
+    };
+
+    // The show advances on a click; a click on the player must not reach it.
+    scrim.addEventListener('click', e => { e.stopPropagation(); if (e.target === scrim) close(); });
+    scrim.addEventListener('pointerdown', e => e.stopPropagation());
+    player.addEventListener('ended', close);
+    document.addEventListener('keydown', onKey, true);
+
+    scrim.appendChild(player);
+    host.appendChild(scrim);
+}
