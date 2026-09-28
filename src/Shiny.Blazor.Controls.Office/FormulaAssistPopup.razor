@@ -1,0 +1,80 @@
+@namespace Shiny.Blazor.Controls.Office
+@using Shiny.Controls.Office.Spreadsheet.Calc
+
+@*
+    The list that drops under a cell or the formula bar while a function name is typed, and the
+    signature tip once its parenthesis is open. Presentation only: the owner holds the session, drives
+    it from its own key handler, and decides where this sits.
+
+    Clicks are taken on pointerdown rather than click: a click would first blur the input it belongs
+    to, and a blur commits the edit, so the pick would land after the formula had already been written.
+*@
+@if (this.ShowList || this.ShowHint)
+{
+    <div class="sheet-assist" style="@this.Style" @onpointerdown:preventDefault="true">
+        @if (this.ShowHint)
+        {
+            <div class="sheet-assist__hint">@this.Hint</div>
+        }
+
+        @if (this.ShowList)
+        {
+            <ul class="sheet-assist__list" role="listbox">
+                @for (var i = 0; i < this.State!.Suggestions.Count; i++)
+                {
+                    var index = i;
+                    var item = this.State.Suggestions[i];
+
+                    <li class="sheet-assist__item @(index == this.Index ? "is-active" : null)"
+                        role="option"
+                        aria-selected="@(index == this.Index ? "true" : "false")"
+                        title="@item.Description"
+                        @onpointerdown="() => this.OnPick.InvokeAsync(index)">
+                        <span class="sheet-assist__name">@item.Name</span>
+                        @if (!item.IsFunction)
+                        {
+                            <span class="sheet-assist__kind">name</span>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (this.State.Suggestions.ElementAtOrDefault(this.Index) is { } current)
+            {
+                <div class="sheet-assist__description">@current.Description</div>
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public FormulaAssistState? State { get; set; }
+
+    [Parameter] public bool IsOpen { get; set; }
+
+    [Parameter] public int Index { get; set; }
+
+    [Parameter] public EventCallback<int> OnPick { get; set; }
+
+    /// <summary>Positioning, supplied by the owner.</summary>
+    [Parameter] public string? Style { get; set; }
+
+    bool ShowList => this.IsOpen && this.State is { HasSuggestions: true };
+
+    bool ShowHint => !this.ShowList && this.State?.ActiveFunction is not null;
+
+    /// <summary>The signature, with the argument the caret is on upper-cased so it stands out in plain text.</summary>
+    string Hint
+    {
+        get
+        {
+            if (this.State?.ActiveFunction is not { } info)
+                return string.Empty;
+
+            var arguments = info.Arguments
+                .Select((x, i) => i == Math.Min(this.State.ArgumentIndex, info.Arguments.Count - 1) ? x.ToUpperInvariant() : x);
+
+            return $"{info.Name}({string.Join(", ", arguments)})";
+        }
+    }
+}

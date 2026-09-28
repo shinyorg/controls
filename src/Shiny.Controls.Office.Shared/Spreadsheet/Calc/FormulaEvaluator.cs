@@ -19,13 +19,36 @@ public sealed class FormulaEvaluator(FunctionRegistry functions)
         LiteralNode literal => CalcValue.From(literal.Value),
         ReferenceNode reference => this.EvaluateReference(reference, context),
         RangeNode range => this.EvaluateRange(range, context),
-        UnknownNameNode => CalcValue.Error(CellError.Name),
+        UnknownNameNode name => this.EvaluateName(name, context),
         MissingArgumentNode => CalcValue.Blank,
         UnaryNode unary => this.EvaluateUnary(unary, context),
         BinaryNode binary => this.EvaluateBinary(binary, context),
         FunctionNode function => this.EvaluateFunction(function, context),
         _ => CalcValue.Error(CellError.Value)
     };
+
+    [ThreadStatic]
+    static int nameDepth;
+
+    /// <summary>
+    /// A defined name, evaluated as the formula it stands for. Unknown names are #NAME?, and a name
+    /// that refers back to itself stops rather than recursing until the stack dies.
+    /// </summary>
+    CalcValue EvaluateName(UnknownNameNode node, ICalcContext context)
+    {
+        if (nameDepth > 32 || context.ResolveName(node.Name, context.CurrentSheet) is not { } resolved)
+            return CalcValue.Error(CellError.Name);
+
+        nameDepth++;
+        try
+        {
+            return this.EvaluateNode(resolved, context);
+        }
+        finally
+        {
+            nameDepth--;
+        }
+    }
 
     CalcValue EvaluateReference(ReferenceNode node, ICalcContext context)
     {

@@ -54,6 +54,18 @@
     border-color: var(--shiny-spreadsheet-selection, #217a3c);
 }
 
+/* The autocomplete list hangs off the field, so the field is its positioning box. */
+.shiny-formula-field {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.shiny-formula-field .shiny-formula-input {
+    width: 100%;
+}
+
 .shiny-formula-input:read-only {
     background: var(--shiny-color-surface-variant, #E8EEF6);
     color: var(--shiny-color-on-surface-variant, #3B475B);

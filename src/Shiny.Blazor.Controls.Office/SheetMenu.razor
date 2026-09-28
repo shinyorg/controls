@@ -1,0 +1,101 @@
+@namespace Shiny.Blazor.Controls.Office
+@using Shiny.Controls.Office.Spreadsheet.View
+
+@*
+    The grid's popup menus: the right-click menu on cells and headers, and the list a validated cell
+    drops down. The items are built by the controller (SpreadsheetController.ContextMenu), so both
+    hosts offer the same commands in the same order; this only draws them.
+
+    Positioned inside the grid host, which is the element the request's coordinates are relative to,
+    and clamped against that host's size so a right-click near an edge does not open off screen.
+    Submenus fly out on hover and flip to the left when there is no room on the right.
+*@
+@if (this.Request is { } request)
+{
+    <div class="sheet-menu__backdrop"
+         @onpointerdown="this.CloseAsync"
+         @oncontextmenu="this.CloseAsync"
+         @oncontextmenu:preventDefault="true"></div>
+
+    <div class="sheet-menu @(this.FlipSubmenus ? "flip" : null)"
+         role="menu"
+         style="left:@(Px(this.Left))px;top:@(Px(this.Top))px"
+         @oncontextmenu:preventDefault="true">
+        @this.RenderItems(request.Items)
+    </div>
+}
+
+@code {
+    const double MenuWidth = 240;
+    const double ItemHeight = 26;
+
+    [Parameter] public SheetMenuRequest? Request { get; set; }
+
+    /// <summary>The host's size, to keep the menu inside it.</summary>
+    [Parameter] public double HostWidth { get; set; } = 800;
+
+    [Parameter] public double HostHeight { get; set; } = 600;
+
+    [Parameter] public EventCallback Closed { get; set; }
+
+    double Left => Math.Max(0, Math.Min(this.Request!.X, this.HostWidth - MenuWidth - 4));
+
+    double Top
+    {
+        get
+        {
+            var height = this.Request!.Items.Sum(x => x.IsSeparator ? 9 : ItemHeight) + 8;
+            return Math.Max(0, Math.Min(this.Request.Y, this.HostHeight - height - 4));
+        }
+    }
+
+    bool FlipSubmenus => this.Left + MenuWidth * 2 > this.HostWidth;
+
+    static string Px(double value) => value.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+
+    RenderFragment RenderItems(IReadOnlyList<SheetMenuItem> items) => __builder =>
+    {
+        foreach (var item in items)
+        {
+            if (item.IsSeparator)
+            {
+                <div class="sheet-menu__separator" role="separator"></div>
+                continue;
+            }
+
+            <div class="sheet-menu__item @(item.IsEnabled ? null : "is-disabled") @(item.HasChildren ? "has-children" : null)"
+                 role="menuitem"
+                 aria-disabled="@(item.IsEnabled ? "false" : "true")"
+                 @onclick="() => this.PickAsync(item)"
+                 @onclick:stopPropagation="true">
+                <span class="sheet-menu__check">@(item.IsChecked ? "✓" : string.Empty)</span>
+                <span class="sheet-menu__text">@item.Text</span>
+                @if (item.HasChildren)
+                {
+                    <svg class="sheet-menu__arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4" /></svg>
+                    <div class="sheet-menu sheet-menu__sub" role="menu">
+                        @this.RenderItems(item.Children!)
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(item.Shortcut))
+                {
+                    <span class="sheet-menu__shortcut">@item.Shortcut</span>
+                }
+            </div>
+        }
+    };
+
+    async Task PickAsync(SheetMenuItem item)
+    {
+        if (!item.IsEnabled || item.HasChildren)
+            return;
+
+        // Closed first: the action may open a dialog, and that dialog should not appear under a
+        // menu still waiting to be dismissed.
+        await this.CloseAsync();
+        item.Action?.Invoke();
+    }
+
+    Task CloseAsync() => this.Closed.InvokeAsync();
+}

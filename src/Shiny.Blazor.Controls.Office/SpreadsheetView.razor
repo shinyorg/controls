@@ -1,5 +1,6 @@
 @using SkiaSharp
 @using SkiaSharp.Views.Blazor
+@using Shiny.Controls.Office.View
 @implements IAsyncDisposable
 @inject IJSRuntime Js
 
@@ -7,6 +8,10 @@
     A workbook, drawn on a Skia canvas, with the sheet strip that makes it a workbook rather than a
     grid. The strip is part of this control on purpose: a host that had to supply its own would be
     reimplementing tab order, hidden sheets and rename validation against an API it can already see.
+
+    Everything interactive beyond the grid itself - the right-click menu, the filter dropdowns, Format
+    Cells and every other dialog - is described by the controller and only drawn here, by SheetMenu and
+    SheetDialogHost. That is what keeps this host and the MAUI one offering the same commands.
 *@
 
 <div class="shiny-spreadsheet-host @OfficeScheme.ScopeClass(this.Theme) @Class" style="@Style">
@@ -19,10 +24,13 @@
                             ToolbarContent="this.ToolbarContent"
                             Watermark="this.Watermark"
                             WatermarkChanged="this.OnWatermarkChanged"
+                            ShowFormulaBar="this.showFormulaBar"
+                            ShowFormulaBarChanged="this.OnShowFormulaBarChanged"
+                            FileMenuRequested="this.FileMenuRequested"
                             Changed="this.OnSheetsChanged" />
     }
 
-    @if (this.ShowFormulaBar && this.controller is not null)
+    @if (this.showFormulaBar && this.controller is not null)
     {
         <FormulaBar Controller="this.controller"
                     ReadOnly="this.ReadOnly"
@@ -33,9 +41,10 @@
          tabindex="0"
          @ref="host"
          @onkeydown="OnKeyDown"
-         @onkeydown:preventDefault="preventKeyDefault"
          @onwheel="OnWheel"
-         @onwheel:preventDefault="true">
+         @onwheel:preventDefault="true"
+         @oncontextmenu="OnContextMenu"
+         @oncontextmenu:preventDefault="true">
 
         <SKCanvasView @ref="canvas"
                       class="shiny-spreadsheet-canvas"
@@ -44,21 +53,34 @@
                       @onpointerdown="OnPointerDown"
                       @onpointermove="OnPointerMove"
                       @onpointerup="OnPointerUp"
+                      @onpointercancel="OnPointerUp"
+                      @onpointerleave="OnPointerLeave"
                       @ondblclick="OnDoubleClick" />
 
-        @if (Controller?.EditingCell is { } editing)
+        @if (Controller?.EditorBounds is { } rect)
         {
-            var rect = Controller.Viewport.CellRect(editing);
-
             <input class="shiny-spreadsheet-editor"
-                   style="left:@(Css(rect.X))px;top:@(Css(rect.Y))px;width:@(Css(rect.Width))px;height:@(Css(rect.Height))px"
+                   style="left:@(Css(rect.X))px;top:@(Css(rect.Y))px;width:@(Css(rect.Width))px;height:@(Css(rect.Height))px;font-size:@(Css(Controller.EditorFontSize))px"
                    value="@Controller.EditingText"
+                   spellcheck="false"
+                   data-assist-open="@(this.assist.IsOpen ? "true" : "false")"
                    @ref="editor"
                    @oninput="OnEditorInput"
                    @onkeydown="OnEditorKeyDown"
                    @onkeydown:stopPropagation="true"
                    @onblur="OnEditorBlur" />
+
+            <FormulaAssistPopup State="this.assist.State"
+                                IsOpen="this.assist.IsOpen"
+                                Index="this.assist.Index"
+                                OnPick="this.OnEditorPickAsync"
+                                Style="@($"left:{Css(rect.X)}px;top:{Css(rect.Bottom + 2)}px")" />
         }
+
+        <SheetMenu Request="this.menu"
+                   HostWidth="this.lastWidth"
+                   HostHeight="this.lastHeight"
+                   Closed="this.OnMenuClosed" />
     </div>
 
     @if (this.ShowSheetTabs && this.controller is not null)
@@ -67,6 +89,8 @@
                        AllowEditing="@(this.AllowSheetEditing && !this.ReadOnly)"
                        Changed="this.OnSheetsChanged" />
     }
+
+    <SheetDialogHost Dialog="this.dialog" DialogChanged="this.OnDialogChanged" />
 </div>
 
 @code {
@@ -75,14 +99,32 @@
     SKCanvasView? canvas;
     SpreadsheetPainter? painter;
     SpreadsheetController? controller;
-    bool preventKeyDefault;
+    SpreadsheetScript? script;
     bool focusEditor;
+    bool gridAttached;
+
+    readonly FormulaAssistSession assist = new();
+    SheetDialog? dialog;
+    SheetMenuRequest? menu;
 
     /// <summary>Drives the marching-ants border; see <see cref="StartMarching"/>.</summary>
     PeriodicTimer? marching;
     float dashPhase;
-    double lastWidth;
-    double lastHeight;
+    double lastWidth = 800;
+    double lastHeight = 600;
+
+    /// <summary>What the formula bar is actually doing, which the View tab can flip.</summary>
+    bool showFormulaBar = true;
+    bool? lastShowFormulaBarParameter;
+    double? lastZoomParameter;
+
+    // ---- touch gestures ----
+    readonly Dictionary<long, (double X, double Y)> touches = new();
+    bool pinching;
+    double pinchDistance;
+    double pinchZoom;
+    CancellationTokenSource? longPress;
+    (double X, double Y) pressOrigin;
 
     /// <summary>
     /// The theme the canvas was last painted with.
@@ -130,25 +172,52 @@
     /// <remarks>
     /// On by default. The grid paints the <em>result</em> of a formula, so without this a cell reading
     /// 84 gives no way to discover that it holds <c>=B1*2</c> — and no way to edit it as a formula
-    /// rather than retyping it from scratch.
+    /// rather than retyping it from scratch. The ribbon's View ▸ Formula Bar flips it too, and reports
+    /// through <see cref="ShowFormulaBarChanged"/>.
     /// </remarks>
     [Parameter] public bool ShowFormulaBar { get; set; } = true;
 
+    /// <summary>Raised when View ▸ Formula Bar is toggled, for <c>@bind-ShowFormulaBar</c>.</summary>
+    [Parameter] public EventCallback<bool> ShowFormulaBarChanged { get; set; }
+
     /// <summary>
-    /// Whether to show the formatting toolbar above the formula bar.
+    /// Whether to show the ribbon above the formula bar.
     /// </summary>
     /// <remarks>
-    /// Off by default, unlike the formula bar and the tab strip. Those two are how a workbook is read;
-    /// the toolbar is how one is authored, it is the tallest piece of chrome here, and a viewer that
-    /// gained a formatting bar it never asked for would be a breaking change to every existing use.
+    /// On by default — a change: it used to be off, when the bar was a formatting strip a viewer did
+    /// not need. It is now Excel's ribbon — Home, Insert, Formulas, Data, Review, View — and a
+    /// spreadsheet without it hides most of what it can do. Set it to false for a plain viewer.
     /// </remarks>
-    [Parameter] public bool ShowToolbar { get; set; }
+    [Parameter] public bool ShowToolbar { get; set; } = true;
 
     /// <summary>Whether the toolbar's icon-only buttons carry a hover tooltip.</summary>
     [Parameter] public bool ShowTooltips { get; set; } = true;
 
     /// <summary>Extra items appended to the toolbar, after the built-in controls.</summary>
     [Parameter] public RenderFragment? ToolbarContent { get; set; }
+
+    /// <summary>
+    /// Raised by the ribbon's File button. The control has no backstage of its own: open, save, print
+    /// and share are the app's, so the app decides what File shows.
+    /// </summary>
+    [Parameter] public EventCallback FileMenuRequested { get; set; }
+
+    /// <summary>
+    /// The magnification, 0.1 to 4. Two-way: Ctrl+wheel, a pinch and the View tab's zoom all change it
+    /// and report through <see cref="ZoomChanged"/>, for <c>@bind-Zoom</c> and a status bar's slider.
+    /// </summary>
+    [Parameter] public double Zoom { get; set; } = 1;
+
+    [Parameter] public EventCallback<double> ZoomChanged { get; set; }
+
+    /// <summary>
+    /// Raised when the selection's Average, Count, Numerical Count, Min, Max or Sum may have changed —
+    /// when the selection moves or the data under it is edited. Read <see cref="SelectionStatistics"/>.
+    /// </summary>
+    [Parameter] public EventCallback<SelectionStatistics> SelectionStatisticsChanged { get; set; }
+
+    /// <summary>What a status bar shows about the selection. Empty when there is no workbook.</summary>
+    public SelectionStatistics SelectionStatistics => this.controller?.SelectionStatistics ?? SelectionStatistics.Empty;
 
     /// <summary>
     /// Whether the tab strip can add, rename, reorder, hide and delete sheets, as opposed to only
@@ -192,13 +261,18 @@
 
     protected override void OnParametersSet()
     {
-        // First, before any of the early returns below: SKCanvasView only repaints when Invalidate is
-        // called, so a theme change that does not reach this leaves the old pixels on screen and the
-        // toggle appears to do nothing.
         if (this.paintedTheme != this.EffectiveTheme)
         {
             this.paintedTheme = this.EffectiveTheme;
             this.canvas?.Invalidate();
+        }
+
+        // Taken from the parameter only when the parent actually changed it: an unbound host leaves it
+        // at its default, and re-applying that on every render would undo every Ctrl+wheel.
+        if (this.lastShowFormulaBarParameter != this.ShowFormulaBar)
+        {
+            this.lastShowFormulaBarParameter = this.ShowFormulaBar;
+            this.showFormulaBar = this.ShowFormulaBar;
         }
 
         if (this.Workbook is null)
@@ -220,6 +294,7 @@
             if (this.controller.Sheet.Name != sheet.Name)
                 this.controller.SwitchSheet(sheet);
 
+            this.ApplyZoomParameter();
             return;
         }
 
@@ -230,7 +305,24 @@
         this.controller.EditingChanged += this.OnEditingChanged;
         this.controller.ActiveSheetChanged += this.OnActiveSheetChanged;
         this.controller.ClipboardChanged += this.OnClipboardChanged;
-        this.controller.Resize(this.lastWidth > 0 ? this.lastWidth : 800, this.lastHeight > 0 ? this.lastHeight : 600);
+        this.controller.DialogRequested += this.OnDialogRequested;
+        this.controller.MenuRequested += this.OnMenuRequested;
+        this.controller.HyperlinkActivated += this.OnHyperlinkActivated;
+        this.controller.ZoomChanged += this.OnZoomChanged;
+        this.controller.SelectionStatisticsChanged += this.OnStatisticsChanged;
+        this.controller.Resize(this.lastWidth, this.lastHeight);
+
+        this.lastZoomParameter = null;
+        this.ApplyZoomParameter();
+    }
+
+    void ApplyZoomParameter()
+    {
+        if (this.controller is null || this.lastZoomParameter == this.Zoom)
+            return;
+
+        this.lastZoomParameter = this.Zoom;
+        this.controller.Zoom = this.Zoom;
     }
 
     /// <summary>
@@ -268,7 +360,86 @@
     {
         // The input is rendered by the next diff, so focusing has to wait until after it exists.
         this.focusEditor = cell is not null;
+        this.assist.Reset();
+
+        if (cell is not null && this.controller is { } c && c.EditingText.StartsWith('='))
+            this.assist.Update(c.EditingText, c.EditingText.Length, this.Names());
+
         this.StateHasChanged();
+    }
+
+    void OnZoomChanged(object? sender, double zoom)
+    {
+        // Remembered as if the parent had set it, so its unchanged parameter does not snap it back.
+        this.lastZoomParameter = zoom;
+        this.Zoom = zoom;
+
+        if (this.ZoomChanged.HasDelegate)
+            _ = this.InvokeAsync(() => this.ZoomChanged.InvokeAsync(zoom));
+    }
+
+    void OnStatisticsChanged(object? sender, EventArgs e)
+    {
+        if (this.SelectionStatisticsChanged.HasDelegate)
+            _ = this.InvokeAsync(() => this.SelectionStatisticsChanged.InvokeAsync(this.SelectionStatistics));
+    }
+
+    void OnDialogRequested(object? sender, SheetDialog request)
+    {
+        this.menu = null;
+        this.dialog = request;
+        _ = this.InvokeAsync(this.StateHasChanged);
+    }
+
+    async Task OnDialogChanged(SheetDialog? next)
+    {
+        this.dialog = next;
+        this.canvas?.Invalidate();
+        this.StateHasChanged();
+
+        if (next is null)
+            await this.FocusGridAsync();
+    }
+
+    void OnMenuRequested(object? sender, SheetMenuRequest request)
+    {
+        this.menu = request;
+        _ = this.InvokeAsync(this.StateHasChanged);
+    }
+
+    async Task OnMenuClosed()
+    {
+        this.menu = null;
+        this.canvas?.Invalidate();
+        this.StateHasChanged();
+        await this.FocusGridAsync();
+    }
+
+    void OnHyperlinkActivated(object? sender, string url)
+    {
+        if (this.script is { } s)
+            _ = this.InvokeAsync(() => s.InvokeAsync("openUrl", url));
+    }
+
+    async Task OnShowFormulaBarChanged(bool show)
+    {
+        this.showFormulaBar = show;
+        this.StateHasChanged();
+
+        if (this.ShowFormulaBarChanged.HasDelegate)
+            await this.ShowFormulaBarChanged.InvokeAsync(show);
+    }
+
+    async Task FocusGridAsync()
+    {
+        try
+        {
+            await this.host.FocusAsync();
+        }
+        catch (Exception)
+        {
+            // Not rendered, or already gone.
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -279,13 +450,22 @@
             // second would flash a white grid in a dark app.
             await this.scheme.StartAsync(this.host);
             await this.ReadDevicePixelRatioAsync();
-        if (await OfficeFonts.EnsureLoadedAsync(this.Js))
-        {
-            // The first frame painted with fallback metrics; the measurer's cache is invalidated by
-            // the new registrations, so a repaint now re-measures against the real faces.
-            this.canvas?.Invalidate();
-            this.StateHasChanged();
+
+            this.script = new SpreadsheetScript(this.Js);
+
+            if (await OfficeFonts.EnsureLoadedAsync(this.Js))
+            {
+                // The first frame painted with fallback metrics; the measurer's cache is invalidated by
+                // the new registrations, so a repaint now re-measures against the real faces.
+                this.canvas?.Invalidate();
+                this.StateHasChanged();
+            }
         }
+
+        if (!this.gridAttached && this.script is { } s)
+        {
+            this.gridAttached = true;
+            await s.InvokeAsync("attachGrid", this.host);
         }
 
         if (this.focusEditor)
@@ -294,6 +474,8 @@
             try
             {
                 await this.editor.FocusAsync();
+                if (this.script is { } module)
+                    await module.InvokeAsync("attachAssist", this.editor);
             }
             catch (Exception)
             {
@@ -316,7 +498,6 @@
         }
 
         // The surface is in device pixels; everything above it works in CSS pixels.
-        var scale = (float)this.dpr;
         var width = info.Width / this.dpr;
         var height = info.Height / this.dpr;
 
@@ -327,20 +508,10 @@
             this.controller.Resize(width, height);
         }
 
-        this.painter.Paint(e.Surface.Canvas, new SpreadsheetPaintRequest
+        this.painter.Paint(e.Surface.Canvas, SpreadsheetPaintRequest.For(this.controller, this.EffectiveTheme, (float)this.dpr) with
         {
             Watermark = this.Watermark,
-            Workbook = this.controller.Workbook,
-            Sheet = this.controller.Sheet,
-            Viewport = this.controller.Viewport,
-            Selection = this.controller.Selection,
-            Theme = this.EffectiveTheme,
-            Scale = scale,
-            EditingCell = this.controller.EditingCell,
-            ClipboardRange = this.controller.ClipboardRange,
-            FindMatches = this.controller.FindMatchCells(),
-            ClipboardDashPhase = this.dashPhase,
-            ShowTouchHandles = this.controller.UsesTouch
+            ClipboardDashPhase = this.dashPhase
         });
     }
 
@@ -364,18 +535,47 @@
         this.canvas?.Invalidate();
     }
 
+    // ---- pointer ----
+
     void OnPointerDown(PointerEventArgs e)
     {
-        this.controller?.PointerDown(e.OffsetX, e.OffsetY, e.ShiftKey, KindOf(e.PointerType));
+        if (this.controller is null)
+            return;
+
+        // The secondary button is the context menu's, which arrives as its own event.
+        if (e.Button == 2)
+            return;
+
+        var kind = KindOf(e.PointerType);
+
+        if (kind == PointerKind.Touch)
+        {
+            this.touches[e.PointerId] = (e.OffsetX, e.OffsetY);
+
+            if (this.touches.Count == 2)
+            {
+                // A second finger turns whatever the first began - a pan, a tap - into a pinch.
+                this.CancelLongPress();
+                this.controller.PointerUp();
+                this.pinching = true;
+                this.pinchDistance = this.TouchDistance();
+                this.pinchZoom = this.controller.Zoom;
+                return;
+            }
+
+            if (this.touches.Count > 2)
+                return;
+
+            this.pressOrigin = (e.OffsetX, e.OffsetY);
+            this.StartLongPress(e.OffsetX, e.OffsetY);
+        }
+
+        this.controller.PointerDown(e.OffsetX, e.OffsetY, e.ShiftKey, kind, e.CtrlKey || e.MetaKey);
     }
 
     /// <summary>
     /// The browser reports the pointer kind as a string; anything unrecognised is treated as a mouse.
     /// </summary>
-    /// <remarks>
-    /// Mouse is the safe default: it keeps drag-to-extend, whereas guessing touch would turn a drag
-    /// into a pan on a device that has no other way to select a range.
-    /// </remarks>
     static PointerKind KindOf(string? pointerType)
         => pointerType switch
         {
@@ -384,94 +584,142 @@
             _ => PointerKind.Mouse
         };
 
-    void OnPointerMove(PointerEventArgs e)
+    double TouchDistance()
     {
-        // Buttons is a bitmask; 1 is the primary button still being held.
-        if ((e.Buttons & 1) == 1)
-            this.controller?.PointerMove(e.OffsetX, e.OffsetY);
+        var points = this.touches.Values.Take(2).ToArray();
+        if (points.Length < 2)
+            return 1;
+
+        var dx = points[0].X - points[1].X;
+        var dy = points[0].Y - points[1].Y;
+        return Math.Max(1, Math.Sqrt(dx * dx + dy * dy));
     }
 
-    void OnPointerUp(PointerEventArgs e) => this.controller?.PointerUp();
+    void OnPointerMove(PointerEventArgs e)
+    {
+        if (this.controller is null)
+            return;
+
+        if (this.touches.ContainsKey(e.PointerId))
+        {
+            this.touches[e.PointerId] = (e.OffsetX, e.OffsetY);
+
+            if (this.pinching)
+            {
+                this.controller.Zoom = this.pinchZoom * this.TouchDistance() / this.pinchDistance;
+                return;
+            }
+
+            if (this.longPress is not null && (Math.Abs(e.OffsetX - this.pressOrigin.X) > 6 || Math.Abs(e.OffsetY - this.pressOrigin.Y) > 6))
+                this.CancelLongPress();
+        }
+
+        // Buttons is a bitmask; 1 is the primary button still being held.
+        if ((e.Buttons & 1) == 1)
+            this.controller.PointerMove(e.OffsetX, e.OffsetY);
+        else if (e.PointerType == "mouse")
+            this.controller.PointerHover(e.OffsetX, e.OffsetY);
+    }
+
+    void OnPointerUp(PointerEventArgs e)
+    {
+        this.CancelLongPress();
+
+        if (this.touches.Remove(e.PointerId) && this.pinching)
+        {
+            // The pinch ends when the fingers do; the one left on the glass starts nothing.
+            if (this.touches.Count == 0)
+                this.pinching = false;
+
+            return;
+        }
+
+        this.controller?.PointerUp();
+    }
+
+    void OnPointerLeave(PointerEventArgs e) => this.controller?.PointerExit();
+
+    void StartLongPress(double x, double y)
+    {
+        this.CancelLongPress();
+        var cancel = new CancellationTokenSource();
+        this.longPress = cancel;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500, cancel.Token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+
+            // A held finger is a touch user's right-click: end the pan it began (which selects the cell
+            // it is on), then open that cell's menu.
+            await this.InvokeAsync(() =>
+            {
+                if (cancel.IsCancellationRequested || this.controller is null)
+                    return;
+
+                this.longPress = null;
+                this.controller.PointerUp();
+                this.controller.OpenContextMenu(x, y);
+            });
+        });
+    }
+
+    void CancelLongPress()
+    {
+        this.longPress?.Cancel();
+        this.longPress = null;
+    }
+
+    void OnContextMenu(MouseEventArgs e) => this.controller?.OpenContextMenu(e.OffsetX, e.OffsetY);
 
     void OnDoubleClick(MouseEventArgs e) => this.controller?.DoubleClick(e.OffsetX, e.OffsetY);
 
-    void OnWheel(WheelEventArgs e) => this.controller?.Scroll(e.DeltaX, e.DeltaY);
+    /// <summary>The wheel scrolls; with Ctrl (or a trackpad pinch, which browsers report as Ctrl+wheel) it zooms.</summary>
+    void OnWheel(WheelEventArgs e)
+    {
+        if (this.controller is null)
+            return;
 
+        if (e.CtrlKey)
+        {
+            this.controller.Zoom *= e.DeltaY < 0 ? 1.1 : 1 / 1.1;
+            return;
+        }
+
+        this.controller.Scroll(e.DeltaX, e.DeltaY);
+    }
+
+    // ---- keyboard ----
+
+    /// <summary>
+    /// Every grid shortcut is the controller's: one table for both hosts. Which keys also need the
+    /// browser's default stopped is decided in spreadsheet.js, in the same event, because Blazor's
+    /// preventDefault flag is read at render time and would always apply to the key after this one.
+    /// </summary>
     void OnKeyDown(KeyboardEventArgs e)
     {
         if (this.controller is null)
             return;
 
-        // Arrow keys and Tab would otherwise scroll the page or move focus out of the grid.
-        this.preventKeyDefault = true;
+        var modifiers = SheetKeyModifiers.None;
+        if (e.ShiftKey) modifiers |= SheetKeyModifiers.Shift;
+        if (e.CtrlKey) modifiers |= SheetKeyModifiers.Control;
+        if (e.AltKey) modifiers |= SheetKeyModifiers.Alt;
+        if (e.MetaKey) modifiers |= SheetKeyModifiers.Meta;
 
-        switch (e.Key)
-        {
-            case "ArrowUp": this.controller.Move(MoveDirection.Up, e.ShiftKey, e.CtrlKey || e.MetaKey); break;
-            case "ArrowDown": this.controller.Move(MoveDirection.Down, e.ShiftKey, e.CtrlKey || e.MetaKey); break;
-            case "ArrowLeft": this.controller.Move(MoveDirection.Left, e.ShiftKey, e.CtrlKey || e.MetaKey); break;
-            case "ArrowRight": this.controller.Move(MoveDirection.Right, e.ShiftKey, e.CtrlKey || e.MetaKey); break;
-            case "Tab": this.controller.Advance(byRow: false, backwards: e.ShiftKey); break;
-            case "Enter": this.controller.Advance(byRow: true, backwards: e.ShiftKey); break;
-            case "Delete":
-            case "Backspace": this.controller.ClearSelection(); break;
-            case "F2": this.controller.BeginEdit(); break;
-
-            case "Escape":
-                // Excel's own way out of a pending cut or copy, and the only one that does not also
-                // change the sheet.
-                this.controller.CancelEdit();
-                this.controller.ClearClipboard();
-                break;
-
-            case "c" when e.CtrlKey || e.MetaKey: this.controller.Copy(); break;
-            case "x" when e.CtrlKey || e.MetaKey: this.controller.Cut(); break;
-            case "v" when e.CtrlKey || e.MetaKey: this.controller.Paste(); break;
-
-            // Excel's own sheet shortcuts, and the only way to change sheet without the mouse.
-            case "PageUp" when e.CtrlKey || e.MetaKey: this.StepSheet(-1); break;
-            case "PageDown" when e.CtrlKey || e.MetaKey: this.StepSheet(1); break;
-
-            case "z" when e.CtrlKey || e.MetaKey:
-                if (e.ShiftKey)
-                    this.controller.Redo();
-                else
-                    this.controller.Undo();
-
-                break;
-
-            case "y" when e.CtrlKey || e.MetaKey:
-                this.controller.Redo();
-                break;
-
-            default:
-                // A single printable character starts an edit and becomes its first keystroke.
-                if (e.Key.Length == 1 && !e.CtrlKey && !e.MetaKey && !e.AltKey)
-                    this.controller.BeginEdit(e.Key);
-                else
-                    this.preventKeyDefault = false;
-
-                break;
-        }
+        this.controller.HandleKey(e.Key, modifiers);
     }
 
     /// <summary>Moves to the next or previous visible sheet, stopping at either end.</summary>
-    void StepSheet(int offset)
-    {
-        if (this.controller is not { } controller)
-            return;
+    public void StepSheet(int offset) => this.controller?.StepSheet(offset);
 
-        var sheets = controller.VisibleSheets;
-        var at = -1;
-        for (var i = 0; i < sheets.Count && at < 0; i++)
-        {
-            if (ReferenceEquals(sheets[i], controller.Sheet))
-                at = i;
-        }
-
-        if (at >= 0 && sheets.ElementAtOrDefault(at + offset) is { } target)
-            controller.SwitchSheet(target);
-    }
+    // ---- clipboard animation ----
 
     /// <summary>Starts or stops the marching-ants animation as the clipboard fills and empties.</summary>
     void OnClipboardChanged(object? sender, EventArgs e)
@@ -530,12 +778,66 @@
         this.canvas?.Invalidate();
     }
 
-    void OnEditorInput(ChangeEventArgs e) => this.controller?.UpdateEditingText(e.Value?.ToString() ?? string.Empty);
+    // ---- the in-cell editor ----
+
+    IEnumerable<string> Names() => this.controller?.Workbook.VisibleNames.Select(x => x.Name) ?? [];
+
+    async Task OnEditorInput(ChangeEventArgs e)
+    {
+        if (this.controller is null)
+            return;
+
+        var text = e.Value?.ToString() ?? string.Empty;
+        this.controller.UpdateEditingText(text);
+
+        var caret = this.script is null ? text.Length : await this.script.CaretAsync(this.editor, text.Length);
+        this.assist.Update(text, caret, this.Names());
+    }
+
+    Task OnEditorPickAsync(int index) => this.AcceptSuggestionAsync(index);
+
+    async Task AcceptSuggestionAsync(int? index)
+    {
+        if (this.controller is null || this.assist.Accept(this.controller.EditingText, index) is not { } result)
+            return;
+
+        this.controller.UpdateEditingText(result.Text);
+
+        if (this.script is not null)
+            await this.script.InvokeAsync("setValue", this.editor, result.Text, result.Caret);
+
+        this.assist.Update(result.Text, result.Caret, this.Names());
+    }
 
     async Task OnEditorKeyDown(KeyboardEventArgs e)
     {
         if (this.controller is null)
             return;
+
+        // An open suggestion list owns the arrows, Tab and Enter; spreadsheet.js has already stopped
+        // the browser acting on them.
+        if (this.assist.IsOpen)
+        {
+            switch (e.Key)
+            {
+                case "ArrowDown":
+                    this.assist.Move(1);
+                    return;
+
+                case "ArrowUp":
+                    this.assist.Move(-1);
+                    return;
+
+                case "Tab":
+                case "Enter":
+                    await this.AcceptSuggestionAsync(null);
+                    return;
+
+                case "Escape":
+                    this.assist.Dismiss();
+                    return;
+            }
+        }
 
         var cell = this.controller.EditingCell;
 
@@ -557,15 +859,19 @@
                 return;
         }
 
+        this.assist.Reset();
+
         if (cell is { } committed && this.CellChanged.HasDelegate)
             await this.CellChanged.InvokeAsync(committed);
 
-        await this.host.FocusAsync();
+        await this.FocusGridAsync();
     }
 
     void OnEditorBlur()
     {
-        // Clicking away commits, matching Excel rather than discarding what was typed.
+        // Clicking away commits, matching Excel rather than discarding what was typed. A refused entry
+        // (data validation) leaves a message dialog open rather than the editor.
+        this.assist.Reset();
         this.controller?.CommitEdit(EditCommitDirection.None);
     }
 
@@ -578,14 +884,26 @@
         this.controller.EditingChanged -= this.OnEditingChanged;
         this.controller.ActiveSheetChanged -= this.OnActiveSheetChanged;
         this.controller.ClipboardChanged -= this.OnClipboardChanged;
+        this.controller.DialogRequested -= this.OnDialogRequested;
+        this.controller.MenuRequested -= this.OnMenuRequested;
+        this.controller.HyperlinkActivated -= this.OnHyperlinkActivated;
+        this.controller.ZoomChanged -= this.OnZoomChanged;
+        this.controller.SelectionStatisticsChanged -= this.OnStatisticsChanged;
     }
 
     public async ValueTask DisposeAsync()
     {
         this.Detach();
         this.StopMarching();
+        this.CancelLongPress();
         this.painter?.Dispose();
         await this.scheme.DisposeAsync();
+
+        if (this.script is not null)
+        {
+            await this.script.InvokeAsync("detachGrid", this.host);
+            await this.script.DisposeAsync();
+        }
     }
 
     Task OnWatermarkChanged(OfficeWatermark? mark)
@@ -605,5 +923,4 @@
     /// means one. See <see cref="OfficeWatermark"/>.
     /// </remarks>
     [Parameter] public OfficeWatermark? Watermark { get; set; }
-
 }

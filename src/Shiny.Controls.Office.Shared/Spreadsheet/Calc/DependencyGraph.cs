@@ -164,16 +164,30 @@ public sealed class DependencyGraph
 
     /// <summary>Walks a parsed formula and collects every cell it reads.</summary>
     public static IEnumerable<CellAddress> Collect(FormulaNode node, string currentSheet)
+        => Collect(node, currentSheet, null);
+
+    /// <summary>
+    /// Collects every cell a formula reads, following defined names through <paramref name="names"/> —
+    /// without which a formula over <c>Sales</c> never recalculates when a cell in the named range
+    /// changes.
+    /// </summary>
+    public static IEnumerable<CellAddress> Collect(FormulaNode node, string currentSheet, Func<string, string, FormulaNode?>? names)
     {
         var results = new List<CellAddress>();
-        Walk(node, currentSheet, results);
+        Walk(node, currentSheet, results, names, 0);
         return results;
     }
 
-    static void Walk(FormulaNode node, string currentSheet, List<CellAddress> results)
+    static void Walk(FormulaNode node, string currentSheet, List<CellAddress> results, Func<string, string, FormulaNode?>? names, int depth)
     {
         switch (node)
         {
+            case UnknownNameNode name when names is not null && depth < 16:
+                if (names(name.Name, currentSheet) is { } resolved)
+                    Walk(resolved, currentSheet, results, names, depth + 1);
+
+                break;
+
             case ReferenceNode reference:
                 results.Add(new CellAddress(reference.Sheet ?? currentSheet, reference.Cell.Relative()));
                 break;
@@ -195,17 +209,17 @@ public sealed class DependencyGraph
                 break;
 
             case UnaryNode unary:
-                Walk(unary.Operand, currentSheet, results);
+                Walk(unary.Operand, currentSheet, results, names, depth);
                 break;
 
             case BinaryNode binary:
-                Walk(binary.Left, currentSheet, results);
-                Walk(binary.Right, currentSheet, results);
+                Walk(binary.Left, currentSheet, results, names, depth);
+                Walk(binary.Right, currentSheet, results, names, depth);
                 break;
 
             case FunctionNode function:
                 foreach (var argument in function.Arguments)
-                    Walk(argument, currentSheet, results);
+                    Walk(argument, currentSheet, results, names, depth);
 
                 break;
         }

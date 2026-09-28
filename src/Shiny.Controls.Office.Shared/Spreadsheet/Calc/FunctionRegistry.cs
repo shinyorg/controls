@@ -42,6 +42,7 @@ public sealed class FunctionRegistry
         LookupFunctions.Register(registry);
         DateFunctions.Register(registry);
         InformationFunctions.Register(registry);
+        ModernFunctions.Register(registry);
         return registry;
     }
 }

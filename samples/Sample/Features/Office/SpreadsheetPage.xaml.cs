@@ -25,6 +25,31 @@ public partial class SpreadsheetPage : ContentPage
 
         if (this.Sheet.Controller is { } controller)
             controller.Selection.Changed += (_, _) => this.UpdateFormulaBar();
+
+        this.Sheet.SelectionStatisticsChanged += (_, _) => this.UpdateStatusBar();
+        this.Sheet.ZoomChanged += (_, _) => this.UpdateStatusBar();
+        this.UpdateStatusBar();
+    }
+
+    /// <summary>Excel's status bar: the selection's aggregates when there is something to aggregate, and the zoom.</summary>
+    void UpdateStatusBar()
+    {
+        var stats = this.Sheet.SelectionStatistics;
+        var parts = new List<string>();
+
+        if (stats.IsMeaningful)
+        {
+            if (stats.Average is { } average)
+                parts.Add($"Average: {average:#,##0.##}");
+
+            parts.Add($"Count: {stats.Count}");
+
+            if (stats.NumericalCount > 0)
+                parts.Add($"Sum: {stats.Sum:#,##0.##}");
+        }
+
+        parts.Add($"Zoom: {this.Sheet.Zoom:P0}");
+        this.StatusBar.Text = string.Join("    ", parts);
     }
 
     void Seed()

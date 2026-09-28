@@ -50,8 +50,32 @@ public sealed class CalcEngine
 
         this.formulas[cell] = node!;
         this.formulaText[cell] = formula;
-        this.Dependencies.SetPrecedents(cell, DependencyGraph.Collect(node!, cell.Sheet));
+        this.Dependencies.SetPrecedents(cell, DependencyGraph.Collect(node!, cell.Sheet, this.NameResolver));
         return true;
+    }
+
+    /// <summary>
+    /// Resolves a defined name to its parsed formula, for the dependency graph. Set by the workbook, so a
+    /// formula over a named range recalculates when a cell inside it changes.
+    /// </summary>
+    public Func<string, string, FormulaNode?>? NameResolver { get; set; }
+
+    /// <summary>Evaluates an expression and returns every value it produces — a range comes back whole.</summary>
+    public IReadOnlyList<CellValue> EvaluateOnceValues(string formula, ICalcContext context)
+    {
+        if (!FormulaParser.TryParse(formula, out var node, out _))
+            return [CellValue.FromError(CellError.Name)];
+
+        return this.evaluator.EvaluateNode(node!, context).Flatten().ToList();
+    }
+
+    /// <summary>Evaluates an expression, keeping a range's shape.</summary>
+    public CalcValue EvaluateOnceRaw(string formula, ICalcContext context)
+    {
+        if (!FormulaParser.TryParse(formula, out var node, out _))
+            return CalcValue.Error(CellError.Name);
+
+        return this.evaluator.EvaluateNode(node!, context);
     }
 
     public void RemoveFormula(CellAddress cell)

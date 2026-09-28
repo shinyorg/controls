@@ -20,6 +20,12 @@ public sealed record SpreadsheetPaintRequest
     /// <summary>Device pixels per logical pixel. The canvas is scaled by this before anything is drawn.</summary>
     public float Scale { get; init; } = 1f;
 
+    /// <summary>
+    /// The controller's zoom. Multiplied into <see cref="Scale"/>; the viewport is already sized in grid
+    /// units, so nothing else changes.
+    /// </summary>
+    public float Zoom { get; init; } = 1f;
+
     /// <summary>Hides the active cell's content while an editor is overlaid on it.</summary>
     public CellRef? EditingCell { get; init; }
 
@@ -35,33 +41,61 @@ public sealed record SpreadsheetPaintRequest
     /// <summary>
     /// Cells holding a find match, washed so the count in the toolbar has something to point at.
     /// </summary>
-    /// <remarks>
-    /// Comes from <c>SpreadsheetController.FindMatchCells()</c>, which has already dropped matches
-    /// belonging to another sheet — the painter draws whatever it is handed and does not check.
-    /// </remarks>
     public IReadOnlyList<CellRef> FindMatches { get; init; } = [];
 
     /// <summary>
     /// Draw the selection's grab handles, which are how a touch user extends a selection.
     /// </summary>
-    /// <remarks>
-    /// Off for a mouse, where dragging across the grid already extends and a pair of round handles on
-    /// the corners would be two targets that do nothing a drag does not.
-    /// </remarks>
     public bool ShowTouchHandles { get; init; }
 
     /// <summary>A picture drawn behind the grid, under the cells and the rules.</summary>
     public OfficeWatermark? Watermark { get; init; }
 
-    /// <summary>
-    /// How far the dashes have marched, in pixels.
-    /// </summary>
-    /// <remarks>
-    /// The border is what makes a clipboard visible, and a static dashed rectangle is easy to mistake
-    /// for a style of selection. Animation is left to the host because only the host has a frame clock:
-    /// it advances this and repaints, and the painter stays a pure function of the request.
-    /// </remarks>
+    /// <summary>How far the dashes have marched, in pixels.</summary>
     public float ClipboardDashPhase { get; init; }
+
+    /// <summary>The range a fill-handle drag is about to fill, outlined while the drag lasts.</summary>
+    public CellRange? FillPreview { get; init; }
+
+    /// <summary>The selected chart, drawn with its handles.</summary>
+    public string? SelectedChartId { get; init; }
+
+    /// <summary>A chart being dragged, drawn where it is going rather than where it is.</summary>
+    public (string Id, ChartAnchor Anchor)? ChartPreview { get; init; }
+
+    /// <summary>The notes to draw open — the one under the pointer, or all of them.</summary>
+    public IReadOnlyList<CellNote> OpenNotes { get; init; } = [];
+
+    /// <summary>Where the active cell's list arrow goes, in grid units, or null.</summary>
+    public GridRect? ListButton { get; init; }
+
+    /// <summary>
+    /// Builds the request for what a controller is showing, so both hosts ask for the same frame.
+    /// </summary>
+    public static SpreadsheetPaintRequest For(SpreadsheetController controller, SpreadsheetTheme theme, float scale)
+    {
+        ArgumentNullException.ThrowIfNull(controller);
+
+        return new SpreadsheetPaintRequest
+        {
+            Workbook = controller.Workbook,
+            Sheet = controller.Sheet,
+            Viewport = controller.Viewport,
+            Selection = controller.Selection,
+            Theme = theme,
+            Scale = scale,
+            Zoom = (float)controller.Zoom,
+            EditingCell = controller.EditingCell,
+            ClipboardRange = controller.ClipboardRange,
+            FindMatches = controller.FindMatchCells(),
+            ShowTouchHandles = controller.UsesTouch,
+            FillPreview = controller.FillPreview,
+            SelectedChartId = controller.SelectedChartId,
+            ChartPreview = controller.ChartPreview,
+            OpenNotes = controller.VisibleNotes,
+            ListButton = controller.ListButtonRect
+        };
+    }
 }
 
 /// <summary>
@@ -76,8 +110,10 @@ public sealed class SpreadsheetPainter : IDisposable
 {
     readonly SkiaTextMeasurer measurer;
     readonly bool ownsMeasurer;
+    readonly ChartPainter charts;
     readonly SKPaint fill = new() { IsAntialias = true, Style = SKPaintStyle.Fill };
     readonly SKPaint stroke = new() { IsAntialias = false, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
+    readonly Dictionary<string, TableStylePalette> tablePalettes = new(StringComparer.OrdinalIgnoreCase);
 
     public SpreadsheetPainter()
         : this(null)
@@ -87,14 +123,11 @@ public sealed class SpreadsheetPainter : IDisposable
     /// <summary>
     /// Shares a measurer with the rest of the app, rather than resolving fonts on its own.
     /// </summary>
-    /// <param name="measurer">
-    /// The measurer to take fonts from, or null to own one over
-    /// <see cref="OfficeFontRegistry.Default"/>.
-    /// </param>
     public SpreadsheetPainter(SkiaTextMeasurer? measurer)
     {
         this.ownsMeasurer = measurer is null;
         this.measurer = measurer ?? new SkiaTextMeasurer();
+        this.charts = new ChartPainter(this.measurer);
     }
 
     /// <summary>The application-supplied faces this painter resolves against.</summary>
@@ -106,15 +139,13 @@ public sealed class SpreadsheetPainter : IDisposable
         ArgumentNullException.ThrowIfNull(request);
 
         canvas.Save();
-        canvas.Scale(request.Scale);
+        canvas.Scale(request.Scale * Math.Max(0.05f, request.Zoom));
 
         var viewport = request.Viewport;
         var theme = request.Theme;
 
         canvas.Clear(ToSk(theme.Background));
 
-        // Behind the cells, and behind the headers too: Excel has no watermark of its own, and the one
-        // people mean is a mark on the sheet rather than a mark on the data.
         WatermarkPainter.Draw(
             canvas,
             new SKRect(0, 0, (float)viewport.Width, (float)viewport.Height),
@@ -136,6 +167,10 @@ public sealed class SpreadsheetPainter : IDisposable
         if (frozen.Column > 0 && frozen.Row > 0)
             this.PaintPane(canvas, request, 0, frozen.Column - 1, 0, frozen.Row - 1, 0, 0, PaneKind.Corner);
 
+        this.PaintCharts(canvas, request);
+        this.PaintListButton(canvas, request);
+        this.PaintOpenNotes(canvas, request);
+
         this.PaintHeaders(canvas, request, firstColumn, lastColumn, firstRow, lastRow);
         this.PaintFrozenDividers(canvas, request);
 
@@ -156,7 +191,6 @@ public sealed class SpreadsheetPainter : IDisposable
         var viewport = request.Viewport;
         var metrics = viewport.Metrics;
 
-        // A frozen band occupies a fixed strip; the scrollable pane gets whatever is left.
         var clipLeft = pane.HasFlag(PaneKind.FrozenColumns) ? metrics.RowHeaderWidth : viewport.ContentOriginX;
         var clipRight = pane.HasFlag(PaneKind.FrozenColumns) ? viewport.ContentOriginX : viewport.Width;
         var clipTop = pane.HasFlag(PaneKind.FrozenRows) ? metrics.ColumnHeaderHeight : viewport.ContentOriginY;
@@ -171,14 +205,23 @@ public sealed class SpreadsheetPainter : IDisposable
         canvas.Save();
         canvas.ClipRect(new SKRect((float)clipLeft, (float)clipTop, (float)clipRight, (float)clipBottom));
 
+        // Gridlines first, so a filled cell covers them the way it does in Excel.
+        if (request.Sheet.ShowGridLines)
+            this.PaintGridLines(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+
         this.PaintCells(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
-        this.PaintGridLines(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+        this.PaintBorders(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+        this.PaintNoteMarkers(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+        this.PaintFilterButtons(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
         this.PaintFindMatches(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
         this.PaintSelection(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+        this.PaintFillPreview(canvas, request);
         this.PaintClipboardMarquee(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
 
         canvas.Restore();
     }
+
+    // ---- cells ----
 
     void PaintCells(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)
     {
@@ -186,6 +229,8 @@ public sealed class SpreadsheetPainter : IDisposable
         var sheet = request.Sheet;
         var styles = request.Workbook.Styles;
         var merges = sheet.MergedRanges;
+        var conditional = sheet.ConditionalEvaluator;
+        var tables = sheet.Tables;
 
         for (var row = rowStart; row <= rowEnd; row++)
         {
@@ -199,20 +244,95 @@ public sealed class SpreadsheetPainter : IDisposable
 
                 var cell = new CellRef(column, row);
 
-                // A merged region paints once, from its anchor, across the whole span.
-                var merge = merges.FirstOrDefault(x => x.Contains(cell));
-                if (merge != default && merge.TopLeft != cell)
+                // A merged region paints once, across its whole span, from the first of its cells this
+                // pane can see - which is its anchor unless the anchor has scrolled away.
+                CellRange? merge = null;
+                foreach (var m in merges)
+                {
+                    if (m.Contains(cell))
+                    {
+                        merge = m;
+                        break;
+                    }
+                }
+
+                if (merge is { } region && cell != new CellRef(Math.Max(region.Left, columnStart), Math.Max(region.Top, rowStart)))
                     continue;
 
-                var bounds = merge != default ? viewport.RangeRect(merge) : viewport.CellRect(cell);
-                this.PaintCell(canvas, request, cell, bounds, styles);
+                var source = merge?.TopLeft ?? cell;
+                var bounds = merge is { } span ? viewport.RangeRect(span) : viewport.CellRect(cell);
+                var format = this.FormatOf(request, source, styles, conditional, tables, out var bar);
+
+                this.PaintCell(canvas, request, source, bounds, format, bar, merge is not null, columnEnd);
             }
         }
     }
 
-    void PaintCell(SKCanvas canvas, SpreadsheetPaintRequest request, CellRef cell, GridRect bounds, StyleResolver styles)
+    /// <summary>
+    /// The format a cell is drawn with: its own, over its table's style, under its conditional format.
+    /// </summary>
+    ResolvedFormat FormatOf(
+        SpreadsheetPaintRequest request,
+        CellRef cell,
+        StyleResolver styles,
+        ConditionalFormatting.Evaluator conditional,
+        IReadOnlyList<SheetTable> tables,
+        out DataBarFill? bar)
     {
         var format = styles.Resolve(request.Sheet.GetEffectiveStyleIndex(cell));
+        bar = null;
+
+        foreach (var table in tables)
+        {
+            if (!table.Range.Contains(cell))
+                continue;
+
+            var palette = this.PaletteOf(table.StyleName, styles);
+            var layer = palette.FormatAt(table, cell);
+
+            // The table style sits under the cell's own formatting: an explicit fill or font colour wins.
+            format = format with
+            {
+                Background = format.Background.IsTransparent && layer.Background is { } background ? background : format.Background,
+                Foreground = format.Foreground == ResolvedFormat.Default.Foreground && layer.Foreground is { } ink ? ink : format.Foreground,
+                Bold = format.Bold || layer.Bold == true,
+                Borders = format.Borders.IsEmpty && layer.Borders is { IsEmpty: false } rule ? rule : format.Borders
+            };
+
+            break;
+        }
+
+        if (!conditional.IsEmpty)
+        {
+            var result = conditional.Evaluate(cell);
+            if (!result.IsEmpty)
+            {
+                if (result.ScaleFill is { } scale)
+                    format = format with { Background = scale };
+
+                if (result.Overlay is { } overlay)
+                    format = overlay.ApplyTo(format);
+
+                bar = result.Bar;
+            }
+        }
+
+        return format;
+    }
+
+    TableStylePalette PaletteOf(string style, StyleResolver styles)
+    {
+        if (!this.tablePalettes.TryGetValue(style, out var palette))
+        {
+            palette = TableStylePalette.For(style, styles.ThemeColor);
+            this.tablePalettes[style] = palette;
+        }
+
+        return palette;
+    }
+
+    void PaintCell(SKCanvas canvas, SpreadsheetPaintRequest request, CellRef cell, GridRect bounds, ResolvedFormat format, DataBarFill? bar, bool merged, int columnEnd)
+    {
         var rect = ToSk(bounds);
 
         if (!format.Background.IsTransparent)
@@ -220,37 +340,77 @@ public sealed class SpreadsheetPainter : IDisposable
             this.fill.Color = ToSk(format.Background);
             canvas.DrawRect(rect, this.fill);
         }
+        else if (merged && request.Sheet.ShowGridLines)
+        {
+            // A merge has no gridlines inside it. Inset by one so its own outline survives.
+            this.fill.Color = ToSk(request.Theme.Background);
+            canvas.DrawRect(new SKRect(rect.Left + 1, rect.Top + 1, rect.Right, rect.Bottom), this.fill);
+        }
+
+        if (bar is { } dataBar)
+            this.PaintDataBar(canvas, rect, dataBar);
 
         if (request.EditingCell == cell)
             return;
 
-        var value = request.Sheet.GetDisplayValue(cell);
-        if (value.IsBlank)
-            return;
+        var sheet = request.Sheet;
+        var styles = request.Workbook.Styles;
+        string text;
+        CellValueKind kind;
 
-        var text = styles.Format(value, format);
+        if (sheet.ShowFormulas && sheet.GetFormula(cell) is { } formula)
+        {
+            text = "=" + formula;
+            kind = CellValueKind.Text;
+        }
+        else
+        {
+            var value = sheet.GetDisplayValue(cell);
+            if (value.IsBlank)
+                return;
+
+            text = styles.Format(value, format);
+            kind = value.Kind;
+        }
+
         if (text.Length == 0)
             return;
 
         var theme = request.Theme;
         var font = this.GetFont(format.FontName, (float)format.FontSize, format.Bold, format.Italic);
-
-        this.fill.Color = ToSk(CellInk(format, theme));
+        var ink = ToSk(CellInk(format, theme));
+        this.fill.Color = ink;
 
         var padding = (float)theme.CellPadding;
         var indent = (float)(format.Indent * theme.IndentWidth);
+        var alignment = sheet.ShowFormulas && kind == CellValueKind.Text ? CellHorizontalAlignment.Left : format.EffectiveAlignment(kind);
+        var metrics = font.Metrics;
+
+        if (format.WrapText)
+        {
+            this.PaintWrapped(canvas, rect, text, font, format, alignment, padding, indent);
+            return;
+        }
+
         var measured = font.MeasureText(text);
 
-        var alignment = format.EffectiveAlignment(value.Kind);
+        // A number that does not fit its column shows as ####, as in Excel — clipping the digits would
+        // show a different number. General numbers are already shortened by the formatter instead.
+        if (kind == CellValueKind.Number && measured > rect.Width - padding * 2 && !string.IsNullOrEmpty(format.NumberFormatCode) && format.NumberFormatCode != "General")
+        {
+            var hash = font.MeasureText("#");
+            var count = Math.Max(1, (int)((rect.Width - padding * 2) / Math.Max(1, hash)));
+            text = new string('#', count);
+            measured = font.MeasureText(text);
+        }
+
         var x = alignment switch
         {
-            CellHorizontalAlignment.Right => rect.Right - padding - measured,
+            CellHorizontalAlignment.Right => rect.Right - padding - measured - indent,
             CellHorizontalAlignment.Center or CellHorizontalAlignment.CenterContinuous => rect.MidX - measured / 2,
             _ => rect.Left + padding + indent
         };
 
-        // Baseline placement: metrics.Descent is positive downward, so this centres the glyph box.
-        var metrics = font.Metrics;
         var y = format.VerticalAlignment switch
         {
             CellVerticalAlignment.Top => rect.Top + padding - metrics.Ascent,
@@ -258,12 +418,129 @@ public sealed class SpreadsheetPainter : IDisposable
             _ => rect.Bottom - padding - metrics.Descent
         };
 
-        // Text is clipped to its own cell. Excel spills unformatted text into empty neighbours; that
-        // needs a scan of the cells to the side and is deliberately not done here yet.
+        // Left-aligned text runs on over empty neighbours, as it does in Excel; anything else is kept
+        // to its own cell.
+        var clip = rect;
+        if (!merged && kind == CellValueKind.Text && alignment == CellHorizontalAlignment.Left && x + measured > rect.Right)
+            clip.Right = this.OverflowRight(request, cell, rect.Right, x + measured, columnEnd);
+
+        canvas.Save();
+        canvas.ClipRect(clip);
+        canvas.DrawText(text, x, y, SKTextAlign.Left, font, this.fill);
+
+        if (format.Underline)
+            this.Rule(canvas, x, y + Math.Max(1.5f, metrics.UnderlinePosition ?? 1.5f), measured, ink, font.Size / 14f);
+
+        if (format.Strike)
+            this.Rule(canvas, x, y - font.Size * 0.3f, measured, ink, font.Size / 14f);
+
+        canvas.Restore();
+    }
+
+    void Rule(SKCanvas canvas, float x, float y, float width, SKColor color, float thickness)
+    {
+        this.stroke.Color = color;
+        this.stroke.StrokeWidth = Math.Max(1, thickness);
+        canvas.DrawLine(x, y, x + width, y, this.stroke);
+        this.stroke.StrokeWidth = 1;
+    }
+
+    /// <summary>How far right text starting in <paramref name="cell"/> may run: across blank neighbours only.</summary>
+    float OverflowRight(SpreadsheetPaintRequest request, CellRef cell, float right, float needed, int columnEnd)
+    {
+        var sheet = request.Sheet;
+        var viewport = request.Viewport;
+
+        for (var column = cell.Column + 1; column <= Math.Min(columnEnd + 1, CellRef.MaxColumn) && right < needed; column++)
+        {
+            var next = new CellRef(column, cell.Row);
+            if (!sheet.GetValue(next).IsBlank || sheet.GetFormula(next) is not null || sheet.MergeAt(next) is not null)
+                break;
+
+            right = (float)viewport.CellRect(next).Right;
+        }
+
+        return right;
+    }
+
+    void PaintWrapped(SKCanvas canvas, SKRect rect, string text, SKFont font, ResolvedFormat format, CellHorizontalAlignment alignment, float padding, float indent)
+    {
+        var width = Math.Max(4, rect.Width - padding * 2 - indent);
+        var lines = new List<string>();
+
+        foreach (var paragraph in text.Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = string.Empty;
+            foreach (var word in paragraph.Split(' '))
+            {
+                var candidate = line.Length == 0 ? word : line + " " + word;
+                if (line.Length > 0 && font.MeasureText(candidate) > width)
+                {
+                    lines.Add(line);
+                    line = word;
+                }
+                else
+                {
+                    line = candidate;
+                }
+            }
+
+            lines.Add(line);
+        }
+
+        var metrics = font.Metrics;
+        var lineHeight = font.Spacing;
+        var total = lineHeight * lines.Count;
+
+        var top = format.VerticalAlignment switch
+        {
+            CellVerticalAlignment.Top => rect.Top + padding,
+            CellVerticalAlignment.Center => rect.MidY - total / 2,
+            _ => rect.Bottom - padding - total
+        };
+
         canvas.Save();
         canvas.ClipRect(rect);
-        canvas.DrawText(text, x, y, SKTextAlign.Left, font, this.fill);
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var measured = font.MeasureText(lines[i]);
+            var x = alignment switch
+            {
+                CellHorizontalAlignment.Right => rect.Right - padding - measured,
+                CellHorizontalAlignment.Center or CellHorizontalAlignment.CenterContinuous => rect.MidX - measured / 2,
+                _ => rect.Left + padding + indent
+            };
+
+            canvas.DrawText(lines[i], x, top + lineHeight * i - metrics.Ascent, SKTextAlign.Left, font, this.fill);
+        }
+
         canvas.Restore();
+    }
+
+    /// <summary>A data bar: Excel 2010's gradient, from the colour into white, with a solid edge.</summary>
+    void PaintDataBar(SKCanvas canvas, SKRect rect, DataBarFill bar)
+    {
+        var inset = new SKRect(rect.Left + 2, rect.Top + 2, rect.Right - 2, rect.Bottom - 2);
+        if (inset.Width <= 0 || inset.Height <= 0)
+            return;
+
+        var right = inset.Left + (float)(inset.Width * Math.Clamp(bar.Fraction, 0, 1));
+        var color = new SKColor(bar.Color.R, bar.Color.G, bar.Color.B);
+        var barRect = new SKRect(inset.Left, inset.Top, right, inset.Bottom);
+
+        using var shader = SKShader.CreateLinearGradient(
+            new SKPoint(barRect.Left, 0),
+            new SKPoint(Math.Max(barRect.Left + 1, barRect.Right), 0),
+            [color, new SKColor(255, 255, 255)],
+            SKShaderTileMode.Clamp);
+
+        this.fill.Shader = shader;
+        canvas.DrawRect(barRect, this.fill);
+        this.fill.Shader = null;
+
+        this.stroke.Color = color;
+        canvas.DrawRect(barRect, this.stroke);
     }
 
     /// <summary>
@@ -283,6 +560,106 @@ public sealed class SpreadsheetPainter : IDisposable
         return format.Background.IsTransparent
             ? theme.CellText
             : InkContrast.Legible(theme.CellText, InkContrast.Over(format.Background, theme.Background));
+    }
+
+    // ---- borders ----
+
+    void PaintBorders(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)
+    {
+        var viewport = request.Viewport;
+        var sheet = request.Sheet;
+        var styles = request.Workbook.Styles;
+        var conditional = sheet.ConditionalEvaluator;
+        var tables = sheet.Tables;
+
+        // One row and one column beyond the visible edge: a neighbour's edge is drawn on the shared line.
+        for (var row = Math.Max(0, rowStart - 1); row <= Math.Min(CellRef.MaxRow, rowEnd); row++)
+        {
+            if (viewport.Metrics.Rows.IsHidden(row))
+                continue;
+
+            for (var column = Math.Max(0, columnStart - 1); column <= Math.Min(CellRef.MaxColumn, columnEnd); column++)
+            {
+                if (viewport.Metrics.Columns.IsHidden(column))
+                    continue;
+
+                var cell = new CellRef(column, row);
+                var format = this.FormatOf(request, cell, styles, conditional, tables, out _);
+                if (format.Borders.IsEmpty)
+                    continue;
+
+                var rect = ToSk(sheet.MergeAt(cell) is { } merge ? viewport.RangeRect(merge) : viewport.CellRect(cell));
+                var borders = format.Borders;
+
+                if (borders.Top is { } top)
+                    this.Edge(canvas, request, top, rect.Left, rect.Top, rect.Right, rect.Top);
+
+                if (borders.Bottom is { } bottom)
+                    this.Edge(canvas, request, bottom, rect.Left, rect.Bottom, rect.Right, rect.Bottom);
+
+                if (borders.Left is { } left)
+                    this.Edge(canvas, request, left, rect.Left, rect.Top, rect.Left, rect.Bottom);
+
+                if (borders.Right is { } right)
+                    this.Edge(canvas, request, right, rect.Right, rect.Top, rect.Right, rect.Bottom);
+            }
+        }
+    }
+
+    void Edge(SKCanvas canvas, SpreadsheetPaintRequest request, BorderEdge edge, float x1, float y1, float x2, float y2)
+    {
+        var color = edge.Color.IsTransparent ? request.Theme.CellText : edge.Color;
+        this.stroke.Color = ToSk(color);
+        this.stroke.StrokeWidth = (float)(edge.Style == CellBorderStyle.Double ? 1 : edge.Width);
+
+        var horizontal = Math.Abs(y1 - y2) < 0.01;
+
+        // Pixel-aligned: a 1px line on the half pixel, a 2px line on the whole one.
+        var offset = this.stroke.StrokeWidth % 2 == 1 ? 0.5f : 0f;
+        if (horizontal)
+        {
+            y1 = (float)Math.Floor(y1) + offset;
+            y2 = y1;
+        }
+        else
+        {
+            x1 = (float)Math.Floor(x1) + offset;
+            x2 = x1;
+        }
+
+        float[]? dash = edge.Style switch
+        {
+            CellBorderStyle.Dashed or CellBorderStyle.MediumDashed => [4, 2],
+            CellBorderStyle.Dotted or CellBorderStyle.Hair => [1, 1],
+            CellBorderStyle.DashDot or CellBorderStyle.MediumDashDot or CellBorderStyle.SlantDashDot => [5, 2, 1, 2],
+            CellBorderStyle.DashDotDot or CellBorderStyle.MediumDashDotDot => [5, 2, 1, 2, 1, 2],
+            _ => null
+        };
+
+        using var effect = dash is null ? null : SKPathEffect.CreateDash(dash, 0);
+        this.stroke.PathEffect = effect;
+
+        if (edge.Style == CellBorderStyle.Double)
+        {
+            // Two hairlines a pixel apart, straddling the cell edge.
+            if (horizontal)
+            {
+                canvas.DrawLine(x1, y1 - 1, x2, y2 - 1, this.stroke);
+                canvas.DrawLine(x1, y1 + 1, x2, y2 + 1, this.stroke);
+            }
+            else
+            {
+                canvas.DrawLine(x1 - 1, y1, x2 - 1, y2, this.stroke);
+                canvas.DrawLine(x1 + 1, y1, x2 + 1, y2, this.stroke);
+            }
+        }
+        else
+        {
+            canvas.DrawLine(x1, y1, x2, y2, this.stroke);
+        }
+
+        this.stroke.PathEffect = null;
+        this.stroke.StrokeWidth = 1;
     }
 
     void PaintGridLines(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)
@@ -308,15 +685,113 @@ public sealed class SpreadsheetPainter : IDisposable
         }
     }
 
+    // ---- markers ----
+
+    /// <summary>The red triangle in the top-right corner of a cell with a note.</summary>
+    void PaintNoteMarkers(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)
+    {
+        var notes = request.Sheet.Notes;
+        if (notes.Count == 0)
+            return;
+
+        this.fill.Color = new SKColor(0xE0, 0x1F, 0x1F);
+
+        foreach (var note in notes)
+        {
+            if (note.Cell.Column < columnStart || note.Cell.Column > columnEnd || note.Cell.Row < rowStart || note.Cell.Row > rowEnd)
+                continue;
+
+            var rect = ToSk(request.Viewport.CellRect(note.Cell));
+            using var path = new SKPath();
+            path.MoveTo(rect.Right - 6, rect.Top + 1);
+            path.LineTo(rect.Right - 1, rect.Top + 1);
+            path.LineTo(rect.Right - 1, rect.Top + 6);
+            path.Close();
+            canvas.DrawPath(path, this.fill);
+        }
+    }
+
+    /// <summary>The dropdown arrows along a filter's header row — and a funnel where a column is filtered.</summary>
+    void PaintFilterButtons(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)
+    {
+        var filters = request.Sheet.AutoFilters;
+        if (filters.Count == 0)
+            return;
+
+        foreach (var filter in filters)
+        {
+            var row = filter.Range.Top;
+            if (row < rowStart || row > rowEnd || request.Viewport.Metrics.Rows.IsHidden(row))
+                continue;
+
+            for (var column = Math.Max(filter.Range.Left, columnStart); column <= Math.Min(filter.Range.Right, columnEnd); column++)
+            {
+                if (request.Viewport.Metrics.Columns.IsHidden(column))
+                    continue;
+
+                var cell = request.Viewport.CellRect(new CellRef(column, row));
+                var size = (float)Math.Min(SpreadsheetController.FilterButtonSize, cell.Height - 2);
+                var rect = new SKRect((float)cell.Right - size - 1, (float)cell.Bottom - size - 1, (float)cell.Right - 1, (float)cell.Bottom - 1);
+
+                this.DropButton(canvas, request.Theme, rect, filtered: filter.For(column) is not null);
+            }
+        }
+    }
+
+    void DropButton(SKCanvas canvas, SpreadsheetTheme theme, SKRect rect, bool filtered)
+    {
+        this.fill.Color = ToSk(theme.HeaderBackground);
+        canvas.DrawRect(rect, this.fill);
+
+        this.stroke.Color = ToSk(theme.HeaderBorder);
+        canvas.DrawRect(new SKRect(rect.Left + 0.5f, rect.Top + 0.5f, rect.Right - 0.5f, rect.Bottom - 0.5f), this.stroke);
+
+        this.fill.Color = ToSk(theme.HeaderText);
+        using var path = new SKPath();
+
+        if (filtered)
+        {
+            // A funnel over a small arrow: the column is filtered.
+            var cx = rect.MidX - 2;
+            path.MoveTo(cx - 4, rect.Top + 4);
+            path.LineTo(cx + 4, rect.Top + 4);
+            path.LineTo(cx + 1, rect.Top + 8);
+            path.LineTo(cx + 1, rect.Bottom - 4);
+            path.LineTo(cx - 1, rect.Bottom - 5);
+            path.LineTo(cx - 1, rect.Top + 8);
+            path.Close();
+            canvas.DrawPath(path, this.fill);
+
+            using var arrow = new SKPath();
+            arrow.MoveTo(rect.Right - 6, rect.Bottom - 6);
+            arrow.LineTo(rect.Right - 2, rect.Bottom - 6);
+            arrow.LineTo(rect.Right - 4, rect.Bottom - 3.5f);
+            arrow.Close();
+            canvas.DrawPath(arrow, this.fill);
+            return;
+        }
+
+        path.MoveTo(rect.MidX - 3.5f, rect.MidY - 1.5f);
+        path.LineTo(rect.MidX + 3.5f, rect.MidY - 1.5f);
+        path.LineTo(rect.MidX, rect.MidY + 2.5f);
+        path.Close();
+        canvas.DrawPath(path, this.fill);
+    }
+
+    void PaintListButton(SKCanvas canvas, SpreadsheetPaintRequest request)
+    {
+        if (request.ListButton is not { } button)
+            return;
+
+        canvas.Save();
+        canvas.ClipRect(ContentRect(request));
+        this.DropButton(canvas, request.Theme, ToSk(button), filtered: false);
+        canvas.Restore();
+    }
+
     /// <summary>
     /// Washes the cells a search matched, whole cells rather than the matched characters.
     /// </summary>
-    /// <remarks>
-    /// A cell is the smallest thing a spreadsheet selection can address, so highlighting three
-    /// characters inside one would mark something the arrows cannot land on. It also survives the
-    /// cell's own formatting, which can right-align, indent or reformat the text out from under a
-    /// character range measured against the raw value.
-    /// </remarks>
     void PaintFindMatches(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)
     {
         if (request.FindMatches.Count == 0)
@@ -333,9 +808,46 @@ public sealed class SpreadsheetPainter : IDisposable
         }
     }
 
+    // ---- selection ----
+
+    /// <summary>The selection grown to take in every merge it touches — a merged cell is selected whole.</summary>
+    static CellRange Expanded(CellRange range, IReadOnlyList<CellRange> merges)
+    {
+        if (merges.Count == 0)
+            return range;
+
+        bool grew;
+        do
+        {
+            grew = false;
+            foreach (var merge in merges)
+            {
+                if (!merge.Intersects(range))
+                    continue;
+
+                var union = new CellRange(
+                    new CellRef(Math.Min(range.Left, merge.Left), Math.Min(range.Top, merge.Top)),
+                    new CellRef(Math.Max(range.Right, merge.Right), Math.Max(range.Bottom, merge.Bottom)));
+
+                if (union != range)
+                {
+                    range = union;
+                    grew = true;
+                }
+            }
+        }
+        while (grew);
+
+        return range;
+    }
+
     void PaintSelection(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)
     {
-        var range = request.Selection.Range;
+        if (request.SelectedChartId is not null)
+            return;
+
+        var merges = request.Sheet.MergedRanges;
+        var range = Expanded(request.Selection.Range, merges);
         if (range.Left > columnEnd || range.Right < columnStart || range.Top > rowEnd || range.Bottom < rowStart)
             return;
 
@@ -343,10 +855,25 @@ public sealed class SpreadsheetPainter : IDisposable
         var theme = request.Theme;
         var rect = ToSk(viewport.RangeRect(range));
 
-        if (!range.IsSingleCell)
+        var active = request.Selection.Active;
+        var activeMerge = request.Sheet.MergeAt(active);
+        var singleArea = activeMerge is { } am ? am == range : range.IsSingleCell;
+
+        if (!singleArea)
         {
             this.fill.Color = ToSk(theme.SelectionFill);
             canvas.DrawRect(rect, this.fill);
+
+            // The active cell stays clear inside the wash, as in Excel.
+            var activeRect = ToSk(activeMerge is { } merge ? viewport.RangeRect(merge) : viewport.CellRect(active));
+            var format = request.Workbook.Styles.Resolve(request.Sheet.GetEffectiveStyleIndex(activeMerge?.TopLeft ?? active));
+            this.fill.Color = ToSk(format.Background.IsTransparent ? theme.Background : format.Background);
+            canvas.Save();
+            canvas.ClipRect(activeRect);
+            canvas.DrawRect(new SKRect(activeRect.Left + 1, activeRect.Top + 1, activeRect.Right - 1, activeRect.Bottom - 1), this.fill);
+            canvas.Restore();
+
+            this.PaintCell(canvas, request, activeMerge?.TopLeft ?? active, activeMerge is { } m2 ? viewport.RangeRect(m2) : viewport.CellRect(active), format, null, activeMerge is not null, active.Column);
         }
 
         this.stroke.Color = ToSk(theme.SelectionBorder);
@@ -362,26 +889,13 @@ public sealed class SpreadsheetPainter : IDisposable
 
         // The fill handle sits on the outside corner, the way Excel draws it.
         var handle = (float)theme.FillHandleSize;
+        this.fill.Color = ToSk(theme.Background);
+        canvas.DrawRect(new SKRect(rect.Right - handle / 2 - 1, rect.Bottom - handle / 2 - 1, rect.Right + handle / 2 + 1, rect.Bottom + handle / 2 + 1), this.fill);
         this.fill.Color = ToSk(theme.SelectionBorder);
         canvas.DrawRect(new SKRect(rect.Right - handle / 2, rect.Bottom - handle / 2, rect.Right + handle / 2, rect.Bottom + handle / 2), this.fill);
     }
 
-    /// <summary>
-    /// Draws the two round handles a finger drags to extend the selection.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Round, and larger than the square fill handle they replace, because they are the only way to
-    /// select a range with a finger — under touch a drag pans the sheet — so they have to read as
-    /// something to grab rather than as a corner mark. The white ring is what keeps them visible on
-    /// top of a dark cell, a filled cell and the grid lines alike.
-    /// </para>
-    /// <para>
-    /// Drawn at <see cref="SpreadsheetTheme.TouchHandleRadius"/>, which is smaller than
-    /// <see cref="GridViewport.HandleGripPixels"/> — the grab area is deliberately more forgiving than
-    /// the mark, since missing it pans the sheet instead.
-    /// </para>
-    /// </remarks>
+    /// <summary>Draws the two round handles a finger drags to extend the selection.</summary>
     void PaintTouchHandles(SKCanvas canvas, SpreadsheetPaintRequest request, SKRect rect)
     {
         var theme = request.Theme;
@@ -400,13 +914,26 @@ public sealed class SpreadsheetPainter : IDisposable
         this.stroke.StrokeWidth = 1;
     }
 
+    /// <summary>The grey dashed outline of where a fill-handle drag will fill.</summary>
+    void PaintFillPreview(SKCanvas canvas, SpreadsheetPaintRequest request)
+    {
+        if (request.FillPreview is not { } range || range == request.Selection.Range)
+            return;
+
+        var rect = ToSk(request.Viewport.RangeRect(range));
+        using var effect = SKPathEffect.CreateDash([3, 3], 0);
+
+        this.stroke.Color = new SKColor(0x70, 0x70, 0x70);
+        this.stroke.StrokeWidth = 1.5f;
+        this.stroke.PathEffect = effect;
+        canvas.DrawRect(rect, this.stroke);
+        this.stroke.PathEffect = null;
+        this.stroke.StrokeWidth = 1;
+    }
+
     /// <summary>
     /// Draws the dashed border around whatever is on the clipboard.
     /// </summary>
-    /// <remarks>
-    /// Drawn after the selection rather than before it so that copying a range and leaving the
-    /// selection on it shows the dashes, not a solid border sitting on top of them.
-    /// </remarks>
     void PaintClipboardMarquee(SKCanvas canvas, SpreadsheetPaintRequest request, int columnStart, int columnEnd, int rowStart, int rowEnd)
     {
         if (request.ClipboardRange is not { } range)
@@ -418,10 +945,6 @@ public sealed class SpreadsheetPainter : IDisposable
         var viewport = request.Viewport;
         var theme = request.Theme;
 
-        // A row-header copy spans 16,384 columns and a column copy 1,048,576 rows, which is millions of
-        // pixels of rectangle. The dash effect walks the outline, so an unclamped rect would spend that
-        // walk off screen and lose all precision by the time it came back; clipping the geometry to a
-        // little beyond the viewport keeps the visible dashes exact and the off-screen edges outside it.
         var bounds = viewport.RangeRect(range);
         var margin = 64f;
         var rect = new SKRect(
@@ -451,12 +974,152 @@ public sealed class SpreadsheetPainter : IDisposable
         this.stroke.StrokeWidth = 1;
     }
 
+    // ---- floating things ----
+
+    static SKRect ContentRect(SpreadsheetPaintRequest request)
+    {
+        var metrics = request.Viewport.Metrics;
+        return new SKRect((float)metrics.RowHeaderWidth, (float)metrics.ColumnHeaderHeight, (float)request.Viewport.Width, (float)request.Viewport.Height);
+    }
+
+    static SKRect ChartRect(GridViewport viewport, ChartAnchor anchor)
+    {
+        var from = viewport.CellRect(anchor.From);
+        var to = viewport.CellRect(anchor.To);
+        var x = from.X + anchor.FromDx;
+        var y = from.Y + anchor.FromDy;
+        return new SKRect((float)x, (float)y, (float)Math.Max(x + 4, to.X + anchor.ToDx), (float)Math.Max(y + 4, to.Y + anchor.ToDy));
+    }
+
+    void PaintCharts(SKCanvas canvas, SpreadsheetPaintRequest request)
+    {
+        var sheetCharts = request.Sheet.Charts;
+        if (sheetCharts.Count == 0)
+            return;
+
+        var content = ContentRect(request);
+        canvas.Save();
+        canvas.ClipRect(content);
+
+        foreach (var chart in sheetCharts)
+        {
+            var anchor = request.ChartPreview is { } preview && preview.Id == chart.Id ? preview.Anchor : chart.Anchor;
+            var rect = ChartRect(request.Viewport, anchor);
+
+            if (!rect.IntersectsWith(content))
+                continue;
+
+            this.charts.Paint(canvas, rect, chart, SheetCharts.Evaluate(request.Sheet, chart));
+
+            if (chart.Id == request.SelectedChartId)
+                this.ChartHandles(canvas, request.Theme, rect);
+        }
+
+        canvas.Restore();
+    }
+
+    void ChartHandles(SKCanvas canvas, SpreadsheetTheme theme, SKRect rect)
+    {
+        this.stroke.Color = ToSk(theme.SelectionBorder);
+        this.stroke.StrokeWidth = 1.5f;
+        canvas.DrawRect(rect, this.stroke);
+
+        var half = (float)SpreadsheetController.ChartHandleSize / 2;
+        foreach (var (x, y) in new[] { (rect.Left, rect.Top), (rect.Right, rect.Top), (rect.Left, rect.Bottom), (rect.Right, rect.Bottom) })
+        {
+            var handle = new SKRect(x - half, y - half, x + half, y + half);
+            this.fill.Color = SKColors.White;
+            canvas.DrawRect(handle, this.fill);
+            canvas.DrawRect(handle, this.stroke);
+        }
+
+        this.stroke.StrokeWidth = 1;
+    }
+
+    /// <summary>The yellow note boxes, beside their cells, with a leader line back to the corner.</summary>
+    void PaintOpenNotes(SKCanvas canvas, SpreadsheetPaintRequest request)
+    {
+        if (request.OpenNotes.Count == 0)
+            return;
+
+        var content = ContentRect(request);
+        canvas.Save();
+        canvas.ClipRect(content);
+
+        var font = this.GetFont("Segoe UI", 9, bold: false, italic: false);
+        var bold = this.GetFont("Segoe UI", 9, bold: true, italic: false);
+        const float width = 150;
+
+        foreach (var note in request.OpenNotes)
+        {
+            var cell = ToSk(request.Viewport.CellRect(note.Cell));
+            if (!cell.IntersectsWith(content))
+                continue;
+
+            var lines = new List<(string Text, SKFont Font)>();
+            if (!string.IsNullOrEmpty(note.Author))
+                lines.Add((note.Author + ":", bold));
+
+            foreach (var paragraph in note.Text.Replace("\r\n", "\n").Split('\n'))
+            {
+                var line = string.Empty;
+                foreach (var word in paragraph.Split(' '))
+                {
+                    var candidate = line.Length == 0 ? word : line + " " + word;
+                    if (line.Length > 0 && font.MeasureText(candidate) > width - 10)
+                    {
+                        lines.Add((line, font));
+                        line = word;
+                    }
+                    else
+                    {
+                        line = candidate;
+                    }
+                }
+
+                lines.Add((line, font));
+            }
+
+            var height = Math.Max(40, lines.Count * font.Spacing + 10);
+            var box = new SKRect(cell.Right + 12, cell.Top - 4, cell.Right + 12 + width, cell.Top - 4 + height);
+
+            this.stroke.IsAntialias = true;
+            this.stroke.Color = new SKColor(0x40, 0x40, 0x40);
+            canvas.DrawLine(cell.Right - 1, cell.Top + 1, box.Left, box.Top + 6, this.stroke);
+
+            this.fill.Color = new SKColor(0, 0, 0, 40);
+            canvas.DrawRect(box.Left + 2, box.Top + 2, box.Width, box.Height, this.fill);
+
+            this.fill.Color = new SKColor(0xFF, 0xFF, 0xE1);
+            canvas.DrawRect(box, this.fill);
+            canvas.DrawRect(box, this.stroke);
+            this.stroke.IsAntialias = false;
+
+            this.fill.Color = new SKColor(0x1A, 0x1A, 0x1A);
+            var y = box.Top + 5 - font.Metrics.Ascent;
+            foreach (var (text, lineFont) in lines)
+            {
+                canvas.DrawText(text, box.Left + 5, y, SKTextAlign.Left, lineFont, this.fill);
+                y += font.Spacing;
+            }
+        }
+
+        canvas.Restore();
+    }
+
+    // ---- headers ----
+
     void PaintHeaders(SKCanvas canvas, SpreadsheetPaintRequest request, int firstColumn, int lastColumn, int firstRow, int lastRow)
     {
         var viewport = request.Viewport;
         var metrics = viewport.Metrics;
         var theme = request.Theme;
-        var selection = request.Selection.Range;
+
+        // Headings turned off: the bands have no size and there is nothing to draw.
+        if (metrics.ColumnHeaderHeight <= 0 && metrics.RowHeaderWidth <= 0)
+            return;
+
+        var selection = Expanded(request.Selection.Range, request.Sheet.MergedRanges);
         var font = this.GetFont(theme.FontFamily, (float)theme.FontSize, bold: false, italic: false);
         var frozen = metrics.FrozenPane;
 
@@ -479,6 +1142,10 @@ public sealed class SpreadsheetPainter : IDisposable
                 this.fill.Color = ToSk(theme.HeaderSelectedBackground);
                 canvas.DrawRect(rect, this.fill);
             }
+
+            this.stroke.Color = ToSk(theme.HeaderBorder);
+            var edge = (float)Math.Floor(rect.Right) - 0.5f;
+            canvas.DrawLine(edge, 0, edge, (float)metrics.ColumnHeaderHeight, this.stroke);
 
             this.fill.Color = ToSk(theme.HeaderText);
             DrawCentred(canvas, CellRef.ColumnName(column), rect, font, this.fill);
@@ -508,6 +1175,10 @@ public sealed class SpreadsheetPainter : IDisposable
                 canvas.DrawRect(rect, this.fill);
             }
 
+            this.stroke.Color = ToSk(theme.HeaderBorder);
+            var edge = (float)Math.Floor(rect.Bottom) - 0.5f;
+            canvas.DrawLine(0, edge, (float)metrics.RowHeaderWidth, edge, this.stroke);
+
             this.fill.Color = ToSk(theme.HeaderText);
             DrawCentred(canvas, (row + 1).ToString(), rect, font, this.fill);
         }
@@ -516,9 +1187,21 @@ public sealed class SpreadsheetPainter : IDisposable
         canvas.DrawLine((float)metrics.RowHeaderWidth - 0.5f, (float)metrics.ColumnHeaderHeight, (float)metrics.RowHeaderWidth - 0.5f, (float)viewport.Height, this.stroke);
         canvas.Restore();
 
-        // Select-all corner.
+        // Select-all corner, with Excel's triangle in it.
+        var corner = new SKRect(0, 0, (float)metrics.RowHeaderWidth, (float)metrics.ColumnHeaderHeight);
         this.fill.Color = ToSk(theme.HeaderBackground);
-        canvas.DrawRect(new SKRect(0, 0, (float)metrics.RowHeaderWidth, (float)metrics.ColumnHeaderHeight), this.fill);
+        canvas.DrawRect(corner, this.fill);
+
+        if (corner.Width > 12 && corner.Height > 12)
+        {
+            this.fill.Color = ToSk(theme.HeaderBorder);
+            using var triangle = new SKPath();
+            triangle.MoveTo(corner.Right - 4, corner.Bottom - 12);
+            triangle.LineTo(corner.Right - 4, corner.Bottom - 4);
+            triangle.LineTo(corner.Right - 12, corner.Bottom - 4);
+            triangle.Close();
+            canvas.DrawPath(triangle, this.fill);
+        }
     }
 
     /// <summary>Frozen indexes first, then the scrolled ones — the order the header strip needs.</summary>
@@ -564,14 +1247,6 @@ public sealed class SpreadsheetPainter : IDisposable
     /// <summary>
     /// The font for a cell, resolved and cached by the shared measurer.
     /// </summary>
-    /// <remarks>
-    /// Through the measurer rather than straight to <c>SKTypeface.FromFamilyName</c>, because that
-    /// call returns the same embedded fallback for every family and every weight on WebAssembly,
-    /// where there are no system fonts at all. A grid that asked the platform directly rendered a
-    /// bold cell in regular and gave no sign of it — the request succeeded, it just meant nothing.
-    /// The measurer consults the application's registered faces first, and carries the substitution
-    /// table that turns a Calibri request into the bundled Carlito.
-    /// </remarks>
     SKFont GetFont(string family, float size, bool bold, bool italic)
         => this.measurer.GetFont(TextStyle.Default with
         {
@@ -587,8 +1262,8 @@ public sealed class SpreadsheetPainter : IDisposable
 
     public void Dispose()
     {
-        // Only the measurer this painter made. One passed in is the caller's, and disposing it would
-        // take the fonts out from under whatever else is drawing with it.
+        this.charts.Dispose();
+
         if (this.ownsMeasurer)
             this.measurer.Dispose();
 

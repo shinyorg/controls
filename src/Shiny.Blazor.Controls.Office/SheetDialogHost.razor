@@ -1,0 +1,336 @@
+@namespace Shiny.Blazor.Controls.Office
+@using Shiny.Controls.Office.Spreadsheet
+@using Shiny.Controls.Office.Spreadsheet.View
+@implements IDisposable
+
+@*
+    The one renderer for every spreadsheet dialog: Format Cells, Data Validation, the filter dropdown,
+    Name Manager, Insert Function and the rest. The dialogs themselves - their fields, validation and
+    the commands they run - are defined once in the kernel (SpreadsheetDialogs), so this component and
+    MAUI's renderer can never disagree about what a field means; all this owns is how a field looks.
+
+    Every edit is written straight back into the SheetField and reported with OnFieldChanged, which is
+    how a search box narrows a list or picking "List" reveals the Source box: the dialog rewrites its
+    own fields and raises Changed, and this redraws from them.
+*@
+@if (this.current is { } dialog)
+{
+    <div class="sheet-dialog__backdrop" @onpointerdown="this.OnBackdropAsync">
+        <div class="sheet-dialog"
+             role="dialog"
+             aria-modal="true"
+             aria-label="@dialog.Title"
+             tabindex="-1"
+             style="width:min(@(Px(dialog.Width))px, calc(100vw - 24px))"
+             @ref="this.card"
+             @onpointerdown:stopPropagation="true"
+             @onkeydown="this.OnKeyDownAsync">
+
+            <div class="sheet-dialog__title">@dialog.Title</div>
+
+            @if (dialog.Tabs.Count > 1)
+            {
+                <div class="sheet-dialog__tabs" role="tablist">
+                    @for (var i = 0; i < dialog.Tabs.Count; i++)
+                    {
+                        var index = i;
+                        <button type="button"
+                                role="tab"
+                                class="sheet-dialog__tab @(index == this.tab ? "is-active" : null)"
+                                aria-selected="@(index == this.tab ? "true" : "false")"
+                                @onclick="() => this.tab = index">@dialog.Tabs[index].Title</button>
+                    }
+                </div>
+            }
+
+            <div class="sheet-dialog__body">
+                @foreach (var field in dialog.Tabs[Math.Clamp(this.tab, 0, dialog.Tabs.Count - 1)].Fields)
+                {
+                    if (!field.IsVisible)
+                        continue;
+
+                    @this.RenderField(field)
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(dialog.Error))
+            {
+                <div class="sheet-dialog__error" role="alert">@dialog.Error</div>
+            }
+
+            <div class="sheet-dialog__buttons">
+                @foreach (var button in dialog.Buttons)
+                {
+                    <button type="button"
+                            class="sheet-dialog__button @(button.IsPrimary ? "is-primary" : null)"
+                            @onclick="() => this.PressAsync(button)">@button.Text</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    SheetDialog? current;
+    ElementReference card;
+    int tab;
+    bool focusCard;
+
+    /// <summary>The dialog to show, or null for none.</summary>
+    [Parameter] public SheetDialog? Dialog { get; set; }
+
+    /// <summary>
+    /// Raised when the dialog closes — with the dialog to open next, when the one that closed asked for
+    /// one (Name Manager's New), or null.
+    /// </summary>
+    [Parameter] public EventCallback<SheetDialog?> DialogChanged { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(this.current, this.Dialog))
+            return;
+
+        if (this.current is not null)
+            this.current.Changed -= this.OnDialogChanged;
+
+        this.current = this.Dialog;
+        this.tab = 0;
+
+        if (this.current is not null)
+        {
+            this.current.Changed += this.OnDialogChanged;
+            this.focusCard = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!this.focusCard || this.current is null)
+            return;
+
+        this.focusCard = false;
+        try
+        {
+            await this.card.FocusAsync();
+        }
+        catch (Exception)
+        {
+            // Torn down between render and focus.
+        }
+    }
+
+    void OnDialogChanged(object? sender, EventArgs e) => this.InvokeAsync(this.StateHasChanged);
+
+    static string Px(double value) => value.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+
+    RenderFragment RenderField(SheetField field) => field.Kind switch
+    {
+        SheetFieldKind.Label => @<div class="sheet-dialog__label">@field.Label</div>,
+
+        SheetFieldKind.Check =>
+            @<label class="sheet-dialog__check">
+                <input type="checkbox"
+                       checked="@field.IsChecked"
+                       disabled="@(!field.IsEnabled)"
+                       @onchange="e => this.SetChecked(field, e)" />
+                <span>@field.Label</span>
+            </label>,
+
+        SheetFieldKind.Choice =>
+            @<label class="sheet-dialog__field">
+                <span class="sheet-dialog__caption">@field.Label</span>
+                <select class="sheet-dialog__input"
+                        disabled="@(!field.IsEnabled)"
+                        @onchange="e => this.SetChoice(field, e)">
+                    @for (var i = 0; i < field.Options.Count; i++)
+                    {
+                        <option value="@i" selected="@(i == field.SelectedIndex)">@field.Options[i]</option>
+                    }
+                </select>
+            </label>,
+
+        SheetFieldKind.MultilineText =>
+            @<label class="sheet-dialog__field is-stacked">
+                <span class="sheet-dialog__caption">@field.Label</span>
+                <textarea class="sheet-dialog__input is-multiline"
+                          rows="4"
+                          placeholder="@field.Placeholder"
+                          disabled="@(!field.IsEnabled)"
+                          @oninput="e => this.SetText(field, e)">@field.Text</textarea>
+            </label>,
+
+        SheetFieldKind.Color =>
+            @<div class="sheet-dialog__field is-stacked">
+                <span class="sheet-dialog__caption">@field.Label</span>
+                <div class="sheet-dialog__swatches">
+                    <button type="button"
+                            class="sheet-dialog__none @(field.Color is null ? "is-active" : null)"
+                            @onclick="() => this.SetColor(field, null)">Automatic / None</button>
+                    @foreach (var (name, color) in SheetField.Palette)
+                    {
+                        <button type="button"
+                                class="sheet-dialog__swatch @(field.Color == color ? "is-active" : null)"
+                                title="@name"
+                                aria-label="@name"
+                                style="background:@OfficeColors.ToHex(color)"
+                                @onclick="() => this.SetColor(field, color)"></button>
+                    }
+                </div>
+            </div>,
+
+        SheetFieldKind.Checklist =>
+            @<div class="sheet-dialog__checklist" role="group" aria-label="@field.Label">
+                @foreach (var item in field.Items)
+                {
+                    <label class="sheet-dialog__check">
+                        <input type="checkbox"
+                               checked="@item.IsChecked"
+                               @onchange="e => this.SetItem(field, item, e)" />
+                        <span>@item.Text</span>
+                    </label>
+                }
+            </div>,
+
+        SheetFieldKind.List =>
+            @<div class="sheet-dialog__field is-stacked">
+                <span class="sheet-dialog__caption">@field.Label</span>
+                <div class="sheet-dialog__list" role="listbox" aria-label="@field.Label">
+                    @for (var i = 0; i < field.Options.Count; i++)
+                    {
+                        var index = i;
+                        <div class="sheet-dialog__row @(index == field.SelectedIndex ? "is-active" : null)"
+                             role="option"
+                             aria-selected="@(index == field.SelectedIndex ? "true" : "false")"
+                             @onclick="() => this.Select(field, index)"
+                             @ondblclick="() => this.ActivateAsync(field, index)">
+                            <div class="sheet-dialog__row-title">@field.Options[index]</div>
+                            @if (field.Details is { } details && index < details.Count && !string.IsNullOrEmpty(details[index]))
+                            {
+                                <div class="sheet-dialog__row-detail">@details[index]</div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>,
+
+        _ =>
+            @<label class="sheet-dialog__field">
+                <span class="sheet-dialog__caption">@field.Label</span>
+                <input class="sheet-dialog__input"
+                       type="text"
+                       inputmode="@(field.Kind == SheetFieldKind.Number ? "decimal" : "text")"
+                       value="@field.Text"
+                       placeholder="@field.Placeholder"
+                       disabled="@(!field.IsEnabled)"
+                       spellcheck="false"
+                       @oninput="e => this.SetText(field, e)" />
+            </label>
+    };
+
+    void SetText(SheetField field, ChangeEventArgs e)
+    {
+        field.Text = e.Value?.ToString() ?? string.Empty;
+        this.current?.OnFieldChanged(field);
+    }
+
+    void SetChecked(SheetField field, ChangeEventArgs e)
+    {
+        field.IsChecked = e.Value is true || string.Equals(e.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        this.current?.OnFieldChanged(field);
+    }
+
+    void SetChoice(SheetField field, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var index))
+        {
+            field.SelectedIndex = index;
+            this.current?.OnFieldChanged(field);
+        }
+    }
+
+    void SetColor(SheetField field, ArgbColor? color)
+    {
+        field.Color = color;
+        this.current?.OnFieldChanged(field);
+    }
+
+    void SetItem(SheetField field, SheetChecklistItem item, ChangeEventArgs e)
+    {
+        item.IsChecked = e.Value is true || string.Equals(e.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        this.current?.OnFieldChanged(field);
+    }
+
+    void Select(SheetField field, int index)
+    {
+        field.SelectedIndex = index;
+        this.current?.OnFieldChanged(field);
+    }
+
+    /// <summary>A double-click on a list line picks it and presses the primary button — Insert Function's shortcut.</summary>
+    async Task ActivateAsync(SheetField field, int index)
+    {
+        this.Select(field, index);
+
+        if (this.current?.Primary is { } primary)
+            await this.PressAsync(primary);
+    }
+
+    async Task PressAsync(SheetDialogButton button)
+    {
+        if (this.current is not { } dialog)
+            return;
+
+        if (!dialog.Press(button))
+        {
+            this.StateHasChanged();
+            return;
+        }
+
+        await this.CloseAsync(dialog.Next);
+    }
+
+    async Task CloseAsync(SheetDialog? next)
+    {
+        if (this.current is not null)
+            this.current.Changed -= this.OnDialogChanged;
+
+        this.current = null;
+        await this.DialogChanged.InvokeAsync(next);
+    }
+
+    /// <summary>A press outside the card is a cancel, as a click outside any modal is.</summary>
+    Task OnBackdropAsync() => this.CancelAsync();
+
+    Task CancelAsync()
+    {
+        if (this.current?.Buttons.FirstOrDefault(x => x.IsCancel) is { } cancel)
+            return this.PressAsync(cancel);
+
+        return this.CloseAsync(null);
+    }
+
+    async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Escape":
+                await this.CancelAsync();
+                break;
+
+            // Enter in a single-line field presses the dialog's default button. The textarea is
+            // exempt by its own shift/new-line convention: Ctrl+Enter still submits from there.
+            case "Enter" when this.current?.Primary is { } primary && (e.CtrlKey || !this.HasMultiline):
+                await this.PressAsync(primary);
+                break;
+        }
+    }
+
+    bool HasMultiline
+        => this.current?.Tabs[Math.Clamp(this.tab, 0, this.current.Tabs.Count - 1)].Fields.Any(x => x.IsVisible && x.Kind == SheetFieldKind.MultilineText) == true;
+
+    public void Dispose()
+    {
+        if (this.current is not null)
+            this.current.Changed -= this.OnDialogChanged;
+    }
+}

@@ -3,33 +3,34 @@
 @using Shiny.Controls.Office.Icons
 @using Shiny.Controls.Office.Spreadsheet
 @using Shiny.Controls.Office.Spreadsheet.Calc
+@using Shiny.Controls.Office.Spreadsheet.Commands
 @using Shiny.Controls.Office.Spreadsheet.View
 @implements IDisposable
 
 @*
-    The formatting bar above a SpreadsheetView.
+    The ribbon above a SpreadsheetView, laid out the way Excel's is: File, Home, Insert, Formulas,
+    Data, Review, View.
 
-    Two tabs. Home is what any editor has - clipboard, font, alignment, number formats and the editing
-    commands - and Data is what only a spreadsheet has: rows and columns in and out, column widths and
-    visibility, and the function library. The second tab is why this is its own control rather than a
-    copy of the document toolbar.
-
-    The split is by what a command changes, not by how often it is reached: Home changes how a cell
-    looks, Data changes the shape of the sheet under it.
+    Home is the everyday half - clipboard, font and borders, alignment and merging, number formats,
+    styles (conditional formatting, tables, cell styles), the cells group and the editing tools. The
+    other tabs are the ones a spreadsheet has and a text editor does not: charts and links, the
+    function library and names, sort and filter and validation, notes, and the view switches.
 
     Everything goes through SpreadsheetController, so a button here raises the same undoable command a
-    keyboard shortcut would - not a second path into the workbook. It also means the bar works on its
-    own: hand it `view.Controller` and put it wherever the app's chrome belongs.
+    keyboard shortcut or the right-click menu would - not a second path into the workbook. The dialogs
+    the commands open are defined in the kernel and drawn by SheetDialogHost; this bar only asks for
+    them. It works on its own too: hand it `view.Controller` and put it wherever the app's chrome goes.
 *@
 @*
     The wrapper is not decoration. This file's scoped rules are written `.sheet-toolbar ::deep .x`,
     which compiles to `.sheet-toolbar[scope-of-this-file] .x` - so the class has to sit on an element
     declared *here*. Passing it to the ribbon as CssClass puts it on the ribbon's own root, which
-    carries the ribbon's scope id instead, and every rule in this stylesheet silently stops matching:
-    the buttons then fell through to whatever the host app styles a bare <button> as.
+    carries the ribbon's scope id instead, and every rule in this stylesheet silently stops matching.
 *@
 <div class="sheet-toolbar @Class" style="@Style">
 <Ribbon ShowTabStrip="ShowTabs"
+        ApplicationButtonText="@(this.FileMenuRequested.HasDelegate ? "File" : null)"
+        ApplicationButtonClicked="this.OnFileAsync"
         HeaderBackgroundColor="@AccentBackground"
         HeaderForegroundColor="@AccentInk"
         AccentColor="@AccentInk"
@@ -37,225 +38,37 @@
         SmallItemRows="2">
     <QuickAccess>
         @* Undo and redo apply whatever the selection is, so they sit outside the groups. *@
-        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo" Icon="@Ico(OfficeIcon.Undo)"
+        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo (Ctrl+Z)" Icon="@Ico(OfficeIcon.Undo)"
                       Disabled="@(Disabled || !(Controller?.CanUndo ?? false))" Clicked="() => Run(c => c.Undo())" />
-        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo" Icon="@Ico(OfficeIcon.Redo)"
+        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo (Ctrl+Y)" Icon="@Ico(OfficeIcon.Redo)"
                       Disabled="@(Disabled || !(Controller?.CanRedo ?? false))" Clicked="() => Run(c => c.Redo())" />
     </QuickAccess>
 
     <ChildContent>
         <RibbonTab Title="Home" Key="home">
-
-            @* Clipboard leads, as it does in Excel: cut/copy/paste apply to whatever is selected and
-               are reached far more often than any formatting command. *@
-            @* Paste is large and the other two stack beside it - Excel's own arrangement, and the
-               shape three items want: filling two-deep columns left copy alone in a second column
-               with a hole under it. *@
-            <RibbonGroup Title="Clipboard" Priority="110">
-                <RibbonButton Text="Paste" Tooltip="Paste"
-                              Icon="@Ico(OfficeIcon.Paste)"
-                              Disabled="@(Disabled || !(Controller?.CanPaste ?? false))"
-                              Clicked="() => Run(c => c.Paste())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Cut" Icon="@Ico(OfficeIcon.Cut)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.Cut())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Copy" Icon="@Ico(OfficeIcon.Copy)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.Copy())" />
-            </RibbonGroup>
-
-            @* Rows, which is how Excel's Font group is arranged: the two boxes on top, the run of
-               marks underneath. Filling columns instead put bold above italic and underline above
-               strikethrough, and forced the font picker to share a column with a toggle - where the
-               column took the picker's width and stretched the 16px B across all of it. *@
-            <RibbonGroup Title="Font" Priority="100">
-                <RibbonRow>
-                <RibbonContent Size="RibbonItemSize.Small">
-                    <FontPickerButton AvailableFonts="FontFamilies"
-                                      SelectedFont="@Format.FontName"
-                                      Disabled="Disabled"
-                                      SelectedFontChanged="OnFontChanged" />
-                </RibbonContent>
-                <RibbonContent Size="RibbonItemSize.Small">
-                    <FontSizePickerButton AvailableFontSizes="FontSizes"
-                                          SelectedFontSize="Format.FontSize"
-                                          Disabled="Disabled"
-                                          SelectedFontSizeChanged="OnSizeChanged" />
-                </RibbonContent>
-                </RibbonRow>
-
-                <RibbonRow>
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold" Icon="@Ico(OfficeIcon.Bold)"
-                                    Checked="Format.Bold" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleBold())" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic" Icon="@Ico(OfficeIcon.Italic)"
-                                    Checked="Format.Italic" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleItalic())" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline" Icon="@Ico(OfficeIcon.Underline)"
-                                    Checked="Format.Underline" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleUnderline())" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
-                                    Checked="Format.Strike" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
-
-                <RibbonSeparator />
-
-                @* Both are pickers with their own popup, so they are hosted rather than made into
-                   ribbon buttons - a ribbon button cannot own a colour surface. Sized to the row: a
-                   solid swatch is the heaviest mark on the bar, and at the picker's own 30px beside
-                   16px glyphs it read as the one thing on the ribbon that had gone wrong. *@
-                <RibbonContent Size="RibbonItemSize.Small">
-                    <ColorPickerButton Text="Text colour"
-                                       SelectedColor="@ColorHex"
-                                       ShowOpacity="false"
-                                       Disabled="Disabled"
-                                       Style="--shiny-picker-height: 24px"
-                                       SelectedColorChanged="OnColorChanged" />
-                </RibbonContent>
-                <RibbonContent Size="RibbonItemSize.Small">
-                    <SpreadsheetFillButton Current="FillOrNull"
-                                           Disabled="Disabled"
-                                           ShowTooltips="ShowTooltips"
-                                           Picked="OnFillPicked" />
-                </RibbonContent>
-                </RibbonRow>
-            </RibbonGroup>
-
-            @*
-                Excel's own two rows: how the text sits in the cell top-to-bottom on one, left-to-right
-                on the other, with the things that nudge it inside that box at the end of each. Filling
-                columns turned three runs of three into a 2xN grid that read align-left / align-right
-                down the first column, and put the wrap toggle under an indent arrow.
-            *@
-            <RibbonGroup Title="Alignment" Priority="90">
-                <RibbonRow>
-                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align top" Icon="@Ico(OfficeIcon.AlignTop)"
-                                        Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Top)" Disabled="Disabled"
-                                        Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Top))" />
-                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align middle" Icon="@Ico(OfficeIcon.AlignMiddle)"
-                                        Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Center)" Disabled="Disabled"
-                                        Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Center))" />
-                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align bottom" Icon="@Ico(OfficeIcon.AlignBottom)"
-                                        Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Bottom)" Disabled="Disabled"
-                                        Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Bottom))" />
-
-                    @* Wrapping is about the height the text takes in the cell, which is what the row
-                       above it is about. *@
-                    <RibbonSeparator />
-
-                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Wrap text" Icon="@Ico(OfficeIcon.WrapText)"
-                                        Checked="Format.WrapText" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleWrapText())" />
-                </RibbonRow>
-
-                <RibbonRow>
-                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Icon="@Ico(OfficeIcon.AlignLeft)"
-                                        Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Left)" Disabled="Disabled"
-                                        Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Left))" />
-                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Centre" Icon="@Ico(OfficeIcon.AlignCenter)"
-                                        Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Center)" Disabled="Disabled"
-                                        Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Center))" />
-                    <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Icon="@Ico(OfficeIcon.AlignRight)"
-                                        Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Right)" Disabled="Disabled"
-                                        Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Right))" />
-
-                    @* The indent pair moves text inside the cell it is already aligned in, which is a
-                       third thing again - and the two arrows are close enough to the alignment marks
-                       to need the break. *@
-                    <RibbonSeparator />
-
-                    <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease indent" Icon="@Ico(OfficeIcon.Outdent)"
-                                  Disabled="Disabled" Clicked="() => Run(c => c.AdjustIndent(-1))" />
-                    <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase indent" Icon="@Ico(OfficeIcon.Indent)"
-                                  Disabled="Disabled" Clicked="() => Run(c => c.AdjustIndent(1))" />
-                </RibbonRow>
-            </RibbonGroup>
-
-            @* The named formats on top and the four marks that nudge one underneath - Excel's
-               arrangement. Filling columns put "Formats" in a column of its own with a hole beneath
-               it, and split the decimal pair across two columns. *@
-            <RibbonGroup Title="Number" Priority="80">
-                <RibbonRow>
-                    @* Was a hand-rolled chevron button over a backdrop and an absolutely positioned
-                       panel. A ribbon menu button is the same thing with the dismissal, keyboard and
-                       flipping already handled.
-
-                       No icon, deliberately: the only mark that fits is the currency one sitting on
-                       the row below, and the same glyph twice in one group reads as a duplicated
-                       command. The label and the chevron say what it is. *@
-                    <RibbonMenuButton Size="RibbonItemSize.Small" Text="Formats" Tooltip="More number formats"
-                                      Disabled="Disabled" Menu="FormatMenu" />
-                </RibbonRow>
-
-                <RibbonRow>
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Currency" Icon="@Ico(OfficeIcon.Currency)"
-                                    Checked="@(Preset == NumberFormatPreset.Currency)" Disabled="Disabled"
-                                    Clicked="_ => Run(c => c.SetNumberFormat(NumberFormatPreset.Currency))" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Percent" Icon="@Ico(OfficeIcon.Percent)"
-                                    Checked="@(Preset == NumberFormatPreset.Percent)" Disabled="Disabled"
-                                    Clicked="_ => Run(c => c.SetNumberFormat(NumberFormatPreset.Percent))" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Fewer decimal places" Icon="@Ico(OfficeIcon.DecimalDecrease)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.AdjustDecimals(-1))" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="More decimal places" Icon="@Ico(OfficeIcon.DecimalIncrease)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.AdjustDecimals(1))" />
-                </RibbonRow>
-            </RibbonGroup>
-
-            <RibbonGroup Title="Editing" Priority="70">
-                @* AutoSum stays a split button: totalling a column is the common case by a wide margin,
-                   and making it a menu choice would put a click in front of it every time. It is on
-                   both tabs, as it is in Excel - the face of this group and the head of the Data tab's
-                   function library. It is the one command here reached often enough that a tab switch
-                   in front of it would be felt. *@
-                <RibbonSplitButton Text="AutoSum" Tooltip="AutoSum"
-                                   Icon="@Ico(OfficeIcon.Sum)" Disabled="Disabled"
-                                   Clicked="() => Run(c => c.ApplyAutoFunction(AutoFunction.Sum))"
-                                   Menu="FunctionMenu" />
-
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Clear contents"
-                              Icon="@Ico(OfficeIcon.Delete)" Disabled="Disabled" Clicked="() => Run(c => c.ClearSelection())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Clear formatting"
-                              Icon="@Ico(OfficeIcon.ClearFormat)" Disabled="Disabled" Clicked="() => Run(c => c.ClearFormatting())" />
-            </RibbonGroup>
-
-            @*
-                Its own group rather than a fourth item in Editing: finding changes nothing, and the
-                box is as wide as the three buttons beside it put together. Last on Home, which is what
-                decides the order groups fold into the overflow in on a narrow window - and not gated
-                on Disabled, because a read-only workbook can still be searched.
-            *@
-            <RibbonGroup Title="Find" Priority="65">
-                @* Large: the bar is one control as tall as the group, and on a row of its own it left
-                   the row underneath empty for the width of a search box. *@
-                <RibbonContent>
-                    <OfficeFindBar Find="@Controller?.Find"
-                                   ShowTooltips="ShowTooltips"
-                                   Moved="StateHasChanged" />
-                </RibbonContent>
-            </RibbonGroup>
-
-            @if (ToolbarContent != null)
-            {
-                @* Never folds into an overflow button: whatever the host added is theirs, and it is
-                   not for this control to decide it is the least important thing on the bar. It goes
-                   on Home rather than a tab of its own, so a host's commands are on the tab that
-                   opens. *@
-                <RibbonGroup Title="@ToolbarContentTitle" Priority="200" CanCollapse="false">
-                    <RibbonContent>@ToolbarContent</RibbonContent>
-                </RibbonGroup>
-            }
+            @HomeGroups
 
             @if (!ShowTabs)
             {
-                @* With the strip hidden there is only ever the first tab, so the structural groups
+                @* With the strip hidden there is only ever the first tab, so every other tab's groups
                    come back onto it rather than becoming unreachable. The ribbon folds groups into
                    overflow buttons worst-first when the bar runs out of room, which is what makes one
-                   crowded tab survivable and a second unreachable one not. *@
+                   crowded tab survivable and five unreachable ones not. *@
+                @InsertGroups
+                @FormulaGroups
                 @DataGroups
+                @ReviewGroups
+                @ViewGroups
             }
         </RibbonTab>
 
         @if (ShowTabs)
         {
-            @* Everything that changes the shape of the sheet rather than the look of a cell. All of it
-               was on Home, where insert-row sat between clear-formatting and a colour picker; with one
-               tab the structural commands could never grow past the two that fitted. *@
-            <RibbonTab Title="Data" Key="data">
-                @DataGroups
-            </RibbonTab>
+            <RibbonTab Title="Insert" Key="insert">@InsertGroups</RibbonTab>
+            <RibbonTab Title="Formulas" Key="formulas">@FormulaGroups</RibbonTab>
+            <RibbonTab Title="Data" Key="data">@DataGroups</RibbonTab>
+            <RibbonTab Title="Review" Key="review">@ReviewGroups</RibbonTab>
+            <RibbonTab Title="View" Key="view">@ViewGroups</RibbonTab>
         }
     </ChildContent>
 </Ribbon>
@@ -264,7 +77,10 @@
 @code {
     SpreadsheetController? attached;
 
-    /// <summary>The presets on offer, in the order the MAUI toolbar's action sheet lists them.</summary>
+    /// <summary>The border the Borders button's face applies: the last one picked, as in Excel.</summary>
+    BorderPreset lastBorder = BorderPreset.Bottom;
+
+    /// <summary>The presets on offer, in the order the MAUI toolbar lists them.</summary>
     static readonly NumberFormatPreset[] Presets =
     [
         NumberFormatPreset.General,
@@ -292,13 +108,7 @@
     /// <summary>Shows the current formatting but refuses to change it.</summary>
     [Parameter] public bool ReadOnly { get; set; }
 
-    /// <summary>
-    /// Whether the icon-only buttons carry a hover tooltip.
-    /// </summary>
-    /// <remarks>
-    /// On by default, and the tooltip is the only place these commands are named. Turning it off falls
-    /// back to the browser's own <c>title</c>; either way the buttons keep an aria-label.
-    /// </remarks>
+    /// <summary>Whether the icon-only buttons carry a hover tooltip.</summary>
     [Parameter] public bool ShowTooltips { get; set; } = true;
 
     [Parameter] public IReadOnlyList<string> FontFamilies { get; set; } =
@@ -321,18 +131,23 @@
     /// Whether the bar shows the ribbon's tab strip, and with it the collapse chevron.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// On by default, which is a change: it was off while there was a single "Home" to show, and a
-    /// strip carrying one tab is noise. There are two now, and the strip is the only way to reach the
-    /// second.
-    /// </para>
-    /// <para>
-    /// Turning it off does not hide the Data tab's commands - it folds them back onto the one tab,
-    /// where the ribbon's own group collapsing deals with the width. A hidden strip that also hid a
-    /// third of the bar would be a setting that quietly removes commands.
-    /// </para>
+    /// Turning it off does not hide the other tabs' commands - it folds them back onto the one tab,
+    /// where the ribbon's own group collapsing deals with the width. A hidden strip that also hid most
+    /// of the bar would be a setting that quietly removes commands.
     /// </remarks>
     [Parameter] public bool ShowTabs { get; set; } = true;
+
+    /// <summary>Whether the view above shows its formula bar — what View ▸ Formula Bar reflects.</summary>
+    [Parameter] public bool ShowFormulaBar { get; set; } = true;
+
+    /// <summary>Raised when View ▸ Formula Bar is toggled. The bar is the view's, not this toolbar's.</summary>
+    [Parameter] public EventCallback<bool> ShowFormulaBarChanged { get; set; }
+
+    /// <summary>
+    /// Raised by the File button. The ribbon shows one only when something listens, since a File button
+    /// that opens nothing is worse than none: the backstage - open, save, print - belongs to the app.
+    /// </summary>
+    [Parameter] public EventCallback FileMenuRequested { get; set; }
 
     [Parameter] public string? Class { get; set; }
 
@@ -353,11 +168,7 @@
     /// <summary>The fill, as the highlight button takes it: null when the cell has none.</summary>
     ArgbColor? FillOrNull => this.Format.Background.IsTransparent ? null : this.Format.Background;
 
-    TooltipTrigger TooltipMode => this.ShowTooltips ? TooltipTrigger.HoverOrFocus : TooltipTrigger.Manual;
-
-    /// <summary>
-    /// A shared-set icon as the ribbon takes it - inline SVG markup rather than a MarkupString.
-    /// </summary>
+    /// <summary>A shared-set icon as the ribbon takes it - inline SVG markup rather than a MarkupString.</summary>
     static string Ico(OfficeIcon icon) => OfficeToolbarIcons.Get(icon).Value;
 
     protected override void OnParametersSet()
@@ -377,6 +188,7 @@
 
     void OnControllerChanged(object? sender, EventArgs e) => this.InvokeAsync(this.StateHasChanged);
 
+    /// <summary>Runs an editing command — refused in a read-only workbook.</summary>
     async Task Run(Action<SpreadsheetController> action)
     {
         if (this.Controller is not { } controller || this.Disabled)
@@ -385,6 +197,18 @@
         action(controller);
         await this.RaiseChangedAsync();
     }
+
+    /// <summary>Runs a command that changes nothing in the workbook — view switches, Go To — which a read-only one still allows.</summary>
+    async Task View(Action<SpreadsheetController> action)
+    {
+        if (this.Controller is not { } controller)
+            return;
+
+        action(controller);
+        await this.RaiseChangedAsync();
+    }
+
+    Task OnFileAsync() => this.FileMenuRequested.InvokeAsync();
 
     Task OnFontChanged(string family)
         => family is { Length: > 0 } ? this.Run(c => c.SetFontFamily(family)) : Task.CompletedTask;
@@ -397,39 +221,333 @@
 
     Task OnFillPicked(ArgbColor? color) => this.Run(c => c.SetFillColor(color));
 
-    /// <summary>The number-format presets, as ribbon menu lines with a live sample of each.</summary>
-    List<RibbonMenuEntry> FormatMenu => Presets
-        .Select(preset => new RibbonMenuEntry
+    Task ToggleFormulaBar() => this.ShowFormulaBarChanged.InvokeAsync(!this.ShowFormulaBar);
+
+    // ---- menu building ----
+
+    RibbonMenuEntry Entry(string text, Action<SpreadsheetController> action, bool isChecked = false, bool enabled = true, bool viewOnly = false, string? icon = null)
+        => new()
         {
-            Text = $"{NumberFormats.DisplayName(preset)}   {this.SampleOf(preset)}",
-            IsChecked = this.Preset == preset,
-            IsDisabled = this.Disabled,
-            OnClick = EventCallback.Factory.Create(this, () => this.Run(c => c.SetNumberFormat(preset)))
-        })
-        .ToList();
+            Text = text,
+            Icon = icon,
+            IsChecked = isChecked,
+            IsDisabled = !enabled || (viewOnly ? this.Controller is null : this.Disabled),
+            OnClick = EventCallback.Factory.Create(this, () => viewOnly ? this.View(action) : this.Run(action))
+        };
+
+    static RibbonMenuEntry Sub(string text, List<RibbonMenuEntry> children, string? icon = null)
+        => new() { Text = text, Icon = icon, Children = children };
+
+    static RibbonMenuEntry Separator => new() { IsSeparator = true };
+
+    RibbonMenuEntry DialogEntry(string text, Func<SpreadsheetController, SheetDialog> dialog, bool enabled = true, bool viewOnly = false, string? icon = null)
+        => this.Entry(text, c => c.ShowDialog(dialog(c)), enabled: enabled, viewOnly: viewOnly, icon: icon);
+
+    /// <summary>A small square of colour for a menu line — a data bar, a line colour.</summary>
+    static string Swatch(params ArgbColor[] colors)
+    {
+        var width = 12d / Math.Max(1, colors.Length);
+        var rects = string.Concat(colors.Select((c, i) =>
+            $"<rect x=\"{(2 + i * width).ToString(System.Globalization.CultureInfo.InvariantCulture)}\" y=\"2\" width=\"{width.ToString(System.Globalization.CultureInfo.InvariantCulture)}\" height=\"12\" fill=\"{OfficeColors.ToHex(c)}\"/>"));
+
+        return $"<svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\">{rects}<rect x=\"2\" y=\"2\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-opacity=\"0.35\"/></svg>";
+    }
+
+    /// <summary>The number-format presets, as ribbon menu lines with a live sample of each.</summary>
+    List<RibbonMenuEntry> FormatMenu
+    {
+        get
+        {
+            var entries = Presets
+                .Select(preset => this.Entry($"{NumberFormats.DisplayName(preset)}   {this.SampleOf(preset)}", c => c.SetNumberFormat(preset), this.Preset == preset))
+                .ToList();
+
+            entries.Add(Separator);
+            entries.Add(this.DialogEntry("More Number Formats...", SpreadsheetDialogs.FormatCells));
+            return entries;
+        }
+    }
 
     List<RibbonMenuEntry> FunctionMenu => Functions
-        .Select(function => new RibbonMenuEntry
-        {
-            Text = $"{AutoFunctions.DisplayName(function)}   {AutoFunctions.NameOf(function)}",
-            IsDisabled = this.Disabled,
-            OnClick = EventCallback.Factory.Create(this, () => this.Run(c => c.ApplyAutoFunction(function)))
-        })
+        .Select(function => this.Entry($"{AutoFunctions.DisplayName(function)}   {AutoFunctions.NameOf(function)}", c => c.ApplyAutoFunction(function)))
+        .Append(Separator)
+        .Append(this.DialogEntry("More Functions...", c => SpreadsheetDialogs.InsertFunction(c)))
         .ToList();
 
-    /// <summary>The widths behind the fit-to-contents button, with what each one measures.</summary>
-    /// <remarks>
-    /// The pixel width is beside the name for the same reason the format menu carries a live sample:
-    /// "Wide" on its own is a promise the reader cannot check.
-    /// </remarks>
-    List<RibbonMenuEntry> WidthMenu => ColumnWidthPresets.All
-        .Select(preset => new RibbonMenuEntry
+    /// <summary>The Borders dropdown: presets, then the line style and colour they draw with.</summary>
+    List<RibbonMenuEntry> BorderMenu
+    {
+        get
         {
-            Text = $"{preset.Name}   {ColumnWidthPresets.PixelsOf(preset.Characters):0} px",
-            IsDisabled = this.Disabled,
-            OnClick = EventCallback.Factory.Create(this, () => this.Run(c => c.SetColumnWidth(ColumnWidthPresets.PixelsOf(preset.Characters))))
-        })
+            RibbonMenuEntry Preset(BorderPreset preset, OfficeIcon? icon = null)
+                => this.Entry(BorderPresets.NameOf(preset), c =>
+                {
+                    this.lastBorder = preset;
+                    c.ApplyBorders(preset);
+                }, icon: icon is { } i ? Ico(i) : null);
+
+            var line = this.Controller?.BorderLine ?? BorderEdge.Thin();
+            var styles = new (string Name, CellBorderStyle Style)[]
+            {
+                ("Thin", CellBorderStyle.Thin), ("Medium", CellBorderStyle.Medium), ("Thick", CellBorderStyle.Thick),
+                ("Dashed", CellBorderStyle.Dashed), ("Dotted", CellBorderStyle.Dotted), ("Double", CellBorderStyle.Double)
+            };
+
+            var colors = new List<RibbonMenuEntry>
+            {
+                this.Entry("Automatic", c => c.BorderLine = c.BorderLine with { Color = ArgbColor.Transparent }, line.Color.IsTransparent, viewOnly: true)
+            };
+
+            colors.AddRange(SheetField.Palette.Select(p =>
+                this.Entry(p.Name, c => c.BorderLine = c.BorderLine with { Color = p.Color }, line.Color == p.Color, viewOnly: true, icon: Swatch(p.Color))));
+
+            return
+            [
+                Preset(BorderPreset.Bottom, OfficeIcon.BorderBottom),
+                Preset(BorderPreset.Top),
+                Preset(BorderPreset.Left),
+                Preset(BorderPreset.Right),
+                Separator,
+                Preset(BorderPreset.None, OfficeIcon.BorderNone),
+                Preset(BorderPreset.All, OfficeIcon.BorderAll),
+                Preset(BorderPreset.Outside, OfficeIcon.BorderOutside),
+                Preset(BorderPreset.ThickOutside),
+                Separator,
+                Preset(BorderPreset.DoubleBottom),
+                Preset(BorderPreset.ThickBottom),
+                Preset(BorderPreset.TopAndBottom),
+                Separator,
+                Sub("Line Style", styles.Select(s => this.Entry(s.Name, c => c.BorderLine = c.BorderLine with { Style = s.Style }, line.Style == s.Style, viewOnly: true)).ToList()),
+                Sub("Line Color", colors)
+            ];
+        }
+    }
+
+    OfficeIcon BorderIcon => this.lastBorder switch
+    {
+        BorderPreset.All => OfficeIcon.BorderAll,
+        BorderPreset.Outside or BorderPreset.ThickOutside => OfficeIcon.BorderOutside,
+        BorderPreset.None => OfficeIcon.BorderNone,
+        _ => OfficeIcon.BorderBottom
+    };
+
+    List<RibbonMenuEntry> MergeMenu =>
+    [
+        this.Entry("Merge & Center", c => c.MergeCells(MergeMode.MergeAndCenter)),
+        this.Entry("Merge Across", c => c.MergeCells(MergeMode.MergeAcross)),
+        this.Entry("Merge Cells", c => c.MergeCells(MergeMode.MergeCells)),
+        this.Entry("Unmerge Cells", c => c.UnmergeCells(), enabled: this.Controller?.IsActiveCellMerged ?? false)
+    ];
+
+    RibbonMenuEntry Conditional(ConditionalDialogKind kind)
+        => this.DialogEntry(SpreadsheetDialogs.TitleOf(kind) + "...", c => SpreadsheetDialogs.Conditional(c, kind));
+
+    List<RibbonMenuEntry> ConditionalMenu =>
+    [
+        Sub("Highlight Cells Rules",
+        [
+            this.Conditional(ConditionalDialogKind.GreaterThan),
+            this.Conditional(ConditionalDialogKind.LessThan),
+            this.Conditional(ConditionalDialogKind.Between),
+            this.Conditional(ConditionalDialogKind.EqualTo),
+            this.Conditional(ConditionalDialogKind.TextContains),
+            this.Conditional(ConditionalDialogKind.DuplicateValues)
+        ]),
+        Sub("Top/Bottom Rules",
+        [
+            this.Conditional(ConditionalDialogKind.Top10Items),
+            this.Conditional(ConditionalDialogKind.Top10Percent),
+            this.Conditional(ConditionalDialogKind.Bottom10Items),
+            this.Conditional(ConditionalDialogKind.Bottom10Percent),
+            this.Conditional(ConditionalDialogKind.AboveAverage),
+            this.Conditional(ConditionalDialogKind.BelowAverage)
+        ]),
+        Sub("Data Bars", ConditionalPresets.DataBars
+            .Select(bar => this.Entry(bar.Name, c => c.AddConditionalFormat(ConditionalFormatRule.Bar(bar.Color)), icon: Swatch(bar.Color)))
+            .ToList()),
+        Sub("Color Scales", ConditionalPresets.ColorScales
+            .Select(scale => this.Entry(scale.Name, c => c.AddConditionalFormat(scale.Rule), icon: Swatch(scale.Rule.Scale.Select(x => x.Color).ToArray())))
+            .ToList()),
+        Separator,
+        Sub("Clear Rules",
+        [
+            this.Entry("Clear Rules from Selected Cells", c => c.ClearConditionalFormats()),
+            this.Entry("Clear Rules from Entire Sheet", c => c.ClearConditionalFormats(entireSheet: true))
+        ])
+    ];
+
+    /// <summary>
+    /// The table styles, named the way Excel's gallery groups them. Picking one inside a table restyles
+    /// it; anywhere else it opens Create Table first, the way Excel asks where the data is.
+    /// </summary>
+    List<RibbonMenuEntry> TableMenu
+    {
+        get
+        {
+            var table = this.Controller?.ActiveTable;
+            var entries = new List<RibbonMenuEntry>();
+
+            foreach (var family in new[] { "Light", "Medium", "Dark" })
+            {
+                entries.Add(Sub(family, SheetTables.GalleryStyles
+                    .Where(x => x.Contains(family, StringComparison.Ordinal))
+                    .Select(style => this.Entry(StyleName(style), c =>
+                    {
+                        if (c.ActiveTable is not null)
+                            c.FormatAsTable(style);
+                        else
+                            c.ShowDialog(SpreadsheetDialogs.CreateTable(c, style));
+                    }, isChecked: table?.StyleName == style, icon: this.TableSwatch(style)))
+                    .ToList()));
+            }
+
+            entries.Add(Separator);
+            entries.Add(this.Entry("Convert to Range", c => c.ConvertTableToRange(), enabled: table is not null));
+            return entries;
+        }
+    }
+
+    static string StyleName(string style)
+        => style.StartsWith("TableStyle", StringComparison.Ordinal) ? "Table Style " + style["TableStyle".Length..].Replace("Light", "Light ").Replace("Medium", "Medium ").Replace("Dark", "Dark ") : style;
+
+    /// <summary>A header-and-band preview of a table style, from the same palette the grid paints it with.</summary>
+    string? TableSwatch(string style)
+    {
+        if (this.Controller?.Workbook.Styles is not { } styles)
+            return null;
+
+        var palette = TableStylePalette.For(style, styles.ThemeColor);
+        var header = palette.HeaderFill ?? palette.Rule;
+        var band = palette.BandFill ?? palette.BodyFill ?? new ArgbColor(255, 255, 255, 255);
+        return Swatch(header, band, header);
+    }
+
+    /// <summary>Cell Styles, grouped the way Excel's gallery is.</summary>
+    List<RibbonMenuEntry> CellStylesMenu => CellStylePresets.All
+        .GroupBy(x => x.Group)
+        .Select(group => Sub(group.Key, group
+            .Select(preset => this.Entry(preset.Name, c => c.ApplyCellStyle(preset), icon: Swatch(preset.Preview.Background.IsTransparent ? new ArgbColor(255, 255, 255, 255) : preset.Preview.Background)))
+            .ToList()))
         .ToList();
+
+    List<RibbonMenuEntry> InsertCellsMenu =>
+    [
+        this.Entry("Insert Sheet Rows", c => c.InsertRows(Math.Clamp(c.Selection.Range.RowCount, 1, 1000)), icon: Ico(OfficeIcon.InsertRow)),
+        this.Entry("Insert Sheet Columns", c => c.InsertColumns(Math.Clamp(c.Selection.Range.ColumnCount, 1, 1000)), icon: Ico(OfficeIcon.InsertColumn)),
+        Separator,
+        this.Entry("Insert Sheet", c => c.AddSheet())
+    ];
+
+    List<RibbonMenuEntry> DeleteCellsMenu =>
+    [
+        this.Entry("Delete Sheet Rows", c => c.DeleteRows(Math.Clamp(c.Selection.Range.RowCount, 1, 1000)), icon: Ico(OfficeIcon.DeleteRow)),
+        this.Entry("Delete Sheet Columns", c => c.DeleteColumns(Math.Clamp(c.Selection.Range.ColumnCount, 1, 1000)), icon: Ico(OfficeIcon.DeleteColumn)),
+        Separator,
+        this.Entry("Delete Sheet", c =>
+        {
+            if (c.CanRemoveFromView(c.Sheet))
+                c.DeleteSheet(c.Sheet);
+        }, enabled: this.Controller is { } controller && controller.CanRemoveFromView(controller.Sheet))
+    ];
+
+    List<RibbonMenuEntry> FormatCellsMenu =>
+    [
+        this.DialogEntry("Row Height...", SpreadsheetDialogs.RowHeight, icon: Ico(OfficeIcon.RowHeight)),
+        this.Entry("AutoFit Column Width", c => c.AutoFitColumns(), icon: Ico(OfficeIcon.ColumnWidth)),
+        this.DialogEntry("Column Width...", SpreadsheetDialogs.ColumnWidth),
+        Sub("Default Width", ColumnWidthPresets.All
+            .Select(preset => this.Entry($"{preset.Name}   {ColumnWidthPresets.PixelsOf(preset.Characters):0} px", c => c.SetColumnWidth(ColumnWidthPresets.PixelsOf(preset.Characters))))
+            .ToList()),
+        Separator,
+        this.Entry("Hide Rows", c => c.SetRowsHidden(true), icon: Ico(OfficeIcon.Hide)),
+        this.Entry("Hide Columns", c => c.SetColumnsHidden(true)),
+        this.Entry("Unhide Rows", c => c.SetRowsHidden(false), icon: Ico(OfficeIcon.Unhide)),
+        this.Entry("Unhide Columns", c => c.SetColumnsHidden(false)),
+        Separator,
+        this.DialogEntry("Format Cells...", SpreadsheetDialogs.FormatCells, icon: Ico(OfficeIcon.FormatCells))
+    ];
+
+    List<RibbonMenuEntry> FillMenu =>
+    [
+        this.Entry("Down", c => c.FillDown(), icon: Ico(OfficeIcon.FillDown)),
+        this.Entry("Right", c => c.FillRight())
+    ];
+
+    List<RibbonMenuEntry> ClearMenu =>
+    [
+        this.Entry("Clear All", c => c.ClearAll()),
+        this.Entry("Clear Formats", c => c.ClearFormatting(), icon: Ico(OfficeIcon.ClearFormat)),
+        this.Entry("Clear Contents", c => c.ClearSelection(), icon: Ico(OfficeIcon.Delete)),
+        this.Entry("Clear Notes", c => c.ClearNotes()),
+        this.Entry("Clear Hyperlinks", c => c.ClearHyperlinks())
+    ];
+
+    List<RibbonMenuEntry> SortFilterMenu
+    {
+        get
+        {
+            var filtering = this.Controller?.Sheet.AutoFilters.Any(x => x.IsFiltering) ?? false;
+            return
+            [
+                this.Entry("Sort A to Z", c => c.SortAscending(), icon: Ico(OfficeIcon.SortAscending)),
+                this.Entry("Sort Z to A", c => c.SortDescending(), icon: Ico(OfficeIcon.SortDescending)),
+                this.DialogEntry("Custom Sort...", SpreadsheetDialogs.CustomSort, icon: Ico(OfficeIcon.CustomSort)),
+                Separator,
+                this.Entry("Filter", c => c.ToggleAutoFilter(), isChecked: this.Controller?.HasAutoFilter ?? false, icon: Ico(OfficeIcon.Filter)),
+                this.Entry("Clear", c => c.ClearFilters(), enabled: filtering, icon: Ico(OfficeIcon.FilterClear)),
+                this.Entry("Reapply", c => c.ReapplyFilters(), enabled: filtering)
+            ];
+        }
+    }
+
+    List<RibbonMenuEntry> FreezeMenu =>
+    [
+        this.Entry("Freeze Panes", c => c.FreezePanes(), viewOnly: false),
+        this.Entry("Freeze Top Row", c => c.FreezeTopRow()),
+        this.Entry("Freeze First Column", c => c.FreezeFirstColumn()),
+        this.Entry("Unfreeze Panes", c => c.UnfreezePanes(), enabled: this.Controller?.HasFrozenPanes ?? false)
+    ];
+
+    List<RibbonMenuEntry> CategoryMenu(string category) => FunctionCatalog.InCategory(category)
+        .Select(info => this.Entry(info.Name, c => c.InsertFunction(info.Name)))
+        .ToList();
+
+    List<RibbonMenuEntry> MoreFunctionsMenu =>
+    [
+        Sub(FunctionCatalog.Statistical, this.CategoryMenu(FunctionCatalog.Statistical)),
+        Sub(FunctionCatalog.Information, this.CategoryMenu(FunctionCatalog.Information))
+    ];
+
+    /// <summary>The workbook's names, each inserted into the active cell's formula.</summary>
+    List<RibbonMenuEntry> UseInFormulaMenu
+    {
+        get
+        {
+            var names = this.Controller?.Workbook.VisibleNames.Select(x => x.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? [];
+            if (names.Count == 0)
+                return [new RibbonMenuEntry { Text = "(no names defined)", IsDisabled = true }];
+
+            return names.Select(name => this.Entry(name, c =>
+            {
+                // Into the formula being built when there is one, otherwise as a new one.
+                var current = c.CellText(c.Selection.Active);
+                c.CancelEdit();
+                c.BeginEdit(current.StartsWith('=') && current.Length > 1
+                    ? current + (current.EndsWith('(') || current.EndsWith(',') ? string.Empty : "+") + name
+                    : "=" + name);
+            })).ToList();
+        }
+    }
+
+    /// <summary>Fits the selection to the grid the way View ▸ Zoom to Selection does.</summary>
+    static void ZoomToSelection(SpreadsheetController c)
+    {
+        var rect = c.Viewport.RangeRect(c.Selection.Range);
+        var width = c.Viewport.Width * c.Zoom - c.Metrics.RowHeaderWidth * c.Zoom;
+        var height = c.Viewport.Height * c.Zoom - c.Metrics.ColumnHeaderHeight * c.Zoom;
+        c.Zoom = Math.Min(width / Math.Max(1, rect.Width), height / Math.Max(1, rect.Height));
+        c.GoTo(c.Selection.Range.TopLeft);
+    }
 
     /// <summary>The mark for an aggregate. Sum's sigma is shared with the AutoSum split button.</summary>
     static OfficeIcon IconOf(AutoFunction function) => function switch
@@ -441,68 +559,384 @@
         _ => OfficeIcon.Sum
     };
 
-    /// <summary>
-    /// The structural half of the bar, which is the Data tab - or the tail of the only tab when the
-    /// strip is hidden. One definition, because two would drift.
-    /// </summary>
-    RenderFragment DataGroups => @<text>
-        @* A sheet has no page setup to put this beside, so it sits with the other things that are about
-   the sheet rather than about a cell. *@
-            <RibbonGroup Title="Sheet" Priority="76">
-                @* Large: one control is the whole group, and on a single row it left the row
-                   underneath it empty for the width of a menu button. *@
-                <RibbonContent>
-                    <OfficeWatermarkButton Disabled="Disabled"
-                                           ShowTooltips="ShowTooltips"
-                                           HasWatermark="@(Watermark is not null)"
-                                           Picked="WatermarkChanged" />
+    Task FormatCellsLauncher() => this.View(c => c.ShowDialog(SpreadsheetDialogs.FormatCells(c)));
+
+    // ---- Home ----
+
+    RenderFragment HomeGroups => @<text>
+        @* Clipboard leads, as it does in Excel: cut/copy/paste apply to whatever is selected and are
+           reached far more often than any formatting command. *@
+        <RibbonGroup Title="Clipboard" Priority="110">
+            <RibbonButton Text="Paste" Tooltip="Paste (Ctrl+V)"
+                          Icon="@Ico(OfficeIcon.Paste)"
+                          Disabled="@(Disabled || !(Controller?.CanPaste ?? false))"
+                          Clicked="() => Run(c => c.Paste())" />
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Cut (Ctrl+X)" Icon="@Ico(OfficeIcon.Cut)"
+                          Disabled="Disabled" Clicked="() => Run(c => c.Cut())" />
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Copy (Ctrl+C)" Icon="@Ico(OfficeIcon.Copy)"
+                          Disabled="Disabled" Clicked="() => Run(c => c.Copy())" />
+        </RibbonGroup>
+
+        @* The launcher in the corner opens Format Cells, as Font, Alignment and Number do in Excel. *@
+        <RibbonGroup Title="Font" Priority="100" ShowDialogLauncher="true" DialogLauncherTooltip="Format Cells (Ctrl+1)"
+                     DialogLauncherClicked="FormatCellsLauncher">
+            <RibbonRow>
+                <RibbonContent Size="RibbonItemSize.Small">
+                    <FontPickerButton AvailableFonts="FontFamilies"
+                                      SelectedFont="@Format.FontName"
+                                      Disabled="Disabled"
+                                      SelectedFontChanged="OnFontChanged" />
                 </RibbonContent>
+                <RibbonContent Size="RibbonItemSize.Small">
+                    <FontSizePickerButton AvailableFontSizes="FontSizes"
+                                          SelectedFontSize="Format.FontSize"
+                                          Disabled="Disabled"
+                                          SelectedFontSizeChanged="OnSizeChanged" />
+                </RibbonContent>
+            </RibbonRow>
+
+            <RibbonRow>
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
+                                    Checked="Format.Bold" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleBold())" />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
+                                    Checked="Format.Italic" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleItalic())" />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline (Ctrl+U)" Icon="@Ico(OfficeIcon.Underline)"
+                                    Checked="Format.Underline" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleUnderline())" />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough (Ctrl+5)" Icon="@Ico(OfficeIcon.Strikethrough)"
+                                    Checked="Format.Strike" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
+
+                <RibbonSeparator />
+
+                @* The face applies the last border picked, as Excel's does; the chevron picks another,
+                   and sets the line style and colour every preset draws with. *@
+                <RibbonSplitButton Size="RibbonItemSize.Small" Tooltip="@($"{BorderPresets.NameOf(lastBorder)}")"
+                                   Icon="@Ico(BorderIcon)" Disabled="Disabled"
+                                   Clicked="() => Run(c => c.ApplyBorders(lastBorder))"
+                                   Menu="BorderMenu" />
+
+                <RibbonContent Size="RibbonItemSize.Small">
+                    <ColorPickerButton Text="Text colour"
+                                       SelectedColor="@ColorHex"
+                                       ShowOpacity="false"
+                                       Disabled="Disabled"
+                                       Style="--shiny-picker-height: 24px"
+                                       SelectedColorChanged="OnColorChanged" />
+                </RibbonContent>
+                <RibbonContent Size="RibbonItemSize.Small">
+                    <SpreadsheetFillButton Current="FillOrNull"
+                                           Disabled="Disabled"
+                                           ShowTooltips="ShowTooltips"
+                                           Picked="OnFillPicked" />
+                </RibbonContent>
+            </RibbonRow>
+        </RibbonGroup>
+
+        <RibbonGroup Title="Alignment" Priority="90" ShowDialogLauncher="true" DialogLauncherTooltip="Format Cells: Alignment"
+                     DialogLauncherClicked="FormatCellsLauncher">
+            <RibbonRow>
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Top Align" Icon="@Ico(OfficeIcon.AlignTop)"
+                                    Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Top)" Disabled="Disabled"
+                                    Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Top))" />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Middle Align" Icon="@Ico(OfficeIcon.AlignMiddle)"
+                                    Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Center)" Disabled="Disabled"
+                                    Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Center))" />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bottom Align" Icon="@Ico(OfficeIcon.AlignBottom)"
+                                    Checked="@(Format.VerticalAlignment == CellVerticalAlignment.Bottom)" Disabled="Disabled"
+                                    Clicked="_ => Run(c => c.SetVerticalAlignment(CellVerticalAlignment.Bottom))" />
+                <RibbonSeparator />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Wrap Text" Icon="@Ico(OfficeIcon.WrapText)"
+                                    Checked="Format.WrapText" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleWrapText())" />
+            </RibbonRow>
+
+            <RibbonRow>
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align Left" Icon="@Ico(OfficeIcon.AlignLeft)"
+                                    Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Left)" Disabled="Disabled"
+                                    Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Left))" />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Center" Icon="@Ico(OfficeIcon.AlignCenter)"
+                                    Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Center)" Disabled="Disabled"
+                                    Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Center))" />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align Right" Icon="@Ico(OfficeIcon.AlignRight)"
+                                    Checked="@(Format.HorizontalAlignment == CellHorizontalAlignment.Right)" Disabled="Disabled"
+                                    Clicked="_ => Run(c => c.SetAlignment(CellHorizontalAlignment.Right))" />
+                <RibbonSeparator />
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Indent" Icon="@Ico(OfficeIcon.Outdent)"
+                              Disabled="Disabled" Clicked="() => Run(c => c.AdjustIndent(-1))" />
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Indent" Icon="@Ico(OfficeIcon.Indent)"
+                              Disabled="Disabled" Clicked="() => Run(c => c.AdjustIndent(1))" />
+                <RibbonSeparator />
+
+                @* Merge & Center is a toggle on its face, as it is in Excel: pressing it on a merged cell
+                   unmerges. The chevron has the other three ways to merge. *@
+                <RibbonSplitButton Size="RibbonItemSize.Small" Text="Merge"
+                                   Tooltip="@((Controller?.IsActiveCellMerged ?? false) ? "Unmerge Cells" : "Merge & Center")"
+                                   Icon="@Ico(OfficeIcon.MergeCells)" Disabled="Disabled"
+                                   Clicked="() => Run(c => c.ToggleMergeAndCenter())"
+                                   Menu="MergeMenu" />
+            </RibbonRow>
+        </RibbonGroup>
+
+        <RibbonGroup Title="Number" Priority="80" ShowDialogLauncher="true" DialogLauncherTooltip="Format Cells: Number"
+                     DialogLauncherClicked="FormatCellsLauncher">
+            <RibbonRow>
+                <RibbonMenuButton Size="RibbonItemSize.Small" Text="Formats" Tooltip="Number Format"
+                                  Disabled="Disabled" Menu="FormatMenu" />
+            </RibbonRow>
+
+            <RibbonRow>
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Currency" Icon="@Ico(OfficeIcon.Currency)"
+                                    Checked="@(Preset == NumberFormatPreset.Currency)" Disabled="Disabled"
+                                    Clicked="_ => Run(c => c.SetNumberFormat(NumberFormatPreset.Currency))" />
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Percent Style" Icon="@Ico(OfficeIcon.Percent)"
+                                    Checked="@(Preset == NumberFormatPreset.Percent)" Disabled="Disabled"
+                                    Clicked="_ => Run(c => c.SetNumberFormat(NumberFormatPreset.Percent))" />
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Decimal" Icon="@Ico(OfficeIcon.DecimalDecrease)"
+                              Disabled="Disabled" Clicked="() => Run(c => c.AdjustDecimals(-1))" />
+                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase Decimal" Icon="@Ico(OfficeIcon.DecimalIncrease)"
+                              Disabled="Disabled" Clicked="() => Run(c => c.AdjustDecimals(1))" />
+            </RibbonRow>
+        </RibbonGroup>
+
+        <RibbonGroup Title="Styles" Priority="75">
+            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Conditional Formatting" Tooltip="Conditional Formatting"
+                              Icon="@Ico(OfficeIcon.ConditionalFormat)" Disabled="Disabled" Menu="ConditionalMenu" />
+            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Format as Table" Tooltip="Format as Table"
+                              Icon="@Ico(OfficeIcon.FormatAsTable)" Disabled="Disabled" Menu="TableMenu" />
+            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Cell Styles" Tooltip="Cell Styles"
+                              Icon="@Ico(OfficeIcon.CellStyles)" Disabled="Disabled" Menu="CellStylesMenu" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Cells" Priority="72">
+            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Insert" Tooltip="Insert Cells"
+                              Icon="@Ico(OfficeIcon.InsertRow)" Disabled="Disabled" Menu="InsertCellsMenu" />
+            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Delete" Tooltip="Delete Cells"
+                              Icon="@Ico(OfficeIcon.DeleteRow)" Disabled="Disabled" Menu="DeleteCellsMenu" />
+            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Format" Tooltip="Format"
+                              Icon="@Ico(OfficeIcon.FormatCells)" Disabled="Disabled" Menu="FormatCellsMenu" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Editing" Priority="70">
+            @* AutoSum stays a split button: totalling a column is the common case by a wide margin. *@
+            <RibbonSplitButton Text="AutoSum" Tooltip="AutoSum (Alt+=)"
+                               Icon="@Ico(OfficeIcon.Sum)" Disabled="Disabled"
+                               Clicked="() => Run(c => c.ApplyAutoFunction(AutoFunction.Sum))"
+                               Menu="FunctionMenu" />
+
+            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Fill" Icon="@Ico(OfficeIcon.FillDown)"
+                              Disabled="Disabled" Menu="FillMenu" />
+            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Clear" Icon="@Ico(OfficeIcon.ClearFormat)"
+                              Disabled="Disabled" Menu="ClearMenu" />
+            <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Sort &amp; Filter" Icon="@Ico(OfficeIcon.Filter)"
+                              Disabled="Disabled" Menu="SortFilterMenu" />
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Go To (Ctrl+G)" Icon="@Ico(OfficeIcon.GoTo)"
+                          Disabled="@(Controller is null)" Clicked="() => View(c => c.ShowDialog(SpreadsheetDialogs.GoTo(c)))" />
+        </RibbonGroup>
+
+        @* Not gated on Disabled: a read-only workbook can still be searched. *@
+        <RibbonGroup Title="Find" Priority="65">
+            <RibbonContent>
+                <OfficeFindBar Find="@Controller?.Find"
+                               ShowTooltips="ShowTooltips"
+                               Moved="StateHasChanged" />
+            </RibbonContent>
+        </RibbonGroup>
+
+        @if (ToolbarContent != null)
+        {
+            @* Never folds into an overflow button: whatever the host added is theirs. *@
+            <RibbonGroup Title="@ToolbarContentTitle" Priority="200" CanCollapse="false">
+                <RibbonContent>@ToolbarContent</RibbonContent>
             </RibbonGroup>
+        }
+    </text>;
 
-        @* Insert on one row and delete on the other, rows and columns in the same order on both -
-           so the pair a command belongs to is its line rather than a rule you have to notice. *@
-        <RibbonGroup Title="Cells" Priority="60">
-            <RibbonRow>
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Insert row above" Icon="@Ico(OfficeIcon.InsertRow)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.InsertRows())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Insert column left" Icon="@Ico(OfficeIcon.InsertColumn)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.InsertColumns())" />
-            </RibbonRow>
-            <RibbonRow>
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Delete rows" Icon="@Ico(OfficeIcon.DeleteRow)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.DeleteRows())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Delete columns" Icon="@Ico(OfficeIcon.DeleteColumn)"
-                              Disabled="Disabled" Clicked="() => Run(c => c.DeleteColumns())" />
-            </RibbonRow>
+    // ---- Insert ----
+
+    RenderFragment InsertGroups => @<text>
+        <RibbonGroup Title="Tables" Priority="60">
+            <RibbonButton Text="Table" Tooltip="Table"
+                          Icon="@Ico(OfficeIcon.FormatAsTable)" Disabled="Disabled"
+                          Clicked="@(() => Run(c => c.ShowDialog(SpreadsheetDialogs.CreateTable(c, "TableStyleMedium2"))))" />
         </RibbonGroup>
 
-        <RibbonGroup Title="Columns" Priority="50">
-            @* Fitting to contents is the common case, so it stays the face; the presets behind the
-               chevron are the only way back to a chosen width, which a fit cannot give you. *@
-            <RibbonSplitButton Text="Width" Tooltip="Fit columns to contents"
-                               Icon="@Ico(OfficeIcon.ColumnWidth)" Disabled="Disabled"
-                               Clicked="() => Run(c => c.AutoFitColumns())"
-                               Menu="WidthMenu" />
-
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Hide columns" Icon="@Ico(OfficeIcon.Hide)"
-                          Disabled="Disabled" Clicked="() => Run(c => c.SetColumnsHidden(true))" />
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Unhide columns" Icon="@Ico(OfficeIcon.Unhide)"
-                          Disabled="Disabled" Clicked="() => Run(c => c.SetColumnsHidden(false))" />
-        </RibbonGroup>
-
-        @* Labelled, unlike the rest of the bar: five aggregates told apart by icon alone would be
-           five guesses. The label is the formula name rather than the friendly one, because the
-           button writes =AVERAGE(...) into a cell and that is the thing worth naming. *@
-        <RibbonGroup Title="Functions" Priority="40">
-            @foreach (var function in Functions)
+        @* Each chart type is one press: Excel's recommended-chart gallery comes later; what matters is
+           that a selection becomes a chart without a trip through a dialog. *@
+        <RibbonGroup Title="Charts" Priority="58">
+            @foreach (var (kind, name) in SheetCharts.Gallery)
             {
-                <RibbonButton Size="RibbonItemSize.Small"
-                              Text="@AutoFunctions.NameOf(function)"
-                              Tooltip="@AutoFunctions.DisplayName(function)"
-                              Icon="@Ico(IconOf(function))"
-                              Disabled="Disabled"
-                              Clicked="() => Run(c => c.ApplyAutoFunction(function))" />
+                <RibbonButton Size="RibbonItemSize.Small" Text="@ShortChartName(kind)" Tooltip="@($"Insert {name} Chart")"
+                              Icon="@Ico(ChartIcon(kind))" Disabled="Disabled"
+                              Clicked="() => Run(c => c.InsertChart(kind))" />
             }
+        </RibbonGroup>
+
+        <RibbonGroup Title="Links" Priority="56">
+            <RibbonButton Text="Link" Tooltip="Insert Link (Ctrl+K)"
+                          Icon="@Ico(OfficeIcon.Hyperlink)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.Hyperlink(c)))" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Notes" Priority="54">
+            <RibbonButton Text="Note" Tooltip="New Note (Shift+F2)"
+                          Icon="@Ico(OfficeIcon.NewNote)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.Note(c)))" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Watermark" Priority="40">
+            <RibbonContent>
+                <OfficeWatermarkButton Disabled="Disabled"
+                                       ShowTooltips="ShowTooltips"
+                                       HasWatermark="@(Watermark is not null)"
+                                       Picked="WatermarkChanged" />
+            </RibbonContent>
+        </RibbonGroup>
+    </text>;
+
+    static OfficeIcon ChartIcon(ChartKind kind) => kind switch
+    {
+        ChartKind.Bar => OfficeIcon.ChartBar,
+        ChartKind.Line => OfficeIcon.ChartLine,
+        ChartKind.Pie => OfficeIcon.ChartPie,
+        ChartKind.Area => OfficeIcon.ChartArea,
+        _ => OfficeIcon.ChartColumn
+    };
+
+    static string ShortChartName(ChartKind kind) => kind switch
+    {
+        ChartKind.Column => "Column",
+        ChartKind.Bar => "Bar",
+        ChartKind.Line => "Line",
+        ChartKind.Pie => "Pie",
+        ChartKind.Area => "Area",
+        _ => kind.ToString()
+    };
+
+    // ---- Formulas ----
+
+    RenderFragment FormulaGroups => @<text>
+        <RibbonGroup Title="Function Library" Priority="60">
+            <RibbonButton Text="Insert Function" Tooltip="Insert Function (Shift+F3)"
+                          Icon="@Ico(OfficeIcon.Function)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.InsertFunction(c)))" />
+            <RibbonSplitButton Size="RibbonItemSize.Small" Text="AutoSum" Tooltip="AutoSum"
+                               Icon="@Ico(OfficeIcon.Sum)" Disabled="Disabled"
+                               Clicked="() => Run(c => c.ApplyAutoFunction(AutoFunction.Sum))"
+                               Menu="FunctionMenu" />
+            @foreach (var category in new[] { FunctionCatalog.Financial, FunctionCatalog.Logical, FunctionCatalog.Text, FunctionCatalog.DateTime, FunctionCatalog.Lookup, FunctionCatalog.Math })
+            {
+                <RibbonMenuButton Size="RibbonItemSize.Small" Text="@category" Tooltip="@category"
+                                  Disabled="Disabled" Menu="@CategoryMenu(category)" />
+            }
+            <RibbonMenuButton Size="RibbonItemSize.Small" Text="More Functions" Tooltip="More Functions"
+                              Disabled="Disabled" Menu="MoreFunctionsMenu" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Defined Names" Priority="55">
+            <RibbonButton Text="Name Manager" Tooltip="Name Manager (Ctrl+F3)"
+                          Icon="@Ico(OfficeIcon.NameManager)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.NameManager(c)))" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="Define Name" Tooltip="Define Name"
+                          Icon="@Ico(OfficeIcon.DefineName)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.DefineName(c, null)))" />
+            <RibbonMenuButton Size="RibbonItemSize.Small" Text="Use in Formula" Tooltip="Use in Formula"
+                              Disabled="Disabled" Menu="UseInFormulaMenu" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Calculation" Priority="50">
+            <RibbonButton Size="RibbonItemSize.Small" Text="Calculate Now" Tooltip="Calculate Now (F9)"
+                          Icon="@Ico(OfficeIcon.Calculate)" Disabled="@(Controller is null)"
+                          Clicked="() => View(c => c.CalculateNow())" />
+            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Show Formulas" Tooltip="Show Formulas (Ctrl+`)"
+                                Icon="@Ico(OfficeIcon.ShowFormulas)" Checked="@(Controller?.ShowFormulas ?? false)"
+                                Disabled="@(Controller is null)" Clicked="_ => View(c => c.ToggleShowFormulas())" />
+        </RibbonGroup>
+    </text>;
+
+    // ---- Data ----
+
+    RenderFragment DataGroups => @<text>
+        <RibbonGroup Title="Sort &amp; Filter" Priority="60">
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Sort A to Z" Icon="@Ico(OfficeIcon.SortAscending)"
+                          Disabled="Disabled" Clicked="() => Run(c => c.SortAscending())" />
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Sort Z to A" Icon="@Ico(OfficeIcon.SortDescending)"
+                          Disabled="Disabled" Clicked="() => Run(c => c.SortDescending())" />
+            <RibbonButton Text="Sort" Tooltip="Custom Sort"
+                          Icon="@Ico(OfficeIcon.CustomSort)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.CustomSort(c)))" />
+            <RibbonToggleButton Text="Filter" Tooltip="Filter (Ctrl+Shift+L)"
+                                Icon="@Ico(OfficeIcon.Filter)" Checked="@(Controller?.HasAutoFilter ?? false)"
+                                Disabled="Disabled" Clicked="_ => Run(c => c.ToggleAutoFilter())" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="Clear" Tooltip="Clear Filters"
+                          Icon="@Ico(OfficeIcon.FilterClear)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ClearFilters())" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="Reapply" Tooltip="Reapply Filters"
+                          Disabled="Disabled" Clicked="() => Run(c => c.ReapplyFilters())" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Data Tools" Priority="55">
+            <RibbonButton Text="Data Validation" Tooltip="Data Validation"
+                          Icon="@Ico(OfficeIcon.DataValidation)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.DataValidation(c)))" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="Clear Validation" Tooltip="Clear Validation"
+                          Disabled="@(Disabled || Controller?.ActiveValidation is null)"
+                          Clicked="() => Run(c => c.SetValidation(null))" />
+        </RibbonGroup>
+    </text>;
+
+    // ---- Review ----
+
+    RenderFragment ReviewGroups => @<text>
+        <RibbonGroup Title="Notes" Priority="60">
+            <RibbonButton Text="@(Controller?.ActiveNote is null ? "New Note" : "Edit Note")" Tooltip="Note (Shift+F2)"
+                          Icon="@Ico(OfficeIcon.NewNote)" Disabled="Disabled"
+                          Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.Note(c)))" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="Delete" Tooltip="Delete Note"
+                          Icon="@Ico(OfficeIcon.DeleteNote)" Disabled="@(Disabled || Controller?.ActiveNote is null)"
+                          Clicked="() => Run(c => c.DeleteNote())" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="Previous" Tooltip="Previous Note"
+                          Icon="@Ico(OfficeIcon.Previous)" Disabled="@(Controller is null)"
+                          Clicked="() => View(c => c.NextNote(backwards: true))" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="Next" Tooltip="Next Note"
+                          Icon="@Ico(OfficeIcon.Next)" Disabled="@(Controller is null)"
+                          Clicked="() => View(c => c.NextNote())" />
+            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Show All Notes" Tooltip="Show All Notes"
+                                Icon="@Ico(OfficeIcon.ShowNotes)" Checked="@(Controller?.ShowAllNotes ?? false)"
+                                Disabled="@(Controller is null)" Clicked="_ => View(c => c.ShowAllNotes = !c.ShowAllNotes)" />
+        </RibbonGroup>
+    </text>;
+
+    // ---- View ----
+
+    RenderFragment ViewGroups => @<text>
+        <RibbonGroup Title="Show" Priority="60">
+            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Gridlines" Tooltip="Gridlines"
+                                Icon="@Ico(OfficeIcon.Gridlines)" Checked="@(Controller?.ShowGridlines ?? true)"
+                                Disabled="@(Controller is null)" Clicked="_ => View(c => c.ShowGridlines = !c.ShowGridlines)" />
+            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Headings" Tooltip="Headings"
+                                Icon="@Ico(OfficeIcon.Headings)" Checked="@(Controller?.ShowHeadings ?? true)"
+                                Disabled="@(Controller is null)" Clicked="_ => View(c => c.ShowHeadings = !c.ShowHeadings)" />
+            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Formula Bar" Tooltip="Formula Bar"
+                                Icon="@Ico(OfficeIcon.FormulaBar)" Checked="ShowFormulaBar"
+                                Disabled="@(Controller is null)" Clicked="_ => ToggleFormulaBar()" />
+            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Formulas" Tooltip="Show Formulas (Ctrl+`)"
+                                Icon="@Ico(OfficeIcon.ShowFormulas)" Checked="@(Controller?.ShowFormulas ?? false)"
+                                Disabled="@(Controller is null)" Clicked="_ => View(c => c.ToggleShowFormulas())" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Zoom" Priority="55">
+            <RibbonButton Text="Zoom" Tooltip="Zoom"
+                          Icon="@Ico(OfficeIcon.ZoomIn)" Disabled="@(Controller is null)"
+                          Clicked="() => View(c => c.ShowDialog(SpreadsheetDialogs.Zoom(c, c.Viewport.Width * c.Zoom, c.Viewport.Height * c.Zoom)))" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="100%" Tooltip="Zoom to 100%"
+                          Icon="@Ico(OfficeIcon.Zoom100)" Disabled="@(Controller is null)"
+                          Clicked="() => View(c => c.Zoom = 1)" />
+            <RibbonButton Size="RibbonItemSize.Small" Text="Zoom to Selection" Tooltip="Zoom to Selection"
+                          Disabled="@(Controller is null)"
+                          Clicked="() => View(ZoomToSelection)" />
+        </RibbonGroup>
+
+        <RibbonGroup Title="Window" Priority="50">
+            <RibbonMenuButton Text="Freeze Panes" Tooltip="Freeze Panes"
+                              Icon="@Ico(OfficeIcon.FreezePanes)" Disabled="Disabled" Menu="FreezeMenu" />
         </RibbonGroup>
     </text>;
 
@@ -510,15 +944,9 @@
     /// What a preset does to a number, so the menu shows the format rather than naming it.
     /// </summary>
     /// <remarks>
-    /// <para>
     /// Formatted through the same resolver the grid paints with, so the sample is the truth rather
-    /// than a hard-coded string that drifts from what the button actually applies.
-    /// </para>
-    /// <para>
-    /// The number differs by preset because one number cannot demonstrate all of them: 1234.5 as a
-    /// percentage is 123450%, and as a date it is a morning in 1903. Each row shows the format doing
-    /// the thing someone would pick it for.
-    /// </para>
+    /// than a hard-coded string that drifts from what the button actually applies. The number differs
+    /// by preset because one number cannot demonstrate all of them.
     /// </remarks>
     string SampleOf(NumberFormatPreset preset)
     {
@@ -571,10 +999,6 @@
     /// <summary>
     /// Raised when the button picks a picture, or clears the one already set.
     /// </summary>
-    /// <remarks>
-    /// A callback rather than the bar owning it: a watermark is drawn by the grid, and the bar has no
-    /// grid - it has a controller, which is the workbook rather than the view of it.
-    /// </remarks>
     [Parameter] public EventCallback<OfficeWatermark?> WatermarkChanged { get; set; }
 
     string? AccentBackground => this.Accent is { } a ? Css(a.Color) : null;
@@ -583,5 +1007,4 @@
 
     static string Css(ArgbColor value)
         => $"rgba({value.R},{value.G},{value.B},{(value.A / 255d).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
-
 }

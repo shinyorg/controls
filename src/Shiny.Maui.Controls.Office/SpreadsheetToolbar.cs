@@ -1,5 +1,6 @@
 using Shiny.Controls.Office.Icons;
 using Shiny.Controls.Office.Spreadsheet.Calc;
+using Shiny.Controls.Office.Spreadsheet.Commands;
 using Shiny.Maui.Controls.ColorPicker;
 using Shiny.Maui.Controls.FontPicker;
 using Shiny.Maui.Controls.Ribbons;
@@ -8,29 +9,25 @@ using Shiny.Maui.Controls.Themes;
 namespace Shiny.Maui.Controls.Office;
 
 /// <summary>
-/// The formatting bar above a <see cref="SpreadsheetView"/>.
+/// The ribbon above a <see cref="SpreadsheetView"/>, laid out the way Excel's is.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Two tabs. <b>Home</b> is what any editor has — clipboard, font, alignment, number formats and the
-/// editing commands — and <b>Data</b> is what only a spreadsheet has: rows and columns in and out,
-/// column widths and visibility, and the function library. The second tab is the reason this is a
-/// control rather than a copy of the document toolbar.
+/// Excel's tabs, in Excel's order: <b>File</b> (a hook — <see cref="FileMenuRequested"/>; the backstage
+/// belongs to the app), <b>Home</b>, <b>Insert</b>, <b>Formulas</b>, <b>Data</b>, <b>Review</b> and
+/// <b>View</b>. The groups inside each are Excel's too — Home carries Clipboard, Font, Alignment, Number,
+/// Styles, Cells and Editing — because the point of a spreadsheet that looks like Excel is that a hand
+/// that knows where Excel keeps a command finds it here without looking.
 /// </para>
 /// <para>
-/// The split is by what a command changes, not by how often it is reached: Home changes how a cell
-/// looks, Data changes the shape of the sheet under it. With one tab the structural half could never
-/// grow past the two commands that fitted between clear-formatting and a colour picker.
+/// Everything goes through <see cref="SpreadsheetController"/>, so a button is the same undoable command
+/// a keyboard shortcut or a context-menu line would raise. A command that needs input — Format Cells, a
+/// conditional-format value, the name manager — asks the controller for its dialog, and the
+/// <see cref="SpreadsheetView"/> renders it; the bar itself never opens a window.
 /// </para>
 /// <para>
-/// Everything it does goes through <see cref="SpreadsheetController"/>, so a button here is the same
-/// undoable command a keyboard shortcut would raise — not a second path into the workbook. It also
-/// means the bar can be used on its own: set <see cref="Controller"/> from
-/// <see cref="SpreadsheetView.Controller"/> and put it wherever the app's chrome belongs.
-/// </para>
-/// <para>
-/// The icons come from the shared Office set, so this bar, the document bar and the slide bar draw
-/// the same mark for the same command on both hosts.
+/// The icons come from the shared Office set, so this bar and the Blazor one draw the same mark for the
+/// same command.
 /// </para>
 /// </remarks>
 public class SpreadsheetToolbar : ContentView
@@ -55,42 +52,94 @@ public class SpreadsheetToolbar : ContentView
     readonly RibbonMenuButton numberFormats;
     readonly RibbonButton watermark;
     readonly RibbonSplitButton sum;
+    readonly RibbonSplitButton formulaSum;
     readonly RibbonButton paste;
     readonly RibbonButton cut;
     readonly RibbonButton copy;
     readonly RibbonButton outdent;
     readonly RibbonButton indent;
-    readonly RibbonButton insertRow;
-    readonly RibbonButton insertColumn;
-    readonly RibbonButton deleteRow;
-    readonly RibbonButton deleteColumn;
-    readonly RibbonSplitButton columnWidth;
-    readonly RibbonButton hideColumns;
-    readonly RibbonButton unhideColumns;
-    readonly RibbonButton clearContents;
-    readonly RibbonButton clearFormat;
+    readonly RibbonSplitButton borders;
+    readonly RibbonSplitButton merge;
+    readonly RibbonMenuButton conditional;
+    readonly RibbonMenuButton formatAsTable;
+    readonly RibbonMenuButton cellStyles;
+    readonly RibbonMenuButton insertCells;
+    readonly RibbonMenuButton deleteCells;
+    readonly RibbonMenuButton formatCells;
+    readonly RibbonMenuButton fillMenu;
+    readonly RibbonMenuButton clearMenu;
+    readonly RibbonMenuButton sortFilterMenu;
+    readonly RibbonButton goTo;
     readonly OfficeFindBar findBar = new();
     readonly RibbonButton undo;
     readonly RibbonButton redo;
 
-    // The Data tab's function library. Sum is a second button rather than the Home tab's split one:
-    // an item model is rendered into a view per group, and one instance cannot be in two places.
-    readonly RibbonButton[] functions;
+    // Insert
+    readonly RibbonButton insertTable;
+    readonly RibbonButton[] chartButtons;
+    readonly RibbonButton insertLink;
+    readonly RibbonButton insertNote;
+
+    // Formulas
+    readonly RibbonButton insertFunction;
+    readonly RibbonMenuButton[] libraryMenus;
+    readonly RibbonButton nameManager;
+    readonly RibbonButton defineName;
+    readonly RibbonMenuButton useInFormula;
+    readonly RibbonButton calculateNow;
+    readonly RibbonToggleButton showFormulas;
+
+    // Data
+    readonly RibbonButton sortAscending;
+    readonly RibbonButton sortDescending;
+    readonly RibbonButton customSort;
+    readonly RibbonToggleButton filter;
+    readonly RibbonButton clearFilter;
+    readonly RibbonButton reapplyFilter;
+    readonly RibbonButton dataValidation;
+    readonly RibbonButton clearValidation;
+
+    // Review
+    readonly RibbonButton newNote;
+    readonly RibbonButton deleteNote;
+    readonly RibbonButton previousNote;
+    readonly RibbonButton nextNote;
+    readonly RibbonToggleButton showAllNotes;
+
+    // View
+    readonly RibbonToggleButton gridlines;
+    readonly RibbonToggleButton headings;
+    readonly RibbonToggleButton formulaBar;
+    readonly RibbonToggleButton viewFormulas;
+    readonly RibbonButton zoomDialog;
+    readonly RibbonButton zoom100;
+    readonly RibbonButton zoomSelection;
+    readonly RibbonMenuButton freeze;
+
+    readonly RibbonMenuEntry filterEntry;
+    readonly RibbonMenuEntry convertToRange;
 
     readonly OfficeToolbarButton fill;
     readonly ColorPickerButton textColor;
+
+    /// <summary>Items that change nothing, so a read-only workbook still has them.</summary>
+    readonly HashSet<RibbonItem> readOnlySafe = [];
+
+    /// <summary>Every command item, for the enabled pass.</summary>
+    readonly List<RibbonItem> items = [];
 
     FontPickerButton? fontPicker;
     FontSizePickerButton? sizePicker;
     SpreadsheetController? controller;
     bool suppressPickerEvents;
+    string namesShown = "\u0000";
 
     public SpreadsheetToolbar()
     {
-        this.bold = this.Toggle(OfficeIcon.Bold, "Bold", c => c.ToggleBold());
-        this.italic = this.Toggle(OfficeIcon.Italic, "Italic", c => c.ToggleItalic());
-        this.underline = this.Toggle(OfficeIcon.Underline, "Underline", c => c.ToggleUnderline());
-        this.strike = this.Toggle(OfficeIcon.Strikethrough, "Strikethrough", c => c.ToggleStrikethrough());
+        this.bold = this.Toggle(OfficeIcon.Bold, "Bold (Ctrl+B)", c => c.ToggleBold());
+        this.italic = this.Toggle(OfficeIcon.Italic, "Italic (Ctrl+I)", c => c.ToggleItalic());
+        this.underline = this.Toggle(OfficeIcon.Underline, "Underline (Ctrl+U)", c => c.ToggleUnderline());
+        this.strike = this.Toggle(OfficeIcon.Strikethrough, "Strikethrough (Ctrl+5)", c => c.ToggleStrikethrough());
 
         this.alignLeft = this.Toggle(OfficeIcon.AlignLeft, "Align left", c => c.SetAlignment(CellHorizontalAlignment.Left));
         this.alignCenter = this.Toggle(OfficeIcon.AlignCenter, "Centre", c => c.SetAlignment(CellHorizontalAlignment.Center));
@@ -101,86 +150,230 @@ public class SpreadsheetToolbar : ContentView
         this.alignBottom = this.Toggle(OfficeIcon.AlignBottom, "Align bottom", c => c.SetVerticalAlignment(CellVerticalAlignment.Bottom));
 
         this.wrap = this.Toggle(OfficeIcon.WrapText, "Wrap text", c => c.ToggleWrapText());
-
-        // Indent is a cell format like the alignments it sits beside, not a structural edit - which is
-        // why it is here rather than on the Data tab with the row and column commands.
         this.outdent = this.Command(OfficeIcon.Outdent, "Decrease indent", c => c.AdjustIndent(-1));
         this.indent = this.Command(OfficeIcon.Indent, "Increase indent", c => c.AdjustIndent(1));
 
+        // Merge & Center: the face merges and centres - or unmerges a merged cell, which is how Excel's
+        // own button behaves - and the chevron offers the other three.
+        this.merge = this.Split(OfficeIcon.MergeCells, "Merge & Center", "Merge & Center", c => c.ToggleMergeAndCenter(), RibbonItemSize.Small);
+        this.merge.Menu.Add(this.Entry("Merge & Center", c => c.MergeCells(MergeMode.MergeAndCenter)));
+        this.merge.Menu.Add(this.Entry("Merge Across", c => c.MergeCells(MergeMode.MergeAcross)));
+        this.merge.Menu.Add(this.Entry("Merge Cells", c => c.MergeCells(MergeMode.MergeCells)));
+        this.merge.Menu.Add(this.Entry("Unmerge Cells", c => c.UnmergeCells()));
+
         this.currency = this.Toggle(OfficeIcon.Currency, "Currency", c => c.SetNumberFormat(NumberFormatPreset.Currency));
-        this.percent = this.Toggle(OfficeIcon.Percent, "Percent", c => c.SetNumberFormat(NumberFormatPreset.Percent));
+        this.percent = this.Toggle(OfficeIcon.Percent, "Percent (Ctrl+Shift+%)", c => c.SetNumberFormat(NumberFormatPreset.Percent));
         this.decimalDecrease = this.Command(OfficeIcon.DecimalDecrease, "Fewer decimal places", c => c.AdjustDecimals(-1));
         this.decimalIncrease = this.Command(OfficeIcon.DecimalIncrease, "More decimal places", c => c.AdjustDecimals(1));
 
-        // Was a chevron button that opened a native action sheet. A ribbon menu button is the same
-        // list in the bar's own idiom, and it can show each preset's live sample beside its name -
-        // which an action sheet had no room for.
+        // No icon, deliberately: the only mark that fits is the currency one beside it in the group.
         this.numberFormats = new RibbonMenuButton
         {
             Text = "Formats",
             Tooltip = "More number formats",
             Size = RibbonItemSize.Small,
             AutomationId = "SheetToolbarNumberFormats"
-
-            // No icon, deliberately: the only mark that fits is the currency one already sitting two
-            // buttons to the left in the same group, and the same glyph twice reads as a duplicated
-            // command. The label and the chevron say what it is.
         };
 
-        // AutoSum stays a split button: totalling a column is the common case by a wide margin, and
-        // making it a menu choice would put a click in front of it every time.
-        this.sum = new RibbonSplitButton
+        this.sum = this.AutoSum("SheetToolbarAutoSum");
+        this.formulaSum = this.AutoSum("SheetToolbarFormulaAutoSum");
+
+        this.paste = this.Command(OfficeIcon.Paste, "Paste (Ctrl+V)", c => c.Paste(), "Paste");
+        this.cut = this.Command(OfficeIcon.Cut, "Cut (Ctrl+X)", c => c.Cut());
+        this.copy = this.Command(OfficeIcon.Copy, "Copy (Ctrl+C)", c => c.Copy());
+
+        // Borders: the face draws the last preset picked, bottom to begin with, as Excel's does.
+        this.borders = this.Split(OfficeIcon.BorderBottom, "Borders", "Bottom Border", c => c.ApplyBorders(this.lastBorder), RibbonItemSize.Small);
+        this.BuildBordersMenu();
+
+        this.conditional = this.MenuButton(OfficeIcon.ConditionalFormat, "Conditional Formatting", "Conditional Formatting");
+        this.BuildConditionalMenu();
+
+        this.formatAsTable = this.MenuButton(OfficeIcon.FormatAsTable, "Format as Table", "Format as Table");
+        foreach (var style in SheetTables.GalleryStyles)
         {
-            Text = "AutoSum",
-            Tooltip = "AutoSum",
-            Size = RibbonItemSize.Small,
-            AutomationId = "SheetToolbarAutoSum",
-            IconTemplate = OfficeRibbonItems.IconTemplateFor(OfficeIcon.Sum),
-            Command = new Command(() => this.RunCommand(c => c.ApplyAutoFunction(AutoFunction.Sum)))
-        };
+            var captured = style;
+            this.formatAsTable.Menu.Add(this.Entry(TableStyleName(captured), c => this.FormatAsTable(c, captured)));
+        }
 
-        this.paste = this.Command(OfficeIcon.Paste, "Paste", c => c.Paste(), "Paste");
-        this.cut = this.Command(OfficeIcon.Cut, "Cut", c => c.Cut());
-        this.copy = this.Command(OfficeIcon.Copy, "Copy", c => c.Copy());
+        this.convertToRange = this.Entry("Convert to Range", c => c.ConvertTableToRange());
+        this.formatAsTable.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.formatAsTable.Menu.Add(this.convertToRange);
 
-        this.insertRow = this.Command(OfficeIcon.InsertRow, "Insert row above", c => c.InsertRows());
-        this.insertColumn = this.Command(OfficeIcon.InsertColumn, "Insert column left", c => c.InsertColumns());
-        this.deleteRow = this.Command(OfficeIcon.DeleteRow, "Delete rows", c => c.DeleteRows());
-        this.deleteColumn = this.Command(OfficeIcon.DeleteColumn, "Delete columns", c => c.DeleteColumns());
-
-        this.hideColumns = this.Command(OfficeIcon.Hide, "Hide columns", c => c.SetColumnsHidden(true));
-        this.unhideColumns = this.Command(OfficeIcon.Unhide, "Unhide columns", c => c.SetColumnsHidden(false));
-
-        // Fitting to contents is the common case, so it stays the face; the presets behind the chevron
-        // are the only way back to a chosen width, which a fit cannot give you.
-        this.columnWidth = new RibbonSplitButton
+        this.cellStyles = this.MenuButton(OfficeIcon.CellStyles, "Cell Styles", "Cell Styles");
+        foreach (var group in CellStylePresets.All.GroupBy(x => x.Group))
         {
-            Text = "Width",
-            Tooltip = "Fit columns to contents",
-            Size = RibbonItemSize.Small,
-            AutomationId = "SheetToolbarColumnWidth",
-            IconTemplate = OfficeRibbonItems.IconTemplateFor(OfficeIcon.ColumnWidth),
-            Command = new Command(() => this.RunCommand(c => c.AutoFitColumns()))
-        };
+            var parent = new RibbonMenuEntry { Text = group.Key };
+            foreach (var preset in group)
+            {
+                var captured = preset;
+                parent.Children.Add(this.Entry(captured.Name, c => c.ApplyCellStyle(captured)));
+            }
 
-        this.clearContents = this.Command(OfficeIcon.Delete, "Clear contents", c => c.ClearSelection());
-        this.clearFormat = this.Command(OfficeIcon.ClearFormat, "Clear formatting", c => c.ClearFormatting());
+            this.cellStyles.Menu.Add(parent);
+        }
 
-        // Labelled, unlike the rest of the bar: five aggregates told apart by icon alone would be five
-        // guesses, and the group has the room a Home-tab group does not.
-        this.functions = SpreadsheetMenus.Functions
-            .Select(function => this.Command(
-                IconOf(function),
-                AutoFunctions.DisplayName(function),
-                c => c.ApplyAutoFunction(function),
+        this.insertCells = this.MenuButton(OfficeIcon.InsertRow, "Insert", "Insert cells, rows, columns or sheets");
+        this.insertCells.Menu.Add(this.Entry("Insert Sheet Rows", c => c.InsertRows(Math.Clamp(c.Selection.Range.RowCount, 1, 1000))));
+        this.insertCells.Menu.Add(this.Entry("Insert Sheet Columns", c => c.InsertColumns(Math.Clamp(c.Selection.Range.ColumnCount, 1, 1000))));
+        this.insertCells.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.insertCells.Menu.Add(this.Entry("Insert Sheet", c => c.AddSheet()));
 
-                // Labelled with the formula name rather than the friendly one: the button writes
-                // =AVERAGE(...) into a cell, and that is the thing worth naming.
-                AutoFunctions.NameOf(function)))
+        this.deleteCells = this.MenuButton(OfficeIcon.DeleteRow, "Delete", "Delete cells, rows, columns or sheets");
+        this.deleteCells.Menu.Add(this.Entry("Delete Sheet Rows", c => c.DeleteRows(Math.Clamp(c.Selection.Range.RowCount, 1, 1000))));
+        this.deleteCells.Menu.Add(this.Entry("Delete Sheet Columns", c => c.DeleteColumns(Math.Clamp(c.Selection.Range.ColumnCount, 1, 1000))));
+        this.deleteCells.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.deleteCells.Menu.Add(this.Entry("Delete Sheet", c =>
+        {
+            if (c.CanRemoveFromView(c.Sheet))
+                c.DeleteSheet(c.Sheet);
+        }));
+
+        this.formatCells = this.MenuButton(OfficeIcon.FormatCells, "Format", "Row height, column width, visibility and cell format");
+        this.formatCells.Menu.Add(this.Entry("Row Height...", c => c.ShowDialog(SpreadsheetDialogs.RowHeight(c))));
+        this.formatCells.Menu.Add(this.Entry("AutoFit Column Width", c => c.AutoFitColumns()));
+        this.formatCells.Menu.Add(this.Entry("Column Width...", c => c.ShowDialog(SpreadsheetDialogs.ColumnWidth(c))));
+
+        var widths = new RibbonMenuEntry { Text = "Column Width Presets" };
+        foreach (var (name, characters) in ColumnWidthPresets.All)
+        {
+            var width = ColumnWidthPresets.PixelsOf(characters);
+            widths.Children.Add(this.Entry($"{name}   {width:0} px", c => c.SetColumnWidth(width)));
+        }
+
+        this.formatCells.Menu.Add(widths);
+        this.formatCells.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.formatCells.Menu.Add(this.Entry("Hide Rows", c => c.SetRowsHidden(true)));
+        this.formatCells.Menu.Add(this.Entry("Hide Columns", c => c.SetColumnsHidden(true)));
+        this.formatCells.Menu.Add(this.Entry("Unhide Rows", c => c.SetRowsHidden(false)));
+        this.formatCells.Menu.Add(this.Entry("Unhide Columns", c => c.SetColumnsHidden(false)));
+        this.formatCells.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.formatCells.Menu.Add(this.Entry("Format Cells...", c => c.ShowDialog(SpreadsheetDialogs.FormatCells(c))));
+
+        this.fillMenu = this.MenuButton(OfficeIcon.FillDown, "Fill", "Fill");
+        this.fillMenu.Menu.Add(this.Entry("Down (Ctrl+D)", c => c.FillDown()));
+        this.fillMenu.Menu.Add(this.Entry("Right (Ctrl+R)", c => c.FillRight()));
+
+        this.clearMenu = this.MenuButton(OfficeIcon.ClearFormat, "Clear", "Clear");
+        this.clearMenu.Menu.Add(this.Entry("Clear All", c => c.ClearAll()));
+        this.clearMenu.Menu.Add(this.Entry("Clear Formats", c => c.ClearFormatting()));
+        this.clearMenu.Menu.Add(this.Entry("Clear Contents", c => c.ClearSelection()));
+        this.clearMenu.Menu.Add(this.Entry("Clear Notes", c => c.ClearNotes()));
+        this.clearMenu.Menu.Add(this.Entry("Clear Hyperlinks", c => c.ClearHyperlinks()));
+
+        this.filterEntry = this.Entry("Filter (Ctrl+Shift+L)", c => c.ToggleAutoFilter());
+        this.sortFilterMenu = this.MenuButton(OfficeIcon.SortAscending, "Sort & Filter", "Sort & Filter");
+        this.sortFilterMenu.Menu.Add(this.Entry("Sort A to Z", c => c.SortAscending()));
+        this.sortFilterMenu.Menu.Add(this.Entry("Sort Z to A", c => c.SortDescending()));
+        this.sortFilterMenu.Menu.Add(this.Entry("Custom Sort...", c => c.ShowDialog(SpreadsheetDialogs.CustomSort(c))));
+        this.sortFilterMenu.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.sortFilterMenu.Menu.Add(this.filterEntry);
+        this.sortFilterMenu.Menu.Add(this.Entry("Clear", c => c.ClearFilters()));
+        this.sortFilterMenu.Menu.Add(this.Entry("Reapply", c => c.ReapplyFilters()));
+
+        this.goTo = this.Command(OfficeIcon.GoTo, "Go To (Ctrl+G)", c => c.ShowDialog(SpreadsheetDialogs.GoTo(c)));
+        this.readOnlySafe.Add(this.goTo);
+
+        this.undo = this.Command(OfficeIcon.Undo, "Undo (Ctrl+Z)", c => c.Undo());
+        this.redo = this.Command(OfficeIcon.Redo, "Redo (Ctrl+Y)", c => c.Redo());
+
+        // ---- Insert ----
+
+        this.insertTable = this.Large(OfficeIcon.FormatAsTable, "Table", "Create a table", c => c.ShowDialog(SpreadsheetDialogs.CreateTable(c, "TableStyleMedium2")));
+        this.chartButtons = SheetCharts.Gallery
+            .Select(x => this.Command(ChartIcon(x.Kind), $"Insert {x.Name} chart", c => c.InsertChart(x.Kind), x.Kind.ToString()))
             .ToArray();
 
-        this.undo = this.Command(OfficeIcon.Undo, "Undo", c => c.Undo());
-        this.redo = this.Command(OfficeIcon.Redo, "Redo", c => c.Redo());
+        this.insertLink = this.Large(OfficeIcon.Hyperlink, "Link", "Insert a hyperlink (Ctrl+K)", c => c.ShowDialog(SpreadsheetDialogs.Hyperlink(c)));
+        this.insertNote = this.Large(OfficeIcon.NewNote, "Note", "Insert a note (Shift+F2)", c => c.ShowDialog(SpreadsheetDialogs.Note(c)));
+
+        // Not through the Command helper: a watermark is drawn by the view, not stored in the workbook.
+        this.watermark = OfficeRibbonItems.Command(
+            OfficeIcon.Watermark,
+            "Watermark",
+            () => _ = this.PickWatermarkAsync(),
+            automationId: "SheetToolbarWatermark");
+
+        // ---- Formulas ----
+
+        this.insertFunction = this.Large(OfficeIcon.Function, "Insert Function", "Insert Function (Shift+F3)", c => c.ShowDialog(SpreadsheetDialogs.InsertFunction(c)));
+
+        var menus = new List<RibbonMenuButton>();
+        foreach (var category in new[] { FunctionCatalog.Financial, FunctionCatalog.Logical, FunctionCatalog.Text, FunctionCatalog.DateTime, FunctionCatalog.Lookup, FunctionCatalog.Math })
+            menus.Add(this.LibraryMenu(category, category));
+
+        var more = this.MenuButton(OfficeIcon.Function, "More Functions", "More Functions");
+        foreach (var category in new[] { FunctionCatalog.Statistical, FunctionCatalog.Information })
+        {
+            var parent = new RibbonMenuEntry { Text = category };
+            foreach (var info in FunctionCatalog.InCategory(category))
+                parent.Children.Add(this.FunctionEntry(info));
+
+            more.Menu.Add(parent);
+        }
+
+        menus.Add(more);
+        this.libraryMenus = menus.ToArray();
+
+        this.nameManager = this.Large(OfficeIcon.NameManager, "Name Manager", "Name Manager (Ctrl+F3)", c => c.ShowDialog(SpreadsheetDialogs.NameManager(c)));
+        this.defineName = this.Command(OfficeIcon.DefineName, "Define Name", c => c.ShowDialog(SpreadsheetDialogs.DefineName(c, null)), "Define Name");
+        this.useInFormula = this.MenuButton(OfficeIcon.Function, "Use in Formula", "Use a defined name in a formula");
+        this.calculateNow = this.Large(OfficeIcon.Calculate, "Calculate Now", "Calculate Now (F9)", c => c.CalculateNow());
+        this.showFormulas = this.Toggle(OfficeIcon.ShowFormulas, "Show Formulas (Ctrl+`)", c => c.ToggleShowFormulas());
+        this.readOnlySafe.Add(this.showFormulas);
+        this.readOnlySafe.Add(this.calculateNow);
+
+        // ---- Data ----
+
+        this.sortAscending = this.Command(OfficeIcon.SortAscending, "Sort A to Z", c => c.SortAscending(), "A to Z");
+        this.sortDescending = this.Command(OfficeIcon.SortDescending, "Sort Z to A", c => c.SortDescending(), "Z to A");
+        this.customSort = this.Large(OfficeIcon.CustomSort, "Sort", "Custom sort", c => c.ShowDialog(SpreadsheetDialogs.CustomSort(c)));
+        this.filter = this.LargeToggle(OfficeIcon.Filter, "Filter", "Filter (Ctrl+Shift+L)", c => c.ToggleAutoFilter());
+        this.clearFilter = this.Command(OfficeIcon.FilterClear, "Clear filters", c => c.ClearFilters(), "Clear");
+        this.reapplyFilter = this.Command(OfficeIcon.Filter, "Reapply filters", c => c.ReapplyFilters(), "Reapply");
+        this.dataValidation = this.Large(OfficeIcon.DataValidation, "Data Validation", "Data Validation", c => c.ShowDialog(SpreadsheetDialogs.DataValidation(c)));
+        this.clearValidation = this.Command(OfficeIcon.Delete, "Clear validation from the selection", c => c.SetValidation(null), "Clear Validation");
+
+        // ---- Review ----
+
+        this.newNote = this.Large(OfficeIcon.NewNote, "New Note", "New or edit note (Shift+F2)", c => c.ShowDialog(SpreadsheetDialogs.Note(c)));
+        this.deleteNote = this.Command(OfficeIcon.DeleteNote, "Delete note", c => c.DeleteNote(), "Delete");
+        this.previousNote = this.Command(OfficeIcon.Previous, "Previous note", c => c.NextNote(backwards: true), "Previous");
+        this.nextNote = this.Command(OfficeIcon.Next, "Next note", c => c.NextNote(), "Next");
+        this.showAllNotes = this.Toggle(OfficeIcon.ShowNotes, "Show all notes", c =>
+        {
+            c.ShowAllNotes = !c.ShowAllNotes;
+            this.Changed?.Invoke(this, EventArgs.Empty);
+        });
+
+        foreach (var item in new RibbonItem[] { this.previousNote, this.nextNote, this.showAllNotes })
+            this.readOnlySafe.Add(item);
+
+        // ---- View ----
+
+        this.gridlines = this.Toggle(OfficeIcon.Gridlines, "Show gridlines", c => c.ShowGridlines = !c.ShowGridlines);
+        this.headings = this.Toggle(OfficeIcon.Headings, "Show headings", c => c.ShowHeadings = !c.ShowHeadings);
+        this.formulaBar = OfficeRibbonItems.Toggle(OfficeIcon.FormulaBar, "Show formula bar", () =>
+        {
+            this.IsFormulaBarVisible = !this.IsFormulaBarVisible;
+            this.FormulaBarToggled?.Invoke(this, this.IsFormulaBarVisible);
+            this.Refresh();
+        }, "SheetToolbarFormulaBarToggle");
+
+        this.viewFormulas = this.Toggle(OfficeIcon.ShowFormulas, "Show formulas (Ctrl+`)", c => c.ToggleShowFormulas());
+        this.zoomDialog = this.Large(OfficeIcon.ZoomIn, "Zoom", "Zoom", c => c.ShowDialog(SpreadsheetDialogs.Zoom(c, c.Viewport.Width * c.Zoom, c.Viewport.Height * c.Zoom)));
+        this.zoom100 = this.Command(OfficeIcon.Zoom100, "Zoom to 100%", c => c.Zoom = 1, "100%");
+        this.zoomSelection = this.Command(OfficeIcon.ZoomIn, "Zoom to selection", this.ZoomToSelection, "Zoom to Selection");
+
+        this.freeze = this.MenuButton(OfficeIcon.FreezePanes, "Freeze Panes", "Freeze Panes");
+        this.freeze.Size = RibbonItemSize.Large;
+        this.freeze.Menu.Add(this.Entry("Freeze Panes", c => c.FreezePanes()));
+        this.freeze.Menu.Add(this.Entry("Freeze Top Row", c => c.FreezeTopRow()));
+        this.freeze.Menu.Add(this.Entry("Freeze First Column", c => c.FreezeFirstColumn()));
+        this.freeze.Menu.Add(this.Entry("Unfreeze Panes", c => c.UnfreezePanes()));
+
+        foreach (var item in new RibbonItem[] { this.gridlines, this.headings, this.formulaBar, this.viewFormulas, this.zoomDialog, this.zoom100, this.zoomSelection, this.freeze })
+            this.readOnlySafe.Add(item);
 
         // The fill button keeps its own popup - it is a colour surface, which a ribbon button cannot be.
         this.fill = new OfficeToolbarButton(OfficeIcon.FillColor, "Fill colour");
@@ -188,33 +381,22 @@ public class SpreadsheetToolbar : ContentView
 
         this.textColor = this.CreateColorPicker();
 
-        // Not through the Command helper: that runs against the controller, and a watermark is drawn
-        // by the view rather than stored in the workbook.
-        this.watermark = OfficeRibbonItems.Command(
-            OfficeIcon.Watermark,
-            "Watermark",
-            () => _ = this.PickWatermarkAsync(),
-            automationId: "SheetToolbarWatermark");
-
         this.ribbon = new Ribbon
         {
             // Two rows rather than three: this is a bar above a grid, and the groups divide evenly.
             SmallItemRows = 2,
-
-            // These bars mix 32px pickers with icon buttons, and every group sizes its own rows - so
-            // without one height the groups stop lining up with one another and the titles under them
-            // land on different baselines.
             SmallItemRowHeight = 32,
             AllowGroupCollapse = true,
 
-            // Below this the bar runs dense instead of folding its groups away. At phone width there
-            // is room for no group at all, so collapsing put every command behind a dropdown - worse
-            // than the scrolling strip this replaced.
-            SimplifyBelowWidth = 600
+            // Below this the bar runs dense instead of folding its groups away.
+            SimplifyBelowWidth = 600,
+
+            // Excel's File tab. The backstage is the app's; the bar only says it was asked for.
+            ApplicationButtonText = "File",
+            ApplicationButtonCommand = new Command(() => this.FileMenuRequested?.Invoke(this, EventArgs.Empty))
         };
 
-        // Explicitly, because a BindableProperty's propertyChanged does not fire for its default -
-        // so the accent every one of these ships with would never have been applied at all.
+        // Explicitly, because a BindableProperty's propertyChanged does not fire for its default.
         this.ApplyAccent();
 
         this.Content = this.ribbon;
@@ -223,6 +405,8 @@ public class SpreadsheetToolbar : ContentView
         // An unset Theme tracks the app's appearance, so a flip has to redraw.
         this.FollowAppTheme(static v => v.Refresh());
     }
+
+    BorderPreset lastBorder = BorderPreset.Bottom;
 
     public static readonly BindableProperty ThemeProperty = BindableProperty.Create(
         nameof(Theme),
@@ -289,14 +473,7 @@ public class SpreadsheetToolbar : ContentView
         set => this.SetValue(FontSizesProperty, value);
     }
 
-    /// <summary>
-    /// Whether the buttons show a hover tooltip. On everywhere but phones by default.
-    /// </summary>
-    /// <remarks>
-    /// The buttons are icon-only, so the tooltip is the only place the command is named. It is off on
-    /// iOS and Android because a hover tooltip has nothing to open it there, not because the label
-    /// matters less — which is why the accessible description is set regardless.
-    /// </remarks>
+    /// <summary>Whether the buttons show a hover tooltip. On everywhere but phones by default.</summary>
     public bool ShowTooltips
     {
         get => (bool)this.GetValue(ShowTooltipsProperty);
@@ -320,10 +497,7 @@ public class SpreadsheetToolbar : ContentView
             if (this.controller is not null)
                 this.controller.Changed += this.OnControllerChanged;
 
-            // A new workbook is a new controller and therefore a new finder; a bar left holding the
-            // old one would count matches in a workbook that is no longer on screen.
             this.findBar.Find = this.controller?.Find;
-
             this.Refresh();
         }
     }
@@ -331,23 +505,28 @@ public class SpreadsheetToolbar : ContentView
     /// <summary>Raised after a command runs, so a host can repaint and track the dirty state.</summary>
     public event EventHandler? Changed;
 
-    /// <summary>
-    /// Raised when the watermark button picks a picture, or clears the one already set.
-    /// </summary>
-    /// <remarks>
-    /// An event rather than a property the toolbar owns: a watermark is drawn by the grid, and the bar
-    /// has no grid - it has a controller, which is the workbook rather than the view of it.
-    /// </remarks>
+    /// <summary>Raised when the watermark button picks a picture, or clears the one already set.</summary>
     public event EventHandler<OfficeWatermark?>? WatermarkPicked;
+
+    /// <summary>
+    /// Raised when the ribbon's File button is pressed. The bar has no backstage of its own: what File
+    /// opens — save, export, recent files — belongs to the app.
+    /// </summary>
+    public event EventHandler? FileMenuRequested;
+
+    /// <summary>
+    /// Raised when View ▸ Formula Bar is toggled, with the new state. The formula bar is the host's
+    /// chrome rather than the workbook's, so the bar reports the choice and the view acts on it.
+    /// </summary>
+    public event EventHandler<bool>? FormulaBarToggled;
+
+    /// <summary>Whether the host is showing its formula bar — what the View tab's toggle reflects.</summary>
+    public bool IsFormulaBarVisible { get; set; } = true;
 
     /// <summary>Whether a mark is currently set, so the button can offer to take it off.</summary>
     public bool HasWatermark { get; set; }
 
     /// <summary>Extra views appended after the built-in controls.</summary>
-    /// <remarks>
-    /// A list rather than a template because the bar is rebuilt whenever the font lists change, and
-    /// the extras have to survive that. Assign it before the toolbar is first laid out.
-    /// </remarks>
     public IList<View> ToolbarItems { get; } = new List<View>();
 
     /// <summary>Group title for <see cref="ToolbarItems"/>.</summary>
@@ -366,13 +545,7 @@ public class SpreadsheetToolbar : ContentView
     NumberFormatPreset? ActivePreset
         => NumberFormats.PresetOf((this.controller?.ActiveFormat ?? ResolvedFormat.Default).NumberFormatCode);
 
-    /// <summary>
-    /// What a preset does to a number, so the menu shows the format rather than naming it.
-    /// </summary>
-    /// <remarks>
-    /// Formatted through the same resolver the grid paints with, so the sample is the truth rather
-    /// than a hard-coded string that drifts from what the line actually applies.
-    /// </remarks>
+    /// <summary>What a preset does to a number, so the menu shows the format rather than naming it.</summary>
     string SampleOf(NumberFormatPreset preset)
     {
         if (this.controller?.Workbook.Styles is not { } styles)
@@ -389,35 +562,42 @@ public class SpreadsheetToolbar : ContentView
         return styles.Format(CellValue.FromNumber(value), format);
     }
 
-    /// <summary>
-    /// Detaches from the controller. Called by the hosting view when it is disposed.
-    /// </summary>
-    /// <remarks>
-    /// Setting <see cref="Controller"/> to null is what drops both subscriptions — this bar's, and the
-    /// find bar's to the finder, which outlives the view since it belongs to the workbook.
-    /// </remarks>
+    /// <summary>Detaches from the controller. Called by the hosting view when it is disposed.</summary>
     public void Detach() => this.Controller = null;
 
     void BuildBar()
     {
+        // A propertyChanged from a Style can arrive before the constructor has built the items.
+        if (this.ribbon is null)
+            return;
+
         this.ribbon.Tabs.Clear();
 
         this.fontPicker = this.CreateFontPicker();
         this.sizePicker = this.CreateSizePicker();
 
-        // Undo and redo apply whatever the selection is, so they sit outside the groups where they
-        // never move or disappear.
         this.ribbon.QuickAccessItems.Clear();
         this.ribbon.QuickAccessItems.Add(this.undo);
         this.ribbon.QuickAccessItems.Add(this.redo);
 
+        this.ribbon.Tabs.Add(this.HomeTab());
+        this.ribbon.Tabs.Add(this.InsertTab());
+        this.ribbon.Tabs.Add(this.FormulasTab());
+        this.ribbon.Tabs.Add(this.DataTab());
+        this.ribbon.Tabs.Add(this.ReviewTab());
+        this.ribbon.Tabs.Add(this.ViewTab());
+
+        this.RebuildMenus();
+        this.Refresh();
+    }
+
+    // ---- tabs ----
+
+    RibbonTab HomeTab()
+    {
         var home = new RibbonTab { Title = "Home", Key = "home" };
 
-        // Clipboard leads, as it does in Excel: cut/copy/paste apply to whatever is selected and are
-        // reached far more often than any formatting command.
-        // Paste is large and the other two stack beside it - Excel's own arrangement, and the shape
-        // three items want: filling two-deep columns left copy alone in a second column with a hole
-        // under it.
+        // Paste is large and the other two stack beside it - Excel's own arrangement.
         var clipboard = new RibbonGroup { Title = "Clipboard", Priority = 110 };
         this.paste.Size = RibbonItemSize.Large;
         this.paste.Text = "Paste";
@@ -426,91 +606,78 @@ public class SpreadsheetToolbar : ContentView
         clipboard.Items.Add(this.copy);
         home.Groups.Add(clipboard);
 
-        // Rows, which is how Excel's Font group is arranged: the two boxes on top, the run of marks
-        // underneath. Filling columns instead put bold above italic and underline above strikethrough,
-        // and forced the font picker to share a column with a toggle - where the column took the
-        // picker's width and stretched the 16px B across all of it.
+        // Excel's Font group: the two boxes on top, the marks underneath with the border, text colour and
+        // fill at the end of the row.
         var font = new RibbonGroup { Title = "Font", Priority = 100 };
         font.Items.Add(OfficeRibbonItems.Row(
-            OfficeRibbonItems.Host(this.fontPicker),
-            OfficeRibbonItems.Host(this.sizePicker)
-        ));
+            OfficeRibbonItems.Host(this.fontPicker!),
+            OfficeRibbonItems.Host(this.sizePicker!)));
         font.Items.Add(OfficeRibbonItems.Row(
             this.bold,
             this.italic,
             this.underline,
             this.strike,
             new RibbonSeparator(),
+            this.borders,
             OfficeRibbonItems.Host(this.textColor),
-            OfficeRibbonItems.Host(this.fill)
-        ));
+            OfficeRibbonItems.Host(this.fill)));
         home.Groups.Add(font);
 
-        // Excel's own two rows: how the text sits in the cell top-to-bottom on one, left-to-right on
-        // the other, with the things that nudge it inside that box at the end of each. Filling columns
-        // turned three runs of three into a 2xN grid that read align-left / align-right down the first
-        // column, and put the wrap toggle under an indent arrow.
+        // How the text sits top-to-bottom on one row, left-to-right on the other, with wrap and merge -
+        // the two things that change the box the text sits in - at the ends.
         var alignment = new RibbonGroup { Title = "Alignment", Priority = 90 };
         alignment.Items.Add(OfficeRibbonItems.Row(
             this.alignTop,
             this.alignMiddle,
             this.alignBottom,
-
-            // Wrapping is about the height the text takes in the cell, which is what this row is about.
             new RibbonSeparator(),
-            this.wrap
-        ));
+            this.wrap));
         alignment.Items.Add(OfficeRibbonItems.Row(
             this.alignLeft,
             this.alignCenter,
             this.alignRight,
-
-            // The indent pair moves text inside the cell it is already aligned in, which is a third
-            // thing again - and the two arrows are close enough to the alignment marks to need a break.
             new RibbonSeparator(),
             this.outdent,
-            this.indent
-        ));
+            this.indent,
+            this.merge));
         home.Groups.Add(alignment);
 
-        // The named formats on top and the four marks that nudge one underneath - Excel's arrangement.
-        // Filling columns put the format menu in a column of its own with a hole beneath it, and split
-        // the decimal pair across two columns.
         var number = new RibbonGroup { Title = "Number", Priority = 80 };
         number.Items.Add(OfficeRibbonItems.Row(this.numberFormats));
-        number.Items.Add(OfficeRibbonItems.Row(
-            this.currency,
-            this.percent,
-            this.decimalDecrease,
-            this.decimalIncrease
-        ));
+        number.Items.Add(OfficeRibbonItems.Row(this.currency, this.percent, this.decimalDecrease, this.decimalIncrease));
         home.Groups.Add(number);
 
-        // AutoSum is on both tabs, as it is in Excel - the face of Home's Editing group and the head of
-        // the Data tab's function library. It is the one command here reached often enough that a tab
-        // switch in front of it would be felt, and large enough to be the group's head: two icon-only
-        // rows of three left a hole where the third would be.
+        // Styles: the three galleries, one column each, as Excel's Styles group has them.
+        var styles = new RibbonGroup { Title = "Styles", Priority = 75 };
+        styles.Items.Add(this.conditional);
+        styles.Items.Add(this.formatAsTable);
+        styles.Items.Add(this.cellStyles);
+        home.Groups.Add(styles);
+
+        var cells = new RibbonGroup { Title = "Cells", Priority = 72 };
+        cells.Items.Add(this.insertCells);
+        cells.Items.Add(this.deleteCells);
+        cells.Items.Add(this.formatCells);
+        home.Groups.Add(cells);
+
+        // AutoSum heads Editing, as in Excel, with fill, clear, sort-and-filter and go-to beside it.
         var editing = new RibbonGroup { Title = "Editing", Priority = 70 };
         this.sum.Size = RibbonItemSize.Large;
-        this.sum.Text = "AutoSum";
         editing.Items.Add(this.sum);
-        editing.Items.Add(this.clearContents);
-        editing.Items.Add(this.clearFormat);
+        editing.Items.Add(this.fillMenu);
+        editing.Items.Add(this.clearMenu);
+        editing.Items.Add(this.sortFilterMenu);
+        editing.Items.Add(this.goTo);
         home.Groups.Add(editing);
 
-        // Its own group rather than a fourth item in Editing: finding changes nothing, and the box is
-        // as wide as the three buttons beside it put together. Last on Home, which is what decides the
-        // order groups fold into the overflow in on a narrow window. It spans the rows: on a single row
-        // it left the row underneath empty for the width of a search box.
+        // Its own group: finding changes nothing, and the box is as wide as three buttons.
         var finding = new RibbonGroup { Title = "Find", Priority = 65 };
         finding.Items.Add(OfficeRibbonItems.HostLarge(this.findBar));
         home.Groups.Add(finding);
 
         if (this.ToolbarItems.Count > 0)
         {
-            // Never folds into an overflow button: whatever the host added is theirs, and it is not
-            // for this control to decide it is the least important thing on the bar. It goes on Home
-            // rather than a tab of its own, so a host's commands are on the tab that opens.
+            // Never folds into an overflow: whatever the host added is theirs.
             var extras = new RibbonGroup { Title = this.ToolbarItemsTitle, Priority = 200, CanCollapse = false };
             foreach (var item in this.ToolbarItems)
                 extras.Items.Add(OfficeRibbonItems.Host(item));
@@ -518,53 +685,245 @@ public class SpreadsheetToolbar : ContentView
             home.Groups.Add(extras);
         }
 
-        // ---- Data ----
-        //
-        // Everything that changes the shape of the sheet rather than the look of a cell. All of it was
-        // on Home, where insert-row sat between clear-formatting and a colour picker; with one tab the
-        // structural commands could never grow past the two that fitted.
-        var data = new RibbonTab { Title = "Data", Key = "data" };
+        return home;
+    }
 
-        // Insert on one row and delete on the other, rows and columns in the same order on both - so
-        // the pair a command belongs to is its line rather than a rule you have to notice.
-        var cells = new RibbonGroup { Title = "Cells", Priority = 110 };
-        cells.Items.Add(OfficeRibbonItems.Row(this.insertRow, this.insertColumn));
-        cells.Items.Add(OfficeRibbonItems.Row(this.deleteRow, this.deleteColumn));
-        data.Groups.Add(cells);
+    RibbonTab InsertTab()
+    {
+        var insert = new RibbonTab { Title = "Insert", Key = "insert" };
 
-        // A sheet has no page setup to put this beside, so it goes on the Data tab with the other
-        // things that are about the sheet rather than about a cell.
-        // One command, so it is drawn the way a single command should be: large, with its name on it.
-        // A lone 16px glyph under a caption reading "Sheet" said nothing.
-        var sheet = new RibbonGroup { Title = "Sheet", Priority = 105 };
+        var tables = new RibbonGroup { Title = "Tables", Priority = 100 };
+        tables.Items.Add(this.insertTable);
+        insert.Groups.Add(tables);
+
+        var charts = new RibbonGroup { Title = "Charts", Priority = 90 };
+        foreach (var button in this.chartButtons)
+            charts.Items.Add(button);
+
+        insert.Groups.Add(charts);
+
+        var links = new RibbonGroup { Title = "Links", Priority = 80 };
+        links.Items.Add(this.insertLink);
+        insert.Groups.Add(links);
+
+        var notes = new RibbonGroup { Title = "Notes", Priority = 70 };
+        notes.Items.Add(this.insertNote);
+        insert.Groups.Add(notes);
+
+        // A display watermark is not an Excel feature, so it sits with the other things placed on the
+        // sheet rather than in a tab Excel users would search for it on.
+        var sheet = new RibbonGroup { Title = "Sheet", Priority = 60 };
         this.watermark.Size = RibbonItemSize.Large;
         this.watermark.Text = "Watermark";
         sheet.Items.Add(this.watermark);
-        data.Groups.Add(sheet);
+        insert.Groups.Add(sheet);
 
-        // Width is the head - fitting to contents is the common case - and hide/unhide stack beside it,
-        // which is the shape three items want.
-        var columns = new RibbonGroup { Title = "Columns", Priority = 100 };
-        this.columnWidth.Size = RibbonItemSize.Large;
-        this.columnWidth.Text = "Width";
-        columns.Items.Add(this.columnWidth);
-        columns.Items.Add(this.hideColumns);
-        columns.Items.Add(this.unhideColumns);
-        data.Groups.Add(columns);
-
-        var library = new RibbonGroup { Title = "Functions", Priority = 90 };
-        foreach (var function in this.functions)
-            library.Items.Add(function);
-
-        data.Groups.Add(library);
-
-        this.ribbon.Tabs.Add(home);
-        this.ribbon.Tabs.Add(data);
-        this.RebuildMenus();
-        this.Refresh();
+        return insert;
     }
 
-    /// <summary>Fills the two dropdowns. Rebuilt on refresh so the ticks track the active cell.</summary>
+    RibbonTab FormulasTab()
+    {
+        var formulas = new RibbonTab { Title = "Formulas", Key = "formulas" };
+
+        var library = new RibbonGroup { Title = "Function Library", Priority = 100 };
+        library.Items.Add(this.insertFunction);
+        this.formulaSum.Size = RibbonItemSize.Small;
+        library.Items.Add(this.formulaSum);
+
+        foreach (var menu in this.libraryMenus)
+            library.Items.Add(menu);
+
+        formulas.Groups.Add(library);
+
+        var names = new RibbonGroup { Title = "Defined Names", Priority = 90 };
+        names.Items.Add(this.nameManager);
+        names.Items.Add(this.defineName);
+        names.Items.Add(this.useInFormula);
+        formulas.Groups.Add(names);
+
+        var calculation = new RibbonGroup { Title = "Calculation", Priority = 80 };
+        calculation.Items.Add(this.calculateNow);
+        calculation.Items.Add(this.showFormulas);
+        formulas.Groups.Add(calculation);
+
+        return formulas;
+    }
+
+    RibbonTab DataTab()
+    {
+        var data = new RibbonTab { Title = "Data", Key = "data" };
+
+        var sort = new RibbonGroup { Title = "Sort & Filter", Priority = 100 };
+        sort.Items.Add(this.sortAscending);
+        sort.Items.Add(this.sortDescending);
+        sort.Items.Add(this.customSort);
+        sort.Items.Add(this.filter);
+        sort.Items.Add(this.clearFilter);
+        sort.Items.Add(this.reapplyFilter);
+        data.Groups.Add(sort);
+
+        var tools = new RibbonGroup { Title = "Data Tools", Priority = 90 };
+        tools.Items.Add(this.dataValidation);
+        tools.Items.Add(this.clearValidation);
+        data.Groups.Add(tools);
+
+        return data;
+    }
+
+    RibbonTab ReviewTab()
+    {
+        var review = new RibbonTab { Title = "Review", Key = "review" };
+
+        var notes = new RibbonGroup { Title = "Notes", Priority = 100 };
+        notes.Items.Add(this.newNote);
+        notes.Items.Add(this.deleteNote);
+        notes.Items.Add(this.previousNote);
+        notes.Items.Add(this.nextNote);
+        notes.Items.Add(this.showAllNotes);
+        review.Groups.Add(notes);
+
+        return review;
+    }
+
+    RibbonTab ViewTab()
+    {
+        var view = new RibbonTab { Title = "View", Key = "view" };
+
+        var show = new RibbonGroup { Title = "Show", Priority = 100 };
+        show.Items.Add(OfficeRibbonItems.Row(this.gridlines, this.headings));
+        show.Items.Add(OfficeRibbonItems.Row(this.formulaBar, this.viewFormulas));
+        view.Groups.Add(show);
+
+        var zoom = new RibbonGroup { Title = "Zoom", Priority = 90 };
+        zoom.Items.Add(this.zoomDialog);
+        zoom.Items.Add(this.zoom100);
+        zoom.Items.Add(this.zoomSelection);
+        view.Groups.Add(zoom);
+
+        var window = new RibbonGroup { Title = "Window", Priority = 80 };
+        window.Items.Add(this.freeze);
+        view.Groups.Add(window);
+
+        return view;
+    }
+
+    // ---- menus ----
+
+    void BuildBordersMenu()
+    {
+        void Add(BorderPreset preset)
+            => this.borders.Menu.Add(this.Entry(BorderPresets.NameOf(preset), c =>
+            {
+                this.lastBorder = preset;
+                this.borders.Tooltip = BorderPresets.NameOf(preset);
+                c.ApplyBorders(preset);
+            }));
+
+        Add(BorderPreset.Bottom);
+        Add(BorderPreset.Top);
+        Add(BorderPreset.Left);
+        Add(BorderPreset.Right);
+        this.borders.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        Add(BorderPreset.None);
+        Add(BorderPreset.All);
+        Add(BorderPreset.Outside);
+        Add(BorderPreset.ThickOutside);
+        this.borders.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        Add(BorderPreset.DoubleBottom);
+        Add(BorderPreset.ThickBottom);
+        Add(BorderPreset.TopAndBottom);
+        this.borders.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+
+        var style = new RibbonMenuEntry { Text = "Line Style" };
+        foreach (var (name, value) in new[]
+                 {
+                     ("Thin", CellBorderStyle.Thin), ("Medium", CellBorderStyle.Medium), ("Thick", CellBorderStyle.Thick),
+                     ("Dashed", CellBorderStyle.Dashed), ("Dotted", CellBorderStyle.Dotted), ("Double", CellBorderStyle.Double)
+                 })
+        {
+            var captured = value;
+            style.Children.Add(this.Entry(name, c => c.BorderLine = c.BorderLine with { Style = captured }));
+        }
+
+        var color = new RibbonMenuEntry { Text = "Line Color" };
+        color.Children.Add(this.Entry("Automatic", c => c.BorderLine = c.BorderLine with { Color = ArgbColor.Transparent }));
+        foreach (var (name, value) in SheetField.Palette)
+        {
+            var captured = value;
+            color.Children.Add(this.Entry(name, c => c.BorderLine = c.BorderLine with { Color = captured }));
+        }
+
+        this.borders.Menu.Add(style);
+        this.borders.Menu.Add(color);
+    }
+
+    void BuildConditionalMenu()
+    {
+        RibbonMenuEntry Dialog(string text, ConditionalDialogKind kind)
+            => this.Entry(text, c => c.ShowDialog(SpreadsheetDialogs.Conditional(c, kind)));
+
+        var highlight = new RibbonMenuEntry { Text = "Highlight Cells Rules" };
+        highlight.Children.Add(Dialog("Greater Than...", ConditionalDialogKind.GreaterThan));
+        highlight.Children.Add(Dialog("Less Than...", ConditionalDialogKind.LessThan));
+        highlight.Children.Add(Dialog("Between...", ConditionalDialogKind.Between));
+        highlight.Children.Add(Dialog("Equal To...", ConditionalDialogKind.EqualTo));
+        highlight.Children.Add(Dialog("Text that Contains...", ConditionalDialogKind.TextContains));
+        highlight.Children.Add(Dialog("Duplicate Values...", ConditionalDialogKind.DuplicateValues));
+
+        var topBottom = new RibbonMenuEntry { Text = "Top/Bottom Rules" };
+        topBottom.Children.Add(Dialog("Top 10 Items...", ConditionalDialogKind.Top10Items));
+        topBottom.Children.Add(Dialog("Top 10%...", ConditionalDialogKind.Top10Percent));
+        topBottom.Children.Add(Dialog("Bottom 10 Items...", ConditionalDialogKind.Bottom10Items));
+        topBottom.Children.Add(Dialog("Bottom 10%...", ConditionalDialogKind.Bottom10Percent));
+        topBottom.Children.Add(Dialog("Above Average...", ConditionalDialogKind.AboveAverage));
+        topBottom.Children.Add(Dialog("Below Average...", ConditionalDialogKind.BelowAverage));
+
+        var bars = new RibbonMenuEntry { Text = "Data Bars" };
+        foreach (var (name, color) in ConditionalPresets.DataBars)
+        {
+            var captured = color;
+            bars.Children.Add(this.Entry(name, c => c.AddConditionalFormat(ConditionalFormatRule.Bar(captured))));
+        }
+
+        var scales = new RibbonMenuEntry { Text = "Color Scales" };
+        foreach (var (name, rule) in ConditionalPresets.ColorScales)
+        {
+            var captured = rule;
+            scales.Children.Add(this.Entry(name, c => c.AddConditionalFormat(captured)));
+        }
+
+        var clear = new RibbonMenuEntry { Text = "Clear Rules" };
+        clear.Children.Add(this.Entry("Clear Rules from Selected Cells", c => c.ClearConditionalFormats()));
+        clear.Children.Add(this.Entry("Clear Rules from Entire Sheet", c => c.ClearConditionalFormats(entireSheet: true)));
+
+        this.conditional.Menu.Add(highlight);
+        this.conditional.Menu.Add(topBottom);
+        this.conditional.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.conditional.Menu.Add(bars);
+        this.conditional.Menu.Add(scales);
+        this.conditional.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.conditional.Menu.Add(clear);
+    }
+
+    RibbonMenuButton LibraryMenu(string text, string category)
+    {
+        var menu = this.MenuButton(CategoryIcon(category), text, $"{category} functions");
+        foreach (var info in FunctionCatalog.InCategory(category))
+            menu.Menu.Add(this.FunctionEntry(info));
+
+        return menu;
+    }
+
+    RibbonMenuEntry FunctionEntry(FunctionInfo info)
+    {
+        var name = info.Name;
+        return this.Entry(name, c => c.InsertFunction(name));
+    }
+
+    /// <summary>
+    /// Refreshes the menus whose contents follow the workbook: the number formats (whose ticks and
+    /// samples follow the active cell) and Use in Formula (which lists the names).
+    /// </summary>
     void RebuildMenus()
     {
         this.numberFormats.Menu.Clear();
@@ -573,68 +932,205 @@ public class SpreadsheetToolbar : ContentView
             var captured = preset;
             this.numberFormats.Menu.Add(new RibbonMenuEntry
             {
-                // Name and live sample on one line, formatted through the same resolver the grid
-                // paints with - so the sample is the truth rather than a string that drifts.
                 Text = $"{NumberFormats.DisplayName(captured)}   {this.SampleOf(captured)}",
                 IsChecked = this.ActivePreset == captured,
                 Command = new Command(() => this.RunCommand(c => c.SetNumberFormat(captured)))
             });
         }
 
-        this.sum.Menu.Clear();
+        this.numberFormats.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.numberFormats.Menu.Add(this.Entry("More Number Formats...", c => c.ShowDialog(SpreadsheetDialogs.FormatCells(c))));
+
+        // Only rebuilt when the names actually change: this runs on every selection move.
+        var names = this.controller?.Workbook.VisibleNames.Select(x => x.Name).ToList() ?? [];
+        var key = string.Join('\u0001', names);
+        if (key == this.namesShown)
+            return;
+
+        this.namesShown = key;
+        this.useInFormula.Menu.Clear();
+
+        if (names.Count == 0)
+        {
+            this.useInFormula.Menu.Add(new RibbonMenuEntry { Text = "(No names defined)", IsEnabled = false });
+        }
+        else
+        {
+            foreach (var name in names)
+            {
+                var captured = name;
+                this.useInFormula.Menu.Add(this.Entry(captured, c => UseName(c, captured)));
+            }
+        }
+
+        this.useInFormula.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        this.useInFormula.Menu.Add(this.Entry("Paste Names...", c => c.ShowDialog(SpreadsheetDialogs.NameManager(c))));
+    }
+
+    /// <summary>Puts a name into the formula being written, or starts one with it.</summary>
+    static void UseName(SpreadsheetController controller, string name)
+    {
+        if (controller.EditingCell is not null)
+        {
+            var text = controller.EditingText;
+            controller.CancelEdit();
+            controller.BeginEdit(text + name);
+            return;
+        }
+
+        controller.BeginEdit("=" + name);
+    }
+
+    static void FormatAsTableFor(SpreadsheetController controller, string style)
+    {
+        if (controller.ActiveTable is not null)
+            controller.FormatAsTable(style);
+        else
+            controller.ShowDialog(SpreadsheetDialogs.CreateTable(controller, style));
+    }
+
+    void FormatAsTable(SpreadsheetController controller, string style) => FormatAsTableFor(controller, style);
+
+    void ZoomToSelection(SpreadsheetController controller)
+    {
+        var rect = controller.Viewport.RangeRect(controller.Selection.Range);
+        var width = controller.Viewport.Width * controller.Zoom - controller.Metrics.RowHeaderWidth * controller.Zoom;
+        var height = controller.Viewport.Height * controller.Zoom - controller.Metrics.ColumnHeaderHeight * controller.Zoom;
+        controller.Zoom = Math.Min(width / Math.Max(1, rect.Width), height / Math.Max(1, rect.Height));
+        controller.GoTo(controller.Selection.Range.TopLeft);
+    }
+
+    static string TableStyleName(string style)
+    {
+        foreach (var family in new[] { "Light", "Medium", "Dark" })
+        {
+            var prefix = "TableStyle" + family;
+            if (style.StartsWith(prefix, StringComparison.Ordinal))
+                return $"{family} {style[prefix.Length..]}";
+        }
+
+        return style;
+    }
+
+    static OfficeIcon ChartIcon(ChartKind kind) => kind switch
+    {
+        ChartKind.Bar => OfficeIcon.ChartBar,
+        ChartKind.Line => OfficeIcon.ChartLine,
+        ChartKind.Pie => OfficeIcon.ChartPie,
+        ChartKind.Area => OfficeIcon.ChartArea,
+        _ => OfficeIcon.ChartColumn
+    };
+
+    static OfficeIcon CategoryIcon(string category) => category switch
+    {
+        FunctionCatalog.Financial => OfficeIcon.Currency,
+        FunctionCatalog.Logical => OfficeIcon.DataValidation,
+        FunctionCatalog.Text => OfficeIcon.TextBox,
+        FunctionCatalog.DateTime => OfficeIcon.Calculate,
+        FunctionCatalog.Lookup => OfficeIcon.Find,
+        FunctionCatalog.Math => OfficeIcon.Sum,
+        _ => OfficeIcon.Function
+    };
+
+    // ---- item factories ----
+
+    RibbonToggleButton Toggle(OfficeIcon icon, string hint, Action<SpreadsheetController> action)
+        => this.Track(OfficeRibbonItems.Toggle(icon, hint, () => this.RunCommand(action), this.IdFor(icon)));
+
+    RibbonToggleButton LargeToggle(OfficeIcon icon, string text, string hint, Action<SpreadsheetController> action)
+    {
+        var toggle = this.Toggle(icon, hint, action);
+        toggle.Size = RibbonItemSize.Large;
+        toggle.Text = text;
+        return toggle;
+    }
+
+    RibbonButton Command(OfficeIcon icon, string hint, Action<SpreadsheetController> action, string? text = null)
+        => this.Track(OfficeRibbonItems.Command(icon, hint, () => this.RunCommand(action), text, this.IdFor(icon)));
+
+    RibbonButton Large(OfficeIcon icon, string text, string hint, Action<SpreadsheetController> action)
+        => this.Track(OfficeRibbonItems.LargeCommand(icon, text, hint, () => this.RunCommand(action), this.IdFor(icon)));
+
+    RibbonMenuButton MenuButton(OfficeIcon icon, string text, string tooltip)
+        => this.Track(new RibbonMenuButton
+        {
+            Text = text,
+            Tooltip = tooltip,
+            Size = RibbonItemSize.Small,
+            AutomationId = $"SheetToolbar{text.Replace(" ", string.Empty, StringComparison.Ordinal)}",
+            IconTemplate = OfficeRibbonItems.IconTemplateFor(icon)
+        });
+
+    RibbonSplitButton Split(OfficeIcon icon, string text, string tooltip, Action<SpreadsheetController> face, RibbonItemSize size)
+        => this.Track(new RibbonSplitButton
+        {
+            Text = size == RibbonItemSize.Large ? text : null,
+            Tooltip = tooltip,
+            Size = size,
+            AutomationId = $"SheetToolbar{text.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("&", string.Empty, StringComparison.Ordinal)}",
+            IconTemplate = OfficeRibbonItems.IconTemplateFor(icon),
+            Command = new Command(() => this.RunCommand(face))
+        });
+
+    RibbonSplitButton AutoSum(string automationId)
+    {
+        var split = this.Track(new RibbonSplitButton
+        {
+            Text = "AutoSum",
+            Tooltip = "AutoSum (Alt+=)",
+            Size = RibbonItemSize.Small,
+            AutomationId = automationId,
+            IconTemplate = OfficeRibbonItems.IconTemplateFor(OfficeIcon.Sum),
+            Command = new Command(() => this.RunCommand(c => c.ApplyAutoFunction(AutoFunction.Sum)))
+        });
+
         foreach (var function in SpreadsheetMenus.Functions)
         {
             var captured = function;
-            this.sum.Menu.Add(new RibbonMenuEntry
+            split.Menu.Add(new RibbonMenuEntry
             {
                 Text = $"{AutoFunctions.DisplayName(captured)}   {AutoFunctions.NameOf(captured)}",
                 Command = new Command(() => this.RunCommand(c => c.ApplyAutoFunction(captured)))
             });
         }
 
-        this.columnWidth.Menu.Clear();
-        foreach (var (name, characters) in ColumnWidthPresets.All)
-        {
-            var width = ColumnWidthPresets.PixelsOf(characters);
-            this.columnWidth.Menu.Add(new RibbonMenuEntry
-            {
-                // The pixel width beside the name, for the same reason the format menu carries a live
-                // sample: "Wide" on its own is a promise the reader cannot check.
-                Text = $"{name}   {width:0} px",
-                Command = new Command(() => this.RunCommand(c => c.SetColumnWidth(width)))
-            });
-        }
+        split.Menu.Add(new RibbonMenuEntry { IsSeparator = true });
+        split.Menu.Add(this.Entry("More Functions...", c => c.ShowDialog(SpreadsheetDialogs.InsertFunction(c))));
+        return split;
     }
 
+    RibbonMenuEntry Entry(string text, Action<SpreadsheetController> action)
+        => new() { Text = text, Command = new Command(() => this.RunCommand(action)) };
 
-    /// <summary>The mark for an aggregate. Sum's sigma is shared with the Home tab's split button.</summary>
-    static OfficeIcon IconOf(AutoFunction function) => function switch
+    readonly HashSet<string> ids = [];
+
+    /// <summary>
+    /// Named off the icon, the way the bar always has been — the item models are not in the visual tree,
+    /// so the rendered view's id is a UI test's only handle — with a suffix for the icons used twice.
+    /// </summary>
+    string IdFor(OfficeIcon icon)
     {
-        AutoFunction.Average => OfficeIcon.Average,
-        AutoFunction.Count => OfficeIcon.Count,
-        AutoFunction.Min => OfficeIcon.Min,
-        AutoFunction.Max => OfficeIcon.Max,
-        _ => OfficeIcon.Sum
-    };
+        var id = $"SheetToolbar{icon}";
+        for (var n = 2; !this.ids.Add(id); n++)
+            id = $"SheetToolbar{icon}{n}";
 
+        return id;
+    }
 
-    // Named off the icon: the ribbon item models are not in the visual tree, so the rendered view
-    // carrying this id is the only handle a UI test has on a command.
-    RibbonToggleButton Toggle(OfficeIcon icon, string hint, Action<SpreadsheetController> action)
-        => OfficeRibbonItems.Toggle(icon, hint, () => this.RunCommand(action), $"SheetToolbar{icon}");
-
-    RibbonButton Command(OfficeIcon icon, string hint, Action<SpreadsheetController> action, string? text = null)
-        => OfficeRibbonItems.Command(icon, hint, () => this.RunCommand(action), text, $"SheetToolbar{icon}");
+    T Track<T>(T item) where T : RibbonItem
+    {
+        this.items.Add(item);
+        return item;
+    }
 
     void RunCommand(Action<SpreadsheetController> action)
     {
-        if (this.controller is not { } current || this.IsReadOnly)
+        if (this.controller is not { } current)
             return;
 
         action(current);
         this.AfterCommand();
     }
-
 
     ColorPickerButton CreateColorPicker()
     {
@@ -709,54 +1205,12 @@ public class SpreadsheetToolbar : ContentView
         if (this.controller is not { } current || this.IsReadOnly)
             return;
 
-        // The same gallery the document toolbar's highlight button opens, and for the same reason: a
-        // cell fill wants a few readable colours plus a way to remove it, not a colour spectrum.
         var (chosen, color) = await OfficeMenus.PickHighlightAsync(OfficeMenus.PageOf(this));
         if (!chosen)
             return;
 
         current.SetFillColor(color);
         this.AfterCommand();
-    }
-
-
-
-    /// <summary>Every ribbon item that is only usable with a live, writable controller.</summary>
-    IEnumerable<RibbonItem> FormattingItems()
-    {
-        yield return this.bold;
-        yield return this.italic;
-        yield return this.underline;
-        yield return this.strike;
-        yield return this.alignLeft;
-        yield return this.alignCenter;
-        yield return this.alignRight;
-        yield return this.alignTop;
-        yield return this.alignMiddle;
-        yield return this.alignBottom;
-        yield return this.wrap;
-        yield return this.currency;
-        yield return this.percent;
-        yield return this.decimalDecrease;
-        yield return this.decimalIncrease;
-        yield return this.numberFormats;
-        yield return this.sum;
-        yield return this.cut;
-        yield return this.copy;
-        yield return this.outdent;
-        yield return this.indent;
-        yield return this.insertRow;
-        yield return this.insertColumn;
-        yield return this.deleteRow;
-        yield return this.deleteColumn;
-        yield return this.columnWidth;
-        yield return this.hideColumns;
-        yield return this.unhideColumns;
-        yield return this.clearContents;
-        yield return this.clearFormat;
-
-        foreach (var function in this.functions)
-            yield return function;
     }
 
     void OnControllerChanged(object? sender, EventArgs e) => this.Refresh();
@@ -767,28 +1221,24 @@ public class SpreadsheetToolbar : ContentView
         this.Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>
-    /// Puts the ribbon on the same appearance as a pinned <see cref="Theme"/>.
-    /// </summary>
-    /// <remarks>
-    /// The ribbon and everything hosted in it are built from theme tokens, not from the
-    /// <see cref="SpreadsheetTheme"/> value, so pinning <see cref="SpreadsheetTheme.Dark"/> in a light app
-    /// used to leave a light ribbon above a dark grid. Scoping the matching token palette over this view
-    /// re-themes all of it; an unset theme removes the scope and the bar follows the app again.
-    /// </remarks>
+    /// <summary>Puts the ribbon on the same appearance as a pinned <see cref="Theme"/>.</summary>
     void OnThemeChanged()
     {
         OfficeScheme.ScopeTokens(this, this.Theme);
         this.Refresh();
     }
 
-    /// <summary>Reflects the active cell's formatting back into the bar.</summary>
+    /// <summary>Reflects the active cell's formatting and the sheet's state back into the bar.</summary>
     void Refresh()
     {
-        var format = this.controller?.ActiveFormat ?? ResolvedFormat.Default;
-        var enabled = this.controller is not null && !this.IsReadOnly;
+        if (this.ribbon is null)
+            return;
 
-        this.IsVisible = this.controller is not null;
+        var current = this.controller;
+        var format = current?.ActiveFormat ?? ResolvedFormat.Default;
+        var enabled = current is not null && !this.IsReadOnly;
+
+        this.IsVisible = current is not null;
 
         this.bold.IsChecked = format.Bold;
         this.italic.IsChecked = format.Italic;
@@ -808,51 +1258,64 @@ public class SpreadsheetToolbar : ContentView
         this.currency.IsChecked = preset == NumberFormatPreset.Currency;
         this.percent.IsChecked = preset == NumberFormatPreset.Percent;
 
+        this.merge.Tooltip = current?.IsActiveCellMerged == true ? "Unmerge Cells" : "Merge & Center";
+
+        this.filter.IsChecked = current?.HasAutoFilter ?? false;
+        this.filterEntry.IsChecked = current?.HasAutoFilter ?? false;
+        this.convertToRange.IsVisible = current?.ActiveTable is not null;
+        this.showFormulas.IsChecked = current?.ShowFormulas ?? false;
+        this.viewFormulas.IsChecked = current?.ShowFormulas ?? false;
+        this.gridlines.IsChecked = current?.ShowGridlines ?? true;
+        this.headings.IsChecked = current?.ShowHeadings ?? true;
+        this.formulaBar.IsChecked = this.IsFormulaBarVisible;
+        this.showAllNotes.IsChecked = current?.ShowAllNotes ?? false;
+        this.deleteNote.IsEnabled = enabled && current?.ActiveNote is not null;
+        this.newNote.Text = current?.ActiveNote is null ? "New Note" : "Edit Note";
+
         this.fill.IsActive = !format.Background.IsTransparent;
         this.fill.SetEnabled(enabled);
         this.fill.SetTooltipEnabled(this.ShowTooltips);
 
-        foreach (var item in this.FormattingItems())
-            item.IsEnabled = enabled;
+        foreach (var item in this.items)
+        {
+            if (item == this.deleteNote)
+                continue;
 
-        // Paste is the one clipboard command with a precondition of its own: there has to be
-        // something held. Cut and copy only need a selection, which there always is.
-        this.paste.IsEnabled = enabled && (this.controller?.CanPaste ?? false);
+            item.IsEnabled = current is not null && (enabled || this.readOnlySafe.Contains(item));
+        }
 
-        this.undo.IsEnabled = enabled && (this.controller?.CanUndo ?? false);
-        this.redo.IsEnabled = enabled && (this.controller?.CanRedo ?? false);
+        this.formulaBar.IsEnabled = true;
+        this.watermark.IsEnabled = current is not null && !this.IsReadOnly;
 
-        // The ticks in the formats menu track the active cell, so they are rebuilt with it.
+        // Paste has a precondition of its own: there has to be something held.
+        this.paste.IsEnabled = enabled && (current?.CanPaste ?? false);
+        this.undo.IsEnabled = enabled && (current?.CanUndo ?? false);
+        this.redo.IsEnabled = enabled && (current?.CanRedo ?? false);
+
         this.RebuildMenus();
 
-        // Writing a picker's selection raises its change event, which would immediately re-apply the
-        // format that was only being displayed.
+        // Writing a picker's selection raises its change event, which would re-apply the format being shown.
         this.suppressPickerEvents = true;
 
         if (this.fontPicker is not null)
+        {
             this.fontPicker.SelectedFont = format.FontName;
+            this.fontPicker.IsEnabled = enabled;
+        }
 
         if (this.sizePicker is not null)
         {
-            // Snap to the nearest offered size: a cell can hold any value, the picker only some.
             var sizes = this.FontSizes ?? DefaultFontSizes;
             this.sizePicker.SelectedFontSize = sizes.OrderBy(x => Math.Abs(x - format.FontSize)).FirstOrDefault();
+            this.sizePicker.IsEnabled = enabled;
         }
 
         this.textColor.SelectedColor = Color.FromRgba(format.Foreground.R, format.Foreground.G, format.Foreground.B, format.Foreground.A);
         this.textColor.IsEnabled = enabled;
 
-        if (this.fontPicker is not null)
-            this.fontPicker.IsEnabled = enabled;
-
-        if (this.sizePicker is not null)
-            this.sizePicker.IsEnabled = enabled;
-
         this.suppressPickerEvents = false;
 
-        // Finding works in a read-only workbook - it changes nothing - so it follows whether one is
-        // open rather than whether it can be edited.
-        this.findBar.IsEnabled = this.controller is not null;
+        this.findBar.IsEnabled = current is not null;
         this.findBar.SetTooltipsEnabled(this.ShowTooltips);
     }
 
@@ -862,7 +1325,6 @@ public class SpreadsheetToolbar : ContentView
         (byte)Math.Round(color.Red * 255),
         (byte)Math.Round(color.Green * 255),
         (byte)Math.Round(color.Blue * 255));
-
 
     /// <summary>Excel's own default plus the faces most workbooks actually use.</summary>
     static readonly IList<string> DefaultFontFamilies =
@@ -875,10 +1337,8 @@ public class SpreadsheetToolbar : ContentView
     /// The colour this control wears: its ribbon's header band and tab underline.
     /// </summary>
     /// <remarks>
-    /// Defaults to <see cref="OfficeAccent.Spreadsheet"/> — the colour Microsoft's own Excel wears,
-    /// because that is what a user reads as "a spreadsheet" before any label has been looked at. Set it to
-    /// take on the app's own brand instead, or to <c>null</c> to leave the bar on the theme's neutrals
-    /// like the rest of the chrome.
+    /// Defaults to <see cref="OfficeAccent.Spreadsheet"/> — Excel green. Set it to take on the app's own
+    /// brand instead, or to <c>null</c> to leave the bar on the theme's neutrals.
     /// </remarks>
     public static readonly BindableProperty AccentProperty = BindableProperty.Create(
         nameof(Accent),
@@ -897,7 +1357,6 @@ public class SpreadsheetToolbar : ContentView
     /// <summary>Paints the ribbon in the accent, or puts it back on the theme when there is none.</summary>
     void ApplyAccent()
     {
-        // A propertyChanged can arrive from a Style before this constructor has built the ribbon.
         if (this.ribbon is null)
             return;
 
@@ -920,14 +1379,7 @@ public class SpreadsheetToolbar : ContentView
     static Color ToColor(ArgbColor value)
         => Color.FromRgba(value.R / 255f, value.G / 255f, value.B / 255f, value.A / 255f);
 
-    /// <summary>
-    /// Picks a picture for the watermark, or clears one already there.
-    /// </summary>
-    /// <remarks>
-    /// The same picker the document and slide editors use for a picture - camera or gallery on a
-    /// phone, the platform's own image-filtered dialog on a desktop - because a watermark is a picture
-    /// and there is no reason for choosing one to work differently here.
-    /// </remarks>
+    /// <summary>Picks a picture for the watermark, or clears one already there.</summary>
     async Task PickWatermarkAsync()
     {
         if (this.HasWatermark)
@@ -947,5 +1399,4 @@ public class SpreadsheetToolbar : ContentView
             RotationDegrees = 315
         });
     }
-
 }

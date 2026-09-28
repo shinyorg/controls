@@ -71,7 +71,8 @@ public sealed class StyleWriter
         var fontId = FontId(sheet, format);
         var fillId = FillId(sheet, format);
 
-        var index = this.CellFormatId(sheet, format, numberFormatId, fontId, fillId);
+        var borderId = BorderId(sheet, format.Borders);
+        var index = this.CellFormatId(sheet, format, numberFormatId, fontId, fillId, borderId);
         this.internedFormats[key] = index;
         return index;
     }
@@ -97,7 +98,8 @@ public sealed class StyleWriter
         ((int)format.HorizontalAlignment).ToString(),
         ((int)format.VerticalAlignment).ToString(),
         format.WrapText ? "1" : "0",
-        format.Indent.ToString());
+        format.Indent.ToString(),
+        BorderKey(format.Borders));
 
     /// <summary>
     /// The styles part, created if the file has none.
@@ -286,16 +288,196 @@ public sealed class StyleWriter
         return TryParseHex(hex, out var color) && color == background;
     }
 
+    // ---- borders ----
+
+    static string BorderKey(CellBorders borders)
+    {
+        if (borders.IsEmpty)
+            return string.Empty;
+
+        return string.Join('|', Edge(borders.Left), Edge(borders.Right), Edge(borders.Top), Edge(borders.Bottom));
+
+        static string Edge(BorderEdge? edge)
+            => edge is { } e ? $"{(int)e.Style}:{e.Color.ToUInt32()}" : "-";
+    }
+
+    /// <summary>
+    /// The index of a <c>&lt;border&gt;</c> matching <paramref name="borders"/>, appending one if there is
+    /// none.
+    /// </summary>
+    /// <remarks>
+    /// Index 0 is the empty border every file carries, and is what a cell with no edges points at. The
+    /// four edges are written in the schema's order — left, right, top, bottom, diagonal — and the
+    /// diagonal is written empty, as Excel does, because some readers treat a border without one as
+    /// malformed.
+    /// </remarks>
+    static uint BorderId(Stylesheet sheet, CellBorders borders)
+    {
+        if (borders.IsEmpty)
+            return 0u;
+
+        var list = sheet.Borders ??= new Borders(new Border()) { Count = 1u };
+        var index = 0u;
+
+        foreach (var border in list.Elements<Border>())
+        {
+            if (Matches(border, borders))
+                return index;
+
+            index++;
+        }
+
+        var created = new Border(
+            EdgeElement(new LeftBorder(), borders.Left),
+            EdgeElement(new RightBorder(), borders.Right),
+            EdgeElement(new TopBorder(), borders.Top),
+            EdgeElement(new BottomBorder(), borders.Bottom),
+            new DiagonalBorder());
+
+        list.AppendChild(created);
+        list.Count = (uint)list.Elements<Border>().Count();
+        return index;
+    }
+
+    static T EdgeElement<T>(T element, BorderEdge? edge) where T : BorderPropertiesType
+    {
+        if (edge is not { IsVisible: true } visible)
+            return element;
+
+        element.Style = new EnumValue<BorderStyleValues> { InnerText = StyleResolver.BorderStyleText(visible.Style) };
+
+        element.Color = visible.Color.IsTransparent
+            ? new DocumentFormat.OpenXml.Spreadsheet.Color { Auto = true }
+            : new DocumentFormat.OpenXml.Spreadsheet.Color { Rgb = HexBinaryOf(visible.Color) };
+
+        return element;
+    }
+
+    static bool Matches(Border border, CellBorders borders)
+    {
+        if (border.DiagonalUp is not null || border.DiagonalDown is not null || border.Outline is not null)
+            return false;
+
+        if (border.DiagonalBorder?.Style is not null)
+            return false;
+
+        return Same(border.LeftBorder, borders.Left) &&
+               Same(border.RightBorder, borders.Right) &&
+               Same(border.TopBorder, borders.Top) &&
+               Same(border.BottomBorder, borders.Bottom);
+
+        static bool Same(BorderPropertiesType? element, BorderEdge? edge)
+        {
+            var style = StyleResolver.BorderStyleOf(element?.Style?.InnerText);
+            if (edge is not { IsVisible: true } visible)
+                return style == CellBorderStyle.None;
+
+            if (style != visible.Style)
+                return false;
+
+            var color = element!.Color;
+            if (visible.Color.IsTransparent)
+                return color is null || color.Auto?.Value == true;
+
+            return color?.Rgb?.Value is { } hex && color.Tint is null && TryParseHex(hex, out var parsed) && parsed == visible.Color;
+        }
+    }
+
+    // ---- differential formats ----
+
+    /// <summary>
+    /// The index of a <c>&lt;dxf&gt;</c> for <paramref name="format"/>, appending one when the file has none
+    /// that matches. What a conditional-format rule's <c>dxfId</c> points at.
+    /// </summary>
+    public uint InternDifferential(DxfFormat format)
+    {
+        ArgumentNullException.ThrowIfNull(format);
+
+        var sheet = this.EnsureStylesheet();
+        var created = BuildDxf(format);
+        var xml = created.OuterXml;
+
+        var dxfs = sheet.DifferentialFormats;
+        if (dxfs is null)
+        {
+            // The typed setter places it in CT_Stylesheet's sequence - after cellStyles, before
+            // tableStyles - which an append would not.
+            dxfs = new DifferentialFormats { Count = 0u };
+            sheet.DifferentialFormats = dxfs;
+        }
+
+        var index = 0u;
+        foreach (var existing in dxfs.Elements<DifferentialFormat>())
+        {
+            if (existing.OuterXml == xml)
+                return index;
+
+            index++;
+        }
+
+        dxfs.AppendChild(created);
+        dxfs.Count = (uint)dxfs.Elements<DifferentialFormat>().Count();
+        this.onChanged();
+        return index;
+    }
+
+    static DifferentialFormat BuildDxf(DxfFormat format)
+    {
+        var dxf = new DifferentialFormat();
+
+        if (format.Bold is not null || format.Italic is not null || format.Strike is not null ||
+            format.Underline is not null || format.Foreground is not null)
+        {
+            var font = new Font();
+            if (format.Bold is { } bold)
+                font.AppendChild(new Bold { Val = bold ? null : BooleanValue.FromBoolean(false) });
+
+            if (format.Italic is { } italic)
+                font.AppendChild(new Italic { Val = italic ? null : BooleanValue.FromBoolean(false) });
+
+            if (format.Strike is { } strike)
+                font.AppendChild(new Strike { Val = strike ? null : BooleanValue.FromBoolean(false) });
+
+            if (format.Underline is { } underline)
+                font.AppendChild(new Underline { Val = underline ? UnderlineValues.Single : UnderlineValues.None });
+
+            if (format.Foreground is { } color)
+                font.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Color { Rgb = HexBinaryOf(color) });
+
+            dxf.Font = font;
+        }
+
+        if (format.NumberFormatCode is { } code)
+            dxf.NumberingFormat = new NumberingFormat { NumberFormatId = 164u, FormatCode = code };
+
+        if (format.Background is { } background)
+        {
+            // In a dxf the visible colour of a solid fill is bgColor - the reverse of a cell fill.
+            dxf.Fill = new Fill(new PatternFill(new BackgroundColor { Rgb = HexBinaryOf(background) }));
+        }
+
+        if (format.Borders is { IsEmpty: false } borders)
+        {
+            dxf.Border = new Border(
+                EdgeElement(new LeftBorder(), borders.Left),
+                EdgeElement(new RightBorder(), borders.Right),
+                EdgeElement(new TopBorder(), borders.Top),
+                EdgeElement(new BottomBorder(), borders.Bottom));
+        }
+
+        return dxf;
+    }
+
     // ---- cell formats ----
 
-    uint CellFormatId(Stylesheet sheet, ResolvedFormat format, uint numberFormatId, uint fontId, uint fillId)
+    uint CellFormatId(Stylesheet sheet, ResolvedFormat format, uint numberFormatId, uint fontId, uint fillId, uint borderId)
     {
         var formats = sheet.CellFormats ??= new CellFormats();
         var index = 0u;
 
         foreach (var candidate in formats.Elements<CellFormat>())
         {
-            if (Matches(candidate, format, numberFormatId, fontId, fillId))
+            if (Matches(candidate, format, numberFormatId, fontId, fillId, borderId))
                 return index;
 
             index++;
@@ -306,7 +488,8 @@ public sealed class StyleWriter
             NumberFormatId = numberFormatId,
             FontId = fontId,
             FillId = fillId,
-            BorderId = 0u,
+            BorderId = borderId,
+            ApplyBorder = borderId != 0 ? BooleanValue.FromBoolean(true) : null,
             ApplyNumberFormat = numberFormatId != 0,
             ApplyFont = true,
             ApplyFill = fillId != 0
@@ -324,12 +507,12 @@ public sealed class StyleWriter
         return index;
     }
 
-    static bool Matches(CellFormat candidate, ResolvedFormat format, uint numberFormatId, uint fontId, uint fillId)
+    static bool Matches(CellFormat candidate, ResolvedFormat format, uint numberFormatId, uint fontId, uint fillId, uint borderId)
     {
         if ((candidate.NumberFormatId?.Value ?? 0u) != numberFormatId ||
             (candidate.FontId?.Value ?? 0u) != fontId ||
             (candidate.FillId?.Value ?? 0u) != fillId ||
-            (candidate.BorderId?.Value ?? 0u) != 0u)
+            (candidate.BorderId?.Value ?? 0u) != borderId)
         {
             return false;
         }

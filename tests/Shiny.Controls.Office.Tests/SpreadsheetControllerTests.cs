@@ -59,7 +59,9 @@ public class SpreadsheetControllerTests
         var from = controller.Viewport.CellRect(CellRef.Parse("B2"));
         var to = controller.Viewport.CellRect(CellRef.Parse("D5"));
 
-        controller.PointerDown(from.X + 2, from.Y + 2);
+        // Inside the cell rather than on its corner: the corner of A1, which is where the press would
+        // otherwise land, carries the fill handle.
+        controller.PointerDown(from.X + 8, from.Y + 8);
         controller.PointerMove(to.X + 2, to.Y + 2);
         controller.PointerUp();
 

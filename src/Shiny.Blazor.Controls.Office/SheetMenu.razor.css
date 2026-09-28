@@ -1,0 +1,85 @@
+.sheet-menu__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+}
+
+.sheet-menu {
+    position: absolute;
+    z-index: 31;
+    box-sizing: border-box;
+    width: 240px;
+    padding: 4px 0;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 6px;
+    background: var(--shiny-color-surface-container-high, #FFFFFF);
+    color: var(--shiny-color-on-surface, #161C23);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+    font-size: 12.5px;
+    user-select: none;
+}
+
+.sheet-menu__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px 0 4px;
+    cursor: pointer;
+}
+
+.sheet-menu__item:hover:not(.is-disabled) {
+    background: var(--shiny-color-secondary-container, #D6E9D8);
+    color: var(--shiny-color-on-secondary-container, #0E2A15);
+}
+
+.sheet-menu__item.is-disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.sheet-menu__check {
+    flex: 0 0 22px;
+    text-align: center;
+}
+
+.sheet-menu__text {
+    flex: 1 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sheet-menu__shortcut {
+    flex: 0 0 auto;
+    margin-left: 12px;
+    opacity: 0.65;
+    font-size: 11px;
+}
+
+.sheet-menu__arrow {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+}
+
+.sheet-menu__separator {
+    height: 1px;
+    margin: 4px 8px;
+    background: var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+.sheet-menu__sub {
+    display: none;
+    top: -5px;
+    left: calc(100% - 2px);
+}
+
+.sheet-menu.flip .sheet-menu__sub {
+    left: auto;
+    right: calc(100% - 2px);
+}
+
+.sheet-menu__item.has-children:hover > .sheet-menu__sub {
+    display: block;
+}

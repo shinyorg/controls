@@ -10,12 +10,13 @@ namespace Shiny.Maui.Controls.Office;
 /// <remarks>
 /// <para>
 /// The grid is painted by the same <see cref="SpreadsheetPainter"/> the Blazor host uses, and driven by
-/// the same <see cref="SpreadsheetController"/>. This class owns only two things MAUI has to provide:
-/// a Skia surface, and a real <see cref="Entry"/> to host the in-cell editor so the platform's soft
-/// keyboard and IME work without a custom text stack.
+/// the same <see cref="SpreadsheetController"/>. This class owns only what MAUI has to provide: a Skia
+/// surface, a real <see cref="Entry"/> to host the in-cell editor so the platform's soft keyboard and IME
+/// work without a custom text stack, and the overlay the controller's dialogs, menus and formula
+/// autocomplete are drawn on.
 /// </para>
 /// <para>
-/// Requires <c>UseSkiaSharp()</c> in <c>MauiProgram</c>.
+/// Requires <c>UseShinyOffice()</c> in <c>MauiProgram</c>.
 /// </para>
 /// </remarks>
 public class SpreadsheetView : ContentView, IDisposable
@@ -27,6 +28,10 @@ public class SpreadsheetView : ContentView, IDisposable
     readonly FormulaBar formulaBar;
     readonly SpreadsheetToolbar toolbar;
     readonly Grid layout;
+    readonly Grid overlay;
+    readonly SheetDialogHost dialogs = new();
+    readonly SheetMenuHost menus = new();
+    readonly FormulaAssistView assist = new();
     readonly SpreadsheetPainter painter = new();
 
     SpreadsheetController? controller;
@@ -35,11 +40,23 @@ public class SpreadsheetView : ContentView, IDisposable
     bool suppressEditorEvents;
     bool disposed;
 
+    // Long-press: a finger held still on the grid opens the context menu, the touch equivalent of a
+    // right-click.
+    int pressToken;
+    Point pressAt;
+    bool pressMoved;
+
+    double pinchStart = 1;
+
     public SpreadsheetView()
     {
         this.canvas = new SKCanvasView { EnableTouchEvents = true };
         this.canvas.PaintSurface += this.OnPaintSurface;
         this.canvas.Touch += this.OnTouch;
+
+        var pinch = new PinchGestureRecognizer();
+        pinch.PinchUpdated += this.OnPinch;
+        this.canvas.GestureRecognizers.Add(pinch);
 
         this.editor = new Entry
         {
@@ -51,6 +68,12 @@ public class SpreadsheetView : ContentView, IDisposable
         this.editor.TextChanged += this.OnEditorTextChanged;
         this.editor.Completed += this.OnEditorCompleted;
         this.editor.Unfocused += this.OnEditorUnfocused;
+        this.editor.PropertyChanged += (_, e) =>
+        {
+            // The caret moving inside a formula changes which argument the tip is on.
+            if (e.PropertyName == nameof(Entry.CursorPosition) && this.editor.IsVisible)
+                this.UpdateAssist(this.editor);
+        };
 
         this.root = new AbsoluteLayout();
         this.root.Add(this.canvas);
@@ -66,6 +89,8 @@ public class SpreadsheetView : ContentView, IDisposable
 
         this.formulaBar = new FormulaBar();
         this.formulaBar.Changed += this.OnSheetTabsChanged;
+        this.formulaBar.FormulaTextChanged += (_, entry) => this.UpdateAssist(entry);
+        this.formulaBar.FormulaEditingEnded += (_, _) => this.assist.Hide();
 
         this.toolbar = new SpreadsheetToolbar();
         this.toolbar.Changed += this.OnSheetTabsChanged;
@@ -74,6 +99,9 @@ public class SpreadsheetView : ContentView, IDisposable
             this.Watermark = mark;
             this.toolbar.HasWatermark = mark is not null;
         };
+
+        this.toolbar.FileMenuRequested += (_, _) => this.FileMenuRequested?.Invoke(this, EventArgs.Empty);
+        this.toolbar.FormulaBarToggled += (_, visible) => this.ShowFormulaBar = visible;
 
         this.layout = new Grid
         {
@@ -91,9 +119,19 @@ public class SpreadsheetView : ContentView, IDisposable
         this.layout.Add(this.root, 0, 2);
         this.layout.Add(this.sheetTabs, 0, 3);
 
-        // The canvas no longer fills this view - the strip takes a slice off the bottom - so the grid
-        // has to be sized from the canvas rather than from the control, or every pointer coordinate
-        // and every visible row is out by the height of the tabs.
+        // Everything that floats: the formula-autocomplete list, popup menus and dialogs, over all of the
+        // chrome rather than just the grid, because a menu opened near the bottom of the grid has to be
+        // able to run over the tab strip.
+        this.overlay = new Grid { InputTransparent = true, CascadeInputTransparent = false };
+        this.overlay.Add(this.assist);
+        this.overlay.Add(this.menus);
+        this.overlay.Add(this.dialogs);
+        this.assist.HorizontalOptions = LayoutOptions.Start;
+        this.assist.VerticalOptions = LayoutOptions.Start;
+        this.dialogs.Closed += (_, _) => this.AfterOverlayChanged();
+        this.layout.Add(this.overlay);
+        Grid.SetRowSpan(this.overlay, 4);
+
         this.canvas.SizeChanged += this.OnCanvasSizeChanged;
 
         this.Content = this.layout;
@@ -131,13 +169,14 @@ public class SpreadsheetView : ContentView, IDisposable
         typeof(bool),
         typeof(SpreadsheetView),
         true,
+        BindingMode.TwoWay,
         propertyChanged: (b, _, _) => ((SpreadsheetView)b).UpdateChrome());
 
     public static readonly BindableProperty ShowToolbarProperty = BindableProperty.Create(
         nameof(ShowToolbar),
         typeof(bool),
         typeof(SpreadsheetView),
-        false,
+        true,
         propertyChanged: (b, _, _) => ((SpreadsheetView)b).UpdateChrome());
 
     public static readonly BindableProperty IsReadOnlyProperty = BindableProperty.Create(
@@ -161,6 +200,24 @@ public class SpreadsheetView : ContentView, IDisposable
         true,
         propertyChanged: (b, _, _) => ((SpreadsheetView)b).UpdateChrome());
 
+    /// <summary>
+    /// The magnification, 0.1 to 4 — 10% to 400%. Two-way: pinching the grid, the View tab's zoom
+    /// commands and a status bar's slider all move it.
+    /// </summary>
+    public static readonly BindableProperty ZoomProperty = BindableProperty.Create(
+        nameof(Zoom),
+        typeof(double),
+        typeof(SpreadsheetView),
+        1d,
+        BindingMode.TwoWay,
+        coerceValue: (_, value) => Math.Clamp((double)value, SpreadsheetController.MinZoom, SpreadsheetController.MaxZoom),
+        propertyChanged: (b, _, value) =>
+        {
+            var view = (SpreadsheetView)b;
+            if (view.controller is { } current && Math.Abs(current.Zoom - (double)value) > 0.0005)
+                current.Zoom = (double)value;
+        });
+
     public Workbook? Workbook
     {
         get => (Workbook?)this.GetValue(WorkbookProperty);
@@ -174,10 +231,8 @@ public class SpreadsheetView : ContentView, IDisposable
     }
 
     /// <summary>
-    /// Grid chrome colours. Left unset the control follows the app's light/dark appearance, so a
-    /// workbook in a dark app is dark without the host wiring anything up. Setting it pins the
-    /// choice - including to <see cref="SpreadsheetTheme.Light"/>, which is how a host asks for a
-    /// paper-white grid whatever the app around it is doing.
+    /// Grid chrome colours. Left unset the control follows the app's light/dark appearance. Setting it
+    /// pins the choice.
     /// </summary>
     public SpreadsheetTheme? Theme
     {
@@ -188,10 +243,7 @@ public class SpreadsheetView : ContentView, IDisposable
     /// <summary>The theme actually painted: <see cref="Theme"/> when set, otherwise the app's.</summary>
     SpreadsheetTheme EffectiveTheme => this.Theme ?? OfficeScheme.Default;
 
-    /// <summary>
-    /// Whether to show the strip of sheet tabs under the grid. On by default: a workbook with no way
-    /// to reach its other sheets is a worse default than a single tab that does nothing.
-    /// </summary>
+    /// <summary>Whether to show the strip of sheet tabs under the grid. On by default.</summary>
     public bool ShowSheetTabs
     {
         get => (bool)this.GetValue(ShowSheetTabsProperty);
@@ -208,8 +260,32 @@ public class SpreadsheetView : ContentView, IDisposable
         set => this.SetValue(AllowSheetEditingProperty, value);
     }
 
+    /// <inheritdoc cref="ZoomProperty"/>
+    public double Zoom
+    {
+        get => (double)this.GetValue(ZoomProperty);
+        set => this.SetValue(ZoomProperty, value);
+    }
+
     /// <summary>The live controller, so a toolbar or formula bar can drive the same state.</summary>
     public SpreadsheetController? Controller => this.controller;
+
+    /// <summary>
+    /// Average, Count, Numerical Count, Min, Max and Sum of the selection — what a status bar shows.
+    /// </summary>
+    public SelectionStatistics SelectionStatistics => this.controller?.SelectionStatistics ?? SelectionStatistics.Empty;
+
+    /// <summary>Raised when <see cref="SelectionStatistics"/> may have changed — a new selection, or an edit under it.</summary>
+    public event EventHandler? SelectionStatisticsChanged;
+
+    /// <summary>Raised when <see cref="Zoom"/> changes, however it changed.</summary>
+    public event EventHandler<double>? ZoomChanged;
+
+    /// <summary>
+    /// Raised when the ribbon's File button is pressed. What File opens — save, export, recent files —
+    /// is the app's; the control only reports the press.
+    /// </summary>
+    public event EventHandler? FileMenuRequested;
 
     /// <summary>Raised after a cell is committed.</summary>
     public event EventHandler<CellRef>? CellChanged;
@@ -217,14 +293,7 @@ public class SpreadsheetView : ContentView, IDisposable
     /// <summary>Raised when the sheet on screen changes, by a tab tap or by a sheet edit.</summary>
     public event EventHandler<Worksheet>? ActiveSheetChanged;
 
-    /// <summary>
-    /// Whether to show the name box and formula field above the grid.
-    /// </summary>
-    /// <remarks>
-    /// On by default. The grid paints the <em>result</em> of a formula, so without this a cell reading
-    /// 84 gives no way to discover that it holds <c>=B1*2</c> — and no way to edit it as a formula
-    /// rather than retyping it from scratch.
-    /// </remarks>
+    /// <summary>Whether to show the name box and formula field above the grid. On by default.</summary>
     public bool ShowFormulaBar
     {
         get => (bool)this.GetValue(ShowFormulaBarProperty);
@@ -232,12 +301,12 @@ public class SpreadsheetView : ContentView, IDisposable
     }
 
     /// <summary>
-    /// Whether to show the formatting toolbar above the formula bar.
+    /// Whether to show the ribbon above the formula bar.
     /// </summary>
     /// <remarks>
-    /// Off by default, unlike the formula bar and the tab strip. Those two are how a workbook is read;
-    /// the toolbar is how one is authored, it is the tallest piece of chrome here, and a viewer that
-    /// gained a formatting bar it never asked for would be a breaking change to every existing use.
+    /// <b>On by default</b> — a behaviour change: it used to be off, back when the bar was a strip of
+    /// formatting buttons. It is now Excel's ribbon, and a spreadsheet without it hides most of what the
+    /// control can do. Set it to false for a viewer.
     /// </remarks>
     public bool ShowToolbar
     {
@@ -246,20 +315,16 @@ public class SpreadsheetView : ContentView, IDisposable
     }
 
     /// <summary>Shows the workbook but refuses formatting and sheet edits.</summary>
-    /// <remarks>
-    /// Cell editing is deliberately not covered: the grid's own read-only story is a separate piece of
-    /// work, and a property that half-locked the sheet would be worse than one that says what it does.
-    /// </remarks>
     public bool IsReadOnly
     {
         get => (bool)this.GetValue(IsReadOnlyProperty);
         set => this.SetValue(IsReadOnlyProperty, value);
     }
 
-    /// <summary>The tab strip, exposed so a host can hide or restyle it beyond the two properties above.</summary>
+    /// <summary>The tab strip, exposed so a host can hide or restyle it.</summary>
     public SheetTabStrip SheetTabs => this.sheetTabs;
 
-    /// <summary>The formatting toolbar, exposed so a host can add its own items to it.</summary>
+    /// <summary>The ribbon, exposed so a host can add its own items to it.</summary>
     public SpreadsheetToolbar Toolbar => this.toolbar;
 
     /// <summary>The formula bar, exposed so a host can make it read-only or restyle it.</summary>
@@ -290,9 +355,7 @@ public class SpreadsheetView : ContentView, IDisposable
             return;
         }
 
-        // Switch rather than rebuild when it is the same workbook. A new controller would throw away
-        // every sheet's remembered selection, scroll position and column widths - and since the tab
-        // strip writes the sheet name back through this property, that would happen on every tap.
+        // Switch rather than rebuild when it is the same workbook, keeping each sheet's remembered state.
         if (this.controller is { } existing && ReferenceEquals(existing.Workbook, workbook))
         {
             if (!ReferenceEquals(existing.Sheet, sheet))
@@ -309,12 +372,24 @@ public class SpreadsheetView : ContentView, IDisposable
         this.controller.EditingChanged += this.OnEditingChanged;
         this.controller.ActiveSheetChanged += this.OnActiveSheetChanged;
         this.controller.ClipboardChanged += this.OnClipboardChanged;
+        this.controller.DialogRequested += this.OnDialogRequested;
+        this.controller.MenuRequested += this.OnMenuRequested;
+        this.controller.HyperlinkActivated += this.OnHyperlinkActivated;
+        this.controller.ZoomChanged += this.OnZoomChanged;
+        this.controller.SelectionStatisticsChanged += this.OnSelectionStatisticsChanged;
         this.controller.Resize(
             this.canvas.Width > 0 ? this.canvas.Width : 800,
             this.canvas.Height > 0 ? this.canvas.Height : 600);
 
+        // The bound zoom wins over whatever the file was saved at, unless it was left at the default.
+        if (Math.Abs(this.Zoom - 1) > 0.0005)
+            this.controller.Zoom = this.Zoom;
+        else if (Math.Abs(this.controller.Zoom - 1) > 0.0005)
+            this.SetValue(ZoomProperty, this.controller.Zoom);
+
         this.UpdateChrome();
         this.Invalidate();
+        this.SelectionStatisticsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     void OnCanvasSizeChanged(object? sender, EventArgs e)
@@ -326,6 +401,7 @@ public class SpreadsheetView : ContentView, IDisposable
     void UpdateChrome()
     {
         this.toolbar.IsReadOnly = this.IsReadOnly;
+        this.toolbar.IsFormulaBarVisible = this.ShowFormulaBar;
         this.toolbar.Controller = this.ShowToolbar ? this.controller : null;
 
         this.sheetTabs.AllowEditing = this.AllowSheetEditing && !this.IsReadOnly;
@@ -340,8 +416,6 @@ public class SpreadsheetView : ContentView, IDisposable
 
     void OnActiveSheetChanged(object? sender, Worksheet sheet)
     {
-        // Written back so that a host binding SheetName and a tab tap do not fight: without this the
-        // next Rebuild would switch straight back to the sheet the user just left.
         this.SetValue(SheetNameProperty, sheet.Name);
 
         this.ActiveSheetChanged?.Invoke(this, sheet);
@@ -350,7 +424,23 @@ public class SpreadsheetView : ContentView, IDisposable
         this.Invalidate();
     }
 
-    void OnControllerChanged(object? sender, EventArgs e) => this.Invalidate();
+    void OnControllerChanged(object? sender, EventArgs e)
+    {
+        // The editor tracks the cell it covers: a zoom or a scroll moves the cell under it.
+        if (this.controller?.EditorBounds is { } bounds && this.editor.IsVisible)
+            this.PlaceEditor(bounds);
+
+        this.Invalidate();
+    }
+
+    void OnZoomChanged(object? sender, double zoom)
+    {
+        this.SetValue(ZoomProperty, zoom);
+        this.ZoomChanged?.Invoke(this, zoom);
+    }
+
+    void OnSelectionStatisticsChanged(object? sender, EventArgs e)
+        => this.SelectionStatisticsChanged?.Invoke(this, EventArgs.Empty);
 
     void Invalidate() => this.canvas.InvalidateSurface();
 
@@ -366,20 +456,10 @@ public class SpreadsheetView : ContentView, IDisposable
         // The surface is in device pixels while layout is in device-independent units.
         var scale = this.canvas.Width > 0 ? (float)(e.Info.Width / this.canvas.Width) : 1f;
 
-        this.painter.Paint(e.Surface.Canvas, new SpreadsheetPaintRequest
+        this.painter.Paint(e.Surface.Canvas, SpreadsheetPaintRequest.For(this.controller, theme, scale) with
         {
             Watermark = this.Watermark,
-            Workbook = this.controller.Workbook,
-            Sheet = this.controller.Sheet,
-            Viewport = this.controller.Viewport,
-            Selection = this.controller.Selection,
-            Theme = theme,
-            Scale = scale,
-            EditingCell = this.controller.EditingCell,
-            ClipboardRange = this.controller.ClipboardRange,
-            FindMatches = this.controller.FindMatchCells(),
-            ClipboardDashPhase = this.dashPhase,
-            ShowTouchHandles = this.controller.UsesTouch
+            ClipboardDashPhase = this.dashPhase
         });
     }
 
@@ -407,26 +487,55 @@ public class SpreadsheetView : ContentView, IDisposable
         switch (e.ActionType)
         {
             case SKTouchAction.Pressed:
-                // Any touch on the grid ends an edit in the bar above it. See FormulaBar.EndEditing.
                 this.formulaBar.EndEditing();
+                this.menus.Close();
+
+                // A right-click is a context menu, not a selection drag.
+                if (e.MouseButton == SKMouseButton.Right)
+                {
+                    this.controller.OpenContextMenu(x, y);
+                    break;
+                }
+
+                // SKTouchEventArgs carries no modifier state, so a Ctrl-click cannot be told from a click
+                // here; a desktop host that can see modifiers reaches links through HandleKey or the
+                // context menu's Open Hyperlink.
                 this.controller.PointerDown(x, y, kind: KindOf(e.DeviceType));
+
+                if (e.DeviceType == SKTouchDeviceType.Touch)
+                    this.StartLongPress(x, y);
+
                 break;
 
             case SKTouchAction.Moved:
                 if (e.InContact)
+                {
+                    if (Math.Abs(x - this.pressAt.X) > 6 || Math.Abs(y - this.pressAt.Y) > 6)
+                        this.pressMoved = true;
+
                     this.controller.PointerMove(x, y);
+                }
+                else
+                {
+                    // A mouse moving with no button down: the note under it opens.
+                    this.controller.PointerHover(x, y);
+                }
 
                 break;
 
             case SKTouchAction.Released:
             case SKTouchAction.Cancelled:
+                this.pressToken++;
                 this.controller.PointerUp();
                 break;
 
+            case SKTouchAction.Exited:
+                this.controller.PointerExit();
+                break;
+
             case SKTouchAction.WheelChanged:
-                // A wheel notch is reported in platform units; treat it as a vertical scroll.
-                // SKTouchEventArgs carries no second axis and no modifier state, so a horizontal
-                // wheel is not reachable from here - ScrollBy is what a desktop host drives instead.
+                // SKTouchEventArgs carries no second axis and no modifier state, so Ctrl+wheel zoom is not
+                // reachable from here - pinch is, and the Zoom property is what a desktop host drives.
                 this.controller.Scroll(0, -e.WheelDelta);
                 break;
         }
@@ -434,47 +543,112 @@ public class SpreadsheetView : ContentView, IDisposable
         e.Handled = true;
     }
 
+    void StartLongPress(double x, double y)
+    {
+        var token = ++this.pressToken;
+        this.pressAt = new Point(x, y);
+        this.pressMoved = false;
+
+        this.Dispatcher?.DispatchDelayed(TimeSpan.FromMilliseconds(550), () =>
+        {
+            if (token != this.pressToken || this.pressMoved || this.controller is not { } current)
+                return;
+
+            // End the press first: the finger is still down, and the grid would otherwise take the lift
+            // that dismisses the menu as the end of a tap.
+            current.PointerUp();
+            current.OpenContextMenu(x, y);
+        });
+    }
+
+    void OnPinch(object? sender, PinchGestureUpdatedEventArgs e)
+    {
+        if (this.controller is not { } current)
+            return;
+
+        switch (e.Status)
+        {
+            case GestureStatus.Started:
+                this.pinchStart = current.Zoom;
+                this.pressToken++;
+                break;
+
+            case GestureStatus.Running:
+                // Scale arrives as the change since the last update, so it accumulates.
+                this.pinchStart *= e.Scale;
+                current.Zoom = this.pinchStart;
+                break;
+        }
+    }
+
+    // ---- editing ----
+
     void OnEditingChanged(object? sender, CellRef? cell)
     {
         if (this.controller is null)
             return;
 
-        if (cell is not { } target)
+        if (cell is null || this.controller.EditorBounds is not { } bounds)
         {
             this.editor.IsVisible = false;
+            this.assist.Hide();
             return;
         }
-
-        var rect = this.controller.Viewport.CellRect(target);
 
         this.suppressEditorEvents = true;
         this.editor.Text = this.controller.EditingText;
         this.suppressEditorEvents = false;
 
-        AbsoluteLayout.SetLayoutFlags(this.editor, AbsoluteLayoutFlags.None);
-        AbsoluteLayout.SetLayoutBounds(this.editor, new Rect(rect.X, rect.Y, rect.Width, rect.Height));
+        this.editor.FontSize = Math.Max(8, this.controller.EditorFontSize);
+        this.PlaceEditor(bounds);
         this.editor.IsVisible = true;
         this.editor.FocusForEditing();
+        this.editor.CursorPosition = this.editor.Text?.Length ?? 0;
+        this.UpdateAssist(this.editor);
+    }
+
+    void PlaceEditor(GridRect bounds)
+    {
+        AbsoluteLayout.SetLayoutFlags(this.editor, AbsoluteLayoutFlags.None);
+        AbsoluteLayout.SetLayoutBounds(this.editor, new Rect(bounds.X, bounds.Y, Math.Max(bounds.Width, 60), Math.Max(bounds.Height, 24)));
     }
 
     void OnEditorTextChanged(object? sender, TextChangedEventArgs e)
     {
-        if (!this.suppressEditorEvents)
-            this.controller?.UpdateEditingText(e.NewTextValue ?? string.Empty);
+        if (this.suppressEditorEvents)
+            return;
+
+        this.controller?.UpdateEditingText(e.NewTextValue ?? string.Empty);
+        this.UpdateAssist(this.editor);
     }
 
     void OnEditorCompleted(object? sender, EventArgs e) => this.Commit(EditCommitDirection.Down);
 
     void OnEditorUnfocused(object? sender, FocusEventArgs e)
     {
-        // Tapping elsewhere commits, matching Excel rather than discarding what was typed.
-        if (this.editor.IsVisible)
-            this.Commit(EditCommitDirection.None);
+        if (!this.editor.IsVisible)
+            return;
+
+        // Tapping an autocomplete suggestion takes focus away for a moment and hands it straight back;
+        // that is not the user leaving the cell, so the commit waits to see whether focus returns.
+        if (this.assist.IsVisible && this.Dispatcher is { } dispatcher)
+        {
+            dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(200), () =>
+            {
+                if (this.editor.IsVisible && !this.editor.IsFocused)
+                    this.Commit(EditCommitDirection.None);
+            });
+
+            return;
+        }
+
+        this.Commit(EditCommitDirection.None);
     }
 
     void Commit(EditCommitDirection direction)
     {
         var cell = this.controller?.EditingCell;
+        this.assist.Hide();
         this.controller?.CommitEdit(direction);
 
         if (cell is { } committed)
@@ -482,21 +656,110 @@ public class SpreadsheetView : ContentView, IDisposable
     }
 
     /// <summary>
-    /// Opens the editor on the active cell. Exposed because MAUI has no portable key-down event, so a
-    /// desktop host wires physical keys through its own platform hook and calls in here.
+    /// Shows formula autocomplete under whichever entry is being typed into — the in-cell editor or the
+    /// formula bar's field.
     /// </summary>
+    void UpdateAssist(Entry entry)
+    {
+        if (this.controller is not { } current || !(entry.Text ?? string.Empty).StartsWith('='))
+        {
+            this.assist.Hide();
+            return;
+        }
+
+        this.assist.Update(entry, current, this.EffectiveTheme);
+        if (!this.assist.IsVisible)
+            return;
+
+        // Under the entry, in the overlay's coordinates.
+        var origin = PositionIn(entry, this.layout);
+        this.assist.Margin = new Thickness(origin.X, origin.Y + entry.Height + 2, 0, 0);
+        this.assist.WidthRequest = Math.Max(260, Math.Min(360, entry.Width));
+        this.AfterOverlayChanged();
+    }
+
+    static Point PositionIn(VisualElement element, VisualElement ancestor)
+    {
+        double x = 0, y = 0;
+        for (Element? current = element; current is VisualElement visual && current != ancestor; current = current.Parent)
+        {
+            x += visual.X;
+            y += visual.Y;
+        }
+
+        return new Point(x, y);
+    }
+
+    // ---- dialogs and menus ----
+
+    void OnDialogRequested(object? sender, SheetDialog dialog)
+    {
+        this.menus.Close();
+        this.assist.Hide();
+        this.dialogs.Show(dialog, this.EffectiveTheme);
+        this.AfterOverlayChanged();
+    }
+
+    void OnMenuRequested(object? sender, SheetMenuRequest request)
+    {
+        // The request is in the grid's coordinates; the overlay spans the whole control.
+        var origin = PositionIn(this.root, this.layout);
+        this.menus.Show(request, new Point(origin.X + request.X, origin.Y + request.Y), this.EffectiveTheme);
+        this.AfterOverlayChanged();
+    }
+
+    /// <summary>
+    /// Repaints after an overlay opens or closes. The overlay layer itself is permanently input
+    /// transparent with the cascade off, so only a visible card or backdrop takes a touch — a layer
+    /// spanning the whole control that swallowed input would leave the grid unclickable.
+    /// </summary>
+    void AfterOverlayChanged() => this.Invalidate();
+
+    async void OnHyperlinkActivated(object? sender, string address)
+    {
+        try
+        {
+            if (Uri.TryCreate(address, UriKind.Absolute, out var uri))
+                await Launcher.Default.OpenAsync(uri);
+        }
+        catch (Exception)
+        {
+            // A link to something nothing on the device can open is the link's problem, not a crash.
+        }
+    }
+
+    /// <summary>Opens the editor on the active cell.</summary>
     public void BeginEdit(string? initialText = null) => this.controller?.BeginEdit(initialText);
+
+    /// <summary>
+    /// Handles a key pressed while the grid has focus — Excel's shortcuts, the same table the Blazor host
+    /// uses. MAUI has no portable key-down event, so a desktop host wires its platform's keys here.
+    /// </summary>
+    /// <param name="key">The key as a browser names it — <c>"ArrowDown"</c>, <c>"a"</c>, <c>"F2"</c>.</param>
+    /// <returns>True when the key did something.</returns>
+    public bool HandleKey(string key, SheetKeyModifiers modifiers = SheetKeyModifiers.None)
+    {
+        if (this.controller is not { } current)
+            return false;
+
+        if (key == "Escape" && (this.dialogs.IsOpen || this.menus.IsOpen))
+        {
+            this.dialogs.Close();
+            this.menus.Close();
+            this.AfterOverlayChanged();
+            return true;
+        }
+
+        if (key == "Tab" && this.assist.AcceptFirst())
+            return true;
+
+        return current.HandleKey(key, modifiers);
+    }
 
     public void Move(MoveDirection direction, bool extend = false, bool toEdge = false)
         => this.controller?.Move(direction, extend, toEdge);
 
-    /// <summary>
-    /// Scrolls the grid by a delta in layout units, clamped to the sheet's content.
-    /// </summary>
-    /// <remarks>
-    /// Public because the wheel has only one axis: a host wanting a horizontal scrollbar, a trackpad's
-    /// sideways swipe or a "scroll right" command has nowhere else to send it.
-    /// </remarks>
+    /// <summary>Scrolls the grid by a delta in layout units, clamped to the sheet's content.</summary>
     public void ScrollBy(double dx, double dy)
         => this.controller?.Scroll(dx, dy);
 
@@ -507,22 +770,7 @@ public class SpreadsheetView : ContentView, IDisposable
     public void Redo() => this.controller?.Redo();
 
     /// <summary>Moves to the next or previous visible sheet, stopping at either end.</summary>
-    public void StepSheet(int offset)
-    {
-        if (this.controller is not { } current)
-            return;
-
-        var sheets = current.VisibleSheets;
-        var at = -1;
-        for (var i = 0; i < sheets.Count && at < 0; i++)
-        {
-            if (ReferenceEquals(sheets[i], current.Sheet))
-                at = i;
-        }
-
-        if (at >= 0 && sheets.ElementAtOrDefault(at + offset) is { } target)
-            current.SwitchSheet(target);
-    }
+    public void StepSheet(int offset) => this.controller?.StepSheet(offset);
 
     /// <summary>Takes a copy of the selection, marking it with the marching-ants border.</summary>
     public void Copy() => this.controller?.Copy();
@@ -556,15 +804,7 @@ public class SpreadsheetView : ContentView, IDisposable
             this.StartMarching();
     }
 
-    /// <summary>
-    /// Walks the dash phase forward until the clipboard is abandoned.
-    /// </summary>
-    /// <remarks>
-    /// The border lives inside a Skia surface that only redraws when something invalidates it, so the
-    /// marching has to be driven by a clock rather than by an animation the platform owns. It runs
-    /// only while there is something on the clipboard: a permanent timer under a grid that is usually
-    /// idle is a repaint every frame for nothing, and on a phone that is battery.
-    /// </remarks>
+    /// <summary>Walks the dash phase forward until the clipboard is abandoned.</summary>
     void StartMarching()
     {
         if (this.marching is not null || this.Dispatcher is null)
@@ -580,7 +820,6 @@ public class SpreadsheetView : ContentView, IDisposable
 
     void OnMarchingTick(object? sender, EventArgs e)
     {
-        // Two dashes' worth of travel per tick, so the phase never grows without bound.
         this.dashPhase = (this.dashPhase + 2f) % 10f;
         this.Invalidate();
     }
@@ -599,13 +838,7 @@ public class SpreadsheetView : ContentView, IDisposable
         this.Invalidate();
     }
 
-    /// <summary>
-    /// Stops the marching-ants clock when the view leaves the screen and resumes it on return.
-    /// </summary>
-    /// <remarks>
-    /// A running dispatcher timer is rooted by the platform's run loop, so a copy left pending when the
-    /// page was popped kept ticking - and kept this view and its page alive - for the life of the app.
-    /// </remarks>
+    /// <summary>Stops the marching-ants clock when the view leaves the screen and resumes it on return.</summary>
     protected override void OnHandlerChanged()
     {
         base.OnHandlerChanged();
@@ -625,6 +858,13 @@ public class SpreadsheetView : ContentView, IDisposable
         this.controller.EditingChanged -= this.OnEditingChanged;
         this.controller.ActiveSheetChanged -= this.OnActiveSheetChanged;
         this.controller.ClipboardChanged -= this.OnClipboardChanged;
+        this.controller.DialogRequested -= this.OnDialogRequested;
+        this.controller.MenuRequested -= this.OnMenuRequested;
+        this.controller.HyperlinkActivated -= this.OnHyperlinkActivated;
+        this.controller.ZoomChanged -= this.OnZoomChanged;
+        this.controller.SelectionStatisticsChanged -= this.OnSelectionStatisticsChanged;
+        this.dialogs.Close();
+        this.menus.Close();
         this.StopMarching();
     }
 
@@ -652,13 +892,9 @@ public class SpreadsheetView : ContentView, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// A picture drawn behind the content — a logo, a DRAFT stamp, a company mark.
-    /// </summary>
+    /// <summary>A picture drawn behind the content — a logo, a DRAFT stamp, a company mark.</summary>
     /// <remarks>
-    /// A <b>display</b> watermark: it is drawn, not written into the file. The three Office formats
-    /// have no common notion of one, so persisting would mean three unrelated mechanisms where drawing
-    /// means one. See <see cref="OfficeWatermark"/>.
+    /// A <b>display</b> watermark: it is drawn, not written into the file. See <see cref="OfficeWatermark"/>.
     /// </remarks>
     public static readonly BindableProperty WatermarkProperty = BindableProperty.Create(
         nameof(Watermark),
@@ -673,5 +909,4 @@ public class SpreadsheetView : ContentView, IDisposable
         get => (OfficeWatermark?)this.GetValue(WatermarkProperty);
         set => this.SetValue(WatermarkProperty, value);
     }
-
 }

@@ -10,7 +10,7 @@ namespace Shiny.Controls.Office.Spreadsheet;
 /// <summary>
 /// An open <c>.xlsx</c> workbook.
 /// </summary>
-public sealed class Workbook : OfficeDocument
+public sealed partial class Workbook : OfficeDocument
 {
     readonly SpreadsheetDocument document;
     readonly WorkbookPart workbookPart;
@@ -65,6 +65,7 @@ public sealed class Workbook : OfficeDocument
         }
 
         this.calcContext = new WorkbookCalcContext(this, TimeProvider.System);
+        this.Calc.NameResolver = this.ResolveNameNode;
         this.ReportUnsupported(workbookElement);
     }
 
@@ -365,6 +366,7 @@ public sealed class Workbook : OfficeDocument
         {
             var host = sheet.Name;
             sheet.RewriteFormulas(text => Shift(text, host));
+            sheet.RewriteChartFormulas(text => Shift(text, host));
         }
 
         foreach (var defined in this.workbookElement.DefinedNames?.Elements<DefinedName>() ?? Enumerable.Empty<DefinedName>())
@@ -721,8 +723,15 @@ public sealed class Workbook : OfficeDocument
     internal void OnContentChanged()
     {
         this.contentChanged = true;
+        this.Revision++;
         this.MarkDirty();
     }
+
+    /// <summary>
+    /// Bumped on every change to the workbook's content, so derived views — conditional-format
+    /// thresholds, the selection's statistics, a filter's value list — can cache against it.
+    /// </summary>
+    public long Revision { get; private set; }
 
     protected override void FlushToPackage()
     {
@@ -786,23 +795,9 @@ public sealed class Workbook : OfficeDocument
                 "Preserved on save. Editing macros is not supported."));
         }
 
-        foreach (var sheet in this.sheets)
-        {
-            if (sheet.MergedRanges.Count > 0)
-            {
-                this.Unsupported.Report(new UnsupportedFeature(
-                    sheet.Name, "Merged cells", UnsupportedSeverity.NotEditable,
-                    "Shown, but merges cannot be added or removed yet."));
-            }
-        }
-
-        if (workbookElement.DefinedNames is not null)
-        {
-            // Defined names are preserved, but nothing rewrites them yet, so a structural edit would
-            // leave them pointing at the wrong cells.
-            this.Unsupported.Report(new UnsupportedFeature(
-                "workbook", "Defined names", UnsupportedSeverity.NotEditable));
-        }
+        // Merged cells and defined names used to be reported here as read-only. Both are editable now —
+        // merges through MergeCells/UnmergeCells, names through the name manager — and a structural edit
+        // rewrites the names along with the formulas.
     }
 
     protected override void Dispose(bool disposing)
