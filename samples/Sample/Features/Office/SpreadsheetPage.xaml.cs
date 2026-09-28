@@ -1,6 +1,7 @@
 using Shiny.Controls.Office.Spreadsheet;
 using Shiny.Controls.Office.Spreadsheet.Commands;
 using Shiny.Controls.Office.Skia;
+using Shiny.Controls.Office.Shell;
 
 namespace Sample.Features.Office;
 
@@ -20,36 +21,14 @@ public partial class SpreadsheetPage : ContentPage
         this.workbook = Workbook.Create("Budget");
         this.Seed();
 
+        // The backstage's recent list is the host's to supply; these are placeholders.
+        this.Sheet.RecentFiles =
+        [
+            new OfficeRecentFile("Q3 forecast.xlsx", "Documents", DateTimeOffset.Now.AddHours(-3)),
+            new OfficeRecentFile("Team roster.xlsx", "OneDrive › Shared", DateTimeOffset.Now.AddDays(-2)) { IsPinned = true }
+        ];
+
         this.Sheet.Workbook = this.workbook;
-        this.UpdateFormulaBar();
-
-        if (this.Sheet.Controller is { } controller)
-            controller.Selection.Changed += (_, _) => this.UpdateFormulaBar();
-
-        this.Sheet.SelectionStatisticsChanged += (_, _) => this.UpdateStatusBar();
-        this.Sheet.ZoomChanged += (_, _) => this.UpdateStatusBar();
-        this.UpdateStatusBar();
-    }
-
-    /// <summary>Excel's status bar: the selection's aggregates when there is something to aggregate, and the zoom.</summary>
-    void UpdateStatusBar()
-    {
-        var stats = this.Sheet.SelectionStatistics;
-        var parts = new List<string>();
-
-        if (stats.IsMeaningful)
-        {
-            if (stats.Average is { } average)
-                parts.Add($"Average: {average:#,##0.##}");
-
-            parts.Add($"Count: {stats.Count}");
-
-            if (stats.NumericalCount > 0)
-                parts.Add($"Sum: {stats.Sum:#,##0.##}");
-        }
-
-        parts.Add($"Zoom: {this.Sheet.Zoom:P0}");
-        this.StatusBar.Text = string.Join("    ", parts);
     }
 
     void Seed()
@@ -71,6 +50,10 @@ public partial class SpreadsheetPage : ContentPage
         this.workbook.Execute(new AddSheetCommand("Summary", 1));
         this.workbook.Execute(new SetCellValueCommand("Summary", CellRef.Parse("A1"), CellValue.FromText("Budget total")));
         this.workbook.Execute(new SetCellFormulaCommand("Summary", CellRef.Parse("B1"), "Budget!D5"));
+
+        // Notes for the Comments pane (the button at the right end of the ribbon's tab strip).
+        this.workbook.Execute(new SetNoteCommand("Budget", CellRef.Parse("C3"), new CellNote(CellRef.Parse("C3"), "Price went up in March.", "Allan")));
+        this.workbook.Execute(new SetNoteCommand("Summary", CellRef.Parse("B1"), new CellNote(CellRef.Parse("B1"), "Pulled from the Budget sheet.", "Allan")));
     }
 
     void Set(string reference, CellValue value)
@@ -86,24 +69,13 @@ public partial class SpreadsheetPage : ContentPage
 
     void OnAddRow(object? sender, EventArgs e)
     {
-        this.AddItem(this.nextRow, $"Item {this.nextRow}", this.nextRow, 5);
+        // File ▸ New can swap in a template workbook; the button only adds to the seeded one.
+        if (!ReferenceEquals(this.Sheet.Workbook, this.workbook))
+            return;
 
-        // The total has to grow with the table; nothing rewrites ranges for us yet.
+        this.AddItem(this.nextRow, $"Item {this.nextRow}", this.nextRow, 5);
         this.workbook.Execute(new SetCellFormulaCommand("Budget", CellRef.Parse("D5"), $"SUM(D2:D{this.nextRow})"));
         this.nextRow++;
-        this.UpdateFormulaBar();
-    }
-
-    void OnUndo(object? sender, EventArgs e)
-    {
-        this.Sheet.Undo();
-        this.UpdateFormulaBar();
-    }
-
-    void OnRedo(object? sender, EventArgs e)
-    {
-        this.Sheet.Redo();
-        this.UpdateFormulaBar();
     }
 
     void OnToggleTheme(object? sender, EventArgs e)
@@ -114,15 +86,29 @@ public partial class SpreadsheetPage : ContentPage
         this.Sheet.Theme = this.dark ? SpreadsheetTheme.Dark : null;
     }
 
-    void OnCellChanged(object? sender, CellRef cell) => this.UpdateFormulaBar();
+    void OnToggleShell(object? sender, EventArgs e) => this.Sheet.ShowShell = !this.Sheet.ShowShell;
 
-    void UpdateFormulaBar()
+    /// <summary>
+    /// Save, Save As, Export and Print all arrive here. The shell writes no files itself; this sample
+    /// puts them in the cache folder — a real app would use a file picker or a share sheet.
+    /// </summary>
+    async void OnFileRequested(object? sender, SpreadsheetFileRequest request)
     {
-        var controller = this.Sheet.Controller;
-        this.FormulaBar.Text = controller is null
-            ? string.Empty
-            : $"{controller.Selection.Active.Relative()}   {controller.ActiveCellText}";
+        try
+        {
+            var path = Path.Combine(FileSystem.CacheDirectory, request.FileName);
+            await using (var file = File.Create(path))
+                await request.WriteToAsync(file);
+
+            this.LastFile.Text = $"{request.Action}: {path}";
+        }
+        catch (Exception ex)
+        {
+            this.LastFile.Text = $"{request.Action} failed: {ex.Message}";
+        }
     }
+
+    void OnCellChanged(object? sender, CellRef cell) { }
 
     protected override void OnHandlerChanged()
     {

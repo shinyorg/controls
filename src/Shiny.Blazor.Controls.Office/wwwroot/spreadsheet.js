@@ -92,3 +92,28 @@ export function focus(element) {
         element.focus();
     }
 }
+
+// A file the backstage produced (Save, Save As, Export) handed to the browser as a download. The bytes
+// arrive as a Uint8Array; primitives only, so nothing here depends on a .NET type surviving trimming.
+export function downloadFile(fileName, mimeType, bytes) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+// Print: the sheet rendered to a PDF and opened in a tab, where the browser's own viewer prints it.
+export function openFile(fileName, mimeType, bytes) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+    const opened = window.open(url, '_blank');
+    if (!opened) {
+        // Popup blocked: a download still gets the pages to the user.
+        downloadFile(fileName, mimeType, bytes);
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+}

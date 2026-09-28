@@ -60,6 +60,68 @@ using var workbook = Workbook.Create("Sheet1");
 The Blazor host paints to a canvas that fills its container, so **the container needs an explicit
 height** — without one it collapses to zero and nothing appears.
 
+### The Excel window (Office shell) — on by default
+
+`SpreadsheetView` is Excel's whole window, not just a grid: an `OfficeShell` (see
+[office-shell.md](office-shell.md)) dressed as `OfficeApp.Excel` with
+
+- the green **title bar** — AutoSave, Save / Undo / Redo, the workbook name (rename dropdown), save
+  status ("Unsaved changes" / "Saving…" / "Saved" / "Saved locally"), and the command search (every
+  ribbon command, with its shortcut, plus Save / New Workbook / Export to PDF / Export to CSV / Print /
+  Comments / the three views; a query matching no command searches every sheet);
+- the **ribbon** with **File** opening the backstage and **Comments / Editing mode / Share** at its end
+  (Viewing mode makes the workbook read-only);
+- formula bar, grid and sheet tabs as before;
+- the **Comments pane** on the right: every note in the workbook (`Sheet!Cell`, author, text); a click
+  selects the cell, switching sheets;
+- the **status bar**: Ready / Enter / Edit, "Average: x  Count: n  Sum: y" (hidden unless
+  `SelectionStatistics.IsMeaningful`), Normal / Page Layout / Page Break Preview, and a zoom slider
+  (10–400%) bound to `Zoom`;
+- the **backstage**: templates (blank, Monthly budget, Invoice, Weekly schedule — built in code by
+  `SpreadsheetTemplates`), recent files (host-supplied), Info with statistics (sheets, cells with data,
+  formulas, notes), Save, Save As / Export (xlsx, CSV of the active sheet, PDF), Print.
+
+Switches (all default `true`): `ShowShell` (false = the old ribbon + formula bar + grid + tabs),
+`ShowTitleBar`, `ShowStatusBar`, `ShowBackstage`, `ShowCommentsPane`, and on Blazor `ShowRibbonActions`.
+`ShowToolbar`, `ShowFormulaBar`, `ShowSheetTabs` still work.
+
+The shell reads and writes **no files**. Save (title bar, backstage, Ctrl+S), Save As, Export and Print
+raise **`FileRequested`** with a `SpreadsheetFileRequest` (`Format`, `FileName`, `Action`
+Save/SaveAs/Export/Print, `Sheet`, `WriteToAsync(stream)`, `ToBytesAsync()`). On **Blazor**, leaving it
+unhandled downloads the file in the browser (Print opens the PDF in a new tab); on **MAUI** it must be
+handled for anything to be written:
+
+```csharp
+sheet.FileRequested += async (_, request) =>
+{
+    var path = Path.Combine(FileSystem.AppDataDirectory, request.FileName);
+    await using var file = File.Create(path);
+    await request.WriteToAsync(file);
+};
+```
+
+```razor
+<SpreadsheetView @bind-Workbook="workbook" @bind-Zoom="zoom"
+                 DocumentName="Budget" UserName="Allan Ritchie" RecentFiles="recent"
+                 FileRequested="SaveAsync" />
+```
+
+Other shell members: `DocumentName` (two-way), `UserName` (avatar + author of new notes), `Templates`,
+`RecentFiles`, `SaveState` (Blazor override), `AutoSave` (Blazor; saves 2 s after the last edit when
+`FileRequested` is handled), events `TemplateSelected` (handle it to build templates yourself —
+unhandled, the view builds the workbook, shows it and raises Blazor `WorkbookChanged` /
+MAUI `WorkbookReplaced`; use `@bind-Workbook` on Blazor), `OpenRequested`, `RecentFileSelected`,
+`ShareRequested`. `Commands` is the `OfficeCommandIndex` behind the search — add your own commands to
+it. MAUI also exposes `Shell`, `TitleBar`, `StatusBar`, `Backstage`, `GoToNote(...)` and `SaveAsync()`.
+`FileMenuRequested` is still raised by File (after the backstage opens).
+
+Shared helpers for custom chrome: `SpreadsheetShell.Aggregates(stats)`, `.ModeText(controller.EditMode)`,
+`.Notes(workbook)`, `.GoTo(controller, note)`, `.Search(controller, text)`, `.DocumentInfo(workbook, name)`,
+`.ToCsv(workbook, sheet)`; `SpreadsheetExport.WriteAsync(workbook, sheet, format, stream)` (xlsx / csv /
+pdf — PDF paints the used range with the grid's own painter onto Letter pages, no headings, gridlines
+or selection); `controller.ViewMode` (`SheetViewMode.Normal/PageLayout/PageBreakPreview`) and
+`controller.PageLayout` (`SheetPagination`).
+
 ## Editing
 
 All edits go through the undo stack. Never mutate cells directly.
@@ -143,8 +205,8 @@ be off — set `ShowToolbar="false"` for a read-only viewer that should not grow
 
 The ribbon is organised like Excel's:
 
-- **File** — the application button. The control does not draw a backstage; it raises
-  `FileMenuRequested` (MAUI event / Blazor `EventCallback`) for the host's own.
+- **File** — the application button. Opens the built-in backstage (see *The Excel window* above) and
+  raises `FileMenuRequested`; with `ShowBackstage="false"` it only raises the event.
 - **Home** — Clipboard; Font (incl. text colour, fill, the **Borders** dropdown with line style and
   colour); Alignment (incl. **Merge & Center** split button); Number (formats, currency, percent,
   decimals, More Number Formats…); **Styles** (Conditional Formatting, Format as Table, Cell Styles);
@@ -366,8 +428,10 @@ Popup menus (right-click, a validated cell's dropdown) arrive as `controller.Men
 ### Keyboard
 
 `controller.HandleKey(key, modifiers)` is Excel's shortcut table for both hosts — `key` named the way
-a browser's `KeyboardEvent.key` names it. Blazor wires it for you; on MAUI call
-`SpreadsheetView.HandleKey` from your platform key hook. Covered: arrows (Ctrl = to edge, Shift =
+a browser's `KeyboardEvent.key` names it. Blazor wires it for you (plus Ctrl/Cmd+S = Save and
+Ctrl/Cmd+P = Print in the shell); on MAUI call `SpreadsheetView.HandleKey` from your platform key hook —
+the Office package has no MAUI physical-key hook (neither does `DocumentEditor`), so a MAUI host without
+one gets no keyboard shortcuts. Covered: arrows (Ctrl = to edge, Shift =
 extend), Tab/Enter, Home/Ctrl+Home/Ctrl+End, PageUp/Down, Ctrl+PageUp/Down (sheets), F2, Shift+F2 (note),
 Shift+F3 (insert function), Ctrl+F3 (names), F5/Ctrl+G, F9, Delete, Escape, Ctrl+Space / Shift+Space,
 Ctrl+A (region, then all), Ctrl+C/X/V/Z/Y, Ctrl+B/I/U/5, Ctrl+D/R, Ctrl+K, Ctrl+1, Ctrl+9/0,
@@ -509,8 +573,8 @@ the two read as different things. `ClipboardChanged` is the event to hook if a h
 the clipboard filling or emptying; `Changed` also fires, but it fires on every keystroke as well.
 
 The ribbon already carries every command on this page — do not add your own buttons for any of them.
-What is left for a host to wire is the File backstage (`FileMenuRequested`) and a status bar (bind
-`Zoom` and `SelectionStatistics`).
+With the shell on, the backstage and status bar are built in too; what is left for a host to wire is
+where files go (`FileRequested`) and, optionally, recent files and its own templates.
 
 ## Touch
 

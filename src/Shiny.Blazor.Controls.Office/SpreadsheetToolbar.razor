@@ -28,20 +28,32 @@
     carries the ribbon's scope id instead, and every rule in this stylesheet silently stops matching.
 *@
 <div class="sheet-toolbar @Class" style="@Style">
-<Ribbon ShowTabStrip="ShowTabs"
+@*
+    In an Office shell the title bar is the accent band and carries Undo/Redo, so the ribbon sits on
+    the theme's neutrals with only its selected tab and File button in the app colour - Excel's own
+    arrangement. Standalone, the bar is its own header band and keeps Undo/Redo in quick access.
+*@
+<Ribbon @ref="ribbon"
+        ShowTabStrip="ShowTabs"
         ApplicationButtonText="@(this.FileMenuRequested.HasDelegate ? "File" : null)"
         ApplicationButtonClicked="this.OnFileAsync"
-        HeaderBackgroundColor="@AccentBackground"
-        HeaderForegroundColor="@AccentInk"
-        AccentColor="@AccentInk"
+        HeaderBackgroundColor="@(this.InShell ? null : AccentBackground)"
+        HeaderForegroundColor="@(this.InShell ? null : AccentInk)"
+        AccentColor="@(this.InShell ? AccentBackground : AccentInk)"
+        HeaderEnd="this.HeaderEnd"
+        DisplayMode="this.DisplayMode"
+        DisplayModeChanged="this.DisplayModeChanged"
         AllowCollapse="ShowTabs"
         SmallItemRows="2">
     <QuickAccess>
-        @* Undo and redo apply whatever the selection is, so they sit outside the groups. *@
-        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo (Ctrl+Z)" Icon="@Ico(OfficeIcon.Undo)"
-                      Disabled="@(Disabled || !(Controller?.CanUndo ?? false))" Clicked="() => Run(c => c.Undo())" />
-        <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo (Ctrl+Y)" Icon="@Ico(OfficeIcon.Redo)"
-                      Disabled="@(Disabled || !(Controller?.CanRedo ?? false))" Clicked="() => Run(c => c.Redo())" />
+        @if (!this.InShell)
+        {
+            @* Undo and redo apply whatever the selection is, so they sit outside the groups. *@
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo" Shortcut="Ctrl+Z" Icon="@Ico(OfficeIcon.Undo)"
+                          Disabled="@(Disabled || !(Controller?.CanUndo ?? false))" Clicked="() => Run(c => c.Undo())" />
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo" Shortcut="Ctrl+Y" Icon="@Ico(OfficeIcon.Redo)"
+                          Disabled="@(Disabled || !(Controller?.CanRedo ?? false))" Clicked="() => Run(c => c.Redo())" />
+        }
     </QuickAccess>
 
     <ChildContent>
@@ -155,6 +167,25 @@
 
     /// <summary>Raised after a command runs, so a host can repaint and track the dirty state.</summary>
     [Parameter] public EventCallback Changed { get; set; }
+
+    /// <summary>
+    /// Dresses the bar for an Office shell: no header band (the title bar above is the accent band), the
+    /// accent on the selected tab and File button only, and no Undo/Redo (the title bar has them).
+    /// </summary>
+    [Parameter] public bool InShell { get; set; }
+
+    /// <summary>Content at the far end of the tab strip — an <see cref="OfficeRibbonActions"/> in a shell.</summary>
+    [Parameter] public RenderFragment? HeaderEnd { get; set; }
+
+    /// <summary>Expanded, collapsed or simplified. A shell switches it to simplified below its compact width.</summary>
+    [Parameter] public RibbonDisplayMode DisplayMode { get; set; } = RibbonDisplayMode.Expanded;
+
+    [Parameter] public EventCallback<RibbonDisplayMode> DisplayModeChanged { get; set; }
+
+    Ribbon? ribbon;
+
+    /// <summary>The ribbon inside the bar, for <c>OfficeCommandIndex.SyncRibbon</c>. Null until first render.</summary>
+    public Ribbon? Ribbon => this.ribbon;
 
     bool Disabled => this.ReadOnly || this.Controller is null;
 
@@ -567,13 +598,13 @@
         @* Clipboard leads, as it does in Excel: cut/copy/paste apply to whatever is selected and are
            reached far more often than any formatting command. *@
         <RibbonGroup Title="Clipboard" Priority="110">
-            <RibbonButton Text="Paste" Tooltip="Paste (Ctrl+V)"
+            <RibbonButton Text="Paste" Tooltip="Paste" Shortcut="Ctrl+V"
                           Icon="@Ico(OfficeIcon.Paste)"
                           Disabled="@(Disabled || !(Controller?.CanPaste ?? false))"
                           Clicked="() => Run(c => c.Paste())" />
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Cut (Ctrl+X)" Icon="@Ico(OfficeIcon.Cut)"
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Cut" Shortcut="Ctrl+X" Icon="@Ico(OfficeIcon.Cut)"
                           Disabled="Disabled" Clicked="() => Run(c => c.Cut())" />
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Copy (Ctrl+C)" Icon="@Ico(OfficeIcon.Copy)"
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Copy" Shortcut="Ctrl+C" Icon="@Ico(OfficeIcon.Copy)"
                           Disabled="Disabled" Clicked="() => Run(c => c.Copy())" />
         </RibbonGroup>
 
@@ -596,13 +627,13 @@
             </RibbonRow>
 
             <RibbonRow>
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold" Shortcut="Ctrl+B" Icon="@Ico(OfficeIcon.Bold)"
                                     Checked="Format.Bold" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleBold())" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic" Shortcut="Ctrl+I" Icon="@Ico(OfficeIcon.Italic)"
                                     Checked="Format.Italic" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleItalic())" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline (Ctrl+U)" Icon="@Ico(OfficeIcon.Underline)"
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline" Shortcut="Ctrl+U" Icon="@Ico(OfficeIcon.Underline)"
                                     Checked="Format.Underline" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleUnderline())" />
-                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough (Ctrl+5)" Icon="@Ico(OfficeIcon.Strikethrough)"
+                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Shortcut="Ctrl+5" Icon="@Ico(OfficeIcon.Strikethrough)"
                                     Checked="Format.Strike" Disabled="Disabled" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
 
                 <RibbonSeparator />
@@ -716,7 +747,7 @@
 
         <RibbonGroup Title="Editing" Priority="70">
             @* AutoSum stays a split button: totalling a column is the common case by a wide margin. *@
-            <RibbonSplitButton Text="AutoSum" Tooltip="AutoSum (Alt+=)"
+            <RibbonSplitButton Text="AutoSum" Tooltip="AutoSum" Shortcut="Alt+="
                                Icon="@Ico(OfficeIcon.Sum)" Disabled="Disabled"
                                Clicked="() => Run(c => c.ApplyAutoFunction(AutoFunction.Sum))"
                                Menu="FunctionMenu" />
@@ -727,7 +758,7 @@
                               Disabled="Disabled" Menu="ClearMenu" />
             <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Sort &amp; Filter" Icon="@Ico(OfficeIcon.Filter)"
                               Disabled="Disabled" Menu="SortFilterMenu" />
-            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Go To (Ctrl+G)" Icon="@Ico(OfficeIcon.GoTo)"
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Go To" Shortcut="Ctrl+G" Icon="@Ico(OfficeIcon.GoTo)"
                           Disabled="@(Controller is null)" Clicked="() => View(c => c.ShowDialog(SpreadsheetDialogs.GoTo(c)))" />
         </RibbonGroup>
 
@@ -770,13 +801,13 @@
         </RibbonGroup>
 
         <RibbonGroup Title="Links" Priority="56">
-            <RibbonButton Text="Link" Tooltip="Insert Link (Ctrl+K)"
+            <RibbonButton Text="Link" Tooltip="Insert Link" Shortcut="Ctrl+K"
                           Icon="@Ico(OfficeIcon.Hyperlink)" Disabled="Disabled"
                           Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.Hyperlink(c)))" />
         </RibbonGroup>
 
         <RibbonGroup Title="Notes" Priority="54">
-            <RibbonButton Text="Note" Tooltip="New Note (Shift+F2)"
+            <RibbonButton Text="Note" Tooltip="New Note" Shortcut="Shift+F2"
                           Icon="@Ico(OfficeIcon.NewNote)" Disabled="Disabled"
                           Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.Note(c)))" />
         </RibbonGroup>
@@ -814,7 +845,7 @@
 
     RenderFragment FormulaGroups => @<text>
         <RibbonGroup Title="Function Library" Priority="60">
-            <RibbonButton Text="Insert Function" Tooltip="Insert Function (Shift+F3)"
+            <RibbonButton Text="Insert Function" Tooltip="Insert Function" Shortcut="Shift+F3"
                           Icon="@Ico(OfficeIcon.Function)" Disabled="Disabled"
                           Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.InsertFunction(c)))" />
             <RibbonSplitButton Size="RibbonItemSize.Small" Text="AutoSum" Tooltip="AutoSum"
@@ -831,7 +862,7 @@
         </RibbonGroup>
 
         <RibbonGroup Title="Defined Names" Priority="55">
-            <RibbonButton Text="Name Manager" Tooltip="Name Manager (Ctrl+F3)"
+            <RibbonButton Text="Name Manager" Tooltip="Name Manager" Shortcut="Ctrl+F3"
                           Icon="@Ico(OfficeIcon.NameManager)" Disabled="Disabled"
                           Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.NameManager(c)))" />
             <RibbonButton Size="RibbonItemSize.Small" Text="Define Name" Tooltip="Define Name"
@@ -842,10 +873,10 @@
         </RibbonGroup>
 
         <RibbonGroup Title="Calculation" Priority="50">
-            <RibbonButton Size="RibbonItemSize.Small" Text="Calculate Now" Tooltip="Calculate Now (F9)"
+            <RibbonButton Size="RibbonItemSize.Small" Text="Calculate Now" Tooltip="Calculate Now" Shortcut="F9"
                           Icon="@Ico(OfficeIcon.Calculate)" Disabled="@(Controller is null)"
                           Clicked="() => View(c => c.CalculateNow())" />
-            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Show Formulas" Tooltip="Show Formulas (Ctrl+`)"
+            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Show Formulas" Tooltip="Show Formulas" Shortcut="Ctrl+`"
                                 Icon="@Ico(OfficeIcon.ShowFormulas)" Checked="@(Controller?.ShowFormulas ?? false)"
                                 Disabled="@(Controller is null)" Clicked="_ => View(c => c.ToggleShowFormulas())" />
         </RibbonGroup>
@@ -862,7 +893,7 @@
             <RibbonButton Text="Sort" Tooltip="Custom Sort"
                           Icon="@Ico(OfficeIcon.CustomSort)" Disabled="Disabled"
                           Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.CustomSort(c)))" />
-            <RibbonToggleButton Text="Filter" Tooltip="Filter (Ctrl+Shift+L)"
+            <RibbonToggleButton Text="Filter" Tooltip="Filter" Shortcut="Ctrl+Shift+L"
                                 Icon="@Ico(OfficeIcon.Filter)" Checked="@(Controller?.HasAutoFilter ?? false)"
                                 Disabled="Disabled" Clicked="_ => Run(c => c.ToggleAutoFilter())" />
             <RibbonButton Size="RibbonItemSize.Small" Text="Clear" Tooltip="Clear Filters"
@@ -886,7 +917,7 @@
 
     RenderFragment ReviewGroups => @<text>
         <RibbonGroup Title="Notes" Priority="60">
-            <RibbonButton Text="@(Controller?.ActiveNote is null ? "New Note" : "Edit Note")" Tooltip="Note (Shift+F2)"
+            <RibbonButton Text="@(Controller?.ActiveNote is null ? "New Note" : "Edit Note")" Tooltip="Note" Shortcut="Shift+F2"
                           Icon="@Ico(OfficeIcon.NewNote)" Disabled="Disabled"
                           Clicked="() => Run(c => c.ShowDialog(SpreadsheetDialogs.Note(c)))" />
             <RibbonButton Size="RibbonItemSize.Small" Text="Delete" Tooltip="Delete Note"
@@ -917,7 +948,7 @@
             <RibbonToggleButton Size="RibbonItemSize.Small" Text="Formula Bar" Tooltip="Formula Bar"
                                 Icon="@Ico(OfficeIcon.FormulaBar)" Checked="ShowFormulaBar"
                                 Disabled="@(Controller is null)" Clicked="_ => ToggleFormulaBar()" />
-            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Formulas" Tooltip="Show Formulas (Ctrl+`)"
+            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Formulas" Tooltip="Show Formulas" Shortcut="Ctrl+`"
                                 Icon="@Ico(OfficeIcon.ShowFormulas)" Checked="@(Controller?.ShowFormulas ?? false)"
                                 Disabled="@(Controller is null)" Clicked="_ => View(c => c.ToggleShowFormulas())" />
         </RibbonGroup>

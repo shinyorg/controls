@@ -576,9 +576,13 @@ public class SpreadsheetToolbar : ContentView
         this.fontPicker = this.CreateFontPicker();
         this.sizePicker = this.CreateSizePicker();
 
+        // In an Office shell the title bar carries Undo/Redo; a second pair on the ribbon is noise.
         this.ribbon.QuickAccessItems.Clear();
-        this.ribbon.QuickAccessItems.Add(this.undo);
-        this.ribbon.QuickAccessItems.Add(this.redo);
+        if (!this.isInShell)
+        {
+            this.ribbon.QuickAccessItems.Add(this.undo);
+            this.ribbon.QuickAccessItems.Add(this.redo);
+        }
 
         this.ribbon.Tabs.Add(this.HomeTab());
         this.ribbon.Tabs.Add(this.InsertTab());
@@ -1119,8 +1123,29 @@ public class SpreadsheetToolbar : ContentView
 
     T Track<T>(T item) where T : RibbonItem
     {
+        MoveShortcut(item);
         this.items.Add(item);
         return item;
+    }
+
+    static readonly System.Text.RegularExpressions.Regex ShortcutSuffix =
+        new(@"^(?<hint>.+?) \((?<keys>(?:Ctrl|Alt|Shift|F\d)[^)]*)\)$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// "Bold (Ctrl+B)" becomes Tooltip "Bold" + Shortcut "Ctrl+B": the ribbon still shows both in the
+    /// tooltip, and the Office shell's command search lists the shortcut beside the label.
+    /// </summary>
+    static void MoveShortcut(RibbonItem item)
+    {
+        if (item.Shortcut is not null || item.Tooltip is not { } tip)
+            return;
+
+        var match = ShortcutSuffix.Match(tip);
+        if (!match.Success)
+            return;
+
+        item.Tooltip = match.Groups["hint"].Value;
+        item.Shortcut = match.Groups["keys"].Value;
     }
 
     void RunCommand(Action<SpreadsheetController> action)
@@ -1354,11 +1379,42 @@ public class SpreadsheetToolbar : ContentView
         set => this.SetValue(AccentProperty, value);
     }
 
+    bool isInShell;
+
+    /// <summary>
+    /// Dresses the bar for an Office shell: no header band (the title bar above is the accent band), the
+    /// accent on the selected tab and File button only, and no Undo/Redo (the title bar has them).
+    /// </summary>
+    public bool IsInShell
+    {
+        get => this.isInShell;
+        set
+        {
+            if (this.isInShell == value)
+                return;
+
+            this.isInShell = value;
+            this.ApplyAccent();
+            this.BuildBar();
+        }
+    }
+
+    /// <summary>The ribbon inside the bar — for <c>OfficeCommandIndex.AddRibbon</c> and its header-end slot.</summary>
+    public Ribbon Ribbon => this.ribbon;
+
     /// <summary>Paints the ribbon in the accent, or puts it back on the theme when there is none.</summary>
     void ApplyAccent()
     {
         if (this.ribbon is null)
             return;
+
+        if (this.isInShell)
+        {
+            this.ribbon.HeaderBackgroundColor = null;
+            this.ribbon.HeaderForegroundColor = null;
+            this.ribbon.AccentColor = this.Accent is { } a ? ToColor(a.Color) : null;
+            return;
+        }
 
         if (this.Accent is not { } accent)
         {

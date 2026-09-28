@@ -59,3 +59,62 @@
     color: var(--shiny-color-on-surface, #161C23);
     background: var(--shiny-color-surface, #F6FAFE);
 }
+
+
+/* -- inside the Office shell ------------------------------------------------------------------- */
+
+/* The shell fills the host; the sheet's own column (formula bar, grid, tabs) fills the shell's content. */
+.shiny-spreadsheet-host.has-shell > ::deep .office-shell { flex: 1 1 auto; min-height: 0; }
+
+.shiny-spreadsheet-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    background: var(--shiny-color-surface, #F6FAFE);
+}
+
+/* The comments pane: every note in the workbook; a click goes to its cell. */
+.shiny-spreadsheet-notes {
+    list-style: none;
+    margin: 0;
+    padding: 4px 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.shiny-spreadsheet-note {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 6px;
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.shiny-spreadsheet-note:hover { background: var(--shiny-color-surface-container-high, #E2E6EA); }
+
+.shiny-spreadsheet-note__where { font-weight: 600; }
+
+.shiny-spreadsheet-note__author { color: var(--shiny-color-on-surface-variant, #3B475B); font-size: 12px; }
+
+.shiny-spreadsheet-note__text {
+    grid-column: 1 / -1;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.shiny-spreadsheet-notes__empty {
+    margin: 12px;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: 13px;
+}

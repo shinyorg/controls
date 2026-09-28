@@ -69,6 +69,15 @@ public sealed record SpreadsheetPaintRequest
     /// <summary>Where the active cell's list arrow goes, in grid units, or null.</summary>
     public GridRect? ListButton { get; init; }
 
+    /// <summary>The printed pages to outline — Page Layout and Page Break Preview. Null draws none.</summary>
+    public SheetPageLayout? Pages { get; init; }
+
+    /// <summary>How <see cref="Pages"/> is drawn: dashed edges, or Page Break Preview's solid ones.</summary>
+    public SheetViewMode ViewMode { get; init; }
+
+    /// <summary>Leaves out the selection, the list arrow and open notes — for printing and export.</summary>
+    public bool PrintMode { get; init; }
+
     /// <summary>
     /// Builds the request for what a controller is showing, so both hosts ask for the same frame.
     /// </summary>
@@ -93,7 +102,9 @@ public sealed record SpreadsheetPaintRequest
             SelectedChartId = controller.SelectedChartId,
             ChartPreview = controller.ChartPreview,
             OpenNotes = controller.VisibleNotes,
-            ListButton = controller.ListButtonRect
+            ListButton = controller.ListButtonRect,
+            Pages = controller.PageLayout,
+            ViewMode = controller.ViewMode
         };
     }
 }
@@ -168,8 +179,14 @@ public sealed class SpreadsheetPainter : IDisposable
             this.PaintPane(canvas, request, 0, frozen.Column - 1, 0, frozen.Row - 1, 0, 0, PaneKind.Corner);
 
         this.PaintCharts(canvas, request);
-        this.PaintListButton(canvas, request);
-        this.PaintOpenNotes(canvas, request);
+
+        if (!request.PrintMode)
+        {
+            this.PaintListButton(canvas, request);
+            this.PaintOpenNotes(canvas, request);
+        }
+
+        this.PaintPages(canvas, request);
 
         this.PaintHeaders(canvas, request, firstColumn, lastColumn, firstRow, lastRow);
         this.PaintFrozenDividers(canvas, request);
@@ -211,12 +228,16 @@ public sealed class SpreadsheetPainter : IDisposable
 
         this.PaintCells(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
         this.PaintBorders(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
-        this.PaintNoteMarkers(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
-        this.PaintFilterButtons(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
-        this.PaintFindMatches(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
-        this.PaintSelection(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
-        this.PaintFillPreview(canvas, request);
-        this.PaintClipboardMarquee(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+        // A printed page carries the cells and their borders, not the editing furniture drawn over them.
+        if (!request.PrintMode)
+        {
+            this.PaintNoteMarkers(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+            this.PaintFilterButtons(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+            this.PaintFindMatches(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+            this.PaintSelection(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+            this.PaintFillPreview(canvas, request);
+            this.PaintClipboardMarquee(canvas, request, actualColumnStart, columnEnd, actualRowStart, rowEnd);
+        }
 
         canvas.Restore();
     }
@@ -1255,6 +1276,73 @@ public sealed class SpreadsheetPainter : IDisposable
             Bold = bold,
             Italic = italic
         });
+
+    // ---- page views ----
+
+    static readonly SKColor PageBreakBlue = new(0x1F, 0x4E, 0xD8);
+
+    /// <summary>
+    /// Where the printed pages fall. Page Layout dashes each page's edges in grey; Page Break Preview
+    /// draws them solid blue, washes everything off the pages and writes "Page n" over each one.
+    /// </summary>
+    void PaintPages(SKCanvas canvas, SpreadsheetPaintRequest request)
+    {
+        if (request.Pages is not { } pages || request.ViewMode == SheetViewMode.Normal || request.PrintMode)
+            return;
+
+        var viewport = request.Viewport;
+        var content = ContentRect(request);
+        var preview = request.ViewMode == SheetViewMode.PageBreakPreview;
+
+        canvas.Save();
+        canvas.ClipRect(content);
+
+        var area = ToSk(viewport.RangeRect(pages.Range));
+
+        if (preview)
+        {
+            // Off the print area: the grey Excel draws around the pages.
+            using var wash = new SKPath { FillType = SKPathFillType.EvenOdd };
+            wash.AddRect(content);
+            wash.AddRect(area);
+            this.fill.Color = new SKColor(0x80, 0x80, 0x80, 0x40);
+            canvas.DrawPath(wash, this.fill);
+
+            var font = this.GetFont("Segoe UI", 36, bold: true, italic: false);
+            this.fill.Color = new SKColor(0x80, 0x80, 0x80, 0x66);
+            var number = 1;
+            foreach (var page in pages.Pages())
+            {
+                var rect = ToSk(viewport.RangeRect(page));
+                if (rect.IntersectsWith(content))
+                    canvas.DrawText($"Page {number}", rect.MidX, rect.MidY + 12, SKTextAlign.Center, font, this.fill);
+
+                number++;
+            }
+        }
+
+        this.stroke.Color = preview ? PageBreakBlue : new SKColor(0x70, 0x70, 0x70);
+        this.stroke.StrokeWidth = preview ? 2.5f : 1f;
+        this.stroke.PathEffect = preview ? null : SKPathEffect.CreateDash([4f, 3f], 0);
+
+        foreach (var column in pages.ColumnStarts.Skip(1))
+        {
+            var x = (float)Math.Floor(viewport.CellRect(new CellRef(column, 0)).X) + 0.5f;
+            canvas.DrawLine(x, area.Top, x, area.Bottom, this.stroke);
+        }
+
+        foreach (var row in pages.RowStarts.Skip(1))
+        {
+            var y = (float)Math.Floor(viewport.CellRect(new CellRef(0, row)).Y) + 0.5f;
+            canvas.DrawLine(area.Left, y, area.Right, y, this.stroke);
+        }
+
+        canvas.DrawRect(area, this.stroke);
+
+        this.stroke.PathEffect = null;
+        this.stroke.StrokeWidth = 1;
+        canvas.Restore();
+    }
 
     static SKColor ToSk(ArgbColor color) => new(color.R, color.G, color.B, color.A);
 

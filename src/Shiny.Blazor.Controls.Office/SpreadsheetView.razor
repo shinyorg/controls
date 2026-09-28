@@ -1,6 +1,9 @@
 @using SkiaSharp
 @using SkiaSharp.Views.Blazor
 @using Shiny.Controls.Office.View
+@using Shiny.Controls.Office.Shell
+@using Shiny.Blazor.Controls
+@using Microsoft.AspNetCore.Components.Rendering
 @implements IAsyncDisposable
 @inject IJSRuntime Js
 
@@ -14,80 +17,48 @@
     SheetDialogHost. That is what keeps this host and the MAUI one offering the same commands.
 *@
 
-<div class="shiny-spreadsheet-host @OfficeScheme.ScopeClass(this.Theme) @Class" style="@Style">
+<div class="shiny-spreadsheet-host @OfficeScheme.ScopeClass(this.Theme) @(this.ShowShell ? "has-shell" : null) @Class" style="@Style" @ref="root">
 
-    @if (this.ShowToolbar && this.controller is not null)
+    @if (this.ShowShell)
     {
-        <SpreadsheetToolbar Controller="this.controller"
-                            ReadOnly="this.ReadOnly"
-                            ShowTooltips="this.ShowTooltips"
-                            ToolbarContent="this.ToolbarContent"
-                            Watermark="this.Watermark"
-                            WatermarkChanged="this.OnWatermarkChanged"
-                            ShowFormulaBar="this.showFormulaBar"
-                            ShowFormulaBarChanged="this.OnShowFormulaBarChanged"
-                            FileMenuRequested="this.FileMenuRequested"
-                            Changed="this.OnSheetsChanged" />
+        @*
+            Excel's window: title bar, ribbon (File opens the backstage), the sheet, the status bar, and
+            the notes pane on the right. Every part is a slot of OfficeShell and every slot can be turned
+            off; turning them all off is still not quite ShowShell="false", which drops the shell entirely.
+        *@
+        <OfficeShell App="OfficeApp.Excel"
+                     IsBackstageOpen="this.backstageOpen"
+                     IsBackstageOpenChanged="this.OnBackstageOpenChangedAsync"
+                     IsRightPaneOpen="this.commentsOpen"
+                     IsRightPaneOpenChanged="this.OnCommentsOpenChangedAsync"
+                     ShellLayoutChanged="this.OnShellLayoutChanged"
+                     TitleBar="@(this.ShowTitleBar ? (RenderFragment)this.RenderTitleBar : null)"
+                     Ribbon="@(this.ShowToolbar && this.controller is not null ? (RenderFragment)this.RenderShellRibbon : null)"
+                     RightPane="@(this.ShowCommentsPane ? (RenderFragment)this.RenderCommentsPane : null)"
+                     StatusBar="@(this.ShowStatusBar ? (RenderFragment)this.RenderStatusBar : null)"
+                     Backstage="@(this.ShowBackstage ? (RenderFragment)this.RenderBackstage : null)">
+            <div class="shiny-spreadsheet-body">
+                @((RenderFragment)this.RenderSheet)
+            </div>
+        </OfficeShell>
     }
-
-    @if (this.showFormulaBar && this.controller is not null)
+    else
     {
-        <FormulaBar Controller="this.controller"
-                    ReadOnly="this.ReadOnly"
-                    Changed="this.OnSheetsChanged" />
-    }
-
-    <div class="shiny-spreadsheet"
-         tabindex="0"
-         @ref="host"
-         @onkeydown="OnKeyDown"
-         @onwheel="OnWheel"
-         @onwheel:preventDefault="true"
-         @oncontextmenu="OnContextMenu"
-         @oncontextmenu:preventDefault="true">
-
-        <SKCanvasView @ref="canvas"
-                      class="shiny-spreadsheet-canvas"
-                      IgnorePixelScaling="false"
-                      OnPaintSurface="OnPaint"
-                      @onpointerdown="OnPointerDown"
-                      @onpointermove="OnPointerMove"
-                      @onpointerup="OnPointerUp"
-                      @onpointercancel="OnPointerUp"
-                      @onpointerleave="OnPointerLeave"
-                      @ondblclick="OnDoubleClick" />
-
-        @if (Controller?.EditorBounds is { } rect)
+        @if (this.ShowToolbar && this.controller is not null)
         {
-            <input class="shiny-spreadsheet-editor"
-                   style="left:@(Css(rect.X))px;top:@(Css(rect.Y))px;width:@(Css(rect.Width))px;height:@(Css(rect.Height))px;font-size:@(Css(Controller.EditorFontSize))px"
-                   value="@Controller.EditingText"
-                   spellcheck="false"
-                   data-assist-open="@(this.assist.IsOpen ? "true" : "false")"
-                   @ref="editor"
-                   @oninput="OnEditorInput"
-                   @onkeydown="OnEditorKeyDown"
-                   @onkeydown:stopPropagation="true"
-                   @onblur="OnEditorBlur" />
-
-            <FormulaAssistPopup State="this.assist.State"
-                                IsOpen="this.assist.IsOpen"
-                                Index="this.assist.Index"
-                                OnPick="this.OnEditorPickAsync"
-                                Style="@($"left:{Css(rect.X)}px;top:{Css(rect.Bottom + 2)}px")" />
+            <SpreadsheetToolbar Controller="this.controller"
+                                ReadOnly="this.EffectiveReadOnly"
+                                ShowTooltips="this.ShowTooltips"
+                                ToolbarContent="this.ToolbarContent"
+                                Watermark="this.Watermark"
+                                WatermarkChanged="this.OnWatermarkChanged"
+                                ShowFormulaBar="this.showFormulaBar"
+                                ShowFormulaBarChanged="this.OnShowFormulaBarChanged"
+                                FileMenuRequested="this.FileMenuRequested"
+                                Changed="this.OnSheetsChanged" />
         }
 
-        <SheetMenu Request="this.menu"
-                   HostWidth="this.lastWidth"
-                   HostHeight="this.lastHeight"
-                   Closed="this.OnMenuClosed" />
-    </div>
-
-    @if (this.ShowSheetTabs && this.controller is not null)
-    {
-        <SheetTabStrip Controller="this.controller"
-                       AllowEditing="@(this.AllowSheetEditing && !this.ReadOnly)"
-                       Changed="this.OnSheetsChanged" />
+        @((RenderFragment)this.RenderSheet)
     }
 
     <SheetDialogHost Dialog="this.dialog" DialogChanged="this.OnDialogChanged" />
@@ -95,6 +66,7 @@
 
 @code {
     ElementReference host;
+    ElementReference root;
     ElementReference editor;
     SKCanvasView? canvas;
     SpreadsheetPainter? painter;
@@ -314,6 +286,7 @@
 
         this.lastZoomParameter = null;
         this.ApplyZoomParameter();
+        this.OnWorkbookAttached(this.Workbook);
     }
 
     void ApplyZoomParameter()
@@ -352,6 +325,8 @@
 
     void OnControllerChanged(object? sender, EventArgs e)
     {
+        this.UpdateStatus();
+        this.ScheduleAutoSave();
         this.canvas?.Invalidate();
         this.StateHasChanged();
     }
@@ -364,6 +339,8 @@
 
         if (cell is not null && this.controller is { } c && c.EditingText.StartsWith('='))
             this.assist.Update(c.EditingText, c.EditingText.Length, this.Names());
+
+        this.UpdateStatus();
 
         this.StateHasChanged();
     }
@@ -380,6 +357,8 @@
 
     void OnStatisticsChanged(object? sender, EventArgs e)
     {
+        this.UpdateStatus();
+
         if (this.SelectionStatisticsChanged.HasDelegate)
             _ = this.InvokeAsync(() => this.SelectionStatisticsChanged.InvokeAsync(this.SelectionStatistics));
     }
@@ -448,7 +427,7 @@
         {
             // Before the DPR read: the canvas paints its first frame off this, and starting the watch
             // second would flash a white grid in a dark app.
-            await this.scheme.StartAsync(this.host);
+            await this.scheme.StartAsync(this.root);
             await this.ReadDevicePixelRatioAsync();
 
             this.script = new SpreadsheetScript(this.Js);
@@ -461,6 +440,8 @@
                 this.StateHasChanged();
             }
         }
+
+        this.SyncCommands();
 
         if (!this.gridAttached && this.script is { } s)
         {
@@ -513,6 +494,173 @@
             Watermark = this.Watermark,
             ClipboardDashPhase = this.dashPhase
         });
+    }
+
+
+    /// <summary>The formula bar, the grid and the sheet tabs — the same in both layouts.</summary>
+    void RenderSheet(RenderTreeBuilder __builder)
+    {
+        @if (this.showFormulaBar && this.controller is not null)
+        {
+            <FormulaBar Controller="this.controller"
+                        ReadOnly="this.EffectiveReadOnly"
+                        Changed="this.OnSheetsChanged" />
+        }
+
+        <div class="shiny-spreadsheet"
+             tabindex="0"
+             @ref="host"
+             @onkeydown="OnKeyDown"
+             @onwheel="OnWheel"
+             @onwheel:preventDefault="true"
+             @oncontextmenu="OnContextMenu"
+             @oncontextmenu:preventDefault="true">
+
+            <SKCanvasView @ref="canvas"
+                          class="shiny-spreadsheet-canvas"
+                          IgnorePixelScaling="false"
+                          OnPaintSurface="OnPaint"
+                          @onpointerdown="OnPointerDown"
+                          @onpointermove="OnPointerMove"
+                          @onpointerup="OnPointerUp"
+                          @onpointercancel="OnPointerUp"
+                          @onpointerleave="OnPointerLeave"
+                          @ondblclick="OnDoubleClick" />
+
+            @if (Controller?.EditorBounds is { } rect)
+            {
+                <input class="shiny-spreadsheet-editor"
+                       style="left:@(Css(rect.X))px;top:@(Css(rect.Y))px;width:@(Css(rect.Width))px;height:@(Css(rect.Height))px;font-size:@(Css(Controller.EditorFontSize))px"
+                       value="@Controller.EditingText"
+                       spellcheck="false"
+                       data-assist-open="@(this.assist.IsOpen ? "true" : "false")"
+                       @ref="editor"
+                       @oninput="OnEditorInput"
+                       @onkeydown="OnEditorKeyDown"
+                       @onkeydown:stopPropagation="true"
+                       @onblur="OnEditorBlur" />
+
+                <FormulaAssistPopup State="this.assist.State"
+                                    IsOpen="this.assist.IsOpen"
+                                    Index="this.assist.Index"
+                                    OnPick="this.OnEditorPickAsync"
+                                    Style="@($"left:{Css(rect.X)}px;top:{Css(rect.Bottom + 2)}px")" />
+            }
+
+            <SheetMenu Request="this.menu"
+                       HostWidth="this.lastWidth"
+                       HostHeight="this.lastHeight"
+                       Closed="this.OnMenuClosed" />
+        </div>
+
+        @if (this.ShowSheetTabs && this.controller is not null)
+        {
+            <SheetTabStrip Controller="this.controller"
+                           AllowEditing="@(this.AllowSheetEditing && !this.EffectiveReadOnly)"
+                           Changed="this.OnSheetsChanged" />
+        }
+    }
+
+    void RenderTitleBar(RenderTreeBuilder __builder)
+    {
+        <OfficeTitleBar DocumentName="@this.EffectiveDocumentName"
+                        DocumentNameChanged="this.OnDocumentNameChangedAsync"
+                        DocumentLocation="@this.Workbook?.Path"
+                        SaveState="this.EffectiveSaveState"
+                        AutoSave="this.AutoSave"
+                        AutoSaveChanged="this.OnAutoSaveChangedAsync"
+                        CanUndo="@(this.controller?.CanUndo ?? false)"
+                        CanRedo="@(this.controller?.CanRedo ?? false)"
+                        SaveRequested="this.SaveAsync"
+                        UndoRequested="this.UndoFromShell"
+                        RedoRequested="this.RedoFromShell"
+                        CommandIndex="this.commands"
+                        SearchSubmitted="this.OnSearchSubmitted"
+                        UserName="@this.UserName" />
+    }
+
+    void RenderShellRibbon(RenderTreeBuilder __builder)
+    {
+        <SpreadsheetToolbar @ref="toolbar"
+                            Controller="this.controller"
+                            InShell="true"
+                            DisplayMode="@(this.simplifiedRibbon ? RibbonDisplayMode.Simplified : RibbonDisplayMode.Expanded)"
+                            ReadOnly="this.EffectiveReadOnly"
+                            ShowTooltips="this.ShowTooltips"
+                            ToolbarContent="this.ToolbarContent"
+                            Watermark="this.Watermark"
+                            WatermarkChanged="this.OnWatermarkChanged"
+                            ShowFormulaBar="this.showFormulaBar"
+                            ShowFormulaBarChanged="this.OnShowFormulaBarChanged"
+                            FileMenuRequested="this.OnFileMenuAsync"
+                            Changed="this.OnSheetsChanged">
+            <HeaderEnd>
+                @if (this.ShowRibbonActions)
+                {
+                    <OfficeRibbonActions IsCommentsOpen="this.commentsOpen"
+                                         IsCommentsOpenChanged="this.OnCommentsOpenChangedAsync"
+                                         ShowComments="this.ShowCommentsPane"
+                                         EditMode="this.editMode"
+                                         EditModeChanged="this.OnEditModeChanged"
+                                         ShareClicked="this.ShareRequested" />
+                }
+            </HeaderEnd>
+        </SpreadsheetToolbar>
+    }
+
+    void RenderCommentsPane(RenderTreeBuilder __builder)
+    {
+        <OfficeSidePane Title="Comments">
+            @{ var notes = this.Workbook is { } book ? SpreadsheetShell.Notes(book) : []; }
+            @if (notes.Count == 0)
+            {
+                <p class="shiny-spreadsheet-notes__empty">No notes in this workbook. Add one from Review ▸ New Note or the right-click menu.</p>
+            }
+            else
+            {
+                <ul class="shiny-spreadsheet-notes">
+                    @foreach (var note in notes)
+                    {
+                        var n = note;
+                        <li>
+                            <button type="button" class="shiny-spreadsheet-note" title="Go to @n.Address" @onclick="() => this.GoToNote(n)">
+                                <span class="shiny-spreadsheet-note__where">@n.Address</span>
+                                @if (!string.IsNullOrWhiteSpace(n.Author))
+                                {
+                                    <span class="shiny-spreadsheet-note__author">@n.Author</span>
+                                }
+                                <span class="shiny-spreadsheet-note__text">@n.Text</span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </OfficeSidePane>
+    }
+
+    void RenderStatusBar(RenderTreeBuilder __builder)
+    {
+        <OfficeStatusBar Items="this.statusItems"
+                         SelectedViewMode="@SpreadsheetShell.ViewModeId(this.controller?.ViewMode ?? SheetViewMode.Normal)"
+                         SelectedViewModeChanged="this.OnViewModeChanged"
+                         Zoom="@(this.controller?.Zoom ?? this.Zoom)"
+                         ZoomChanged="this.OnStatusZoomChanged"
+                         ZoomModel="ShellZoom" />
+    }
+
+    void RenderBackstage(RenderTreeBuilder __builder)
+    {
+        <OfficeBackstage DocumentName="@this.EffectiveDocumentName"
+                         Templates="@(this.Templates ?? SpreadsheetTemplates.All)"
+                         RecentFiles="this.RecentFiles"
+                         DocumentInfo="this.documentInfo"
+                         TemplateSelected="this.OnTemplateSelectedAsync"
+                         RecentFileSelected="this.RecentFileSelected"
+                         OpenRequested="this.OpenRequested"
+                         SaveRequested="this.SaveAsync"
+                         SaveAsRequested="f => this.WriteFileAsync(f, SpreadsheetFileAction.SaveAs)"
+                         ExportRequested="f => this.WriteFileAsync(f, SpreadsheetFileAction.Export)"
+                         PrintRequested="this.PrintAsync" />
     }
 
     static string Css(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
@@ -713,6 +861,22 @@
         if (e.AltKey) modifiers |= SheetKeyModifiers.Alt;
         if (e.MetaKey) modifiers |= SheetKeyModifiers.Meta;
 
+        // Save and Print are the window's, not the grid's: Excel answers them from any cell.
+        if ((e.CtrlKey || e.MetaKey) && !e.ShiftKey && !e.AltKey && this.ShowShell)
+        {
+            if (string.Equals(e.Key, "s", StringComparison.OrdinalIgnoreCase))
+            {
+                _ = this.SaveAsync();
+                return;
+            }
+
+            if (string.Equals(e.Key, "p", StringComparison.OrdinalIgnoreCase))
+            {
+                _ = this.PrintAsync();
+                return;
+            }
+        }
+
         this.controller.HandleKey(e.Key, modifiers);
     }
 
@@ -893,6 +1057,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        this.DisposeShell();
         this.Detach();
         this.StopMarching();
         this.CancelLongPress();

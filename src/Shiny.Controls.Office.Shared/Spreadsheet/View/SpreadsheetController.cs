@@ -1353,6 +1353,9 @@ public sealed partial class SpreadsheetController
         var cell = this.Selection.Active;
         this.EditingCell = cell;
 
+        // Excel's status bar says "Enter" for typing over a cell and "Edit" for F2 / double-click.
+        this.editStartedByTyping = initialText is not null;
+
         // Typing over a cell replaces it; F2 or a double-click edits what is there.
         this.EditingText = initialText ?? this.CellText(cell);
 

@@ -19,7 +19,7 @@ namespace Shiny.Maui.Controls.Office;
 /// Requires <c>UseShinyOffice()</c> in <c>MauiProgram</c>.
 /// </para>
 /// </remarks>
-public class SpreadsheetView : ContentView, IDisposable
+public partial class SpreadsheetView : ContentView, IDisposable
 {
     readonly SKCanvasView canvas;
     readonly Entry editor;
@@ -100,24 +100,26 @@ public class SpreadsheetView : ContentView, IDisposable
             this.toolbar.HasWatermark = mark is not null;
         };
 
-        this.toolbar.FileMenuRequested += (_, _) => this.FileMenuRequested?.Invoke(this, EventArgs.Empty);
+        this.toolbar.FileMenuRequested += (_, _) => this.OnFileMenu();
         this.toolbar.FormulaBarToggled += (_, visible) => this.ShowFormulaBar = visible;
 
-        this.layout = new Grid
+        // The sheet itself - formula bar, grid, tabs - is the shell's content; the toolbar is its ribbon.
+        var sheetBody = new Grid
         {
             RowDefinitions =
             [
-                new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Star),
                 new RowDefinition(GridLength.Auto)
             ]
         };
 
-        this.layout.Add(this.toolbar);
-        this.layout.Add(this.formulaBar, 0, 1);
-        this.layout.Add(this.root, 0, 2);
-        this.layout.Add(this.sheetTabs, 0, 3);
+        sheetBody.Add(this.formulaBar, 0, 0);
+        sheetBody.Add(this.root, 0, 1);
+        sheetBody.Add(this.sheetTabs, 0, 2);
+
+        this.layout = new Grid();
+        this.layout.Add(this.BuildShell(sheetBody));
 
         // Everything that floats: the formula-autocomplete list, popup menus and dialogs, over all of the
         // chrome rather than just the grid, because a menu opened near the bottom of the grid has to be
@@ -130,7 +132,6 @@ public class SpreadsheetView : ContentView, IDisposable
         this.assist.VerticalOptions = LayoutOptions.Start;
         this.dialogs.Closed += (_, _) => this.AfterOverlayChanged();
         this.layout.Add(this.overlay);
-        Grid.SetRowSpan(this.overlay, 4);
 
         this.canvas.SizeChanged += this.OnCanvasSizeChanged;
 
@@ -387,6 +388,7 @@ public class SpreadsheetView : ContentView, IDisposable
         else if (Math.Abs(this.controller.Zoom - 1) > 0.0005)
             this.SetValue(ZoomProperty, this.controller.Zoom);
 
+        this.OnWorkbookAttached(workbook);
         this.UpdateChrome();
         this.Invalidate();
         this.SelectionStatisticsChanged?.Invoke(this, EventArgs.Empty);
@@ -400,11 +402,11 @@ public class SpreadsheetView : ContentView, IDisposable
 
     void UpdateChrome()
     {
-        this.toolbar.IsReadOnly = this.IsReadOnly;
+        this.toolbar.IsReadOnly = this.EffectiveReadOnly;
         this.toolbar.IsFormulaBarVisible = this.ShowFormulaBar;
         this.toolbar.Controller = this.ShowToolbar ? this.controller : null;
 
-        this.sheetTabs.AllowEditing = this.AllowSheetEditing && !this.IsReadOnly;
+        this.sheetTabs.AllowEditing = this.AllowSheetEditing && !this.EffectiveReadOnly;
         this.sheetTabs.Controller = this.ShowSheetTabs ? this.controller : null;
         this.sheetTabs.Rebuild();
 
@@ -430,17 +432,22 @@ public class SpreadsheetView : ContentView, IDisposable
         if (this.controller?.EditorBounds is { } bounds && this.editor.IsVisible)
             this.PlaceEditor(bounds);
 
+        this.UpdateShell();
         this.Invalidate();
     }
 
     void OnZoomChanged(object? sender, double zoom)
     {
         this.SetValue(ZoomProperty, zoom);
+        this.statusBar.Zoom = zoom;
         this.ZoomChanged?.Invoke(this, zoom);
     }
 
     void OnSelectionStatisticsChanged(object? sender, EventArgs e)
-        => this.SelectionStatisticsChanged?.Invoke(this, EventArgs.Empty);
+    {
+        this.UpdateStatus();
+        this.SelectionStatisticsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     void Invalidate() => this.canvas.InvalidateSurface();
 
@@ -587,6 +594,8 @@ public class SpreadsheetView : ContentView, IDisposable
     {
         if (this.controller is null)
             return;
+
+        this.UpdateStatus();
 
         if (cell is null || this.controller.EditorBounds is not { } bounds)
         {
@@ -888,6 +897,7 @@ public class SpreadsheetView : ContentView, IDisposable
         this.editor.Completed -= this.OnEditorCompleted;
         this.editor.Unfocused -= this.OnEditorUnfocused;
         this.painter.Dispose();
+        this.DisposeShell();
 
         GC.SuppressFinalize(this);
     }
