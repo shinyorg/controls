@@ -1,0 +1,11 @@
+@namespace Shiny.Blazor.Controls.Office
+
+@* One shell icon, inline. Inherits the text colour, so it follows whatever it sits on. *@
+@OfficeShellIcons.Get(this.Icon, this.Size)
+
+@code {
+    [Parameter, EditorRequired] public OfficeShellIcon Icon { get; set; }
+
+    /// <summary>Rendered size in CSS pixels. Default 16.</summary>
+    [Parameter] public int Size { get; set; } = 16;
+}

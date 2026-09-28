@@ -1,0 +1,111 @@
+@namespace Shiny.Blazor.Controls.Office
+@using System.Globalization
+
+@*
+    Word's Styles gallery: "AaBbCcDd" drawn in each style's own font, size, weight and colour, the
+    current one highlighted, stepping a row at a time in the ribbon and dropping the whole set.
+
+    A thin skin over the core RibbonGallery, so it is a real ribbon item - place it straight in a
+    RibbonGroup - and its entries are in the ribbon's command index ("Styles › Heading 1").
+*@
+<RibbonGallery TItem="OfficeStyleDescriptor"
+               Items="this.EffectiveStyles"
+               SelectedItem="this.Selected"
+               ItemText="NameOf"
+               ItemSelected="this.OnPickedAsync"
+               Columns="this.Columns"
+               Rows="this.Rows"
+               ExpandedColumns="this.ExpandedColumns"
+               ItemWidth="@this.ItemWidth"
+               ItemHeight="@this.ItemHeight"
+               Text="@this.Text"
+               Tooltip="@this.Text"
+               Disabled="this.Disabled"
+               PanelFooter="this.PanelFooter"
+               MoreText="More styles"
+               CssClass="office-style-gallery">
+    <ItemTemplate>
+        <span class="office-style-gallery__sample" style="@SampleStyle(context)">@context.Sample</span>
+        <span class="office-style-gallery__name">@context.Name</span>
+    </ItemTemplate>
+</RibbonGallery>
+
+@code {
+    /// <summary>The styles. Null shows Word's built-in quick styles.</summary>
+    [Parameter] public IReadOnlyList<OfficeStyleDescriptor>? Styles { get; set; }
+
+    /// <summary>The <see cref="OfficeStyleDescriptor.Id"/> under the caret. Two-way bindable.</summary>
+    [Parameter] public string? SelectedStyleId { get; set; }
+
+    [Parameter] public EventCallback<string?> SelectedStyleIdChanged { get; set; }
+
+    /// <summary>Raised when a style is picked — the editor applies it.</summary>
+    [Parameter] public EventCallback<OfficeStyleDescriptor> StyleSelected { get; set; }
+
+    [Parameter] public int Columns { get; set; } = 5;
+
+    [Parameter] public int Rows { get; set; } = 1;
+
+    [Parameter] public int? ExpandedColumns { get; set; }
+
+    [Parameter] public string ItemWidth { get; set; } = "76px";
+
+    [Parameter] public string? ItemHeight { get; set; }
+
+    /// <summary>The gallery's name — its tooltip and the command search's prefix. Default "Styles".</summary>
+    [Parameter] public string Text { get; set; } = "Styles";
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Under the expanded grid — "Create a Style", "Clear Formatting", "Apply Styles…".</summary>
+    [Parameter] public RenderFragment? PanelFooter { get; set; }
+
+    IReadOnlyList<OfficeStyleDescriptor> EffectiveStyles => this.Styles ?? OfficeStyleDescriptors.Word;
+
+    OfficeStyleDescriptor? Selected
+    {
+        get
+        {
+            var index = OfficeStyleDescriptors.IndexOf(this.EffectiveStyles, this.SelectedStyleId);
+            return index >= 0 ? this.EffectiveStyles[index] : null;
+        }
+    }
+
+
+    /// <summary>The preview's inline CSS: the style's font, clamped size, weight, slant, underline and colour.</summary>
+    internal static string SampleStyle(OfficeStyleDescriptor style)
+    {
+        var css = $"font-size:{style.PreviewSize.ToString("0.#", CultureInfo.InvariantCulture)}pt;";
+
+        if (!string.IsNullOrWhiteSpace(style.FontFamily))
+            css += $"font-family:'{style.FontFamily.Replace("'", string.Empty)}',var(--shiny-type-font-family, sans-serif);";
+
+        if (style.Bold)
+            css += "font-weight:700;";
+
+        if (style.Italic)
+            css += "font-style:italic;";
+
+        if (style.Underline)
+            css += "text-decoration:underline;";
+
+        if (style.Color is { } color)
+            css += $"color:{OfficeColorText.Hex(color)};";
+
+        if (style.Background is { } background)
+            css += $"background:{OfficeColorText.Hex(background)};";
+
+        return css;
+    }
+
+
+    static string? NameOf(OfficeStyleDescriptor style) => style.Name;
+
+
+    async Task OnPickedAsync(OfficeStyleDescriptor style)
+    {
+        this.SelectedStyleId = style.Id;
+        await this.SelectedStyleIdChanged.InvokeAsync(style.Id);
+        await this.StyleSelected.InvokeAsync(style);
+    }
+}

@@ -1,0 +1,132 @@
+/*
+    The shell is a column: title bar, ribbon, the main row (left pane / rulers + editor / right pane),
+    status bar. The backstage sits over all of it, positioned against the root.
+
+    Slots are other components, so their content is reached with ::deep; the wrappers themselves are
+    declared in this file and match directly.
+*/
+
+.office-shell {
+    --office-accent: #185ABD;
+    --office-accent-ink: #FFFFFF;
+    --office-accent-dark: #134A9B;
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
+    color: var(--shiny-color-on-surface, #161C23);
+    font-family: var(--shiny-type-font-family, 'Segoe UI', system-ui, sans-serif);
+}
+
+.office-shell__titlebar,
+.office-shell__ribbon,
+.office-shell__ruler,
+.office-shell__status {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.office-shell__main {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.office-shell__pane {
+    flex: 0 0 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
+}
+
+.office-shell__pane.is-left { border-right: 1px solid var(--shiny-color-outline-variant, #BBC7DF); }
+
+.office-shell__pane.is-right { border-left: 1px solid var(--shiny-color-outline-variant, #BBC7DF); }
+
+.office-shell__center {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.office-shell__content-row {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.office-shell__vruler { flex: 0 0 auto; }
+
+.office-shell__content {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The editor fills the content area whatever its own root is. */
+.office-shell__content > ::deep * { flex: 1 1 auto; min-height: 0; }
+
+
+/* -- compact: search collapses (in the title bar), rulers and panes step away ------------------- */
+
+.office-shell.is-compact .office-shell__ruler,
+.office-shell.is-compact .office-shell__vruler,
+.office-shell.is-compact .office-shell__pane { display: none; }
+
+
+/* -- focus mode --------------------------------------------------------------------------------- */
+
+.office-shell.is-focus .office-shell__titlebar,
+.office-shell.is-focus .office-shell__ribbon,
+.office-shell.is-focus .office-shell__ruler,
+.office-shell.is-focus .office-shell__vruler,
+.office-shell.is-focus .office-shell__pane,
+.office-shell.is-focus .office-shell__status { display: none; }
+
+.office-shell__exit-focus {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 999px;
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+    font-size: 13px;
+    box-shadow: var(--shiny-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.18));
+    cursor: pointer;
+    opacity: 0.85;
+}
+
+.office-shell__exit-focus:hover { opacity: 1; background: var(--shiny-color-surface-container-highest, #D7DCE1); }
+
+
+/* -- backstage ---------------------------------------------------------------------------------- */
+
+.office-shell__backstage { display: none; }
+
+.office-shell__backstage.is-open {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+}
+
+.office-shell__backstage.is-open > ::deep * { flex: 1 1 auto; }

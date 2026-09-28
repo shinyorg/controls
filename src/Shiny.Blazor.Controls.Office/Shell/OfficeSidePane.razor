@@ -1,0 +1,61 @@
+@namespace Shiny.Blazor.Controls.Office
+
+@*
+    A titled pane with a close button - what Comments, the Reviewing pane and any other side panel an
+    editor needs sit in. Generic on purpose: the editor fills it; the pane only frames it.
+*@
+<section class="@(string.IsNullOrWhiteSpace(this.CssClass) ? "office-pane" : $"office-pane {this.CssClass}")" aria-label="@this.Title">
+    <header class="office-pane__header">
+        <span class="office-pane__title">@this.Title</span>
+        @this.HeaderContent
+        @if (this.ShowClose)
+        {
+            <button type="button" class="office-pane__close" title="Close" aria-label="Close" @onclick="this.CloseAsync">
+                <OfficeShellGlyph Icon="OfficeShellIcon.Close" Size="14" />
+            </button>
+        }
+    </header>
+    <div class="office-pane__body">@this.ChildContent</div>
+</section>
+
+@code {
+    [CascadingParameter] public OfficeShell? Shell { get; set; }
+
+    [Parameter] public string? Title { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Extra buttons in the header, before the close button — "New comment", a filter.</summary>
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+
+    [Parameter] public bool ShowClose { get; set; } = true;
+
+    /// <summary>
+    /// Raised when the close button is pressed. With no handler, a pane inside a shell closes the shell
+    /// pane it sits in (<see cref="IsLeftPane"/> says which).
+    /// </summary>
+    [Parameter] public EventCallback CloseRequested { get; set; }
+
+    /// <summary>True when the pane is in the shell's left slot. Default is the right.</summary>
+    [Parameter] public bool IsLeftPane { get; set; }
+
+    [Parameter] public string? CssClass { get; set; }
+
+
+    internal async Task CloseAsync()
+    {
+        if (this.CloseRequested.HasDelegate)
+        {
+            await this.CloseRequested.InvokeAsync();
+            return;
+        }
+
+        if (this.Shell is { } shell)
+        {
+            if (this.IsLeftPane)
+                await shell.SetLeftPaneOpenAsync(false);
+            else
+                await shell.SetRightPaneOpenAsync(false);
+        }
+    }
+}

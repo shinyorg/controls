@@ -1,0 +1,85 @@
+@namespace Shiny.Blazor.Controls.Office
+@implements IAsyncDisposable
+
+@*
+    The window an Office editor lives in: title bar, ribbon, rulers, side panes, the editor, the
+    status bar, and the File backstage over all of it.
+
+    Every region is a slot. The shell owns the arrangement and the modes (focus, backstage, compact) and
+    nothing about what is in them, so the same shell dresses Word, Excel and PowerPoint.
+
+    Chrome that a mode hides is hidden with a class, never dropped from the tree: the ribbon's tabs
+    register with it as they render, and a ribbon removed for focus mode and brought back would lose
+    its selected tab and every command the search had indexed.
+*@
+<div @ref="this.root"
+     class="@this.RootCss"
+     style="@this.RootStyle"
+     @onkeydown="this.OnKeyDownAsync"
+     @attributes="this.AdditionalAttributes">
+    <CascadingValue Value="this">
+
+        @if (this.TitleBar is not null)
+        {
+            <div class="office-shell__titlebar">@this.TitleBar</div>
+        }
+
+        @if (this.Ribbon is not null)
+        {
+            <div class="office-shell__ribbon">@this.Ribbon</div>
+        }
+
+        <div class="office-shell__main">
+
+            @if (this.LeftPane is not null && this.IsLeftPaneOpen)
+            {
+                <aside class="office-shell__pane is-left" style="@($"width:{this.LeftPaneWidth}px")">@this.LeftPane</aside>
+            }
+
+            <div class="office-shell__center">
+                @if (this.Ruler is not null)
+                {
+                    <div class="office-shell__ruler">@this.Ruler</div>
+                }
+
+                <div class="office-shell__content-row">
+                    @if (this.VerticalRuler is not null)
+                    {
+                        <div class="office-shell__vruler">@this.VerticalRuler</div>
+                    }
+
+                    <div class="office-shell__content">@this.ChildContent</div>
+                </div>
+            </div>
+
+            @if (this.RightPane is not null && this.IsRightPaneOpen)
+            {
+                <aside class="office-shell__pane is-right" style="@($"width:{this.RightPaneWidth}px")">@this.RightPane</aside>
+            }
+        </div>
+
+        @if (this.StatusBar is not null)
+        {
+            <div class="office-shell__status">@this.StatusBar</div>
+        }
+
+        @if (this.IsFocusMode)
+        {
+            <button type="button"
+                    class="office-shell__exit-focus"
+                    title="Exit Focus (Esc)"
+                    @onclick="() => this.SetFocusModeAsync(false)">
+                <OfficeShellGlyph Icon="OfficeShellIcon.ExitFocus" Size="16" />
+                <span>Exit Focus</span>
+            </button>
+        }
+
+        @if (this.Backstage is not null)
+        {
+            <div class="@(this.IsBackstageOpen ? "office-shell__backstage is-open" : "office-shell__backstage")">@this.Backstage</div>
+        }
+
+        @this.Overlay
+
+    </CascadingValue>
+</div>

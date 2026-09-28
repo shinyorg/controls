@@ -1,0 +1,108 @@
+@namespace Shiny.Blazor.Controls.Office
+
+@*
+    Word's Navigation pane: a search box, then Headings (the document's outline as a collapsible tree),
+    Pages (the host's thumbnails, when it has them) and Results (the search hits in context).
+    The editor feeds all three and navigates when told to; the pane holds no document.
+*@
+<section class="office-nav" aria-label="Navigation">
+    <header class="office-nav__header">
+        <span class="office-nav__title">Navigation</span>
+        @if (this.ShowClose)
+        {
+            <button type="button" class="office-nav__icon" title="Close" aria-label="Close" @onclick="this.CloseAsync">
+                <OfficeShellGlyph Icon="OfficeShellIcon.Close" Size="14" />
+            </button>
+        }
+    </header>
+
+    <div class="office-nav__search">
+        <OfficeShellGlyph Icon="OfficeShellIcon.Search" Size="14" />
+        <input type="search"
+               placeholder="@this.SearchPlaceholder"
+               aria-label="Search document"
+               value="@this.SearchText"
+               @oninput="this.OnSearchInputAsync"
+               @onkeydown="this.OnSearchKeyAsync" />
+    </div>
+
+    <div class="office-nav__tabs" role="tablist">
+        @this.TabButton(OfficeNavigationTab.Headings, "Headings")
+        @if (this.ShowPagesTab)
+        {
+            @this.TabButton(OfficeNavigationTab.Pages, "Pages")
+        }
+        @this.TabButton(OfficeNavigationTab.Results, "Results")
+    </div>
+
+    <div class="office-nav__body" role="tabpanel">
+        @switch (this.SelectedTab)
+        {
+            case OfficeNavigationTab.Headings:
+                @if (this.rows.Count == 0)
+                {
+                    <p class="office-nav__empty">
+                        Create an interactive outline of your document. Apply heading styles to the
+                        headings in your document and they will appear here.
+                    </p>
+                }
+                else
+                {
+                    <div class="office-nav__tree" role="tree">
+                        @foreach (var node in this.rows)
+                        {
+                            var n = node;
+                            var current = n.Heading.Id == this.CurrentHeadingId;
+                            var collapsedNode = this.collapsed.Contains(n.Heading.Id);
+
+                            <div class="@(current ? "office-nav__row is-current" : "office-nav__row")"
+                                 role="treeitem"
+                                 aria-level="@(n.Depth + 1)"
+                                 aria-expanded="@(n.HasChildren ? (collapsedNode ? "false" : "true") : null)"
+                                 style="@($"padding-left:{4 + (n.Depth * 14)}px")">
+                                @if (n.HasChildren)
+                                {
+                                    <button type="button" class="office-nav__twisty" aria-label="@(collapsedNode ? "Expand" : "Collapse")" @onclick="() => this.Toggle(n)">
+                                        <OfficeShellGlyph Icon="@(collapsedNode ? OfficeShellIcon.Collapse : OfficeShellIcon.Expand)" Size="12" />
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="office-nav__twisty-space"></span>
+                                }
+                                <button type="button" class="office-nav__heading" title="@n.Heading.Text" @onclick="() => this.SelectHeadingAsync(n.Heading)">@n.Heading.Text</button>
+                            </div>
+                        }
+                    </div>
+                }
+                break;
+
+            case OfficeNavigationTab.Pages:
+                @this.PagesContent
+                break;
+
+            case OfficeNavigationTab.Results:
+                <p class="office-nav__count">@(string.IsNullOrWhiteSpace(this.SearchText) ? "Search for text in your document." : OfficeHeadingTree.ResultCount(this.SearchResults?.Count ?? 0))</p>
+                @foreach (var result in this.SearchResults ?? [])
+                {
+                    var r = result;
+                    <button type="button" class="office-nav__result" @onclick="() => this.ResultSelected.InvokeAsync(r)">
+                        <span>@r.Before</span><strong>@r.Match</strong><span>@r.After</span>
+                        @if (r.Page is { } pageNumber)
+                        {
+                            <small class="office-nav__page">Page @(pageNumber)</small>
+                        }
+                    </button>
+                }
+                break;
+        }
+    </div>
+</section>
+
+@code {
+    RenderFragment TabButton(OfficeNavigationTab tab, string text) => @<button type="button"
+                                                                              role="tab"
+                                                                              aria-selected="@(this.SelectedTab == tab ? "true" : "false")"
+                                                                              class="@(this.SelectedTab == tab ? "office-nav__tab is-on" : "office-nav__tab")"
+                                                                              @onclick="() => this.SelectTabAsync(tab)">@text</button>;
+}

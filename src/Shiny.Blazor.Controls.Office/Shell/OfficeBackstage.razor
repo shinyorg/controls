@@ -1,0 +1,288 @@
+@namespace Shiny.Blazor.Controls.Office
+
+@*
+    The File backstage: a full-window page with the app's accent down the left and the file tasks -
+    Home, New, Open, Info, Save, Save As, Print, Export, History, Options - to its right.
+
+    It reads and writes nothing. Every task ends in an event carrying what was chosen (a template, a
+    recent file, a format), so the host decides what "open" or "save as PDF" means where it runs.
+*@
+@if (this.IsVisible)
+{
+    <div class="office-backstage" style="@this.RootStyle" role="dialog" aria-label="File" @attributes="this.AdditionalAttributes">
+
+        <nav class="office-backstage__rail" aria-label="File">
+            <button type="button" class="office-backstage__back" title="Back" aria-label="Back" @onclick="this.CloseAsync">
+                <OfficeShellGlyph Icon="OfficeShellIcon.Back" Size="26" />
+            </button>
+
+            @foreach (var entry in this.Entries.Where(x => !x.StartsFooter))
+            {
+                @this.RailButton(entry)
+            }
+
+            <span class="office-backstage__rail-spacer"></span>
+
+            @foreach (var entry in this.Entries.Where(x => x.StartsFooter))
+            {
+                @this.RailButton(entry)
+            }
+        </nav>
+
+        <section class="office-backstage__page">
+            @switch (this.SelectedPage)
+            {
+                case OfficeBackstagePage.Home:
+                    <p class="office-backstage__greeting">@OfficeBackstageText.Greeting(DateTime.Now)</p>
+                    <h1 class="office-backstage__headline">@OfficeBackstageText.Headline(this.Info.App)</h1>
+
+                    <div class="office-backstage__tiles">
+                        @foreach (var template in this.AllTemplates.Take(this.HomeTemplateCount))
+                        {
+                            @this.Tile(template)
+                        }
+                    </div>
+
+                    @if (this.AllTemplates.Count > this.HomeTemplateCount)
+                    {
+                        <button type="button" class="office-backstage__more" @onclick="() => this.SelectPageAsync(OfficeBackstagePage.New)">More templates &rarr;</button>
+                    }
+
+                    @this.RecentList()
+                    break;
+
+                case OfficeBackstagePage.New:
+                    <h1 class="office-backstage__title">New</h1>
+                    @foreach (var group in this.AllTemplates.GroupBy(x => x.IsBlank ? null : x.Category))
+                    {
+                        if (group.Key is not null)
+                        {
+                            <h2 class="office-backstage__subtitle">@group.Key</h2>
+                        }
+
+                        <div class="office-backstage__tiles is-wrapped">
+                            @foreach (var template in group)
+                            {
+                                @this.Tile(template)
+                            }
+                        </div>
+                    }
+                    break;
+
+                case OfficeBackstagePage.Open:
+                    <h1 class="office-backstage__title">Open</h1>
+                    <div class="office-backstage__open">
+                        <button type="button" class="office-backstage__card" @onclick="this.OpenAsync">
+                            <OfficeShellGlyph Icon="OfficeShellIcon.Open" Size="28" />
+                            <span class="office-backstage__card-text">
+                                <strong>Browse</strong>
+                                <small>Open a @this.Info.DocumentNoun from this device</small>
+                            </span>
+                        </button>
+                    </div>
+                    @this.RecentList()
+                    break;
+
+                case OfficeBackstagePage.Info:
+                    <h1 class="office-backstage__title">Info</h1>
+                    <div class="office-backstage__info">
+                        <div class="office-backstage__info-main">
+                            <h2 class="office-backstage__docname">@this.EffectiveName</h2>
+                            @if (!string.IsNullOrWhiteSpace(this.DocumentInfo?.Location))
+                            {
+                                <p class="office-backstage__muted">@this.DocumentInfo!.Location</p>
+                            }
+
+                            <button type="button" class="office-backstage__card" @onclick="this.ProtectRequested">
+                                <OfficeShellGlyph Icon="OfficeShellIcon.Protect" Size="28" />
+                                <span class="office-backstage__card-text">
+                                    <strong>Protect @this.TitleNoun</strong>
+                                    <small>Control what types of changes people can make to this @this.Info.DocumentNoun.</small>
+                                </span>
+                            </button>
+
+                            <button type="button" class="office-backstage__card" @onclick="this.InspectRequested">
+                                <OfficeShellGlyph Icon="OfficeShellIcon.Inspect" Size="28" />
+                                <span class="office-backstage__card-text">
+                                    <strong>Inspect @this.TitleNoun</strong>
+                                    <small>Before publishing this file, be aware that it contains document properties and author's name.</small>
+                                </span>
+                            </button>
+                        </div>
+
+                        <aside class="office-backstage__properties">
+                            <h3>Properties</h3>
+                            @if (this.DocumentInfo is { } info)
+                            {
+                                <dl>
+                                    @foreach (var property in info.Properties())
+                                    {
+                                        <dt>@property.Name</dt>
+                                        <dd>@property.Value</dd>
+                                    }
+                                </dl>
+                            }
+                            else
+                            {
+                                <p class="office-backstage__muted">No properties yet.</p>
+                            }
+                        </aside>
+                    </div>
+                    break;
+
+                case OfficeBackstagePage.SaveAs:
+                    <h1 class="office-backstage__title">Save As</h1>
+                    @this.FormatList(this.EffectiveSaveAsFormats, this.ChooseSaveAsAsync)
+                    break;
+
+                case OfficeBackstagePage.Export:
+                    <h1 class="office-backstage__title">Export</h1>
+                    @this.FormatList(this.EffectiveExportFormats, this.ChooseExportAsync)
+                    break;
+
+                case OfficeBackstagePage.Print:
+                    <h1 class="office-backstage__title">Print</h1>
+                    <div class="office-backstage__print">
+                        <div class="office-backstage__print-settings">
+                            <button type="button" class="office-backstage__print-button" @onclick="this.PrintAsync">
+                                <OfficeShellGlyph Icon="OfficeShellIcon.Print" Size="28" />
+                                <span>Print</span>
+                            </button>
+                            @this.PrintSettings
+                        </div>
+                        <div class="office-backstage__preview">
+                            @if (this.PrintPreview is not null)
+                            {
+                                @this.PrintPreview
+                            }
+                            else
+                            {
+                                <p class="office-backstage__muted">No preview available.</p>
+                            }
+                        </div>
+                    </div>
+                    break;
+
+                case OfficeBackstagePage.History:
+                    <h1 class="office-backstage__title">History</h1>
+                    @if (this.HistoryContent is not null)
+                    {
+                        @this.HistoryContent
+                    }
+                    else
+                    {
+                        <p class="office-backstage__muted">No earlier versions of this @this.Info.DocumentNoun.</p>
+                    }
+                    break;
+
+                case OfficeBackstagePage.Options:
+                    <h1 class="office-backstage__title">Options</h1>
+                    <div class="office-backstage__options">
+                        <h2 class="office-backstage__subtitle">Personalize your copy of Office</h2>
+
+                        <label class="office-backstage__field">
+                            <span>User name</span>
+                            <input value="@this.EffectiveOptions.UserName" @onchange="e => this.SetUserNameAsync(e.Value?.ToString())" />
+                        </label>
+
+                        <label class="office-backstage__field">
+                            <span>Initials</span>
+                            <input value="@this.EffectiveOptions.Initials"
+                                   placeholder="@this.EffectiveOptions.EffectiveInitials"
+                                   maxlength="4"
+                                   @onchange="e => this.SetInitialsAsync(e.Value?.ToString())" />
+                        </label>
+
+                        <fieldset class="office-backstage__field">
+                            <legend>Office Theme</legend>
+                            @foreach (var choice in Enum.GetValues<OfficeThemeChoice>())
+                            {
+                                var c = choice;
+                                <label class="office-backstage__radio">
+                                    <input type="radio" name="@this.themeGroup" checked="@(this.EffectiveOptions.Theme == c)" @onchange="() => this.SetThemeAsync(c)" />
+                                    <span>@(c == OfficeThemeChoice.System ? "Use system setting" : c.ToString())</span>
+                                </label>
+                            }
+                        </fieldset>
+
+                        <label class="office-backstage__radio">
+                            <input type="checkbox" checked="@this.EffectiveOptions.AutoSave" @onchange="e => this.SetAutoSaveAsync(e.Value is true)" />
+                            <span>AutoSave files by default</span>
+                        </label>
+                    </div>
+                    break;
+            }
+        </section>
+    </div>
+}
+
+@code {
+    readonly string themeGroup = $"obs-{Guid.NewGuid():N}";
+
+    RenderFragment RailButton(OfficeBackstageEntry entry) => @<button type="button"
+                                                                     class="@(entry.Page == this.SelectedPage && !entry.IsCommand ? "office-backstage__entry is-selected" : "office-backstage__entry")"
+                                                                     aria-current="@(entry.Page == this.SelectedPage ? "page" : null)"
+                                                                     @onclick="() => this.OnEntryAsync(entry)">
+        <OfficeShellGlyph Icon="entry.Icon" Size="18" />
+        <span>@entry.Text</span>
+    </button>;
+
+    RenderFragment Tile(OfficeTemplate template) => @<button type="button"
+                                                             class="office-backstage__tile"
+                                                             title="@(template.Description ?? template.Name)"
+                                                             @onclick="() => this.ChooseTemplateAsync(template)">
+        <span class="@($"office-backstage__thumb is-{this.Info.App.ToString().ToLowerInvariant()}")">
+            @if (!string.IsNullOrWhiteSpace(template.Thumbnail))
+            {
+                <img src="@template.Thumbnail" alt="" loading="lazy" />
+            }
+            else if (!template.IsBlank)
+            {
+                <span class="office-backstage__thumb-lines" aria-hidden="true"></span>
+            }
+        </span>
+        <span class="office-backstage__tile-name">@template.Name</span>
+    </button>;
+
+    RenderFragment RecentList() => @<div class="office-backstage__recent">
+        <h2 class="office-backstage__subtitle">Recent</h2>
+        @if (this.OrderedRecent.Count == 0)
+        {
+            <p class="office-backstage__muted">No recent files yet. Files you open will show up here.</p>
+        }
+        else
+        {
+            <div class="office-backstage__recent-list" role="list">
+                @foreach (var file in this.OrderedRecent)
+                {
+                    var f = file;
+                    <button type="button" role="listitem" class="office-backstage__recent-row" @onclick="() => this.ChooseRecentAsync(f)">
+                        <span class="@($"office-backstage__file-icon is-{(f.App ?? this.Info.App).ToString().ToLowerInvariant()}")">@OfficeAppInfo.For(f.App ?? this.Info.App).Letter</span>
+                        <span class="office-backstage__recent-text">
+                            <span class="office-backstage__recent-name">@f.Name</span>
+                            @if (!string.IsNullOrWhiteSpace(f.Location))
+                            {
+                                <span class="office-backstage__muted">@f.Location</span>
+                            }
+                        </span>
+                        <span class="office-backstage__recent-when">@OfficeBackstageText.Relative(f.LastOpened, DateTimeOffset.Now)</span>
+                    </button>
+                }
+            </div>
+        }
+    </div>;
+
+    RenderFragment FormatList(IReadOnlyList<OfficeFileFormat> formats, Func<OfficeFileFormat, Task> choose) => @<div class="office-backstage__formats">
+        @foreach (var format in formats)
+        {
+            var f = format;
+            <button type="button" class="office-backstage__card" @onclick="() => choose(f)">
+                <OfficeShellGlyph Icon="@(f.IsNative ? OfficeShellIcon.Document : OfficeShellIcon.Export)" Size="28" />
+                <span class="office-backstage__card-text">
+                    <strong>@f.Name <small>(@f.Extension)</small></strong>
+                    <small>@f.Description</small>
+                </span>
+            </button>
+        }
+    </div>;
+}

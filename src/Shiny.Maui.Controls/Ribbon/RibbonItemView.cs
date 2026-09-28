@@ -93,12 +93,12 @@ class RibbonItemView : Grid
         // Title plus body when there is a description, a bare one-liner otherwise: a tooltip whose
         // title and text say the same thing reads as a rendering bug.
         var hasDescription = !string.IsNullOrWhiteSpace(item.Description);
-        var hint = hasDescription ? item.Description : item.Tooltip ?? item.Text;
+        var hint = hasDescription ? item.Description : item.TooltipWithShortcut;
 
         if (owner.ShowTooltips && !string.IsNullOrWhiteSpace(hint))
         {
             TooltipProperties.SetText(this, hint);
-            TooltipProperties.SetTitle(this, hasDescription ? item.Tooltip ?? item.Text : null);
+            TooltipProperties.SetTitle(this, hasDescription ? item.TooltipWithShortcut : null);
             TooltipProperties.SetTrigger(this, TooltipTrigger.Hover);
             TooltipProperties.SetPlacement(this, TooltipPlacement.Bottom);
         }

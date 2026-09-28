@@ -54,6 +54,7 @@ public partial class Ribbon : ContentView
     readonly HorizontalStackLayout tabStack;
     readonly HorizontalStackLayout quickAccessStack;
     readonly ContentView appButtonHost;
+    readonly ContentView headerEndHost;
     readonly Border collapseToggle;
     readonly Polyline collapseGlyph;
     readonly Border bodyFrame;
@@ -109,6 +110,11 @@ public partial class Ribbon : ContentView
 
         this.appButtonHost = new ContentView { VerticalOptions = LayoutOptions.Center };
 
+        // Built now and filled later, never added later: the AppKit head gives no native view to a
+        // child added after the page was laid out, and this slot is usually filled by a host that
+        // builds the ribbon first and its title bar second.
+        this.headerEndHost = new ContentView { VerticalOptions = LayoutOptions.Center, IsVisible = false };
+
         this.tabStack = new HorizontalStackLayout { Spacing = 0, VerticalOptions = LayoutOptions.End };
         this.quickAccessStack = new HorizontalStackLayout { Spacing = 0, VerticalOptions = LayoutOptions.Center };
 
@@ -147,6 +153,7 @@ public partial class Ribbon : ContentView
                 new ColumnDefinition(GridLength.Auto),  // application button
                 new ColumnDefinition(GridLength.Star),  // tabs
                 new ColumnDefinition(GridLength.Auto),  // quick access
+                new ColumnDefinition(GridLength.Auto),  // header end (Comments / mode / Share)
                 new ColumnDefinition(GridLength.Auto)   // collapse chevron
             },
             Padding = new Thickness(6, 0, 6, 0),
@@ -164,7 +171,8 @@ public partial class Ribbon : ContentView
             1
         );
         this.header.Add(this.quickAccessStack, 2);
-        this.header.Add(this.collapseToggle, 3);
+        this.header.Add(this.headerEndHost, 3);
+        this.header.Add(this.collapseToggle, 4);
 
         this.headerFrame = new Border
         {

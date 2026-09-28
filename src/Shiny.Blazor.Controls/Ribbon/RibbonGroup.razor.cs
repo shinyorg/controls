@@ -15,6 +15,9 @@ public partial class RibbonGroup : ComponentBase, IDisposable
     /// <summary>The ribbon this group is on. Public because a private cascaded parameter is silently skipped.</summary>
     [CascadingParameter] public Ribbon? Ribbon { get; set; }
 
+    /// <summary>The tab this group is on — what the command search says a command is under.</summary>
+    [CascadingParameter] public RibbonTab? Tab { get; set; }
+
     /// <summary>The caption under the group. Also the label when the group collapses to a button.</summary>
     [Parameter] public string? Title { get; set; }
 

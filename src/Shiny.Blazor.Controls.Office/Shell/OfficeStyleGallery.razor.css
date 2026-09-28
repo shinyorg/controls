@@ -1,0 +1,18 @@
+.office-style-gallery__sample {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    line-height: 1.2;
+}
+
+.office-style-gallery__name {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 11px;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}

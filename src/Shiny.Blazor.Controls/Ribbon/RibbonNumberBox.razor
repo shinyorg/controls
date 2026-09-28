@@ -1,0 +1,159 @@
+@namespace Shiny.Blazor.Controls
+@inherits RibbonItemBase
+@using System.Globalization
+
+@*
+    A labelled number field with a spinner — Word's Layout › Paragraph "Left: 0"" / "Before: 0 pt".
+
+    Text rather than type="number": a number input cannot show the unit, rejects "0.5 cm" outright, and
+    its spinner ignores the ribbon's height. The value is parsed on commit (change or Enter), with the
+    unit optional, and anything unreadable puts the last good value back.
+*@
+<div class="@this.RootClass("shiny-ribbon-numberbox")"
+     title="@this.TitleText"
+     @attributes="this.AdditionalAttributes">
+
+    @if (!string.IsNullOrEmpty(this.Icon))
+    {
+        <span class="shiny-ribbon-item__icon">
+            @if (RibbonItemBase.IsImageUrl(this.Icon!))
+            {
+                <img src="@this.Icon" alt="" />
+            }
+            else
+            {
+                @((MarkupString)this.Icon!)
+            }
+        </span>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(this.Text))
+    {
+        <span class="shiny-ribbon-numberbox__label">@this.Text</span>
+    }
+
+    <span class="shiny-ribbon-numberbox__field" style="@($"width:{this.InputWidth}")">
+        <input type="text"
+               inputmode="decimal"
+               value="@this.Display"
+               disabled="@this.IsDisabled"
+               aria-label="@(this.EffectiveTooltip ?? this.Text)"
+               @onchange="this.OnChangedAsync"
+               @onkeydown="this.OnKeyAsync" />
+        <span class="shiny-ribbon-numberbox__spin">
+            <button type="button" tabindex="-1" aria-label="Increase" disabled="@this.IsDisabled" @onclick="() => this.StepAsync(1)">
+                <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 5l3-3 3 3" /></svg>
+            </button>
+            <button type="button" tabindex="-1" aria-label="Decrease" disabled="@this.IsDisabled" @onclick="() => this.StepAsync(-1)">
+                <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 1l3 3 3-3" /></svg>
+            </button>
+        </span>
+    </span>
+</div>
+
+@code {
+    /// <summary>The value. Two-way bindable.</summary>
+    [Parameter] public double Value { get; set; }
+
+    [Parameter] public EventCallback<double> ValueChanged { get; set; }
+
+    [Parameter] public double Minimum { get; set; }
+
+    [Parameter] public double Maximum { get; set; } = 1584;
+
+    /// <summary>What one spinner press or arrow key moves by.</summary>
+    [Parameter] public double Step { get; set; } = 1;
+
+    /// <summary>Decimal places shown. Default 1, dropped when zero ("0 pt", "0.5 pt").</summary>
+    [Parameter] public int Decimals { get; set; } = 1;
+
+    /// <summary>The unit written after the number — <c>pt</c>, <c>"</c>, <c>cm</c>. Optional when typing.</summary>
+    [Parameter] public string? Unit { get; set; }
+
+    /// <summary>The field's width. Any CSS length; default 64px.</summary>
+    [Parameter] public string InputWidth { get; set; } = "64px";
+
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        // Small unless told otherwise - a number field drawn as a 76px-tall large item is not a shape
+        // anyone wants, and the base default is Large.
+        if (!parameters.TryGetValue<RibbonItemSize>(nameof(this.Size), out _))
+            this.Size = RibbonItemSize.Small;
+
+        return base.SetParametersAsync(parameters);
+    }
+
+
+    string Display => Format(this.Value, this.Decimals, this.Unit);
+
+
+    async Task OnChangedAsync(ChangeEventArgs e)
+    {
+        if (TryParse(e.Value?.ToString(), this.Unit, out var parsed))
+            await this.CommitAsync(parsed).ConfigureAwait(false);
+        else
+            this.StateHasChanged();   // puts the last good value back in the box
+    }
+
+
+    async Task OnKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowUp")
+            await this.StepAsync(1).ConfigureAwait(false);
+        else if (e.Key == "ArrowDown")
+            await this.StepAsync(-1).ConfigureAwait(false);
+    }
+
+
+    Task StepAsync(int direction)
+        => this.IsDisabled ? Task.CompletedTask : this.CommitAsync(this.Value + (direction * this.Step));
+
+
+    async Task CommitAsync(double value)
+    {
+        var clamped = Clamp(value, this.Minimum, this.Maximum, this.Decimals);
+        if (clamped == this.Value)
+        {
+            this.StateHasChanged();
+            return;
+        }
+
+        this.Value = clamped;
+        await this.ValueChanged.InvokeAsync(clamped).ConfigureAwait(false);
+        this.Ribbon?.NotifyInvoked();
+    }
+
+
+    /// <summary>"0 pt", "0.5"", "1.2 cm" — no trailing zeros, the unit spaced unless it is an inch mark.</summary>
+    internal static string Format(double value, int decimals, string? unit)
+    {
+        var number = Math.Round(value, Math.Max(0, decimals))
+            .ToString("0." + new string('#', Math.Max(0, decimals)), CultureInfo.CurrentCulture)
+            .TrimEnd('.');
+
+        if (string.IsNullOrWhiteSpace(unit))
+            return number;
+
+        return unit is "\"" or "″" ? number + unit : $"{number} {unit}";
+    }
+
+
+    /// <summary>Reads "12", "12pt", "12 pt", "1.5\"" — the unit optional, anything else a failure.</summary>
+    internal static bool TryParse(string? text, string? unit, out double value)
+    {
+        value = 0;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var cleaned = text.Trim();
+        if (!string.IsNullOrWhiteSpace(unit) && cleaned.EndsWith(unit.Trim(), StringComparison.OrdinalIgnoreCase))
+            cleaned = cleaned[..^unit.Trim().Length].Trim();
+
+        return double.TryParse(cleaned, NumberStyles.Float, CultureInfo.CurrentCulture, out value)
+               || double.TryParse(cleaned, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+    }
+
+
+    internal static double Clamp(double value, double minimum, double maximum, int decimals)
+        => Math.Round(Math.Clamp(value, minimum, Math.Max(minimum, maximum)), Math.Max(0, decimals));
+}

@@ -1,0 +1,36 @@
+.office-pane {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--shiny-color-surface-container-low, #EFF4FB);
+    color: var(--shiny-color-on-surface, #161C23);
+    font-size: 13px;
+}
+
+.office-pane__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 10px 8px 14px;
+}
+
+.office-pane__title { flex: 1 1 auto; font-size: 15px; font-weight: 600; }
+
+.office-pane__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.office-pane__close:hover { background: var(--shiny-color-surface-container-highest, #D7DCE1); }
+
+.office-pane__body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 14px 14px; }

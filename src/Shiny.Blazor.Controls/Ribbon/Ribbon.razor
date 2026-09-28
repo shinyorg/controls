@@ -62,6 +62,11 @@
                 <div class="shiny-ribbon__qat">@this.QuickAccess</div>
             }
 
+            @if (this.HeaderEnd is not null)
+            {
+                <div class="shiny-ribbon__header-end">@this.HeaderEnd</div>
+            }
+
             @if (this.AllowCollapse)
             {
                 <button type="button"

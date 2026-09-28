@@ -8,7 +8,11 @@
 @if (this.Ribbon?.IsActive(this) == true)
 {
     <div class="shiny-ribbon__panel" role="tabpanel" aria-label="@this.Title">
-        @this.ChildContent
+        @* Fixed: groups read only the tab's title and key, for the command index, and the instance
+           never changes. *@
+        <CascadingValue Value="this" IsFixed="true">
+            @this.ChildContent
+        </CascadingValue>
     </div>
 }
 

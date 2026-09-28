@@ -1,0 +1,84 @@
+@namespace Shiny.Blazor.Controls.Office
+
+@*
+    An Office-style dialog - title, content, OK and Cancel - on the core ModalView rather than a second
+    modal implementation. ModalView already owns the backdrop, focus trap, Escape and the top layer;
+    this only fixes the footer to the shape every Office dialog has.
+*@
+<ModalView IsOpen="this.IsOpen"
+           IsOpenChanged="this.OnIsOpenChangedAsync"
+           Title="@this.Title"
+           Size="this.Size"
+           Buttons="this.buttons"
+           Closed="this.OnClosedAsync">
+    @this.ChildContent
+</ModalView>
+
+@code {
+    List<ModalButton> buttons = [];
+    bool accepted;
+
+    [Parameter] public string? Title { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Two-way bindable.</summary>
+    [Parameter] public bool IsOpen { get; set; }
+
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    [Parameter] public string OkText { get; set; } = "OK";
+
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+
+    [Parameter] public bool ShowCancel { get; set; } = true;
+
+    /// <summary>Greys out OK — a custom zoom that is not a number, a name that is blank.</summary>
+    [Parameter] public bool OkDisabled { get; set; }
+
+    [Parameter] public ModalSize Size { get; set; } = ModalSize.Small;
+
+    /// <summary>Raised when OK is pressed, before the dialog closes.</summary>
+    [Parameter] public EventCallback Accepted { get; set; }
+
+    /// <summary>Raised when the dialog closes any way other than OK.</summary>
+    [Parameter] public EventCallback Cancelled { get; set; }
+
+
+    protected override void OnParametersSet()
+    {
+        this.buttons = [];
+
+        if (this.ShowCancel)
+            this.buttons.Add(new ModalButton(this.CancelText) { Appearance = ButtonAppearance.Text, Type = ButtonType.Secondary });
+
+        this.buttons.Add(new ModalButton(this.OkText) { Disabled = this.OkDisabled, OnClick = this.AcceptAsync });
+    }
+
+
+    /// <summary>Presses OK.</summary>
+    internal async Task AcceptAsync()
+    {
+        this.accepted = true;
+        await this.Accepted.InvokeAsync();
+    }
+
+
+    async Task OnIsOpenChangedAsync(bool open)
+    {
+        if (open)
+            this.accepted = false;
+
+        this.IsOpen = open;
+        await this.IsOpenChanged.InvokeAsync(open);
+    }
+
+
+    async Task OnClosedAsync(ModalCloseReason reason)
+    {
+        if (!this.accepted)
+            await this.Cancelled.InvokeAsync();
+
+        this.accepted = false;
+    }
+}

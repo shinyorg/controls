@@ -1,0 +1,53 @@
+.office-ruler {
+    position: relative;
+    flex: 0 0 auto;
+    overflow: hidden;
+    background: var(--shiny-color-surface-container, #E8EEF6);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: 10px;
+    touch-action: none;
+    user-select: none;
+}
+
+.office-ruler.is-horizontal { width: 100%; border-bottom: 1px solid var(--shiny-color-outline-variant, #BBC7DF); }
+
+.office-ruler.is-vertical { height: 100%; border-right: 1px solid var(--shiny-color-outline-variant, #BBC7DF); }
+
+.office-ruler__svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.office-ruler__margin { fill: var(--shiny-color-surface-container-highest, #D7DCE1); }
+
+.office-ruler__text { fill: var(--shiny-color-surface, #F6FAFE); }
+
+.office-ruler__tick { stroke: currentColor; stroke-width: 1; shape-rendering: crispEdges; }
+
+.office-ruler__label { fill: currentColor; font-size: 9px; font-family: inherit; }
+
+.office-ruler__marker {
+    fill: var(--shiny-color-surface, #F6FAFE);
+    stroke: currentColor;
+    stroke-width: 1;
+    cursor: ew-resize;
+}
+
+.office-ruler.is-dragging { cursor: ew-resize; }
+
+.office-ruler__tab { fill: none; stroke: var(--shiny-color-on-surface, #161C23); stroke-width: 1.5; }
+
+.office-ruler__selector {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 2px;
+    background: var(--shiny-color-surface, #F6FAFE);
+    cursor: pointer;
+}
+
+.office-ruler__selector svg { width: 12px; height: 12px; fill: none; stroke: var(--shiny-color-on-surface, #161C23); stroke-width: 1.5; }

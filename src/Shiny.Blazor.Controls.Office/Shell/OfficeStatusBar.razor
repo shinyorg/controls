@@ -1,0 +1,102 @@
+@namespace Shiny.Blazor.Controls.Office
+@implements IDisposable
+
+@*
+    The strip along the bottom of an Office window. Left: whatever segments the editor feeds it -
+    "Page 1 of 3", "197 words", Excel's "Average  Count  Sum". Right: Focus, the three view modes, and
+    the zoom control (- / slider / + / percentage, the percentage opening the Zoom dialog).
+*@
+<footer class="@this.RootCss" style="@this.RootStyle" @attributes="this.AdditionalAttributes">
+
+    <div class="office-status__items">
+        @foreach (var item in this.Items ?? [])
+        {
+            if (!item.IsVisible || string.IsNullOrEmpty(item.Text))
+                continue;
+
+            if (item.IsClickable)
+            {
+                var clicked = item;
+                <button type="button" class="office-status__item is-clickable" title="@item.Tooltip" @onclick="() => this.ItemClicked.InvokeAsync(clicked)">@item.Text</button>
+            }
+            else
+            {
+                <span class="office-status__item" title="@item.Tooltip">@item.Text</span>
+            }
+        }
+    </div>
+
+    <div class="office-status__end">
+
+        @if (this.ShowFocus && !this.IsCompact)
+        {
+            <button type="button"
+                    class="office-status__btn office-status__focus"
+                    title="Focus"
+                    @onclick="this.FocusAsync">
+                <OfficeShellGlyph Icon="OfficeShellIcon.Focus" Size="14" />
+                <span>Focus</span>
+            </button>
+        }
+
+        @if (this.ShowViewModes && !this.IsCompact && this.EffectiveViewModes.Count > 0)
+        {
+            <span class="office-status__views" role="radiogroup" aria-label="Views">
+                @foreach (var mode in this.EffectiveViewModes)
+                {
+                    var m = mode;
+                    var on = m.Id == this.EffectiveViewMode;
+
+                    <button type="button"
+                            role="radio"
+                            aria-checked="@(on ? "true" : "false")"
+                            class="@(on ? "office-status__btn is-on" : "office-status__btn")"
+                            title="@m.Text"
+                            aria-label="@m.Text"
+                            @onclick="() => this.SelectViewModeAsync(m.Id)">
+                        <OfficeShellGlyph Icon="m.Icon" Size="14" />
+                    </button>
+                }
+            </span>
+        }
+
+        @if (this.ShowZoom)
+        {
+            <span class="office-status__zoom">
+                <button type="button" class="office-status__btn" title="Zoom Out" aria-label="Zoom Out" @onclick="this.ZoomOutAsync">
+                    <OfficeShellGlyph Icon="OfficeShellIcon.Minus" Size="12" />
+                </button>
+
+                @if (this.ShowZoomSlider && !this.IsCompact && this.Shell?.ShellLayout.ShowZoomSlider != false)
+                {
+                    <span class="office-status__slider">
+                        <input type="range"
+                               min="0"
+                               max="1000"
+                               step="1"
+                               aria-label="Zoom"
+                               value="@this.SliderValue"
+                               @oninput="this.OnSliderAsync" />
+                        <span class="office-status__tick" style="@this.TickStyle" aria-hidden="true"></span>
+                    </span>
+                }
+
+                <button type="button" class="office-status__btn" title="Zoom In" aria-label="Zoom In" @onclick="this.ZoomInAsync">
+                    <OfficeShellGlyph Icon="OfficeShellIcon.Plus" Size="12" />
+                </button>
+
+                <button type="button" class="office-status__percent" title="Zoom" @onclick="this.OpenZoomDialog">@OfficeZoomModel.Format(this.Zoom)</button>
+            </span>
+        }
+    </div>
+</footer>
+
+<OfficeZoomDialog @bind-IsOpen="this.zoomDialogOpen"
+                  Zoom="this.Zoom"
+                  ZoomModel="this.Model"
+                  PageWidth="this.PageWidth"
+                  PageHeight="this.PageHeight"
+                  TextWidth="this.TextWidth"
+                  ViewportWidth="this.ViewportWidth"
+                  ViewportHeight="this.ViewportHeight"
+                  ZoomSelected="this.SetZoomAsync" />

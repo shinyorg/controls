@@ -222,7 +222,7 @@ public enum OfficeIcon
 /// say "Calibri, 11pt, red".
 /// </para>
 /// </remarks>
-public static class OfficeIcons
+public static partial class OfficeIcons
 {
     /// <summary>The grid every icon is drawn on. Hosts scale it to whatever the button offers.</summary>
     public const float Grid = 24f;

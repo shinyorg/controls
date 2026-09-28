@@ -1,0 +1,98 @@
+@namespace Shiny.Blazor.Controls
+@typeparam TItem
+@inherits RibbonItemBase
+
+@*
+    An in-ribbon gallery: a strip of previews that scrolls a row at a time inside the bar, with a
+    "more" button that drops the whole set as a grid. Word's Styles box is the canonical one.
+
+    The strip is a fixed window of Columns x Rows cells rather than a scrolling element: a ribbon row is
+    too short for a scrollbar, and Office steps it with the up/down arrows beside it, a row per press.
+    The expanded panel is rendered here but opened through the ribbon, so it shares the one backdrop,
+    Escape handling and top-layer placement every other panel on the bar uses.
+*@
+<div class="@this.RootClass("shiny-ribbon-gallery")"
+     data-ribbon-anchor="@this.Id"
+     style="@this.GalleryStyle"
+     @attributes="this.AdditionalAttributes">
+
+    <div class="shiny-ribbon-gallery__strip" role="listbox" aria-label="@this.EffectiveTooltip">
+        @foreach (var item in this.WindowItems)
+        {
+            @this.Cell(item)
+        }
+    </div>
+
+    <div class="shiny-ribbon-gallery__arrows">
+        <button type="button"
+                class="shiny-ribbon-gallery__arrow"
+                aria-label="Previous row"
+                title="Previous row"
+                disabled="@(this.IsDisabled || !this.CanScrollBack)"
+                @onclick="() => this.Scroll(-1)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg>
+        </button>
+        <button type="button"
+                class="shiny-ribbon-gallery__arrow"
+                aria-label="Next row"
+                title="Next row"
+                disabled="@(this.IsDisabled || !this.CanScrollForward)"
+                @onclick="() => this.Scroll(1)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+        </button>
+        <button type="button"
+                class="shiny-ribbon-gallery__arrow"
+                aria-label="@this.MoreText"
+                title="@this.MoreText"
+                aria-haspopup="true"
+                aria-expanded="@(this.IsPanelOpen ? "true" : "false")"
+                disabled="@this.IsDisabled"
+                @onclick="this.TogglePanel">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h8M4 8l4 4 4-4" /></svg>
+        </button>
+    </div>
+</div>
+
+@if (this.IsPanelOpen)
+{
+    <div class="shiny-ribbon-menu shiny-ribbon-gallery-panel"
+         popover="manual"
+         data-ribbon-menu="@this.Id"
+         style="@this.GalleryStyle"
+         role="listbox"
+         aria-label="@this.EffectiveTooltip">
+        <div class="shiny-ribbon-gallery__grid" style="@this.GridStyle">
+            @foreach (var item in this.Items ?? [])
+            {
+                @this.Cell(item)
+            }
+        </div>
+
+        @if (this.PanelFooter is not null)
+        {
+            <div class="shiny-ribbon-gallery__footer">@this.PanelFooter</div>
+        }
+    </div>
+}
+
+@code {
+    RenderFragment Cell(TItem item) => @<button type="button"
+                                                role="option"
+                                                class="@(this.IsSelected(item) ? "shiny-ribbon-gallery__item is-selected" : "shiny-ribbon-gallery__item")"
+                                                aria-selected="@(this.IsSelected(item) ? "true" : "false")"
+                                                title="@this.ItemText?.Invoke(item)"
+                                                disabled="@this.IsDisabled"
+                                                @onclick="() => this.PickAsync(item)">
+        @if (this.ItemTemplate is not null)
+        {
+            @this.ItemTemplate(item)
+        }
+        else
+        {
+            <span class="shiny-ribbon-gallery__text">@(this.ItemText?.Invoke(item) ?? item?.ToString())</span>
+        }
+    </button>;
+}

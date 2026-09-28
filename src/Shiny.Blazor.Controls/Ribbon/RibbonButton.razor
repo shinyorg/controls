@@ -15,6 +15,8 @@
     /// <summary>Raised when the button is pressed.</summary>
     [Parameter] public EventCallback Clicked { get; set; }
 
+    internal override Func<Task>? CommandInvoker => this.OnClickAsync;
+
 
     async Task OnClickAsync()
     {

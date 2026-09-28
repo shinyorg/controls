@@ -85,7 +85,7 @@ public partial class Ribbon
     /// of small buttons, and a menu is taller than that. The page overlay is the one place in the tree
     /// that is guaranteed to be above the page's own content and not clipped by anything in it.
     /// </remarks>
-    void Present(View? anchor, Rect? anchorRect, View content)
+    internal void Present(View? anchor, Rect? anchorRect, View content)
     {
         this.CloseMenu();
 

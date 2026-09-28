@@ -33,6 +33,13 @@ public abstract class RibbonItemBase : ComponentBase
     /// <summary>A second line under the tooltip's title, for saying what the command actually does.</summary>
     [Parameter] public string? Description { get; set; }
 
+    /// <summary>
+    /// The keyboard shortcut, as text — "Ctrl+B". Appended to the tooltip in brackets the way Office shows
+    /// it, and carried into <see cref="Ribbon.GetCommands"/> so a command search can show it too. The
+    /// ribbon does not bind the key; the editor that owns the command does.
+    /// </summary>
+    [Parameter] public string? Shortcut { get; set; }
+
     /// <summary>How much room the item asks for. See <see cref="RibbonItemSize"/>.</summary>
     [Parameter] public RibbonItemSize Size { get; set; } = RibbonItemSize.Large;
 
@@ -71,8 +78,15 @@ public abstract class RibbonItemBase : ComponentBase
     /// </remarks>
     protected string? TitleText
         => string.IsNullOrWhiteSpace(this.Description)
+            ? this.TooltipWithShortcut
+            : $"{this.TooltipWithShortcut}\n{this.Description}";
+
+    /// <summary>The tooltip's title line: "Bold (Ctrl+B)".</summary>
+    protected string? TooltipWithShortcut
+        => string.IsNullOrWhiteSpace(this.Shortcut) || string.IsNullOrWhiteSpace(this.EffectiveTooltip)
+           || this.EffectiveTooltip!.Contains(this.Shortcut!, StringComparison.OrdinalIgnoreCase)
             ? this.EffectiveTooltip
-            : $"{this.EffectiveTooltip}\n{this.Description}";
+            : $"{this.EffectiveTooltip} ({this.Shortcut})";
 
     protected string SizeClass => this.EffectiveSize == RibbonItemSize.Large ? "is-large" : "is-small";
 
@@ -82,6 +96,30 @@ public abstract class RibbonItemBase : ComponentBase
             new[] { "shiny-ribbon-item", kind, this.SizeClass, this.IsDisabled ? "is-disabled" : null, this.CssClass }
                 .Where(x => !string.IsNullOrWhiteSpace(x))
         );
+
+
+    /// <summary>
+    /// How the command search runs this item, or null for an item that is not a command (hosted
+    /// content, a separator). Overridden by the button kinds.
+    /// </summary>
+    internal virtual Func<Task>? CommandInvoker => null;
+
+    /// <summary>The lines of a dropdown this item carries, which the command search indexes too.</summary>
+    internal virtual IReadOnlyList<RibbonMenuEntry>? CommandMenu => null;
+
+    /// <summary>Named choices the item offers — a gallery's entries — indexed as "Label › Choice".</summary>
+    internal virtual IReadOnlyList<(string Text, Func<Task> Run)>? CommandChoices => null;
+
+
+    /// <summary>
+    /// Keeps the ribbon's command index current. Every render rather than once, because the label,
+    /// the shortcut and whether it is enabled all change under a live editor.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        this.Ribbon?.IndexCommand(this);
+    }
 
 
     /// <summary>

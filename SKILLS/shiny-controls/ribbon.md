@@ -225,9 +225,13 @@ unrelated commands, and for a group with a large head plus two or three smalls b
 | `RibbonSeparator` | Full-height rule + a column break (a rule only, inside a row) |
 | `RibbonRow` | A line of items. A group holding rows fills rows instead of columns |
 | `RibbonContentItem` (MAUI) / `RibbonContent` (Blazor) | Hosts any view/markup — a picker, a combo, a swatch strip |
+| `RibbonGallery` (MAUI) / `RibbonGallery<TItem>` (Blazor) | In-ribbon preview gallery (Word Styles). MAUI: `ItemsSource`, `ItemTemplate` (DataTemplate), `SelectedItem` (two-way), `SelectionCommand`, `ItemSelected` event, `ItemText` (Func, code only), `PanelFooterTemplate`. Blazor: `TItem`, `Items`, `ItemTemplate` (`context` = item), `@bind-SelectedItem`, `ItemSelected`, `ItemText`, `PanelFooter`. Both: `Columns` (5), `Rows` (1), `ExpandedColumns`, `ItemWidth`, `ItemHeight`. Up/down arrows step a row; the third arrow drops the full grid |
+| `RibbonNumberBox` | Labelled number field + spinner (Word Layout "Before: 0 pt"). `Text` is the caption; `Value` (two-way), `Minimum`, `Maximum` (1584), `Step` (1), `Decimals` (1), `Unit` ("pt", `"`, "cm"). MAUI `FieldWidth` + `ValueCommitted`; Blazor `InputWidth` + `@bind-Value`. Small by default |
 
-Common item properties: `Text`, `Icon`, `Tooltip`, `Description`, `Size`, `AutomationId`, and
-enabled/visible (`IsEnabled`/`IsVisible` on MAUI, `Disabled` on Blazor).
+Common item properties: `Text`, `Icon`, `Tooltip`, `Description`, `Shortcut`, `Size`, `AutomationId`, and
+enabled/visible (`IsEnabled`/`IsVisible` on MAUI, `Disabled` on Blazor). **Put the key in `Shortcut`**
+(`Shortcut="Ctrl+B"`), not in the tooltip text — the ribbon renders "Bold (Ctrl+B)" itself and a
+command search shows the shortcut in its own column. The ribbon does not bind keys; the editor does.
 
 **Bind enabled, do not remove.** A command that disappears when it cannot run makes the bar move under
 the pointer. A group dims its whole contents in one place: `IsEnabled` (MAUI) / `Disabled` (Blazor).
@@ -271,6 +275,13 @@ Blazor (MAUI falls back to the first item's icon).
   `TabChanged`, `ItemInvoked`, `GroupDialogLauncherClicked`, `ApplicationButtonClicked`.
 - Blazor: `@bind-SelectedKey`, `TabChanged`, `DisplayModeChanged`, `MenuEntrySelected`,
   `ApplicationButtonClicked`, plus each item's own callback.
+- **Header end slot**: `HeaderEndContent` (MAUI View) / `<HeaderEnd>` (Blazor fragment) — content at
+  the far right of the tab strip. The Office add-on's `OfficeRibbonActions` (Comments / mode / Share) goes here.
+- **Command list**: `ribbon.GetCommands()` → `RibbonCommandInfo` (`Label`, `Category` "Tab › Group",
+  `Shortcut`, `IsEnabled`, `Invoke`/`InvokeAsync`) covering buttons, toggles, dropdown leaves and named
+  gallery entries. MAUI walks the whole model; Blazor only knows tabs that have rendered and raises
+  `CommandsChanged` as more index themselves. Feed it to a search with the Office add-on's
+  `commandIndex.SyncRibbon(ribbon)` (Blazor: call it once the `@ref` is set, e.g. in `OnAfterRender(first)`).
 - MAUI has **`ribbon.Invoke(item)`** — press an item from code so a keyboard shortcut and the button it
   duplicates go down one path. It is also the seam a test presses through.
 

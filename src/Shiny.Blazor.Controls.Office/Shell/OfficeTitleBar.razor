@@ -1,0 +1,187 @@
+@namespace Shiny.Blazor.Controls.Office
+@implements IDisposable
+
+@*
+    The accent-coloured strip across the top of an Office window: app tile, AutoSave, quick access,
+    the document's name and save state, the command search, help and the account.
+
+    The search box is the one piece with real behaviour. It searches an OfficeCommandIndex - the
+    ribbon's commands plus whatever the editor added - and runs the pick, so "bold" or "insert table"
+    typed here does exactly what the button would.
+*@
+<header class="@this.RootCss" style="@this.RootStyle" @attributes="this.AdditionalAttributes">
+
+    <div class="office-titlebar__start">
+        <span class="office-titlebar__app" title="@this.Info.Name" aria-label="@this.Info.Name">@this.Info.Letter</span>
+
+        @if (this.ShowAutoSave)
+        {
+            <span class="office-titlebar__autosave">
+                <span class="office-titlebar__autosave-label">AutoSave</span>
+                <button type="button"
+                        role="switch"
+                        class="@(this.EffectiveAutoSave ? "office-titlebar__switch is-on" : "office-titlebar__switch")"
+                        aria-checked="@(this.EffectiveAutoSave ? "true" : "false")"
+                        aria-label="AutoSave"
+                        title="@(this.EffectiveAutoSave ? "AutoSave is on" : "AutoSave is off")"
+                        @onclick="this.ToggleAutoSaveAsync">
+                    <span class="office-titlebar__knob"></span>
+                    <span class="office-titlebar__switch-text">@(this.EffectiveAutoSave ? "On" : "Off")</span>
+                </button>
+            </span>
+        }
+
+        <div class="office-titlebar__qat" role="toolbar" aria-label="Quick Access Toolbar">
+            @if (this.ShowSave)
+            {
+                <button type="button" class="office-titlebar__btn" title="Save (Ctrl+S)" aria-label="Save" @onclick="this.SaveRequested">
+                    <OfficeShellGlyph Icon="OfficeShellIcon.Save" />
+                </button>
+            }
+            @if (this.ShowUndo)
+            {
+                <button type="button" class="office-titlebar__btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled="@(!this.CanUndo)" @onclick="this.UndoRequested">
+                    <OfficeShellGlyph Icon="OfficeShellIcon.Undo" />
+                </button>
+            }
+            @if (this.ShowRedo)
+            {
+                <button type="button" class="office-titlebar__btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled="@(!this.CanRedo)" @onclick="this.RedoRequested">
+                    <OfficeShellGlyph Icon="OfficeShellIcon.Redo" />
+                </button>
+            }
+            @foreach (var item in this.QuickAccessItems ?? [])
+            {
+                if (!item.IsVisible)
+                    continue;
+
+                <button type="button" class="office-titlebar__btn" title="@item.Tooltip" aria-label="@item.Text" disabled="@(!item.IsEnabled)" @onclick="item.Execute">
+                    <OfficeShellGlyph Icon="item.Icon" />
+                </button>
+            }
+        </div>
+
+        @if (!this.IsCompact || this.ShowNameWhenCompact)
+        {
+            <div class="office-titlebar__doc">
+                <button type="button"
+                        class="office-titlebar__name"
+                        aria-haspopup="true"
+                        aria-expanded="@(this.docMenuOpen ? "true" : "false")"
+                        title="@this.DocumentName"
+                        @onclick="this.ToggleDocMenu">
+                    <span class="office-titlebar__name-text">@this.EffectiveName</span>
+                    <OfficeShellGlyph Icon="OfficeShellIcon.ChevronDown" Size="12" />
+                </button>
+
+                @if (this.SaveStatus is { Length: > 0 } status && !this.IsCompact)
+                {
+                    <span class="@(this.SaveState == OfficeSaveState.Error ? "office-titlebar__status is-error" : "office-titlebar__status")">@status</span>
+                }
+
+                @if (this.docMenuOpen)
+                {
+                    <div class="office-titlebar__backdrop" @onclick="this.CloseDocMenu"></div>
+                    <div class="office-titlebar__docmenu" role="dialog" aria-label="Document">
+                        <label class="office-titlebar__field-label" for="@this.renameId">File name</label>
+                        <input id="@this.renameId"
+                               class="office-titlebar__rename"
+                               value="@this.renameText"
+                               @oninput="e => this.renameText = e.Value?.ToString() ?? string.Empty"
+                               @onkeydown="this.OnRenameKeyAsync" />
+                        <div class="office-titlebar__docmenu-actions">
+                            <button type="button" class="office-titlebar__primary" @onclick="this.CommitRenameAsync">Rename</button>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(this.DocumentLocation))
+                        {
+                            <div class="office-titlebar__location">
+                                <OfficeShellGlyph Icon="OfficeShellIcon.Open" Size="14" />
+                                <span>@this.DocumentLocation</span>
+                            </div>
+                        }
+
+                        @if (this.LocationRequested.HasDelegate)
+                        {
+                            <button type="button" class="office-titlebar__link" @onclick="this.OnLocationAsync">Open file location</button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="@this.SearchCss">
+        @if (this.IsCompact && !this.searchExpanded)
+        {
+            <button type="button" class="office-titlebar__btn" title="Search" aria-label="Search" @onclick="this.ExpandSearchAsync">
+                <OfficeShellGlyph Icon="OfficeShellIcon.Search" />
+            </button>
+        }
+        else
+        {
+            <div class="office-titlebar__searchbox">
+                <OfficeShellGlyph Icon="OfficeShellIcon.Search" Size="14" />
+                <input @ref="this.searchInput"
+                       type="search"
+                       role="combobox"
+                       aria-expanded="@(this.ShowResults ? "true" : "false")"
+                       aria-label="Search for tools, help, and more"
+                       placeholder="@this.SearchPlaceholder"
+                       value="@this.query"
+                       @oninput="this.OnQueryInput"
+                       @onkeydown="this.OnSearchKeyAsync"
+                       @onfocus="() => this.searchFocused = true"
+                       @onblur="this.OnSearchBlur" />
+            </div>
+
+            @if (this.ShowResults)
+            {
+                <div class="office-titlebar__results" role="listbox">
+                    @if (this.results.Count == 0)
+                    {
+                        <div class="office-titlebar__empty">No commands match. Press Enter to search the @this.Info.DocumentNoun.</div>
+                    }
+                    @for (var i = 0; i < this.results.Count; i++)
+                    {
+                        var match = this.results[i];
+                        var index = i;
+
+                        <button type="button"
+                                role="option"
+                                class="@(index == this.active ? "office-titlebar__result is-active" : "office-titlebar__result")"
+                                aria-selected="@(index == this.active ? "true" : "false")"
+                                disabled="@(!match.Command.IsEnabled)"
+                                @onmousedown:preventDefault="true"
+                                @onclick="() => this.RunAsync(match.Command)">
+                            <span class="office-titlebar__result-label">@match.Command.Label</span>
+                            @if (match.Command.Category is { } category)
+                            {
+                                <span class="office-titlebar__result-category">@category</span>
+                            }
+                            @if (match.Command.Shortcut is { } shortcut)
+                            {
+                                <span class="office-titlebar__result-shortcut">@shortcut</span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        }
+    </div>
+
+    <div class="office-titlebar__end">
+        @if (this.ShowHelp)
+        {
+            <button type="button" class="office-titlebar__btn" title="Help" aria-label="Help" @onclick="this.HelpRequested">
+                <OfficeShellGlyph Icon="OfficeShellIcon.Help" />
+            </button>
+        }
+        @if (this.ShowAvatar)
+        {
+            <button type="button" class="office-titlebar__avatar" title="@(this.EffectiveUserName ?? "Account")" aria-label="Account" @onclick="this.AccountRequested">
+                @this.EffectiveInitials
+            </button>
+        }
+    </div>
+</header>

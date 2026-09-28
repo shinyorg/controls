@@ -25,6 +25,8 @@
     /// <summary>Raised after the toggle flips, with the new state.</summary>
     [Parameter] public EventCallback<bool> Clicked { get; set; }
 
+    internal override Func<Task>? CommandInvoker => this.OnClickAsync;
+
 
     string ToggleClass
         => this.Checked

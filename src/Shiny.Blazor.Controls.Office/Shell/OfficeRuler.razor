@@ -1,0 +1,119 @@
+@namespace Shiny.Blazor.Controls.Office
+@using System.Globalization
+@implements IAsyncDisposable
+
+@*
+    Word's ruler, drawn as SVG from OfficeRulerModel: the shaded margins, the numbered ticks, the three
+    indent handles on the left, the right indent, and the tab stops. Every number here comes out of
+    the shared model; this file only maps "along the page" to x (or to y, for the vertical ruler).
+*@
+<div @ref="this.root"
+     class="@this.RootCss"
+     style="@this.RootStyle"
+     @onpointerdown="this.OnPointerDownAsync"
+     @onpointermove="this.OnPointerMoveAsync"
+     @onpointerup="this.OnPointerUpAsync"
+     @onpointercancel="this.OnPointerUpAsync"
+     role="slider"
+     aria-label="@(this.IsVertical ? "Vertical ruler" : "Ruler")"
+     aria-valuetext="@this.ValueText">
+    <svg class="office-ruler__svg" aria-hidden="true">
+        @{
+            var model = this.Model;
+            var (ls, le) = model.LeftMarginSpan;
+            var (rs, re) = model.RightMarginSpan;
+            var (ts, te) = model.TextSpan;
+        }
+
+        @* Margins shaded, the text column white. *@
+        <rect class="office-ruler__margin" @attributes="this.Band(ls, le)" />
+        <rect class="office-ruler__text" @attributes="this.Band(ts, te)" />
+        <rect class="office-ruler__margin" @attributes="this.Band(rs, re)" />
+
+        @foreach (var tick in model.Ticks())
+        {
+            if (tick.Label is { } label)
+            {
+                @* Razor reserves <text>, so the SVG element is written out as markup. The label is a
+                   number formatted by the model, never user input. *@
+                @this.LabelAt(tick.X, label)
+            }
+            else
+            {
+                <line class="office-ruler__tick" @attributes="this.TickAt(tick.X, tick.Height)" />
+            }
+        }
+
+        @if (this.ShowIndents && !this.IsVertical)
+        {
+            var first = model.MarkerX(OfficeRulerMarker.FirstLineIndent);
+            var left = model.MarkerX(OfficeRulerMarker.HangingIndent);
+            var right = model.MarkerX(OfficeRulerMarker.RightIndent);
+
+            <polygon class="office-ruler__marker" points="@Points(first - 4.5, 1, first + 4.5, 1, first, 8)" />
+            <polygon class="office-ruler__marker" points="@Points(left - 4.5, 16, left + 4.5, 16, left, 10)" />
+            <rect class="office-ruler__marker" x="@N(left - 4.5)" y="16.5" width="9" height="4.5" />
+            <polygon class="office-ruler__marker" points="@Points(right - 4.5, 21, right + 4.5, 21, right, 14.5)" />
+
+            @foreach (var tab in this.TabStops ?? [])
+            {
+                var x = model.MarginToView(tab.Position);
+                <path class="office-ruler__tab" d="@TabPath(x, tab.Alignment)" />
+            }
+        }
+    </svg>
+
+    @if (this.ShowIndents && !this.IsVertical && this.ShowTabSelector)
+    {
+        <button type="button"
+                class="office-ruler__selector"
+                title="@($"{this.TabAlignment} Tab — click to change")"
+                aria-label="@($"{this.TabAlignment} tab")"
+                @onpointerdown:stopPropagation="true"
+                @onclick="this.CycleTabAlignmentAsync">
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="@TabPath(6, this.TabAlignment, 2)" /></svg>
+        </button>
+    }
+</div>
+
+@code {
+    static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    static string Points(params double[] xy)
+        => string.Join(' ', Enumerable.Range(0, xy.Length / 2).Select(i => $"{N(xy[i * 2])},{N(xy[i * 2 + 1])}"));
+
+    /// <summary>The L / ⊥ / ┘ / ⊥· marks Word uses for the four tab kinds, stroked at x.</summary>
+    static string TabPath(double x, OfficeTabAlignment alignment, double top = 12)
+    {
+        var bottom = top + 7;
+        return alignment switch
+        {
+            OfficeTabAlignment.Left => $"M{N(x)} {N(top)} V{N(bottom)} H{N(x + 5)}",
+            OfficeTabAlignment.Right => $"M{N(x)} {N(top)} V{N(bottom)} H{N(x - 5)}",
+            OfficeTabAlignment.Center => $"M{N(x)} {N(top)} V{N(bottom)} M{N(x - 4)} {N(bottom)} H{N(x + 4)}",
+            _ => $"M{N(x)} {N(top)} V{N(bottom)} M{N(x - 4)} {N(bottom)} H{N(x + 4)} M{N(x + 2.5)} {N(top + 3)} h0.8"
+        };
+    }
+
+    /// <summary>A band across the ruler from along-position a to b.</summary>
+    Dictionary<string, object> Band(double a, double b)
+        => this.IsVertical
+            ? new() { ["x"] = "3", ["y"] = N(a), ["width"] = N(this.Thickness - 6), ["height"] = N(Math.Max(0, b - a)) }
+            : new() { ["x"] = N(a), ["y"] = "3", ["width"] = N(Math.Max(0, b - a)), ["height"] = N(this.Thickness - 6) };
+
+    Dictionary<string, object> TickAt(double along, double height)
+    {
+        var mid = this.Thickness / 2;
+        var half = (this.Thickness - 10) * height / 2;
+        return this.IsVertical
+            ? new() { ["x1"] = N(mid - half), ["x2"] = N(mid + half), ["y1"] = N(along), ["y2"] = N(along) }
+            : new() { ["x1"] = N(along), ["x2"] = N(along), ["y1"] = N(mid - half), ["y2"] = N(mid + half) };
+    }
+
+    MarkupString LabelAt(double along, string label)
+    {
+        var (x, y) = this.IsVertical ? (this.Thickness / 2, along + 3.5) : (along, this.Thickness / 2 + 3.5);
+        var text = System.Net.WebUtility.HtmlEncode(label);
+        return new MarkupString($"<text class=\"office-ruler__label\" x=\"{N(x)}\" y=\"{N(y)}\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"9\">{text}</text>");
+    }
+}

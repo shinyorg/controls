@@ -1,0 +1,90 @@
+.office-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: 26px;
+    padding: 0 8px;
+    border-top: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-container, #E8EEF6);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: 12px;
+    user-select: none;
+}
+
+.office-status__items {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.office-status__item { padding: 2px 6px; border-radius: 3px; }
+
+.office-status__item.is-clickable {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.office-status__item.is-clickable:hover,
+.office-status__btn:hover,
+.office-status__percent:hover { background: var(--shiny-color-surface-container-highest, #D7DCE1); }
+
+.office-status__end { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+
+.office-status__btn,
+.office-status__percent {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.office-status__btn.is-on {
+    background: var(--shiny-color-secondary-container, #D0D6DC);
+    color: var(--shiny-color-on-secondary-container, #3E4652);
+}
+
+.office-status__focus { padding: 0 6px; }
+
+.office-status__views { display: inline-flex; align-items: center; gap: 2px; }
+
+.office-status__zoom { display: inline-flex; align-items: center; gap: 2px; }
+
+.office-status__percent { min-width: 44px; }
+
+.office-status__slider { position: relative; display: inline-flex; align-items: center; width: 110px; }
+
+.office-status__slider input {
+    width: 100%;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--office-accent, #185ABD);
+    cursor: pointer;
+}
+
+/* The notch at 100%: the snap point, and the one zoom people want to find without reading. */
+.office-status__tick {
+    position: absolute;
+    top: 50%;
+    width: 1px;
+    height: 10px;
+    transform: translate(-50%, -50%);
+    background: currentColor;
+    opacity: 0.6;
+    pointer-events: none;
+}

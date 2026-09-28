@@ -25,6 +25,8 @@
     /// <summary>Identifies this button to the placement pass, which anchors the panel against it.</summary>
     internal string Id { get; } = $"rm-{Guid.NewGuid():N}";
 
+    internal override IReadOnlyList<RibbonMenuEntry>? CommandMenu => this.Menu;
+
     bool IsOpen => this.Ribbon?.IsMenuOpen == true;
 
 

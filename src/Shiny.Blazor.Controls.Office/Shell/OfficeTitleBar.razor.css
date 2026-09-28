@@ -1,0 +1,299 @@
+.office-titlebar {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 480px) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    height: 44px;
+    padding: 0 8px;
+    background: var(--office-accent, #185ABD);
+    color: var(--office-accent-ink, #FFFFFF);
+    font-size: 13px;
+    user-select: none;
+}
+
+.office-titlebar.is-compact { grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px; }
+
+.office-titlebar__start,
+.office-titlebar__end {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.office-titlebar__end { justify-content: flex-end; }
+
+.office-titlebar__app {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--office-accent-dark, #134A9B);
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.office-titlebar__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+/* currentColor, not a fixed wash: the bar is whatever colour the accent is. */
+.office-titlebar__btn:hover:not(:disabled),
+.office-titlebar__name:hover,
+.office-titlebar__avatar:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
+
+.office-titlebar__btn:disabled { opacity: 0.45; cursor: default; }
+
+.office-titlebar__qat { display: flex; align-items: center; gap: 0; }
+
+.office-titlebar__autosave { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+
+.office-titlebar__switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: 44px;
+    height: 20px;
+    padding: 0 6px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.office-titlebar__knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: currentColor;
+    transition: left 0.15s ease;
+}
+
+.office-titlebar__switch-text { margin-left: auto; }
+
+.office-titlebar__switch.is-on { background: color-mix(in srgb, currentColor 22%, transparent); }
+
+.office-titlebar__switch.is-on .office-titlebar__knob { left: 27px; }
+
+.office-titlebar__switch.is-on .office-titlebar__switch-text { margin-left: 0; margin-right: auto; }
+
+.office-titlebar__doc { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+.office-titlebar__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 260px;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.office-titlebar__name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.office-titlebar__status { font-size: 12px; opacity: 0.85; white-space: nowrap; }
+
+.office-titlebar__status.is-error { font-weight: 600; opacity: 1; }
+
+.office-titlebar__backdrop { position: fixed; inset: 0; z-index: 60; }
+
+.office-titlebar__docmenu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 61;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 300px;
+    padding: 14px;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 8px;
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+    color: var(--shiny-color-on-surface, #161C23);
+    box-shadow: var(--shiny-elevation-3, 0 8px 24px rgba(0, 0, 0, 0.2));
+}
+
+.office-titlebar__field-label { font-size: 12px; color: var(--shiny-color-on-surface-variant, #3B475B); }
+
+.office-titlebar__rename {
+    padding: 6px 8px;
+    border: 1px solid var(--shiny-color-outline, #6C788D);
+    border-radius: 4px;
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: inherit;
+    font: inherit;
+}
+
+.office-titlebar__rename:focus { outline: 2px solid var(--office-accent, #185ABD); outline-offset: -1px; }
+
+.office-titlebar__docmenu-actions { display: flex; justify-content: flex-end; }
+
+.office-titlebar__primary {
+    padding: 5px 14px;
+    border: 0;
+    border-radius: 4px;
+    background: var(--office-accent, #185ABD);
+    color: var(--office-accent-ink, #FFFFFF);
+    font: inherit;
+    cursor: pointer;
+}
+
+.office-titlebar__location {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    word-break: break-all;
+}
+
+.office-titlebar__link {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--office-accent, #185ABD);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.office-titlebar__link:hover { text-decoration: underline; }
+
+
+/* -- search ------------------------------------------------------------------------------------ */
+
+.office-titlebar__search { position: relative; display: flex; justify-content: center; min-width: 0; }
+
+/* Hidden but still holding its column, so the name and the account stay where they were. */
+.office-titlebar__search.is-hidden { visibility: hidden; }
+
+.office-titlebar__searchbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--office-accent-ink, #FFFFFF) 88%, transparent);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+.office-titlebar__searchbox:focus-within { background: var(--shiny-color-surface, #F6FAFE); }
+
+.office-titlebar__searchbox input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+}
+
+.office-titlebar.is-compact .office-titlebar__search.is-expanded {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 7px;
+    z-index: 62;
+}
+
+.office-titlebar__results {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 63;
+    display: flex;
+    flex-direction: column;
+    max-height: 360px;
+    padding: 4px;
+    overflow: auto;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: 8px;
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+    color: var(--shiny-color-on-surface, #161C23);
+    box-shadow: var(--shiny-elevation-3, 0 8px 24px rgba(0, 0, 0, 0.2));
+}
+
+.office-titlebar.is-compact .office-titlebar__search.is-expanded .office-titlebar__results { top: calc(100% + 4px); }
+
+.office-titlebar__result {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "label shortcut" "category shortcut";
+    align-items: center;
+    column-gap: 12px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.office-titlebar__result:hover:not(:disabled),
+.office-titlebar__result.is-active { background: var(--shiny-color-surface-container-highest, #D7DCE1); }
+
+.office-titlebar__result:disabled { opacity: 0.45; cursor: default; }
+
+.office-titlebar__result-label { grid-area: label; }
+
+.office-titlebar__result-category { grid-area: category; font-size: 11px; color: var(--shiny-color-on-surface-variant, #3B475B); }
+
+.office-titlebar__result-shortcut { grid-area: shortcut; font-size: 11px; color: var(--shiny-color-on-surface-variant, #3B475B); }
+
+.office-titlebar__empty { padding: 8px 10px; font-size: 12px; color: var(--shiny-color-on-surface-variant, #3B475B); }
+
+
+/* -- account ----------------------------------------------------------------------------------- */
+
+.office-titlebar__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
+    border-radius: 50%;
+    background: var(--office-accent-dark, #134A9B);
+    color: inherit;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}

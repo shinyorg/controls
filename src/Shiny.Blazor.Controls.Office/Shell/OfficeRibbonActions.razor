@@ -1,0 +1,145 @@
+@namespace Shiny.Blazor.Controls.Office
+
+@*
+    The buttons at the right end of an Office ribbon's tab strip: Comments, the Editing / Reviewing /
+    Viewing mode dropdown, and Share. Made for the Ribbon's HeaderEnd slot.
+*@
+<div class="office-ribbon-actions" style="@this.RootStyle">
+
+    @if (this.ShowComments)
+    {
+        <button type="button"
+                class="@(this.IsCommentsOpen ? "office-ribbon-actions__btn is-on" : "office-ribbon-actions__btn")"
+                aria-pressed="@(this.IsCommentsOpen ? "true" : "false")"
+                title="Comments"
+                @onclick="this.ToggleCommentsAsync">
+            <OfficeShellGlyph Icon="OfficeShellIcon.Comments" />
+            @if (!this.IconsOnly)
+            {
+                <span>Comments</span>
+            }
+        </button>
+    }
+
+    @if (this.ShowEditMode)
+    {
+        <span class="office-ribbon-actions__mode">
+            <button type="button"
+                    class="office-ribbon-actions__btn"
+                    aria-haspopup="true"
+                    aria-expanded="@(this.modeOpen ? "true" : "false")"
+                    title="@OfficeEditModes.Description(this.EditMode)"
+                    @onclick="() => this.modeOpen = !this.modeOpen">
+                <OfficeShellGlyph Icon="OfficeEditModes.Icon(this.EditMode)" />
+                @if (!this.IconsOnly)
+                {
+                    <span>@OfficeEditModes.Title(this.EditMode)</span>
+                }
+                <OfficeShellGlyph Icon="OfficeShellIcon.ChevronDown" Size="12" />
+            </button>
+
+            @if (this.modeOpen)
+            {
+                <span class="office-ribbon-actions__backdrop" @onclick="() => this.modeOpen = false"></span>
+                <span class="office-ribbon-actions__menu" role="menu">
+                    @foreach (var mode in OfficeEditModes.All)
+                    {
+                        var m = mode;
+                        <button type="button"
+                                role="menuitemradio"
+                                aria-checked="@(m == this.EditMode ? "true" : "false")"
+                                class="@(m == this.EditMode ? "office-ribbon-actions__mode-item is-on" : "office-ribbon-actions__mode-item")"
+                                @onclick="() => this.SetModeAsync(m)">
+                            <OfficeShellGlyph Icon="OfficeEditModes.Icon(m)" Size="18" />
+                            <span class="office-ribbon-actions__mode-text">
+                                <strong>@OfficeEditModes.Title(m)</strong>
+                                <small>@OfficeEditModes.Description(m)</small>
+                            </span>
+                        </button>
+                    }
+                </span>
+            }
+        </span>
+    }
+
+    @if (this.ShowShare)
+    {
+        <button type="button" class="office-ribbon-actions__share" title="Share" @onclick="this.ShareClicked">
+            <OfficeShellGlyph Icon="OfficeShellIcon.Share" />
+            @if (!this.IconsOnly)
+            {
+                <span>Share</span>
+            }
+        </button>
+    }
+</div>
+
+@code {
+    bool modeOpen;
+
+    [CascadingParameter] public OfficeShell? Shell { get; set; }
+
+    /// <summary>The app, for the Share button's accent. Null takes the shell's.</summary>
+    [Parameter] public OfficeApp? App { get; set; }
+
+    [Parameter] public bool ShowComments { get; set; } = true;
+
+    /// <summary>Whether the comments pane is open — the button draws pressed. Two-way bindable.</summary>
+    [Parameter] public bool IsCommentsOpen { get; set; }
+
+    [Parameter] public EventCallback<bool> IsCommentsOpenChanged { get; set; }
+
+    [Parameter] public EventCallback CommentsClicked { get; set; }
+
+    /// <summary>
+    /// Opens and closes the shell's right pane with the Comments button. On by default, which is what
+    /// "the title bar's Comments toggles the pane" wants with no wiring.
+    /// </summary>
+    [Parameter] public bool CommentsTogglesRightPane { get; set; } = true;
+
+    [Parameter] public bool ShowEditMode { get; set; } = true;
+
+    /// <summary>Editing, Reviewing or Viewing. Two-way bindable.</summary>
+    [Parameter] public OfficeEditMode EditMode { get; set; }
+
+    [Parameter] public EventCallback<OfficeEditMode> EditModeChanged { get; set; }
+
+    [Parameter] public bool ShowShare { get; set; } = true;
+
+    [Parameter] public EventCallback ShareClicked { get; set; }
+
+    /// <summary>Draws the three as icons only. Follows the shell's compact layout when null.</summary>
+    [Parameter] public bool? Compact { get; set; }
+
+    bool IconsOnly => this.Compact ?? this.Shell?.ShellLayout.IsCompact ?? false;
+
+    string? RootStyle
+        => this.App is not null || this.Shell is null
+            ? OfficeShellStyle.AccentVariables(OfficeAppInfo.For(this.App ?? OfficeApp.Word))
+            : null;
+
+
+    /// <summary>Presses Comments, as the button does.</summary>
+    internal async Task ToggleCommentsAsync()
+    {
+        var open = !this.IsCommentsOpen;
+        this.IsCommentsOpen = open;
+        await this.IsCommentsOpenChanged.InvokeAsync(open);
+        await this.CommentsClicked.InvokeAsync();
+
+        if (this.CommentsTogglesRightPane && this.Shell is { } shell)
+            await shell.SetRightPaneOpenAsync(open);
+    }
+
+
+    /// <summary>Picks a mode, as the dropdown does.</summary>
+    internal async Task SetModeAsync(OfficeEditMode mode)
+    {
+        this.modeOpen = false;
+        if (mode == this.EditMode)
+            return;
+
+        this.EditMode = mode;
+        await this.EditModeChanged.InvokeAsync(mode);
+    }
+}

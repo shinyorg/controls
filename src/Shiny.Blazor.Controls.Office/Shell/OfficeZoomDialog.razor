@@ -1,0 +1,138 @@
+@namespace Shiny.Blazor.Controls.Office
+
+@*
+    Word's Zoom dialog: 200 / 100 / 75, page width, text width, whole page, or a typed percentage.
+    The fits need to know how big the page and the viewport are; when the host has not said, those
+    three are offered disabled rather than guessed at.
+*@
+<OfficeDialog Title="Zoom"
+              IsOpen="this.IsOpen"
+              IsOpenChanged="this.OnIsOpenChangedAsync"
+              OkDisabled="@(this.preset == OfficeZoomPreset.Custom && !this.CustomIsValid)"
+              Accepted="this.AcceptAsync">
+    <div class="office-zoom-dialog">
+        <div class="office-zoom-dialog__presets" role="radiogroup" aria-label="Zoom to">
+            @foreach (var (preset, text) in OfficeZoomModel.Presets)
+            {
+                var p = preset;
+                var enabled = this.IsAvailable(p);
+
+                <label class="@(enabled ? "office-zoom-dialog__preset" : "office-zoom-dialog__preset is-disabled")">
+                    <input type="radio"
+                           name="@this.groupName"
+                           checked="@(this.preset == p)"
+                           disabled="@(!enabled)"
+                           @onchange="() => this.preset = p" />
+                    <span>@text</span>
+                </label>
+            }
+        </div>
+
+        <label class="office-zoom-dialog__custom">
+            <span>Percent:</span>
+            <input type="text"
+                   inputmode="numeric"
+                   value="@this.customText"
+                   @oninput="this.OnCustomInput" />
+        </label>
+
+        <div class="office-zoom-dialog__preview">
+            <span>Zoom will be </span><strong>@OfficeZoomModel.Format(this.PreviewZoom)</strong>
+        </div>
+    </div>
+</OfficeDialog>
+
+@code {
+    readonly string groupName = $"ozd-{Guid.NewGuid():N}";
+    OfficeZoomPreset preset = OfficeZoomPreset.Custom;
+    string customText = "100";
+    bool wasOpen;
+
+    [Parameter] public bool IsOpen { get; set; }
+
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    /// <summary>The zoom the dialog opens on.</summary>
+    [Parameter] public double Zoom { get; set; } = 1;
+
+    /// <summary>Raised with the chosen zoom when OK is pressed.</summary>
+    [Parameter] public EventCallback<double> ZoomSelected { get; set; }
+
+    [Parameter] public OfficeZoomModel? ZoomModel { get; set; }
+
+    [Parameter] public double PageWidth { get; set; }
+
+    [Parameter] public double PageHeight { get; set; }
+
+    [Parameter] public double TextWidth { get; set; }
+
+    [Parameter] public double ViewportWidth { get; set; }
+
+    [Parameter] public double ViewportHeight { get; set; }
+
+    OfficeZoomModel Model => this.ZoomModel ?? OfficeZoomModel.Default;
+
+    bool CustomIsValid => OfficeZoomModel.TryParse(this.customText, out _);
+
+
+    protected override void OnParametersSet()
+    {
+        // Seed from the current zoom each time it opens, not on every render - a render mid-edit
+        // would otherwise throw away what the user is typing.
+        if (this.IsOpen && !this.wasOpen)
+        {
+            this.customText = Math.Round(this.Zoom * 100).ToString("0");
+            this.preset = OfficeZoomModel.Presets
+                .Select(x => (OfficeZoomPreset?)x.Preset)
+                .FirstOrDefault(x => x is OfficeZoomPreset.Percent200 or OfficeZoomPreset.Percent100 or OfficeZoomPreset.Percent75
+                                     && Math.Abs(this.Model.Resolve(x.Value) - this.Zoom) < 0.001)
+                ?? OfficeZoomPreset.Custom;
+        }
+
+        this.wasOpen = this.IsOpen;
+    }
+
+
+    internal bool IsAvailable(OfficeZoomPreset preset) => preset switch
+    {
+        OfficeZoomPreset.PageWidth => this.PageWidth > 0 && this.ViewportWidth > 0,
+        OfficeZoomPreset.TextWidth => (this.TextWidth > 0 || this.PageWidth > 0) && this.ViewportWidth > 0,
+        OfficeZoomPreset.WholePage => this.PageWidth > 0 && this.PageHeight > 0 && this.ViewportWidth > 0 && this.ViewportHeight > 0,
+        _ => true
+    };
+
+
+    /// <summary>What OK would set.</summary>
+    internal double PreviewZoom
+    {
+        get
+        {
+            OfficeZoomModel.TryParse(this.customText, out var custom);
+            return this.Model.Resolve(
+                this.preset,
+                this.PageWidth,
+                this.PageHeight,
+                this.ViewportWidth,
+                this.ViewportHeight,
+                this.TextWidth,
+                custom > 0 ? custom : this.Zoom);
+        }
+    }
+
+
+    void OnCustomInput(ChangeEventArgs e)
+    {
+        this.customText = e.Value?.ToString() ?? string.Empty;
+        this.preset = OfficeZoomPreset.Custom;
+    }
+
+
+    async Task AcceptAsync() => await this.ZoomSelected.InvokeAsync(this.PreviewZoom);
+
+
+    async Task OnIsOpenChangedAsync(bool open)
+    {
+        this.IsOpen = open;
+        await this.IsOpenChanged.InvokeAsync(open);
+    }
+}

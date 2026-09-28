@@ -56,6 +56,8 @@ public abstract class RibbonItem : BindableObject
 
     public static readonly BindableProperty DescriptionProperty = Redraw(nameof(Description), typeof(string), typeof(RibbonItem));
 
+    public static readonly BindableProperty ShortcutProperty = Redraw(nameof(Shortcut), typeof(string), typeof(RibbonItem));
+
     public static readonly BindableProperty SizeProperty = Redraw(nameof(Size), typeof(RibbonItemSize), typeof(RibbonItem), RibbonItemSize.Large);
 
     public static readonly BindableProperty IsEnabledProperty = Redraw(nameof(IsEnabled), typeof(bool), typeof(RibbonItem), true);
@@ -108,6 +110,31 @@ public abstract class RibbonItem : BindableObject
     {
         get => (string?)this.GetValue(DescriptionProperty);
         set => this.SetValue(DescriptionProperty, value);
+    }
+
+    /// <summary>
+    /// The keyboard shortcut, as text — "Ctrl+B". Appended to the tooltip in brackets the way Office
+    /// shows it, and carried into <see cref="Ribbon.GetCommands"/> so a command search can show it too.
+    /// The ribbon does not bind the key; the editor that owns the command does.
+    /// </summary>
+    public string? Shortcut
+    {
+        get => (string?)this.GetValue(ShortcutProperty);
+        set => this.SetValue(ShortcutProperty, value);
+    }
+
+    /// <summary>The tooltip's title line with the shortcut on it: "Bold (Ctrl+B)".</summary>
+    internal string? TooltipWithShortcut
+    {
+        get
+        {
+            var tip = this.Tooltip ?? this.Text;
+            if (string.IsNullOrWhiteSpace(this.Shortcut) || string.IsNullOrWhiteSpace(tip)
+                || tip.Contains(this.Shortcut, StringComparison.OrdinalIgnoreCase))
+                return tip;
+
+            return $"{tip} ({this.Shortcut})";
+        }
     }
 
     /// <summary>How much room the item asks for. See <see cref="RibbonItemSize"/>.</summary>

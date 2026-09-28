@@ -44,6 +44,10 @@
     /// <summary>Identifies the chevron to the placement pass, which anchors the panel against it.</summary>
     internal string Id { get; } = $"rs-{Guid.NewGuid():N}";
 
+    internal override Func<Task>? CommandInvoker => this.OnClickAsync;
+
+    internal override IReadOnlyList<RibbonMenuEntry>? CommandMenu => this.Menu;
+
 
     async Task OnClickAsync()
     {

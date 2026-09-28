@@ -56,6 +56,12 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
     [Parameter] public RenderFragment? QuickAccess { get; set; }
 
     /// <summary>
+    /// Content at the far end of the tab strip, after the quick access row — the Comments, mode and
+    /// Share buttons an Office window puts there. Anything goes; the strip only reserves the room.
+    /// </summary>
+    [Parameter] public RenderFragment? HeaderEnd { get; set; }
+
+    /// <summary>
     /// Text for the accented button at the head of the strip — "File" in most apps. Null (the default)
     /// leaves it out entirely.
     /// </summary>
@@ -354,8 +360,25 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
     // Menus
     // ---------------------------------------------------------------------------------------------
 
-    /// <summary>Whether a dropdown or a collapsed group's popup is open.</summary>
-    public bool IsMenuOpen => this.menuEntries is not null || this.popupGroup is not null;
+    /// <summary>Whether a dropdown, a collapsed group's popup or an item's own panel (a gallery) is open.</summary>
+    public bool IsMenuOpen => this.menuEntries is not null || this.popupGroup is not null || this.panelOwner is not null;
+
+    string? panelOwner;
+
+    /// <summary>
+    /// Opens an item's own panel — a gallery's expanded grid. The item renders the panel itself; the
+    /// ribbon only records that it is the open one, so it shares the backdrop, Escape and placement
+    /// every other panel on the bar uses and closes when any of them opens.
+    /// </summary>
+    internal void OpenPanel(string ownerId)
+    {
+        this.SetMenu(ownerId, null, null);
+        this.panelOwner = ownerId;
+        this.StateHasChanged();
+    }
+
+    /// <summary>Whether the item with this id has its panel open.</summary>
+    internal bool IsPanelOpen(string ownerId) => this.panelOwner == ownerId;
 
 
     /// <summary>Closes any open dropdown. Safe to call when nothing is open.</summary>
@@ -385,6 +408,7 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
         this.menuOwner = ownerId;
         this.menuEntries = entries;
         this.popupGroup = group;
+        this.panelOwner = null;
         this.menuPath.Clear();
         this.placeMenus = ownerId is not null;
     }
@@ -448,6 +472,121 @@ public partial class Ribbon : ComponentBase, IAsyncDisposable
         this.peeking = false;
         this.StateHasChanged();
     }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Command index
+    // ---------------------------------------------------------------------------------------------
+
+    readonly Dictionary<string, RibbonCommandInfo> commandIndex = new(StringComparer.Ordinal);
+
+    /// <summary>Raised when an item is added to (or changes in) <see cref="GetCommands"/>.</summary>
+    public event EventHandler? CommandsChanged;
+
+    /// <summary>
+    /// Every command the ribbon has rendered — buttons, toggles, split buttons, gallery entries and
+    /// the lines of their dropdowns — for a command search to look through.
+    /// </summary>
+    /// <remarks>
+    /// Built as items render, and kept when a tab is switched away from, so a tab visited once stays
+    /// searchable. A tab never opened has never built its items, so they are not in here; see
+    /// <see cref="RibbonCommandInfo"/>.
+    /// </remarks>
+    public IReadOnlyList<RibbonCommandInfo> GetCommands() => this.commandIndex.Values.ToList();
+
+
+    internal void IndexCommand(RibbonItemBase item)
+    {
+        var tab = item.Group?.Tab;
+        var group = item.Group?.Title;
+        var label = !string.IsNullOrWhiteSpace(item.Text) ? item.Text! : item.Tooltip;
+        var changed = false;
+
+        if (!string.IsNullOrWhiteSpace(label) && item.CommandInvoker is { } invoke)
+            changed |= this.Upsert(new RibbonCommandInfo(Key(tab, group, label!), label!, invoke)
+            {
+                Tooltip = item.Tooltip,
+                Description = item.Description,
+                Shortcut = item.Shortcut,
+                Icon = item.Icon,
+                TabTitle = tab?.Title,
+                TabKey = tab?.EffectiveKey,
+                GroupTitle = group,
+                IsEnabled = !item.Disabled && item.Group?.Disabled != true
+            });
+
+        if (item.CommandMenu is { Count: > 0 } menu && !string.IsNullOrWhiteSpace(label))
+            changed |= this.IndexMenu(menu, label!, tab, group, !item.Disabled);
+
+        if (item.CommandChoices is { Count: > 0 } choices)
+        {
+            foreach (var (text, run) in choices)
+            {
+                var entry = $"{label ?? group} › {text}";
+                changed |= this.Upsert(new RibbonCommandInfo(Key(tab, group, entry), entry, run)
+                {
+                    TabTitle = tab?.Title,
+                    TabKey = tab?.EffectiveKey,
+                    GroupTitle = group,
+                    IsEnabled = !item.Disabled && item.Group?.Disabled != true
+                });
+            }
+        }
+
+        if (changed)
+            this.CommandsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+
+    bool IndexMenu(IReadOnlyList<RibbonMenuEntry> entries, string path, RibbonTab? tab, string? group, bool enabled)
+    {
+        var changed = false;
+
+        foreach (var entry in entries)
+        {
+            if (entry is null || entry.IsSeparator || string.IsNullOrWhiteSpace(entry.Text))
+                continue;
+
+            var label = $"{path} › {entry.Text}";
+
+            if (entry.HasChildren)
+            {
+                changed |= this.IndexMenu(entry.Children!, label, tab, group, enabled && !entry.IsDisabled);
+                continue;
+            }
+
+            var picked = entry;
+            changed |= this.Upsert(new RibbonCommandInfo(Key(tab, group, label), label, () => this.PickAsync(picked))
+            {
+                Icon = entry.Icon,
+                TabTitle = tab?.Title,
+                TabKey = tab?.EffectiveKey,
+                GroupTitle = group,
+                IsEnabled = enabled && !entry.IsDisabled
+            });
+        }
+
+        return changed;
+    }
+
+
+    /// <summary>Adds or refreshes an entry. True only when something a search would show changed.</summary>
+    bool Upsert(RibbonCommandInfo info)
+    {
+        var same = this.commandIndex.TryGetValue(info.Key, out var existing)
+                   && existing.IsEnabled == info.IsEnabled
+                   && existing.Shortcut == info.Shortcut
+                   && existing.Description == info.Description;
+
+        // Refreshed either way - the delegate points at the live component - but only a change a search
+        // would show is announced, or a re-render of the bar would announce every item on it.
+        this.commandIndex[info.Key] = info;
+        return !same;
+    }
+
+
+    static string Key(RibbonTab? tab, string? group, string label)
+        => $"{tab?.EffectiveKey}/{group}/{label}";
 
 
     // ---------------------------------------------------------------------------------------------

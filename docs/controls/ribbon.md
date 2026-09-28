@@ -244,8 +244,53 @@ with nothing else touched.
 | `RibbonSeparator` | A full-height rule, and a break in the column flow |
 | `RibbonRow` | A line of items. A group holding them fills rows instead of columns |
 | `RibbonContentItem` (MAUI) / `RibbonContent` (Blazor) | Hosts arbitrary content — a picker, a combo, a swatch strip |
+| `RibbonGallery` (MAUI) / `RibbonGallery<TItem>` (Blazor) | An in-ribbon gallery of previews — Word's Styles. Steps a row at a time with its up/down arrows and drops the whole set as a grid from its "more" arrow |
+| `RibbonNumberBox` | A labelled number field with a spinner — Word's Layout "Left: 0"" / "Before: 0 pt" |
 
-Every item carries `Text`, `Icon`, `Tooltip`, `Description`, `Size`, and enabled/visible flags.
+Every item carries `Text`, `Icon`, `Tooltip`, `Description`, `Shortcut`, `Size`, and enabled/visible
+flags. **`Shortcut`** ("Ctrl+B") is appended to the tooltip in brackets the way Office shows it —
+"Bold (Ctrl+B)" — and carried into the command list below; the ribbon does not bind the key itself.
+
+### Galleries
+
+```xml
+<!-- MAUI -->
+<shiny:RibbonGallery Text="Styles" ItemsSource="{Binding Styles}" SelectedItem="{Binding CurrentStyle}"
+                     Columns="5" Rows="1" ItemWidth="76" ItemHeight="58" SelectionCommand="{Binding ApplyStyle}">
+    <shiny:RibbonGallery.ItemTemplate>
+        <DataTemplate><Label Text="{Binding Name}" /></DataTemplate>
+    </shiny:RibbonGallery.ItemTemplate>
+</shiny:RibbonGallery>
+```
+
+```razor
+@* Blazor *@
+<RibbonGallery TItem="MyStyle" Text="Styles" Items="styles" @bind-SelectedItem="current"
+               ItemText="s => s.Name" Columns="5" ItemSelected="Apply">
+    <ItemTemplate><span style="@context.Css">AaBbCc</span><small>@context.Name</small></ItemTemplate>
+    <PanelFooter><button @onclick="ClearFormatting">Clear Formatting</button></PanelFooter>
+</RibbonGallery>
+```
+
+`Columns` × `Rows` is the in-ribbon window (default 5 × 1); `ExpandedColumns` sets the drop-down
+grid; a newly selected entry is scrolled into the strip. The strip never scrolls freely — it steps a
+row per arrow press, as Office does — and on MAUI every cell is built once and only shown/hidden, so
+it works on the AppKit head. `ItemText` names each entry for tooltips and for the command list.
+The Office add-on's `OfficeStyleGallery` is this item pre-dressed with "AaBbCc" style previews.
+
+### Number boxes
+
+```xml
+<shiny:RibbonNumberBox Text="Before:" Unit="pt" Step="6" Minimum="0" Maximum="1584" Value="{Binding SpaceBefore}" />
+```
+
+```razor
+<RibbonNumberBox Text="Left:" Unit="&quot;" Step="0.1" Decimals="1" @bind-Value="leftIndent" />
+```
+
+Text entry rather than a numeric input so the unit shows and can be typed ("12 pt", "0.5\""); the
+value commits on Enter/blur (MAUI `ValueCommitted` event) and the arrow keys / spinner move by
+`Step`, clamped to `Minimum`–`Maximum` and rounded to `Decimals`. Small by default.
 
 **Dropdown entries** are `RibbonMenuEntry`: `Text`, `Icon`, `IsChecked` (draws a tick), `IsSeparator`,
 and nestable `Children` that fly out as a submenu. They are declared as markup children on MAUI and
@@ -337,10 +382,21 @@ stays open and the body scrolls.
 | Application button | `ApplicationButtonText`, `ApplicationButtonCommand` | `ApplicationButtonText`, `ApplicationButtonClicked` | The accented "File" button at the head of the strip. Null leaves it out |
 | Colours | `AccentColor`, `HeaderBackgroundColor`, `BodyBackgroundColor` | same, as CSS colour strings | Fall back to the theme |
 | `ShowTooltips` | ✓ | — | MAUI uses the Shiny `Tooltip` control; Blazor uses the browser's own `title` |
+| Header end | `HeaderEndContent` (View) | `HeaderEnd` fragment | Content at the far right of the tab strip — an Office window's Comments / mode / Share buttons (`OfficeRibbonActions`) |
+| Command list | `GetCommands()` | `GetCommands()`, `CommandsChanged` | Every command on the bar as `RibbonCommandInfo` (label, tab › group category, shortcut, enabled, a delegate that runs it) — what a "Search for tools" box searches |
 
 **Events** — MAUI: `TabChanged`, `ItemInvoked`, `GroupDialogLauncherClicked`, `ApplicationButtonClicked`.
 Blazor: `TabChanged`, `SelectedKeyChanged`, `DisplayModeChanged`, `MenuEntrySelected`,
 `ApplicationButtonClicked`, plus each item's own callback.
+
+**The command list.** `GetCommands()` returns buttons, toggles, split-button faces, every leaf of every
+dropdown ("Page Number › Top of Page") and every named gallery entry ("Styles › Heading 1"), each with
+a `Category` of "Tab › Group" and an invoke delegate that behaves exactly like the click. On MAUI it
+is walked fresh from the item model each call, so it includes tabs never opened. On Blazor the items
+index themselves as they render (a tab's items only exist while it is showing), so the list grows as
+tabs are visited and `CommandsChanged` says when; a host that needs every command searchable from the
+first keystroke adds the rest to its own list. The Office add-on's `OfficeCommandIndex.SyncRibbon(ribbon)`
+turns this into the title bar's command search.
 
 **MAUI also has `ribbon.Invoke(item)`** — press an item from code, running its command, flipping a
 toggle and raising `ItemInvoked` exactly as a click would. It exists because a keyboard shortcut and

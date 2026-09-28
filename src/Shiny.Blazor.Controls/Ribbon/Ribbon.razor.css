@@ -165,6 +165,16 @@
     flex: 0 0 auto;
 }
 
+/* The far end of the strip - an Office window's Comments / mode / Share buttons. */
+.shiny-ribbon__header-end {
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-1, 4px);
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 2px 0;
+}
+
 .shiny-ribbon__collapse {
     align-self: center;
     display: inline-flex;
@@ -518,6 +528,168 @@
 ::deep .shiny-ribbon-split__caret:hover:not(:disabled) {
     background: var(--shiny-color-surface-container-highest, #D7DCE1);
 }
+
+
+/* -- gallery ----------------------------------------------------------------------------------- */
+
+/*
+    A window of previews and a column of three arrows. The strip is a fixed grid of cols x rows cells,
+    stepped a row at a time by the arrows rather than scrolled - a ribbon row is too short for a
+    scrollbar, and stepping is what Office does.
+*/
+::deep .shiny-ribbon-gallery {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    cursor: default;
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-small, 6px);
+    background: var(--shiny-color-surface, #F6FAFE);
+    overflow: hidden;
+}
+
+::deep .shiny-ribbon-gallery.is-large { grid-row: span var(--shiny-ribbon-rows, 3); max-width: none; padding: 0; }
+
+::deep .shiny-ribbon-gallery:hover:not(.is-disabled) { background: var(--shiny-color-surface, #F6FAFE); }
+
+::deep .shiny-ribbon-gallery__strip {
+    display: grid;
+    grid-template-columns: repeat(var(--shiny-gallery-cols, 5), var(--shiny-gallery-item-w, 72px));
+    grid-template-rows: repeat(var(--shiny-gallery-rows, 1), var(--shiny-gallery-item-h, minmax(0, 1fr)));
+    gap: 2px;
+    padding: 2px;
+    align-content: stretch;
+}
+
+::deep .shiny-ribbon-gallery__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: var(--shiny-gallery-item-h, 0);
+    padding: 2px 4px;
+    border: var(--shiny-border-thin, 1px) solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--shiny-type-label-small-size, 11px);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+::deep .shiny-ribbon-gallery__item:hover:not(:disabled) {
+    border-color: var(--shiny-color-outline-variant, #BBC7DF);
+    background: var(--shiny-color-surface-container-highest, #D7DCE1);
+}
+
+::deep .shiny-ribbon-gallery__item.is-selected {
+    border-color: var(--shiny-ribbon-accent);
+    background: var(--shiny-color-secondary-container, #D0D6DC);
+    color: var(--shiny-color-on-secondary-container, #3E4652);
+}
+
+::deep .shiny-ribbon-gallery__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+::deep .shiny-ribbon-gallery__arrows {
+    display: flex;
+    flex-direction: column;
+    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+::deep .shiny-ribbon-gallery__arrow {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+::deep .shiny-ribbon-gallery__arrow svg { width: 10px; height: 10px; }
+
+::deep .shiny-ribbon-gallery__arrow:hover:not(:disabled) { background: var(--shiny-color-surface-container-highest, #D7DCE1); }
+
+::deep .shiny-ribbon-gallery__arrow:disabled { opacity: 0.38; cursor: default; }
+
+::deep .shiny-ribbon-gallery-panel { min-width: 0; padding: var(--shiny-spacing-1, 4px); }
+
+::deep .shiny-ribbon-gallery__grid {
+    display: grid;
+    grid-auto-rows: var(--shiny-gallery-item-h, 64px);
+    gap: 2px;
+}
+
+::deep .shiny-ribbon-gallery__footer {
+    display: flex;
+    flex-direction: column;
+    margin-top: var(--shiny-spacing-1, 4px);
+    padding-top: var(--shiny-spacing-1, 4px);
+    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+
+/* -- number box -------------------------------------------------------------------------------- */
+
+::deep .shiny-ribbon-numberbox { gap: 6px; cursor: default; }
+
+::deep .shiny-ribbon-numberbox:hover:not(.is-disabled) { background: transparent; }
+
+::deep .shiny-ribbon-numberbox__label { white-space: nowrap; }
+
+::deep .shiny-ribbon-numberbox__field {
+    display: inline-flex;
+    align-items: stretch;
+    height: calc(var(--shiny-ribbon-row-h, 24px) - 2px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #6C788D);
+    border-radius: 3px;
+    background: var(--shiny-color-surface, #F6FAFE);
+    overflow: hidden;
+}
+
+::deep .shiny-ribbon-numberbox__field:focus-within { border-color: var(--shiny-ribbon-accent); }
+
+::deep .shiny-ribbon-numberbox__field input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 4px;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--shiny-type-label-medium-size, 12px);
+}
+
+::deep .shiny-ribbon-numberbox__spin {
+    display: flex;
+    flex-direction: column;
+    border-left: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+::deep .shiny-ribbon-numberbox__spin button {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+::deep .shiny-ribbon-numberbox__spin svg { width: 8px; height: 5px; }
+
+::deep .shiny-ribbon-numberbox__spin button:hover:not(:disabled) { background: var(--shiny-color-surface-container-highest, #D7DCE1); }
 
 
 /* -- menus ------------------------------------------------------------------------------------- */
