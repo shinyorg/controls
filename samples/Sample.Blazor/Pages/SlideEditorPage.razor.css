@@ -22,4 +22,10 @@
     overflow: hidden;
 }
 
+/* The whole PowerPoint window - title bar, ribbon, status bar - needs more room than the bare slide. */
+.editor-host.is-shell {
+    height: min(820px, calc(100vh - 120px));
+    min-height: 560px;
+}
+
 .hint { margin-top: 10px; font-size: 0.85rem; color: var(--shiny-color-on-surface-variant, #666); }

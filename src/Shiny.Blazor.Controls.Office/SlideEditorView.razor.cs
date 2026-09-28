@@ -97,8 +97,8 @@ public partial class SlideEditorView
     [Parameter] public bool ShowRibbonTabs { get; set; } = true;
 
     /// <summary>
-    /// The File tab. When set, the ribbon shows a File button that raises this — the host opens its own
-    /// backstage (open, save, export, print).
+    /// The File tab. With the shell on (the default) File opens the backstage and still raises this; with
+    /// it off, the ribbon shows File only when this is handled, and the host opens its own backstage.
     /// </summary>
     [Parameter] public EventCallback FileMenuRequested { get; set; }
 
@@ -230,6 +230,8 @@ public partial class SlideEditorView
 
     protected override void OnParametersSet()
     {
+        this.ApplyDeckParameter();
+
         if (this.Controller is { } controller)
         {
             if (!Nullable.Equals(controller.Zoom, this.Zoom))
@@ -246,7 +248,7 @@ public partial class SlideEditorView
 
     static string Ico(SlideIcon icon) => OfficeToolbarIcons.Get(SlideIcons.Shapes(icon)).Value;
 
-    bool Disabled => this.ReadOnly || this.Deck is null;
+    bool Disabled => this.EffectiveReadOnly || this.Deck is null;
 
     bool HasShape => !this.Disabled && (this.Controller?.HasShapeSelection ?? false);
 
@@ -411,7 +413,6 @@ public partial class SlideEditorView
         await Task.CompletedTask;
     }
 
-    Task OnFileClicked() => this.FileMenuRequested.HasDelegate ? this.FileMenuRequested.InvokeAsync() : Task.CompletedTask;
 
     async Task OnEditorCommand(string command)
     {
@@ -422,6 +423,8 @@ public partial class SlideEditorView
             case "link": this.OpenLinkDialog(); break;
             case "find": this.selectedTab = "home"; break;
             case "replace": this.selectedTab = "home"; this.showReplace = true; break;
+            case "save" when this.ShellOn: await this.SaveAsync(); break;
+            case "print" when this.ShellOn: await this.PrintAsync(); break;
         }
 
         this.StateHasChanged();
@@ -437,6 +440,8 @@ public partial class SlideEditorView
             controller.ViewMode = this.ViewMode;
             this.StateHasChanged();
         }
+
+        this.AfterShellRender();
 
         // Cancel takes the focus, not Delete: Enter on a dialog that opened under the user's hands
         // should be the harmless answer.

@@ -5,6 +5,9 @@
 @using Shiny.Controls.Office.Presentation
 @using Shiny.Controls.Office.Shapes
 @using Shiny.Controls.Office.Spreadsheet
+@using Shiny.Controls.Office.Shell
+@using Shiny.Controls.Office.Skia
+@using Microsoft.AspNetCore.Components.Rendering
 
 @*
     SlideEditor with PowerPoint's chrome around it: the ribbon (Home, Insert, Design, Transitions,
@@ -14,57 +17,111 @@
     Every command goes through SlideEditorController, which MAUI's SlideEditorView drives the same way;
     this file is layout and wiring. The code lives in SlideEditorView.razor.cs.
 *@
-<div class="shiny-slide-editor-view @OfficeScheme.ScopeClass(this.Theme) @Class" style="@Style">
-
-    @if (ShowToolbar)
+<div class="shiny-slide-editor-view @OfficeScheme.ScopeClass(this.Theme) @(ShellOn ? "has-shell" : null) @Class" style="@Style">
+    @if (ShellOn)
     {
         @*
-            The class stays on a div declared here rather than the Ribbon's CssClass: this file's
-            scoped rules read `.slide-toolbar ::deep .x`, and the scope id belongs to whatever element
-            is declared in *this* file.
+            PowerPoint's window. Every slot is filled by a method in this file, so its markup - and with
+            it this file's scoped CSS - is authored here even where another component renders it.
         *@
+        <OfficeShell App="OfficeApp.PowerPoint"
+                     AccentColor="@ShellAccent"
+                     IsBackstageOpen="backstageOpen"
+                     IsBackstageOpenChanged="OnBackstageOpenChanged"
+                     ShellLayoutChanged="OnShellLayoutChanged"
+                     TitleBar="@(ShowTitleBar ? TitleBarSlot : null)"
+                     Ribbon="@(ShowToolbar ? RibbonSlot : null)"
+                     StatusBar="@(ShowStatusBar && ShowStatus ? StatusSlot : null)"
+                     Backstage="@(ShowBackstage ? BackstageSlot : null)"
+                     ChildContent="BodySlot" />
+    }
+    else
+    {
+        @if (ShowToolbar)
+        {
+            @RibbonSlot
+        }
+
+        @BodySlot
+
+        @if (ShowStatus)
+        {
+            @LegacyStatusSlot
+        }
+    }
+
+
+    @*
+        The show: a SlideView over the same deck, mounted as soon as there is a deck and merely hidden,
+        so requestFullscreen still has the click's transient activation when it asks.
+    *@
+    @if (Deck is not null)
+    {
+        <SlideView @ref="show"
+                   Deck="Deck"
+                   Watermark="Watermark"
+                   SlideIndex="SlideIndex"
+                   SlideIndexChanged="OnSlideIndexChanged"
+                   IsPresenting="presenting"
+                   IsPresentingChanged="OnShowPresentingChanged"
+                   PresenterView="presenterView"
+                   ShowPresenterControls="ShowPresenterControls"
+                   Style="@(presenting ? null : "display:none")" />
+    }
+</div>
+
+@code {
+    RenderFragment RibbonSlot => this.RenderRibbon;
+
+    RenderFragment BodySlot => this.RenderBody;
+
+    RenderFragment QuickAccessSlot => this.RenderQuickAccess;
+
+    RenderFragment LegacyStatusSlot => this.RenderLegacyStatus;
+
+    /*
+        The class stays on a div declared here rather than the Ribbon's CssClass: this file's scoped
+        rules read `.slide-toolbar ::deep .x`, and the scope id belongs to whatever element is declared
+        in *this* file.
+    */
+    void RenderRibbon(RenderTreeBuilder __builder)
+    {
         <div class="slide-toolbar">
-        <Ribbon ShowTabStrip="ShowRibbonTabs"
+        <Ribbon @ref="ribbonRef"
+                ShowTabStrip="ShowRibbonTabs"
                 AllowCollapse="ShowRibbonTabs"
                 SmallItemRows="2"
                 SelectedKey="@selectedTab"
                 SelectedKeyChanged="OnTabChanged"
-                ApplicationButtonText="@(FileMenuRequested.HasDelegate ? "File" : null)"
+                DisplayMode="ribbonMode"
+                DisplayModeChanged="m => this.ribbonMode = m"
+                ApplicationButtonText="@(ShellOn || FileMenuRequested.HasDelegate ? "File" : null)"
                 ApplicationButtonClicked="OnFileClicked"
-                HeaderBackgroundColor="@(AccentBackground ?? ChosenToolbarBackground)"
-                HeaderForegroundColor="@AccentInk"
-                AccentColor="@AccentInk"
+                QuickAccess="@(ShellOn && ShowTitleBar ? null : QuickAccessSlot)"
+                HeaderEnd="@(ShellOn && ShowRibbonActions ? HeaderEndSlot : null)"
+                HeaderBackgroundColor="@(ShellOn ? ChosenToolbarBackground : AccentBackground ?? ChosenToolbarBackground)"
+                HeaderForegroundColor="@(ShellOn ? null : AccentInk)"
+                AccentColor="@(ShellOn ? AccentBackground : AccentInk)"
                 BodyBackgroundColor="@ChosenToolbarBackground">
-            <QuickAccess>
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo (Ctrl+Z)" Icon="@Ico(OfficeIcon.Undo)"
-                              Disabled="@(Disabled || !(Controller?.CanUndo ?? false))"
-                              Clicked="() => Run(c => c.Undo())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo (Ctrl+Shift+Z)" Icon="@Ico(OfficeIcon.Redo)"
-                              Disabled="@(Disabled || !(Controller?.CanRedo ?? false))"
-                              Clicked="() => Run(c => c.Redo())" />
-                <RibbonButton Size="RibbonItemSize.Small" Tooltip="Start from beginning (F5)" Icon="@Ico(SlideIcon.FromBeginning)"
-                              Disabled="@(Deck is null)"
-                              Clicked="() => StartPresentingAsync(0)" />
-            </QuickAccess>
 
             <ChildContent>
                 @* ---------------------------------------------------------------- Home *@
                 <RibbonTab Title="Home" Key="home">
                     <RibbonGroup Title="Clipboard" Priority="95">
-                        <RibbonButton Size="RibbonItemSize.Large" Text="Paste" Tooltip="Paste the copied shapes (Ctrl+V)"
+                        <RibbonButton Size="RibbonItemSize.Large" Text="Paste" Tooltip="Paste the copied shapes" Shortcut="Ctrl+V"
                                       Icon="@Ico(OfficeIcon.Paste)"
                                       Disabled="@(Disabled || !(Controller?.CanPaste ?? false))"
                                       Clicked="() => Run(c => c.Paste())" />
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Cut" Tooltip="Cut (Ctrl+X)" Icon="@Ico(OfficeIcon.Cut)"
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Cut" Tooltip="Cut" Shortcut="Ctrl+X" Icon="@Ico(OfficeIcon.Cut)"
                                       Disabled="@(!CanCopyShape)" Clicked="() => Run(c => c.CutShape())" />
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Copy" Tooltip="Copy (Ctrl+C)" Icon="@Ico(OfficeIcon.Copy)"
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Copy" Tooltip="Copy" Shortcut="Ctrl+C" Icon="@Ico(OfficeIcon.Copy)"
                                       Disabled="@(!CanCopyShape)" Clicked="() => Run(c => c.CopyShape())" />
-                        <RibbonButton Size="RibbonItemSize.Small" Text="Duplicate" Tooltip="Duplicate (Ctrl+D)" Icon="@Ico(OfficeIcon.Duplicate)"
+                        <RibbonButton Size="RibbonItemSize.Small" Text="Duplicate" Tooltip="Duplicate" Shortcut="Ctrl+D" Icon="@Ico(OfficeIcon.Duplicate)"
                                       Disabled="@(!CanCopyShape)" Clicked="() => Run(c => c.DuplicateShape())" />
                     </RibbonGroup>
 
                     <RibbonGroup Title="Slides" Priority="105">
-                        <RibbonButton Size="RibbonItemSize.Large" Text="New Slide" Tooltip="Add a slide after this one (Ctrl+M)"
+                        <RibbonButton Size="RibbonItemSize.Large" Text="New Slide" Tooltip="Add a slide after this one" Shortcut="Ctrl+M"
                                       Icon="@Ico(OfficeIcon.NewSlide)" Disabled="Disabled"
                                       Clicked="() => Run(c => c.NewSlide())" />
                         <RibbonRow>
@@ -98,25 +155,25 @@
                                 <FontSizePickerButton AvailableFontSizes="FontSizes" SelectedFontSize="Format.FontSize"
                                                       Disabled="@(!HasTextOrShape)" SelectedFontSizeChanged="OnSizeChanged" />
                             </RibbonContent>
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase font size (Ctrl+Shift+&gt;)" Icon="@Ico(SlideIcon.GrowFont)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase font size" Shortcut="Ctrl+Shift+&gt;" Icon="@Ico(SlideIcon.GrowFont)"
                                           Disabled="@(!HasTextOrShape)" Clicked="() => Run(c => c.GrowFont(1))" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease font size (Ctrl+Shift+&lt;)" Icon="@Ico(SlideIcon.ShrinkFont)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease font size" Shortcut="Ctrl+Shift+&lt;" Icon="@Ico(SlideIcon.ShrinkFont)"
                                           Disabled="@(!HasTextOrShape)" Clicked="() => Run(c => c.GrowFont(-1))" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Clear all formatting (Ctrl+Space)" Icon="@Ico(OfficeIcon.ClearFormat)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Clear all formatting" Shortcut="Ctrl+Space" Icon="@Ico(OfficeIcon.ClearFormat)"
                                           Disabled="@(!HasTextOrShape)" Clicked="() => Run(c => c.ClearFormatting())" />
                         </RibbonRow>
                         <RibbonRow>
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold (Ctrl+B)" Icon="@Ico(OfficeIcon.Bold)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Bold" Shortcut="Ctrl+B" Icon="@Ico(OfficeIcon.Bold)"
                                                 Checked="Format.Bold" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleBold())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic (Ctrl+I)" Icon="@Ico(OfficeIcon.Italic)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Italic" Shortcut="Ctrl+I" Icon="@Ico(OfficeIcon.Italic)"
                                                 Checked="Format.Italic" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleItalic())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline (Ctrl+U)" Icon="@Ico(OfficeIcon.Underline)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Underline" Shortcut="Ctrl+U" Icon="@Ico(OfficeIcon.Underline)"
                                                 Checked="Format.Underline" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleUnderline())" />
                             <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Strikethrough" Icon="@Ico(OfficeIcon.Strikethrough)"
                                                 Checked="Format.Strike" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleStrikethrough())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Subscript (Ctrl+=)" Icon="@Ico(SlideIcon.Subscript)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Subscript" Shortcut="Ctrl+=" Icon="@Ico(SlideIcon.Subscript)"
                                                 Checked="@(Format.Baseline < 0)" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleSubscript())" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Superscript (Ctrl+Shift+=)" Icon="@Ico(SlideIcon.Superscript)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Superscript" Shortcut="Ctrl+Shift+=" Icon="@Ico(SlideIcon.Superscript)"
                                                 Checked="@(Format.Baseline > 0)" Disabled="@(!HasText)" Clicked="_ => Run(c => c.ToggleSuperscript())" />
                             <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Change case" Icon="@Ico(SlideIcon.ChangeCase)"
                                               Disabled="@(!HasText)" Menu="CaseMenu" />
@@ -143,7 +200,7 @@
                             <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Numbering" Icon="@Ico(OfficeIcon.NumberedList)"
                                                 Checked="@(Format.List == ListStyle.Numbered)" Disabled="@(!HasText)"
                                                 Clicked="_ => Run(c => c.ToggleNumberedList())" />
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease list level (Shift+Tab)" Icon="@Ico(OfficeIcon.Outdent)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease list level" Shortcut="Shift+Tab" Icon="@Ico(OfficeIcon.Outdent)"
                                           Disabled="@(!HasText || Format.Level == 0)" Clicked="() => Run(c => c.ShiftLevel(-1))" />
                             <RibbonButton Size="RibbonItemSize.Small" Tooltip="Increase list level (Tab)" Icon="@Ico(OfficeIcon.Indent)"
                                           Disabled="@(!HasText)" Clicked="() => Run(c => c.ShiftLevel(1))" />
@@ -151,16 +208,16 @@
                                               Disabled="@(!HasTextOrShape)" Menu="LineSpacingMenu" />
                         </RibbonRow>
                         <RibbonRow>
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left (Ctrl+L)" Icon="@Ico(OfficeIcon.AlignLeft)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align left" Shortcut="Ctrl+L" Icon="@Ico(OfficeIcon.AlignLeft)"
                                                 Checked="@(Format.Alignment == TextAlignment.Left)" Disabled="@(!HasTextOrShape)"
                                                 Clicked="_ => Align(TextAlignment.Left)" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Center (Ctrl+E)" Icon="@Ico(OfficeIcon.AlignCenter)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Center" Shortcut="Ctrl+E" Icon="@Ico(OfficeIcon.AlignCenter)"
                                                 Checked="@(Format.Alignment == TextAlignment.Center)" Disabled="@(!HasTextOrShape)"
                                                 Clicked="_ => Align(TextAlignment.Center)" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right (Ctrl+R)" Icon="@Ico(OfficeIcon.AlignRight)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Align right" Shortcut="Ctrl+R" Icon="@Ico(OfficeIcon.AlignRight)"
                                                 Checked="@(Format.Alignment == TextAlignment.Right)" Disabled="@(!HasTextOrShape)"
                                                 Clicked="_ => Align(TextAlignment.Right)" />
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Justify (Ctrl+J)" Icon="@Ico(OfficeIcon.AlignJustify)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Justify" Shortcut="Ctrl+J" Icon="@Ico(OfficeIcon.AlignJustify)"
                                                 Checked="@(Format.Alignment == TextAlignment.Justify)" Disabled="@(!HasTextOrShape)"
                                                 Clicked="_ => Align(TextAlignment.Justify)" />
                             <RibbonMenuButton Size="RibbonItemSize.Small" Tooltip="Text direction" Icon="@Ico(SlideIcon.TextDirection)"
@@ -192,7 +249,7 @@
                             <OfficeFindBar Find="@Controller?.Find" ShowTooltips="ShowToolbarTooltips" Moved="StateHasChanged" />
                         </RibbonContent>
                         <RibbonRow>
-                            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Replace" Tooltip="Replace text (Ctrl+H)"
+                            <RibbonToggleButton Size="RibbonItemSize.Small" Text="Replace" Tooltip="Replace text" Shortcut="Ctrl+H"
                                                 Icon="@Ico(SlideIcon.Replace)" Checked="showReplace" Disabled="@(Deck is null)"
                                                 Clicked="_ => showReplace = !showReplace" />
                             <RibbonMenuButton Size="RibbonItemSize.Small" Text="Select" Tooltip="Select shapes" Icon="@Ico(OfficeIcon.Pointer)"
@@ -221,7 +278,7 @@
                 @* ---------------------------------------------------------------- Insert *@
                 <RibbonTab Title="Insert" Key="insert">
                     <RibbonGroup Title="Slides" Priority="100">
-                        <RibbonButton Size="RibbonItemSize.Large" Text="New Slide" Icon="@Ico(OfficeIcon.NewSlide)" Tooltip="Add a slide (Ctrl+M)"
+                        <RibbonButton Size="RibbonItemSize.Large" Text="New Slide" Icon="@Ico(OfficeIcon.NewSlide)" Tooltip="Add a slide" Shortcut="Ctrl+M"
                                       Disabled="Disabled" Clicked="() => Run(c => c.NewSlide())" />
                     </RibbonGroup>
                     <RibbonGroup Title="Tables &amp; Images" Priority="95">
@@ -236,7 +293,7 @@
                         <RibbonMenuButton Size="RibbonItemSize.Large" Text="Chart" Icon="@Ico(SlideIcon.Chart)" Disabled="Disabled" Menu="ChartMenu" />
                     </RibbonGroup>
                     <RibbonGroup Title="Links" Priority="85">
-                        <RibbonButton Size="RibbonItemSize.Large" Text="Link" Tooltip="Insert a link (Ctrl+K)" Icon="@Ico(SlideIcon.Hyperlink)"
+                        <RibbonButton Size="RibbonItemSize.Large" Text="Link" Tooltip="Insert a link" Shortcut="Ctrl+K" Icon="@Ico(SlideIcon.Hyperlink)"
                                       Disabled="@(Disabled || Controller?.SelectedShape < 0)" Clicked="OpenLinkDialog" />
                     </RibbonGroup>
                     <RibbonGroup Title="Text" Priority="80">
@@ -437,9 +494,9 @@
                 @* ---------------------------------------------------------------- Slide Show *@
                 <RibbonTab Title="Slide Show" Key="slideshow">
                     <RibbonGroup Title="Start Slide Show" Priority="100">
-                        <RibbonButton Size="RibbonItemSize.Large" Text="From Beginning" Tooltip="F5" Icon="@Ico(SlideIcon.FromBeginning)"
+                        <RibbonButton Size="RibbonItemSize.Large" Text="From Beginning" Tooltip="Start the show from the first slide" Shortcut="F5" Icon="@Ico(SlideIcon.FromBeginning)"
                                       Disabled="@(Deck is null)" Clicked="() => StartPresentingAsync(0)" />
-                        <RibbonButton Size="RibbonItemSize.Large" Text="From Current Slide" Tooltip="Shift+F5" Icon="@Ico(SlideIcon.FromCurrent)"
+                        <RibbonButton Size="RibbonItemSize.Large" Text="From Current Slide" Tooltip="Start the show from this slide" Shortcut="Shift+F5" Icon="@Ico(SlideIcon.FromCurrent)"
                                       Disabled="@(Deck is null)" Clicked="() => StartPresentingAsync()" />
                         <RibbonButton Size="RibbonItemSize.Large" Text="Presenter View" Tooltip="Present with the next slide, notes and a timer"
                                       Icon="@Ico(SlideIcon.PresenterView)" Disabled="@(Deck is null)" Clicked="() => StartPresentingAsync(null, presenterView: true)" />
@@ -448,6 +505,13 @@
                         <RibbonToggleButton Size="RibbonItemSize.Large" Text="Hide Slide" Icon="@Ico(SlideIcon.HideSlide)"
                                             Checked="@(Controller?.Current?.IsHidden == true)" Disabled="@(Disabled || SlideCount == 0)"
                                             Clicked="_ => Run(c => c.ToggleHideSlide())" />
+                    </RibbonGroup>
+                    <RibbonGroup Title="Export" Priority="70">
+                        <RibbonButton Size="RibbonItemSize.Large" Text="PDF" Tooltip="Export the deck as a PDF, a page per slide"
+                                      Icon="@Ico(SlideIcon.Export)" Disabled="@(Deck is null)"
+                                      Clicked="() => ExportAsync(OfficeFileFormats.Pdf)" />
+                        <RibbonMenuButton Size="RibbonItemSize.Large" Text="Pictures" Tooltip="Export slides as pictures"
+                                          Icon="@Ico(OfficeIcon.Picture)" Disabled="@(SlideCount == 0)" Menu="ExportPictureMenu" />
                     </RibbonGroup>
                 </RibbonTab>
 
@@ -644,281 +708,298 @@
         </div>
     }
 
-    <div class="slide-body">
-        @if (Controller is { } railController)
-        {
-            @if (ViewMode == SlideEditorViewMode.Outline)
+    void RenderQuickAccess(RenderTreeBuilder __builder)
+    {
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Undo" Shortcut="Ctrl+Z" Icon="@Ico(OfficeIcon.Undo)"
+                          Disabled="@(Disabled || !(Controller?.CanUndo ?? false))"
+                          Clicked="() => Run(c => c.Undo())" />
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Redo" Shortcut="Ctrl+Shift+Z" Icon="@Ico(OfficeIcon.Redo)"
+                          Disabled="@(Disabled || !(Controller?.CanRedo ?? false))"
+                          Clicked="() => Run(c => c.Redo())" />
+            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Start from beginning" Shortcut="F5" Icon="@Ico(SlideIcon.FromBeginning)"
+                          Disabled="@(Deck is null)"
+                          Clicked="() => StartPresentingAsync(0)" />
+    }
+
+    void RenderBody(RenderTreeBuilder __builder)
+    {
+        <div class="slide-body">
+            @if (Controller is { } railController)
             {
-                <div class="slide-outline-pane" role="list" aria-label="Outline">
-                    @foreach (var entry in railController.Outline)
+                @if (ViewMode == SlideEditorViewMode.Outline)
+                {
+                    <div class="slide-outline-pane" role="list" aria-label="Outline">
+                        @foreach (var entry in railController.Outline)
+                        {
+                            var index = entry.Slide;
+                            <div class="slide-outline-entry @(index == railController.Index ? "on" : null)" role="listitem" @onclick="() => GoToSlide(index)">
+                                <span class="slide-outline-number">@(index + 1)</span>
+                                <div class="slide-outline-text">
+                                    <input type="text" class="slide-outline-title" value="@entry.Title" readonly="@Disabled"
+                                           aria-label="@($"Slide {index + 1} title")" @onchange="e => OnOutlineTitle(index, e)" />
+                                    <textarea class="slide-outline-body" rows="@Math.Max(1, entry.Body.Count)" readonly="@Disabled"
+                                              aria-label="@($"Slide {index + 1} text")" @onchange="e => OnOutlineBody(index, e)">@entry.BodyText</textarea>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (ShowSlideRail && ViewMode != SlideEditorViewMode.SlideSorter)
+                {
+                    <div class="slide-rail-pane">
+                        <SlideRail Controller="railController" Theme="Theme" Interacted="FocusEditorAsync" />
+                    </div>
+                }
+            }
+
+            <div class="slide-main">
+                <div class="slide-surface">
+                    <SlideEditor @ref="editor"
+                                 Deck="Deck"
+                                 Watermark="Watermark"
+                                 Theme="Theme"
+                                 SlideIndex="SlideIndex"
+                                 SlideIndexChanged="OnSlideIndexChanged"
+                                 ReadOnly="EffectiveReadOnly"
+                                 SelectionChanged="OnEditorChanged"
+                                 AllowFileDrop="AllowFileDrop"
+                                 DropRejected="DropRejected"
+                                 CommandRequested="OnEditorCommand"
+                                 DeckChanged="OnDeckChanged" />
+
+                    @if (this.pendingDelete is { } pending)
                     {
-                        var index = entry.Slide;
-                        <div class="slide-outline-entry @(index == railController.Index ? "on" : null)" role="listitem" @onclick="() => GoToSlide(index)">
-                            <span class="slide-outline-number">@(index + 1)</span>
-                            <div class="slide-outline-text">
-                                <input type="text" class="slide-outline-title" value="@entry.Title" readonly="@Disabled"
-                                       aria-label="@($"Slide {index + 1} title")" @onchange="e => OnOutlineTitle(index, e)" />
-                                <textarea class="slide-outline-body" rows="@Math.Max(1, entry.Body.Count)" readonly="@Disabled"
-                                          aria-label="@($"Slide {index + 1} text")" @onchange="e => OnOutlineBody(index, e)">@entry.BodyText</textarea>
+                        <div class="slide-confirm-backdrop" @onclick="CancelDeleteSlide">
+                            <div class="slide-confirm" role="alertdialog" aria-modal="true"
+                                 aria-labelledby="@($"{this.confirmId}-title")" aria-describedby="@($"{this.confirmId}-body")"
+                                 @onclick:stopPropagation="true" @onkeydown="OnConfirmKeyDown">
+                                <div class="slide-confirm-title" id="@($"{this.confirmId}-title")">Delete slide @(pending + 1)?</div>
+                                <div class="slide-confirm-body" id="@($"{this.confirmId}-body")">
+                                    @(DescribeSlide(pending)) will be removed from the deck. You can undo this.
+                                </div>
+                                <div class="slide-confirm-actions">
+                                    <button type="button" @ref="confirmCancel" @onclick="CancelDeleteSlide">Cancel</button>
+                                    <button type="button" class="slide-confirm-danger" @onclick="ConfirmDeleteSlideAsync">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (dialog != SlideDialog.None)
+                    {
+                        <div class="slide-confirm-backdrop" @onclick="CloseDialog">
+                            <div class="slide-confirm slide-dialog" role="dialog" aria-modal="true" @onclick:stopPropagation="true"
+                                 @onkeydown="OnDialogKeyDown">
+                                @switch (dialog)
+                                {
+                                    case SlideDialog.Chart:
+                                        <div class="slide-confirm-title">@(chartInserting ? "Insert Chart" : "Edit Chart Data")</div>
+                                        <div class="slide-dialog-row">
+                                            <label>Type
+                                                <select value="@chartKind.ToString()" @onchange="e => chartKind = Enum.Parse<SlideChartKind>(e.Value?.ToString() ?? nameof(SlideChartKind.Column))">
+                                                    @foreach (var kind in Enum.GetValues<SlideChartKind>())
+                                                    {
+                                                        <option value="@kind">@kind</option>
+                                                    }
+                                                </select>
+                                            </label>
+                                            <label>Title <input type="text" @bind="chartTitle" /></label>
+                                        </div>
+                                        <div class="slide-chart-grid">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th></th>
+                                                        @for (var s = 0; s < chartSeries.Count; s++)
+                                                        {
+                                                            var column = s;
+                                                            <th>
+                                                                <input type="text" value="@chartSeries[column]" aria-label="Series name" @onchange="e => chartSeries[column] = e.Value?.ToString() ?? string.Empty" />
+                                                                <button type="button" aria-label="Remove series" @onclick="() => RemoveChartSeries(column)">&times;</button>
+                                                            </th>
+                                                        }
+                                                        <th><button type="button" @onclick="AddChartSeries">+ Series</button></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @for (var r = 0; r < chartCategories.Count; r++)
+                                                    {
+                                                        var row = r;
+                                                        <tr>
+                                                            <th><input type="text" value="@chartCategories[row]" aria-label="Category" @onchange="e => chartCategories[row] = e.Value?.ToString() ?? string.Empty" /></th>
+                                                            @for (var s = 0; s < chartSeries.Count; s++)
+                                                            {
+                                                                var column = s;
+                                                                <td><input type="number" step="any" value="@chartValues[column][row].ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="e => SetChartValue(column, row, e)" /></td>
+                                                            }
+                                                            <td><button type="button" aria-label="Remove row" @onclick="() => RemoveChartRow(row)">&times;</button></td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                            <button type="button" @onclick="AddChartRow">+ Category</button>
+                                        </div>
+                                        <div class="slide-confirm-actions">
+                                            <button type="button" @onclick="CloseDialog">Cancel</button>
+                                            <button type="button" class="slide-confirm-primary" @onclick="ApplyChart">OK</button>
+                                        </div>
+                                        break;
+
+                                    case SlideDialog.HeaderFooter:
+                                        <div class="slide-confirm-title">Header &amp; Footer</div>
+                                        <div class="slide-dialog-stack">
+                                            <label><input type="checkbox" @bind="hfDate" /> Date and time</label>
+                                            <label class="slide-dialog-indent"><input type="radio" name="hfdate" checked="@(!hfDateFixed)" @onchange="() => hfDateFixed = false" /> Update automatically</label>
+                                            <label class="slide-dialog-indent"><input type="radio" name="hfdate" checked="@hfDateFixed" @onchange="() => hfDateFixed = true" /> Fixed <input type="text" @bind="hfFixedDate" /></label>
+                                            <label><input type="checkbox" @bind="hfNumber" /> Slide number</label>
+                                            <label><input type="checkbox" @bind="hfFooter" /> Footer <input type="text" @bind="hfFooterText" /></label>
+                                            <label><input type="checkbox" @bind="hfNotOnTitle" /> Don't show on title slide</label>
+                                        </div>
+                                        <div class="slide-confirm-actions">
+                                            <button type="button" @onclick="CloseDialog">Cancel</button>
+                                            <button type="button" @onclick="() => ApplyHeaderFooter(false)">Apply</button>
+                                            <button type="button" class="slide-confirm-primary" @onclick="() => ApplyHeaderFooter(true)">Apply to All</button>
+                                        </div>
+                                        break;
+
+                                    case SlideDialog.Link:
+                                        <div class="slide-confirm-title">Insert Link</div>
+                                        <div class="slide-dialog-stack">
+                                            <label><input type="radio" name="linkkind" checked="@(linkKind == "url")" @onchange="@(() => linkKind = "url")" /> Web page or file</label>
+                                            <input type="url" class="slide-dialog-indent" placeholder="https://" @bind="linkUrl" disabled="@(linkKind != "url")" />
+                                            <label><input type="radio" name="linkkind" checked="@(linkKind == "slide")" @onchange="@(() => linkKind = "slide")" /> Slide in this presentation</label>
+                                            <select class="slide-dialog-indent" disabled="@(linkKind != "slide")" value="@linkSlide" @onchange="OnLinkSlide">
+                                                @for (var i = 0; i < SlideCount; i++)
+                                                {
+                                                    <option value="@i">@($"{i + 1}. {Deck?.Slides[i].Title ?? "Slide " + (i + 1)}")</option>
+                                                }
+                                            </select>
+                                            <label><input type="radio" name="linkkind" checked="@(linkKind == "action")" @onchange="@(() => linkKind = "action")" /> Show action</label>
+                                            <select class="slide-dialog-indent" disabled="@(linkKind != "action")" @bind="linkAction">
+                                                <option value="@SlideShowJumps.NextSlide">Next Slide</option>
+                                                <option value="@SlideShowJumps.PreviousSlide">Previous Slide</option>
+                                                <option value="@SlideShowJumps.FirstSlide">First Slide</option>
+                                                <option value="@SlideShowJumps.LastSlide">Last Slide</option>
+                                                <option value="@SlideShowJumps.EndShow">End Show</option>
+                                            </select>
+                                            @if (linkHasText)
+                                            {
+                                                <label>Text to display <input type="text" @bind="linkDisplay" /></label>
+                                            }
+                                        </div>
+                                        <div class="slide-confirm-actions">
+                                            <button type="button" @onclick="() => ApplyLink(true)">Remove Link</button>
+                                            <button type="button" @onclick="CloseDialog">Cancel</button>
+                                            <button type="button" class="slide-confirm-primary" @onclick="() => ApplyLink(false)">OK</button>
+                                        </div>
+                                        break;
+
+                                    case SlideDialog.Background:
+                                        <div class="slide-confirm-title">Format Background@(backgroundForMaster ? " (master)" : null)</div>
+                                        <div class="slide-dialog-stack">
+                                            <label><input type="radio" name="bgkind" checked="@(backgroundKind == "solid")" @onchange="@(() => backgroundKind = "solid")" /> Solid fill</label>
+                                            <label><input type="radio" name="bgkind" checked="@(backgroundKind == "gradient")" @onchange="@(() => backgroundKind = "gradient")" /> Gradient fill</label>
+                                            <label><input type="radio" name="bgkind" checked="@(backgroundKind == "picture")" @onchange="@(() => backgroundKind = "picture")" /> Picture fill</label>
+                                            @if (backgroundKind == "picture")
+                                            {
+                                                <InputFile accept="image/*" OnChange="OnBackgroundPicture" />
+                                            }
+                                            else
+                                            {
+                                                <div class="slide-dialog-row">
+                                                    <ColorPickerButton Text="Colour" SelectedColor="@backgroundColor" ShowOpacity="false" SelectedColorChanged="c => backgroundColor = c" />
+                                                    @if (backgroundKind == "gradient")
+                                                    {
+                                                        <ColorPickerButton Text="To" SelectedColor="@backgroundColor2" ShowOpacity="false" SelectedColorChanged="c => backgroundColor2 = c" />
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="slide-confirm-actions">
+                                            <button type="button" @onclick="ResetBackgroundFromDialog">Reset Background</button>
+                                            <button type="button" @onclick="CloseDialog">Cancel</button>
+                                            @if (!backgroundForMaster)
+                                            {
+                                                <button type="button" @onclick="() => ApplyBackground(true)">Apply to All</button>
+                                            }
+                                            <button type="button" class="slide-confirm-primary" @onclick="() => ApplyBackground(false)">Apply</button>
+                                        </div>
+                                        break;
+
+                                    case SlideDialog.SlideSize:
+                                        <div class="slide-confirm-title">Slide Size</div>
+                                        <div class="slide-dialog-stack">
+                                            <label>Width (in) <input type="number" min="1" max="56" step="0.01" @bind="sizeWidth" /></label>
+                                            <label>Height (in) <input type="number" min="1" max="56" step="0.01" @bind="sizeHeight" /></label>
+                                            <label><input type="checkbox" @bind="sizeScale" /> Scale content to fit (Ensure Fit)</label>
+                                        </div>
+                                        <div class="slide-confirm-actions">
+                                            <button type="button" @onclick="CloseDialog">Cancel</button>
+                                            <button type="button" class="slide-confirm-primary" @onclick="ApplySlideSize">OK</button>
+                                        </div>
+                                        break;
+
+                                    case SlideDialog.Section:
+                                        <div class="slide-confirm-title">@(sectionIndex < 0 ? "Add Section" : "Rename Section")</div>
+                                        <div class="slide-dialog-stack">
+                                            <label>Section name <input type="text" @bind="sectionName" /></label>
+                                        </div>
+                                        <div class="slide-confirm-actions">
+                                            <button type="button" @onclick="CloseDialog">Cancel</button>
+                                            <button type="button" class="slide-confirm-primary" @onclick="ApplySection">@(sectionIndex < 0 ? "Add" : "Rename")</button>
+                                        </div>
+                                        break;
+                                }
                             </div>
                         </div>
                     }
                 </div>
-            }
-            else if (ShowSlideRail && ViewMode != SlideEditorViewMode.SlideSorter)
-            {
-                <div class="slide-rail-pane">
-                    <SlideRail Controller="railController" Theme="Theme" Interacted="FocusEditorAsync" />
-                </div>
-            }
-        }
 
-        <div class="slide-main">
-            <div class="slide-surface">
-                <SlideEditor @ref="editor"
-                             Deck="Deck"
-                             Watermark="Watermark"
-                             Theme="Theme"
-                             SlideIndex="SlideIndex"
-                             SlideIndexChanged="OnSlideIndexChanged"
-                             ReadOnly="ReadOnly"
-                             SelectionChanged="OnEditorChanged"
-                             AllowFileDrop="AllowFileDrop"
-                             DropRejected="DropRejected"
-                             CommandRequested="OnEditorCommand"
-                             DeckChanged="OnDeckChanged" />
-
-                @if (this.pendingDelete is { } pending)
+                @if (ShowNotes || ViewMode == SlideEditorViewMode.NotesPage)
                 {
-                    <div class="slide-confirm-backdrop" @onclick="CancelDeleteSlide">
-                        <div class="slide-confirm" role="alertdialog" aria-modal="true"
-                             aria-labelledby="@($"{this.confirmId}-title")" aria-describedby="@($"{this.confirmId}-body")"
-                             @onclick:stopPropagation="true" @onkeydown="OnConfirmKeyDown">
-                            <div class="slide-confirm-title" id="@($"{this.confirmId}-title")">Delete slide @(pending + 1)?</div>
-                            <div class="slide-confirm-body" id="@($"{this.confirmId}-body")">
-                                @(DescribeSlide(pending)) will be removed from the deck. You can undo this.
-                            </div>
-                            <div class="slide-confirm-actions">
-                                <button type="button" @ref="confirmCancel" @onclick="CancelDeleteSlide">Cancel</button>
-                                <button type="button" class="slide-confirm-danger" @onclick="ConfirmDeleteSlideAsync">Delete</button>
-                            </div>
-                        </div>
-                    </div>
-                }
-
-                @if (dialog != SlideDialog.None)
-                {
-                    <div class="slide-confirm-backdrop" @onclick="CloseDialog">
-                        <div class="slide-confirm slide-dialog" role="dialog" aria-modal="true" @onclick:stopPropagation="true"
-                             @onkeydown="OnDialogKeyDown">
-                            @switch (dialog)
-                            {
-                                case SlideDialog.Chart:
-                                    <div class="slide-confirm-title">@(chartInserting ? "Insert Chart" : "Edit Chart Data")</div>
-                                    <div class="slide-dialog-row">
-                                        <label>Type
-                                            <select value="@chartKind.ToString()" @onchange="e => chartKind = Enum.Parse<SlideChartKind>(e.Value?.ToString() ?? nameof(SlideChartKind.Column))">
-                                                @foreach (var kind in Enum.GetValues<SlideChartKind>())
-                                                {
-                                                    <option value="@kind">@kind</option>
-                                                }
-                                            </select>
-                                        </label>
-                                        <label>Title <input type="text" @bind="chartTitle" /></label>
-                                    </div>
-                                    <div class="slide-chart-grid">
-                                        <table>
-                                            <thead>
-                                                <tr>
-                                                    <th></th>
-                                                    @for (var s = 0; s < chartSeries.Count; s++)
-                                                    {
-                                                        var column = s;
-                                                        <th>
-                                                            <input type="text" value="@chartSeries[column]" aria-label="Series name" @onchange="e => chartSeries[column] = e.Value?.ToString() ?? string.Empty" />
-                                                            <button type="button" aria-label="Remove series" @onclick="() => RemoveChartSeries(column)">&times;</button>
-                                                        </th>
-                                                    }
-                                                    <th><button type="button" @onclick="AddChartSeries">+ Series</button></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @for (var r = 0; r < chartCategories.Count; r++)
-                                                {
-                                                    var row = r;
-                                                    <tr>
-                                                        <th><input type="text" value="@chartCategories[row]" aria-label="Category" @onchange="e => chartCategories[row] = e.Value?.ToString() ?? string.Empty" /></th>
-                                                        @for (var s = 0; s < chartSeries.Count; s++)
-                                                        {
-                                                            var column = s;
-                                                            <td><input type="number" step="any" value="@chartValues[column][row].ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="e => SetChartValue(column, row, e)" /></td>
-                                                        }
-                                                        <td><button type="button" aria-label="Remove row" @onclick="() => RemoveChartRow(row)">&times;</button></td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                        <button type="button" @onclick="AddChartRow">+ Category</button>
-                                    </div>
-                                    <div class="slide-confirm-actions">
-                                        <button type="button" @onclick="CloseDialog">Cancel</button>
-                                        <button type="button" class="slide-confirm-primary" @onclick="ApplyChart">OK</button>
-                                    </div>
-                                    break;
-
-                                case SlideDialog.HeaderFooter:
-                                    <div class="slide-confirm-title">Header &amp; Footer</div>
-                                    <div class="slide-dialog-stack">
-                                        <label><input type="checkbox" @bind="hfDate" /> Date and time</label>
-                                        <label class="slide-dialog-indent"><input type="radio" name="hfdate" checked="@(!hfDateFixed)" @onchange="() => hfDateFixed = false" /> Update automatically</label>
-                                        <label class="slide-dialog-indent"><input type="radio" name="hfdate" checked="@hfDateFixed" @onchange="() => hfDateFixed = true" /> Fixed <input type="text" @bind="hfFixedDate" /></label>
-                                        <label><input type="checkbox" @bind="hfNumber" /> Slide number</label>
-                                        <label><input type="checkbox" @bind="hfFooter" /> Footer <input type="text" @bind="hfFooterText" /></label>
-                                        <label><input type="checkbox" @bind="hfNotOnTitle" /> Don't show on title slide</label>
-                                    </div>
-                                    <div class="slide-confirm-actions">
-                                        <button type="button" @onclick="CloseDialog">Cancel</button>
-                                        <button type="button" @onclick="() => ApplyHeaderFooter(false)">Apply</button>
-                                        <button type="button" class="slide-confirm-primary" @onclick="() => ApplyHeaderFooter(true)">Apply to All</button>
-                                    </div>
-                                    break;
-
-                                case SlideDialog.Link:
-                                    <div class="slide-confirm-title">Insert Link</div>
-                                    <div class="slide-dialog-stack">
-                                        <label><input type="radio" name="linkkind" checked="@(linkKind == "url")" @onchange="@(() => linkKind = "url")" /> Web page or file</label>
-                                        <input type="url" class="slide-dialog-indent" placeholder="https://" @bind="linkUrl" disabled="@(linkKind != "url")" />
-                                        <label><input type="radio" name="linkkind" checked="@(linkKind == "slide")" @onchange="@(() => linkKind = "slide")" /> Slide in this presentation</label>
-                                        <select class="slide-dialog-indent" disabled="@(linkKind != "slide")" value="@linkSlide" @onchange="OnLinkSlide">
-                                            @for (var i = 0; i < SlideCount; i++)
-                                            {
-                                                <option value="@i">@($"{i + 1}. {Deck?.Slides[i].Title ?? "Slide " + (i + 1)}")</option>
-                                            }
-                                        </select>
-                                        <label><input type="radio" name="linkkind" checked="@(linkKind == "action")" @onchange="@(() => linkKind = "action")" /> Show action</label>
-                                        <select class="slide-dialog-indent" disabled="@(linkKind != "action")" @bind="linkAction">
-                                            <option value="@SlideShowJumps.NextSlide">Next Slide</option>
-                                            <option value="@SlideShowJumps.PreviousSlide">Previous Slide</option>
-                                            <option value="@SlideShowJumps.FirstSlide">First Slide</option>
-                                            <option value="@SlideShowJumps.LastSlide">Last Slide</option>
-                                            <option value="@SlideShowJumps.EndShow">End Show</option>
-                                        </select>
-                                        @if (linkHasText)
-                                        {
-                                            <label>Text to display <input type="text" @bind="linkDisplay" /></label>
-                                        }
-                                    </div>
-                                    <div class="slide-confirm-actions">
-                                        <button type="button" @onclick="() => ApplyLink(true)">Remove Link</button>
-                                        <button type="button" @onclick="CloseDialog">Cancel</button>
-                                        <button type="button" class="slide-confirm-primary" @onclick="() => ApplyLink(false)">OK</button>
-                                    </div>
-                                    break;
-
-                                case SlideDialog.Background:
-                                    <div class="slide-confirm-title">Format Background@(backgroundForMaster ? " (master)" : null)</div>
-                                    <div class="slide-dialog-stack">
-                                        <label><input type="radio" name="bgkind" checked="@(backgroundKind == "solid")" @onchange="@(() => backgroundKind = "solid")" /> Solid fill</label>
-                                        <label><input type="radio" name="bgkind" checked="@(backgroundKind == "gradient")" @onchange="@(() => backgroundKind = "gradient")" /> Gradient fill</label>
-                                        <label><input type="radio" name="bgkind" checked="@(backgroundKind == "picture")" @onchange="@(() => backgroundKind = "picture")" /> Picture fill</label>
-                                        @if (backgroundKind == "picture")
-                                        {
-                                            <InputFile accept="image/*" OnChange="OnBackgroundPicture" />
-                                        }
-                                        else
-                                        {
-                                            <div class="slide-dialog-row">
-                                                <ColorPickerButton Text="Colour" SelectedColor="@backgroundColor" ShowOpacity="false" SelectedColorChanged="c => backgroundColor = c" />
-                                                @if (backgroundKind == "gradient")
-                                                {
-                                                    <ColorPickerButton Text="To" SelectedColor="@backgroundColor2" ShowOpacity="false" SelectedColorChanged="c => backgroundColor2 = c" />
-                                                }
-                                            </div>
-                                        }
-                                    </div>
-                                    <div class="slide-confirm-actions">
-                                        <button type="button" @onclick="ResetBackgroundFromDialog">Reset Background</button>
-                                        <button type="button" @onclick="CloseDialog">Cancel</button>
-                                        @if (!backgroundForMaster)
-                                        {
-                                            <button type="button" @onclick="() => ApplyBackground(true)">Apply to All</button>
-                                        }
-                                        <button type="button" class="slide-confirm-primary" @onclick="() => ApplyBackground(false)">Apply</button>
-                                    </div>
-                                    break;
-
-                                case SlideDialog.SlideSize:
-                                    <div class="slide-confirm-title">Slide Size</div>
-                                    <div class="slide-dialog-stack">
-                                        <label>Width (in) <input type="number" min="1" max="56" step="0.01" @bind="sizeWidth" /></label>
-                                        <label>Height (in) <input type="number" min="1" max="56" step="0.01" @bind="sizeHeight" /></label>
-                                        <label><input type="checkbox" @bind="sizeScale" /> Scale content to fit (Ensure Fit)</label>
-                                    </div>
-                                    <div class="slide-confirm-actions">
-                                        <button type="button" @onclick="CloseDialog">Cancel</button>
-                                        <button type="button" class="slide-confirm-primary" @onclick="ApplySlideSize">OK</button>
-                                    </div>
-                                    break;
-
-                                case SlideDialog.Section:
-                                    <div class="slide-confirm-title">@(sectionIndex < 0 ? "Add Section" : "Rename Section")</div>
-                                    <div class="slide-dialog-stack">
-                                        <label>Section name <input type="text" @bind="sectionName" /></label>
-                                    </div>
-                                    <div class="slide-confirm-actions">
-                                        <button type="button" @onclick="CloseDialog">Cancel</button>
-                                        <button type="button" class="slide-confirm-primary" @onclick="ApplySection">@(sectionIndex < 0 ? "Add" : "Rename")</button>
-                                    </div>
-                                    break;
-                            }
-                        </div>
+                    <div class="slide-notes">
+                        <textarea aria-label="Speaker notes" placeholder="Click to add notes" readonly="@Disabled"
+                                  value="@notesDraft" @oninput="OnNotesInput"></textarea>
                     </div>
                 }
             </div>
 
-            @if (ShowNotes || ViewMode == SlideEditorViewMode.NotesPage)
+            @if (showAnimationPane && Controller is { } paneController)
             {
-                <div class="slide-notes">
-                    <textarea aria-label="Speaker notes" placeholder="Click to add notes" readonly="@Disabled"
-                              value="@notesDraft" @oninput="OnNotesInput"></textarea>
-                </div>
+                <aside class="slide-animation-pane" aria-label="Animation pane">
+                    <div class="slide-pane-title">
+                        <span>Animation Pane</span>
+                        <button type="button" class="shiny-office-btn" aria-label="Close" @onclick="() => showAnimationPane = false">@OfficeToolbarIcons.Get(SlideIcons.Shapes(SlideIcon.Close))</button>
+                    </div>
+                    <button type="button" class="shiny-office-btn slide-pane-play" disabled="@(SlideCount == 0)" @onclick="PreviewSlide">
+                        @OfficeToolbarIcons.Get(SlideIcons.Shapes(SlideIcon.Preview))<span>Play</span>
+                    </button>
+                    <ol class="slide-animation-list">
+                        @{
+                            var schedule = SlideAnimationTimeline.Schedule(paneController.Animations);
+                        }
+                        @foreach (var item in schedule)
+                        {
+                            var index = item.Index;
+                            var target = paneController.Current?.Shapes.FirstOrDefault(x => x.Id == item.Animation.ShapeId);
+                            <li class="@(SelectedAnimationIndex == index ? "on" : null) slide-anim-@item.Animation.Class.ToString().ToLowerInvariant()"
+                                @onclick="() => SelectAnimation(index)">
+                                <span class="slide-anim-click">@(item.Animation.Trigger == SlideAnimationTrigger.OnClick ? item.Click.ToString() : "")</span>
+                                <span class="slide-anim-mark"></span>
+                                <span class="slide-anim-name">@(target?.Name ?? $"Shape {item.Animation.ShapeId}")</span>
+                                <span class="slide-anim-effect">@SlideAnimation.NameOf(item.Animation.Effect)</span>
+                                <button type="button" class="shiny-office-btn" aria-label="Remove" disabled="@Disabled"
+                                        @onclick:stopPropagation="true" @onclick="() => Run(c => c.RemoveAnimation(index))">@OfficeToolbarIcons.Get(SlideIcons.Shapes(SlideIcon.Close))</button>
+                            </li>
+                        }
+                    </ol>
+                </aside>
             }
         </div>
+    }
 
-        @if (showAnimationPane && Controller is { } paneController)
-        {
-            <aside class="slide-animation-pane" aria-label="Animation pane">
-                <div class="slide-pane-title">
-                    <span>Animation Pane</span>
-                    <button type="button" class="shiny-office-btn" aria-label="Close" @onclick="() => showAnimationPane = false">@OfficeToolbarIcons.Get(SlideIcons.Shapes(SlideIcon.Close))</button>
-                </div>
-                <button type="button" class="shiny-office-btn slide-pane-play" disabled="@(SlideCount == 0)" @onclick="PreviewSlide">
-                    @OfficeToolbarIcons.Get(SlideIcons.Shapes(SlideIcon.Preview))<span>Play</span>
-                </button>
-                <ol class="slide-animation-list">
-                    @{
-                        var schedule = SlideAnimationTimeline.Schedule(paneController.Animations);
-                    }
-                    @foreach (var item in schedule)
-                    {
-                        var index = item.Index;
-                        var target = paneController.Current?.Shapes.FirstOrDefault(x => x.Id == item.Animation.ShapeId);
-                        <li class="@(SelectedAnimationIndex == index ? "on" : null) slide-anim-@item.Animation.Class.ToString().ToLowerInvariant()"
-                            @onclick="() => SelectAnimation(index)">
-                            <span class="slide-anim-click">@(item.Animation.Trigger == SlideAnimationTrigger.OnClick ? item.Click.ToString() : "")</span>
-                            <span class="slide-anim-mark"></span>
-                            <span class="slide-anim-name">@(target?.Name ?? $"Shape {item.Animation.ShapeId}")</span>
-                            <span class="slide-anim-effect">@SlideAnimation.NameOf(item.Animation.Effect)</span>
-                            <button type="button" class="shiny-office-btn" aria-label="Remove" disabled="@Disabled"
-                                    @onclick:stopPropagation="true" @onclick="() => Run(c => c.RemoveAnimation(index))">@OfficeToolbarIcons.Get(SlideIcons.Shapes(SlideIcon.Close))</button>
-                        </li>
-                    }
-                </ol>
-            </aside>
-        }
-    </div>
-
-    @if (ShowStatus)
+    // The plain status line, used when the shell is off.
+    void RenderLegacyStatus(RenderTreeBuilder __builder)
     {
         <div class="slide-status">
             <span class="slide-status-count">@(ViewMode == SlideEditorViewMode.SlideMaster ? "Slide Master" : SlideCount == 0 ? "No slides" : $"Slide {CurrentSlideIndex + 1} of {SlideCount}")</span>
@@ -942,21 +1023,84 @@
         </div>
     }
 
-    @*
-        The show: a SlideView over the same deck, mounted as soon as there is a deck and merely hidden,
-        so requestFullscreen still has the click's transient activation when it asks.
-    *@
-    @if (Deck is not null)
+
+    // ---- the shell's slots ----
+
+    RenderFragment TitleBarSlot => this.RenderTitleBar;
+
+    RenderFragment HeaderEndSlot => this.RenderHeaderEnd;
+
+    RenderFragment StatusSlot => this.RenderStatus;
+
+    RenderFragment BackstageSlot => this.RenderBackstage;
+
+    void RenderTitleBar(RenderTreeBuilder __builder)
     {
-        <SlideView @ref="show"
-                   Deck="Deck"
-                   Watermark="Watermark"
-                   SlideIndex="SlideIndex"
-                   SlideIndexChanged="OnSlideIndexChanged"
-                   IsPresenting="presenting"
-                   IsPresentingChanged="OnShowPresentingChanged"
-                   PresenterView="presenterView"
-                   ShowPresenterControls="ShowPresenterControls"
-                   Style="@(presenting ? null : "display:none")" />
+        <OfficeTitleBar DocumentName="@EffectiveDocumentName"
+                        DocumentNameChanged="OnDocumentNameChangedAsync"
+                        DocumentLocation="@(DocumentLocation ?? Deck?.Path)"
+                        SaveState="EffectiveSaveState"
+                        AutoSave="AutoSave"
+                        AutoSaveChanged="OnAutoSaveChangedAsync"
+                        CanUndo="@(!Disabled && (Controller?.CanUndo ?? false))"
+                        CanRedo="@(!Disabled && (Controller?.CanRedo ?? false))"
+                        SaveRequested="SaveAsync"
+                        UndoRequested="() => Run(c => c.Undo())"
+                        RedoRequested="() => Run(c => c.Redo())"
+                        QuickAccessItems="quickAccess"
+                        CommandIndex="commands"
+                        SearchSubmitted="OnCommandSearchSubmittedAsync"
+                        UserName="@UserName" />
     }
-</div>
+
+    void RenderHeaderEnd(RenderTreeBuilder __builder)
+    {
+        <OfficeRibbonActions ShowComments="false"
+                             EditMode="EditModeValue"
+                             EditModeChanged="SetEditModeAsync"
+                             ShareClicked="OnShareAsync" />
+    }
+
+    void RenderStatus(RenderTreeBuilder __builder)
+    {
+        <OfficeStatusBar Items="statusItems"
+                         ItemClicked="OnStatusItemClickedAsync"
+                         ShowFocus="false"
+                         SelectedViewMode="@SlideShell.ViewModeId(ViewMode, presenting)"
+                         SelectedViewModeChanged="OnViewModeSelectedAsync"
+                         Zoom="EffectiveZoom"
+                         ZoomChanged="z => SetZoomAsync(z)"
+                         ZoomModel="StatusZoomModel"
+                         ShowFitToWindow="true"
+                         IsFitted="@(Controller is { Zoom: null })"
+                         FitToWindowRequested="() => SetZoomAsync(null)"
+                         PageWidth="@(Deck?.SlideWidth ?? 960)"
+                         PageHeight="@(Deck?.SlideHeight ?? 540)"
+                         TextWidth="@(Deck?.SlideWidth ?? 960)" />
+    }
+
+    void RenderBackstage(RenderTreeBuilder __builder)
+    {
+        <OfficeBackstage DocumentName="@EffectiveDocumentName"
+                         SelectedPage="backstagePage"
+                         SelectedPageChanged="OnBackstagePageChangedAsync"
+                         Templates="@(Templates ?? builtInTemplates ?? SlideTemplates.All)"
+                         RecentFiles="RecentFiles"
+                         DocumentInfo="backstageInfo"
+                         SaveAsFormats="SlideExport.SaveAsFormats"
+                         ExportFormats="SlideExport.ExportFormats"
+                         TemplateSelected="NewFromTemplateAsync"
+                         RecentFileSelected="RecentFileSelected"
+                         OpenRequested="OpenRequested"
+                         SaveRequested="SaveAsync"
+                         SaveAsRequested="f => WriteFileAsync(f, SlideFileAction.SaveAs)"
+                         ExportRequested="f => WriteFileAsync(f, SlideFileAction.Export)"
+                         PrintRequested="PrintAsync"
+                         PrintPreview="@(printPreview is null ? null : PrintPreviewSlot)" />
+    }
+
+    RenderFragment PrintPreviewSlot => __builder =>
+    {
+        <img class="slide-print-preview" src="@printPreview" alt="Print preview of the current slide" />
+    };
+}
