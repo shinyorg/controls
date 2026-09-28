@@ -222,6 +222,8 @@ Put `RibbonRow`s in a group and it lays them out as rows instead — which is wh
 </RibbonGroup>
 ```
 
+In the Simplified layout the rows run together into the one line of small items, on both hosts.
+
 There is **no mode to set**: the presence of a row is the signal, and a group is one or the other. Rows
 and loose items are not mixed, because an item with no row of its own has no answer to which row it is
 on. A `RibbonSeparator` inside a row is a rule between the items either side of it rather than a full
