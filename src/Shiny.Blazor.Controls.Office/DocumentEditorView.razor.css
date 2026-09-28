@@ -505,7 +505,8 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    text-align: start;
+    text-align: left;
+    align-items: flex-start;
     cursor: pointer;
 }
 

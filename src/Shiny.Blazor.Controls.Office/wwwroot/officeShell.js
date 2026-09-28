@@ -56,6 +56,16 @@ export function bounds(el) {
     return [r.left, r.top, r.width, r.height];
 }
 
+/* Focuses a dialog's first text field (or, failing that, its first button). */
+export function focusFirstField(el) {
+    if (!el) return;
+    const field = el.querySelector('input:not([type=checkbox]), textarea') || el.querySelector('button');
+    if (field) {
+        field.focus();
+        if (typeof field.select === 'function' && field.value) field.select();
+    }
+}
+
 /*
     Save and print for the Word shell. The bytes arrive as a DotNetStreamReference, which is the one
     way to move a file out of .NET without base64-inflating it through a string.

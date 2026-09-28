@@ -186,7 +186,7 @@
                                                 Checked="@(Format.List == ListStyle.Numbered)" Disabled="Disabled"
                                                 Clicked="_ => Run(c => c.ToggleNumberedList())" />
                             @* A numbered list is already nine levels deep (1., a., i.); Tab walks them. *@
-                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Multilevel List (Tab / Shift+Tab to change level)"
+                            <RibbonButton Size="RibbonItemSize.Small" Tooltip="Multilevel List" Description="Tab and Shift+Tab change an item's level"
                                           Icon="@Ico(WordIcons.MultilevelList)" Disabled="Disabled"
                                           Clicked="() => Run(c => c.SetListStyle(ListStyle.Numbered))" />
                             <RibbonButton Size="RibbonItemSize.Small" Tooltip="Decrease Indent" Shortcut="Ctrl+Shift+M" Icon="@Ico(OfficeIcon.Outdent)"
@@ -632,7 +632,7 @@
             {
                 <div class="dialog-backdrop" @onclick="CloseDialog"></div>
 
-                <div class="dialog @(this.dialog == DialogKind.Symbols ? "dialog-wide" : null)" role="dialog"
+                <div @ref="dialogRef" class="dialog @(this.dialog == DialogKind.Symbols ? "dialog-wide" : null)" role="dialog"
                      aria-label="@DialogTitle" @onkeydown="OnDialogKeyDown">
                     <div class="dialog-title">@DialogTitle</div>
 
@@ -881,7 +881,7 @@
                             var item = comment;
                             <div class="doc-comment @(item.Id == current ? "on" : null)" role="listitem">
                                 <div class="doc-comment-head">
-                                    <span class="doc-comment-avatar" aria-hidden="true">@OfficeColorText.Initials(item.Initials ?? item.Author)</span>
+                                    <span class="doc-comment-avatar" aria-hidden="true">@OfficeColorText.Initials(item.Author)</span>
                                     <span class="doc-comment-meta">
                                         <span class="doc-comment-author">@item.Author</span>
                                         <span class="doc-comment-date">@WordShell.CommentDate(item, now)</span>
@@ -1119,7 +1119,17 @@
         if (this.EditModeValue == OfficeEditMode.Reviewing)
             current.IsTrackingChanges = true;
 
+        // Comments and tracked changes are signed with the account the title bar shows.
+        if (!string.IsNullOrWhiteSpace(this.UserName))
+            current.Author = this.UserName;
+
+        // Results belong to the document they were found in.
+        this.navigationSearch = null;
+        this.navigationResults = null;
+        this.navigationTab = OfficeNavigationTab.Headings;
+
         this.UpdateStatus();
+        this.StateHasChanged();
     }
 
     void Unsubscribe()
@@ -1645,7 +1655,14 @@
         this.status = null;
 
         if (this.editor is { } surface)
+        {
+            // A dialog committed with Enter or Ctrl+Enter is closed from its keydown, before the key's
+            // own input has been delivered. Moving focus straight away hands that input to the
+            // document - a Ctrl+Enter commit typed a page break over the commented word. One turn of
+            // the event loop lets the key finish where it started.
+            await Task.Delay(30);
             await surface.FocusAsync();
+        }
     }
 
     async Task CommitDialog()

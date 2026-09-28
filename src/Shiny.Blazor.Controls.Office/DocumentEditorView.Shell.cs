@@ -163,6 +163,78 @@ public partial class DocumentEditorView
         this.commands.Add(new OfficeCommand("Navigation Pane", () => this.InvokeAsync(() => this.SetNavigationOpenAsync(!this.NavigationOpen))) { Category = "View › Show", Keywords = ["headings", "outline", "go to"] });
         this.commands.Add(new OfficeCommand("Comments Pane", () => this.InvokeAsync(() => this.SetCommentsOpenAsync(!this.CommentsOpen))) { Category = "Review › Comments", Keywords = ["comments", "review"] });
         this.commands.Add(new OfficeCommand("Find", () => this.InvokeAsync(() => this.OpenSearchAsync(null))) { Category = "Home › Editing", Shortcut = "Ctrl+F", Keywords = ["search"] });
+
+        // The Blazor ribbon indexes a tab only once it has rendered, so the commands people search for
+        // most on the other tabs are listed up front. Each steps aside once the ribbon has indexed its
+        // own button (PruneCurated), so a tab that has been opened is not listed twice.
+        this.Curate("Table", c => c.InsertTable(3, 3), "Insert › Tables", keywords: ["grid", "insert table"]);
+        this.Curate("Page Break", c => c.InsertPageBreak(), "Insert › Pages", "Ctrl+Enter");
+        this.Curate("Blank Page", c => c.InsertBlankPage(), "Insert › Pages");
+        this.Curate("Link", _ => this.OpenHyperlink(), "Insert › Links", "Ctrl+K", keywords: ["hyperlink", "url"]);
+        this.Curate("Bookmark", _ => this.OpenBookmark(), "Insert › Links");
+        this.Curate("Comment", _ => this.OpenComment(), "Insert › Comments", "Ctrl+Alt+M", keywords: ["new comment", "note"]);
+        this.Curate("Header", _ => this.OpenChrome(header: true), "Insert › Header & Footer");
+        this.Curate("Footer", _ => this.OpenChrome(header: false), "Insert › Header & Footer");
+        this.Curate("Symbol", _ => this.Open(DialogKind.Symbols), "Insert › Symbols", keywords: ["character", "special"]);
+        this.Curate("Horizontal Line", c => c.InsertHorizontalLine(), "Insert › Symbols", keywords: ["rule", "divider"]);
+        this.Curate("Table of Contents", c => c.InsertTableOfContents(), "References › Table of Contents", keywords: ["toc", "contents"]);
+        this.Curate("Insert Footnote", _ => this.Open(DialogKind.Footnote), "References › Footnotes", keywords: ["footnote", "note"]);
+        this.Curate("Track Changes", c => c.IsTrackingChanges = !c.IsTrackingChanges, "Review › Tracking", "Ctrl+Shift+E", keywords: ["revisions", "review"]);
+        this.Curate("Accept All Changes", c => c.AcceptAllChanges(), "Review › Changes");
+        this.Curate("Reject All Changes", c => c.RejectAllChanges(), "Review › Changes");
+        this.Curate("Portrait", c => c.SetPageOrientation(PageOrientation.Portrait), "Layout › Page Setup", keywords: ["orientation"]);
+        this.Curate("Landscape", c => c.SetPageOrientation(PageOrientation.Landscape), "Layout › Page Setup", keywords: ["orientation"]);
+        this.Curate("Read Mode", c => this.Defer(() => this.SetReadMode(true)), "View › Views", viewOnly: true);
+        this.Curate("Print Layout", c => this.Defer(() => this.SetLayout(DocumentPageLayout.Print)), "View › Views", viewOnly: true);
+        this.Curate("Web Layout", c => this.Defer(() => this.SetLayout(DocumentPageLayout.Reflow)), "View › Views", viewOnly: true);
+        this.Curate("Zoom 100%", c => this.Defer(() => this.SetZoomAsync(1.0)), "View › Zoom", viewOnly: true, keywords: ["actual size", "reset zoom"]);
+    }
+
+    readonly List<OfficeCommand> curated = [];
+
+    void Defer(Func<Task> work) => _ = this.InvokeAsync(work);
+
+    void Curate(
+        string label,
+        Action<DocumentEditorController> action,
+        string category,
+        string? shortcut = null,
+        bool viewOnly = false,
+        string[]? keywords = null)
+    {
+        var command = new OfficeCommand(label, () => this.InvokeAsync(async () =>
+        {
+            await this.Run(action, requireEditable: !viewOnly);
+            this.StateHasChanged();
+        }))
+        {
+            Id = "curated:" + label,
+            Category = category,
+            Shortcut = shortcut,
+            Keywords = keywords ?? [],
+            CanExecute = () => this.C is not null && (viewOnly || !this.Disabled)
+        };
+
+        this.curated.Add(command);
+        this.commands.Add(command);
+    }
+
+    /// <summary>Drops a curated command once the ribbon has indexed a button of the same name.</summary>
+    void PruneCurated()
+    {
+        if (this.curated.Count == 0)
+            return;
+
+        var harvested = this.commands.Commands
+            .Where(x => x.Id.StartsWith(OfficeRibbonCommands.IdPrefix, StringComparison.Ordinal))
+            .Select(x => x.Label)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var command in this.curated.Where(x => harvested.Contains(x.Label)).ToList())
+        {
+            this.commands.Remove(command.Id);
+            this.curated.Remove(command);
+        }
     }
 
     // ---- derived ----
@@ -219,7 +291,35 @@ public partial class DocumentEditorView
             this.syncedRibbon = this.ribbonRef;
         }
 
+        this.PruneCurated();
         this.UpdateStatus();
+        _ = this.FocusOpenedDialogAsync();
+    }
+
+    ElementReference dialogRef;
+    DialogKind focusedDialog;
+
+    /// <summary>
+    /// A dialog opened from a pane or the command search would otherwise leave focus where it was,
+    /// so the first keystrokes of a comment went nowhere. Its first field takes focus once, on open.
+    /// </summary>
+    async Task FocusOpenedDialogAsync()
+    {
+        var current = this.dialog;
+        if (current == this.focusedDialog)
+            return;
+
+        this.focusedDialog = current;
+        if (current == DialogKind.None)
+            return;
+
+        try
+        {
+            if (await this.ShellModuleAsync() is { } module)
+                await module.InvokeVoidAsync("focusFirstField", this.dialogRef);
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
     }
 
     void UpdateStatus()

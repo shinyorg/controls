@@ -68,6 +68,17 @@ public static class WordTemplates
 
             WordBuiltInStyles.Ensure(main, "Normal");
 
+            // Word's own document defaults - Calibri 11pt, 8pt after, 1.08 lines. Without them a
+            // reader falls back to the format's 10pt Times, which is not what "Blank document" means.
+            main.StyleDefinitionsPart!.Styles!.PrependChild(new DocDefaults(
+                new RunPropertiesDefault(new RunPropertiesBaseStyle(
+                    new RunFonts { Ascii = "Calibri", HighAnsi = "Calibri", EastAsia = "Calibri", ComplexScript = "Calibri" },
+                    new FontSize { Val = "22" },
+                    new FontSizeComplexScript { Val = "22" },
+                    new Languages { Val = "en-US" })),
+                new ParagraphPropertiesDefault(new ParagraphPropertiesBaseStyle(
+                    new SpacingBetweenLines { After = "160", Line = "259", LineRule = LineSpacingRuleValues.Auto }))));
+
             switch (id)
             {
                 case ReportId:
@@ -91,17 +102,19 @@ public static class WordTemplates
                     break;
 
                 case LetterId:
+                    WordBuiltInStyles.Ensure(main, "NoSpacing");
+
                     body.Append(
-                        Para("Your Name"),
-                        Para("Street Address"),
-                        Para("City, State ZIP"),
+                        Para("Your Name", "NoSpacing"),
+                        Para("Street Address", "NoSpacing"),
+                        Para("City, State ZIP", "NoSpacing"),
                         Para(string.Empty),
                         Para(DateTime.Today.ToString("MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)),
                         Para(string.Empty),
-                        Para("Recipient Name"),
-                        Para("Company"),
-                        Para("Street Address"),
-                        Para("City, State ZIP"),
+                        Para("Recipient Name", "NoSpacing"),
+                        Para("Company", "NoSpacing"),
+                        Para("Street Address", "NoSpacing"),
+                        Para("City, State ZIP", "NoSpacing"),
                         Para(string.Empty),
                         Para("Dear Recipient,"),
                         Para("Start your letter here. State the reason you are writing in the first paragraph."),

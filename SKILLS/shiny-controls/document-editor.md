@@ -5,7 +5,7 @@ Two controls, on both hosts:
 | Control | What it is |
 |---|---|
 | `DocumentEditor` | the lone editing surface — canvas, caret, selection, typing. No chrome. |
-| `DocumentEditorView` | `DocumentEditor` plus a formatting toolbar |
+| `DocumentEditorView` | `DocumentEditor` dressed as Word: the Office shell (title bar, ribbon, ruler, navigation + comments panes, status bar, File backstage) — on by default |
 
 Same packages as the viewers (`Shiny.Maui.Controls.Office` / `Shiny.Blazor.Controls.Office`), same two
 constraints: **MAUI needs `UseShinyOffice()`** (it registers SkiaSharp, plus the AppKit canvas on `net10.0-macos`), **Blazor is WASM-only**, and on Blazor the container needs
@@ -38,6 +38,51 @@ using var document = await WordDocument.OpenAsync("report.docx", editable: true)
 <office:DocumentEditorView x:Name="Editor" Document="{Binding Document}" />
 <office:DocumentEditor x:Name="BareEditor" Document="{Binding Document}" />
 ```
+
+## The Word window (Office shell) — on by default
+
+`DocumentEditorView` wraps itself in `OfficeShell` (see `office-shell.md`) with every part already wired
+to the controller. **Do not wrap a `DocumentEditorView` in another `OfficeShell`** — set its properties
+instead. `ShowShell="false"` gives back the plain ribbon-over-page layout (own quick access Undo/Redo, own
+navigation pane, Styles dropdown instead of the gallery).
+
+| Part | Switch | Wired to |
+|---|---|---|
+| Title bar | `ShowTitleBar` | `DocumentName` (default "Document1", two-way), `DocumentLocation`, `SaveState` (`OfficeSaveState?`; null = Unsaved once edited), `AutoSave` (two-way), `UserName` (also the comment/revision author); Save → `SaveRequested`; Undo/Redo → controller; command search = `CommandIndex` (ribbon + extras); a query matching no command searches the document |
+| Ribbon | `ShowToolbar` | `File` opens the backstage (and still raises `FileClicked`/`FileRequested`); right end = Comments / Editing-Reviewing-Viewing (`EditMode`, two-way: Reviewing turns Track Changes on, Viewing makes it read-only) / Share (`ShareRequested`); Home › Styles is `OfficeStyleGallery`; shortcuts are in each item's `Shortcut` |
+| Ruler | `ShowRuler` | Print Layout only. Indents / tab stops of the caret paragraph, section left/right margins — dragging applies them (one undo step) |
+| Navigation pane | `ShowNavigationPane` (two-way; View › Navigation Pane, Ctrl+F) | headings (click to jump), search → Results (click selects the hit) |
+| Comments pane | `ShowCommentsPane` (two-way; ribbon Comments button) | every comment: author, date, quoted text; click jumps, delete per comment, New |
+| Status bar | `ShowStatusBar` | "Page X of Y" (click → nav pane), "N words" (click → Word Count), language; Read / Print / Web view buttons (= `ReadMode` / `PageLayout`); zoom slider two-way with `Zoom` |
+| Backstage | always (File) | `Templates` (null = `WordTemplates.All`: Blank, Report, Letter), `RecentFiles` (host list), Info (statistics); print preview |
+
+Events (Blazor `EventCallback`, MAUI `EventHandler`): `SaveRequested`, `SaveAsRequested(OfficeFileFormat)`,
+`ExportRequested(OfficeFileFormat)`, `OpenRequested`, `RecentFileSelected(OfficeRecentFile)`,
+`NewDocumentRequested(OfficeTemplate)`, `DocumentOpened(WordDocument)`, `PrintRequested`, `ShareRequested`,
+`DocumentRenamed(string)`. **Unhandled defaults:** New opens the template in place and raises
+`DocumentOpened`; on Blazor Save downloads the `.docx`, Save As / Export download `.docx`/`.pdf`/`.txt`/`.html`,
+Print opens the browser print dialog over a PDF. MAUI raises the events only — write the file yourself.
+
+PDF: `view.ExportPdf(stream)` (both hosts) or `DocumentPdfExporter.Export(document, stream, options)` in
+`Shiny.Controls.Office.Skia` — print layout at 100%, one PDF page per page, same painter as the screen,
+works on WASM. `DocumentPdfExporter.RenderPagePng(document, page, scale)` renders a preview.
+
+```razor
+<div style="height:760px">
+    <DocumentEditorView Document="document" @bind-DocumentName="name" SaveState="saveState"
+                        UserName="Allan Ritchie" RecentFiles="recent"
+                        SaveRequested="SaveAsync" ExportRequested="ExportAsync" />
+</div>
+```
+
+```xml
+<office:DocumentEditorView x:Name="Editor" DocumentName="{Binding Name}" UserName="Allan Ritchie"
+                           SaveRequested="OnSave" ExportRequested="OnExport" />
+```
+
+Glue for custom chrome lives in `Shiny.Controls.Office.Shell.WordShell` (headings, search results, styles,
+ruler units px↔pt, tab stops, view-mode ids, document info) and the controller gained
+`CurrentTabStops` / `SetTabStops`, `GoToComment(id)`, `CommentedText(comment)`.
 
 ## The toolbar is composed from what each host has
 

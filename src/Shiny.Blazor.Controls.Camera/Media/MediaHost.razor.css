@@ -127,7 +127,7 @@
 }
 
 .shiny-media-round.is-accept {
-    background: var(--shiny-color-primary, #7C3AED);
+    background: var(--shiny-color-primary, #0055D9);
 }
 
 .shiny-media-icon svg,
@@ -145,7 +145,7 @@
 .shiny-media-round:focus-visible,
 .shiny-media-shutter:focus-visible,
 .shiny-media-chip:focus-visible {
-    outline: 3px solid var(--shiny-color-primary, #7C3AED);
+    outline: 3px solid var(--shiny-color-primary, #0055D9);
     outline-offset: 3px;
 }
 
