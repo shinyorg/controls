@@ -117,6 +117,7 @@ public partial class PasswordStrength
         {
             this.ApplyMeter(this.Result);
             this.ApplyRules(this.Result);
+            this.ApplyTimeToCrack(this.Result);
             this.ApplyWarning(this.Result);
         }
     }
@@ -237,6 +238,19 @@ public partial class PasswordStrength
     }
 
 
+    void ApplyTimeToCrack(PasswordStrengthResult result)
+    {
+        var text = this.ShowTimeToCrack ? this.TimeToCrackText(result) : null;
+        timeToCrackLabel.IsVisible = text is not null;
+        if (text is null)
+            return;
+
+        timeToCrackLabel.Text = text;
+        timeToCrackLabel.FontSize = this.RuleFontSize;
+        this.PaintRuleText(timeToCrackLabel);
+    }
+
+
     void ApplyWarning(PasswordStrengthResult result)
     {
         if (!this.ShowWarning)
@@ -313,9 +327,29 @@ public partial class PasswordStrength
             PasswordRuleKind.SpecialCharacter => PasswordStrengthTextKey.RuleSpecialCharacter,
             PasswordRuleKind.NotCompromised => PasswordStrengthTextKey.RuleNotCompromised,
             PasswordRuleKind.NotBlocked => PasswordStrengthTextKey.RuleNotBlocked,
+            PasswordRuleKind.MinimumTimeToCrack => PasswordStrengthTextKey.RuleMinimumTimeToCrack,
             _ => PasswordStrengthTextKey.RuleNoUserInput
         };
-        return this.Localize(key, rule.Description, rule.Argument);
+        var duration = rule.Duration is { } d ? this.DurationText(d.TotalSeconds) : null;
+        return this.Localize(key, rule.Description, rule.Argument, duration);
+    }
+
+
+    /// <summary>"Time to crack: 21 days", or null when there is nothing to say.</summary>
+    string? TimeToCrackText(PasswordStrengthResult result)
+    {
+        if (result.Level == PasswordStrengthLevel.None || result.TimeToCrackSeconds is not { } seconds)
+            return null;
+
+        var duration = this.DurationText(seconds);
+        return this.Localize(PasswordStrengthTextKey.TimeToCrack, $"Time to crack: {duration}", value: duration);
+    }
+
+
+    string DurationText(double seconds)
+    {
+        var (key, count, fallback) = PasswordCrackTime.Describe(seconds);
+        return this.Localize(key, fallback, count);
     }
 
 

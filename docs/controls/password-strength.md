@@ -44,6 +44,8 @@ disagree — a forty-character passphrase scores 100 and still fails a rule dema
 | RequireNotCompromisedPassword | bool | true | Refuse the commonly breached values and their disguises |
 | BlockedPasswords | IList&lt;string&gt;? | null | Extra values to refuse |
 | UserInputs | IList&lt;string&gt;? | null | This user's email / name — refused, and discounted when scoring |
+| MinimumTimeToCrack | TimeSpan | Zero (off) | Least time the password must resist `GuessesPerSecond`; adds a checklist rule |
+| GuessesPerSecond | double | 1e10 | The attacker the time to crack is estimated against |
 | Evaluator | IPasswordStrengthEvaluator? | null | Per-field scorer override |
 | DebounceMilliseconds | int | 250 | Pause before scoring; 0 scores every keystroke |
 | Localizer | PasswordStrengthLocalizer? | null | Replaces the wording — level labels, checklist, Show/Hide, and the built-in warnings; return null to keep a default |
@@ -52,11 +54,37 @@ disagree — a forty-character passphrase scores 100 and still fails a rule dema
 | TrackColor / WeakColor / FairColor / GoodColor / StrongColor | Color? | null | Null follows the surface-container-highest / critical / caution / warning / success tokens |
 | RuleTextColor / RuleFontSize | Color? / double | null / 13 | Checklist appearance |
 | ShowMeter / ShowStrengthLabel / ShowRules / ShowWarning / ShowVisibilityToggle | bool | true | What is drawn |
+| ShowTimeToCrack | bool | false | A "Time to crack: 21 days" caption under the meter |
 | ShowPasswordIcon / HidePasswordIcon | ImageSource? (MAUI) / string? (Blazor) | null | Toggle content; null uses the words "Show" / "Hide" |
 | Score | int | 0 | 0-100, read-only |
 | Level | PasswordStrengthLevel | None | None / Weak / Fair / Good / Strong, read-only |
 | IsAcceptable | bool | false | Every rule met, read-only |
 | Result | PasswordStrengthResult? | null | The full verdict — rules, warning, suggestions |
+**Time to crack.** The built-in evaluator turns its entropy estimate into
+`PasswordStrengthResult.TimeToCrackSeconds` (and `TimeToCrack`, a `TimeSpan` that saturates at about
+29,000 years) — the average time for an attacker making `GuessesPerSecond` guesses to find it.
+`ShowTimeToCrack` paints it under the meter. `MinimumTimeToCrack` makes it policy: the password is
+not acceptable until the estimate reaches it, so a password can clear the length rule and still be
+refused because it would fall in 21 days when the floor is a century.
+
+```xml
+<shiny:PasswordStrength MinimumLength="8"
+                        MinimumTimeToCrack="36525.00:00:00"
+                        ShowTimeToCrack="True"
+                        IsAcceptable="{Binding CanSubmit}" />
+```
+
+```razor
+<PasswordStrength @bind-Password="password"
+                  MinimumLength="8"
+                  MinimumTimeToCrack="TimeSpan.FromDays(36525)"
+                  ShowTimeToCrack="true" />
+```
+
+The default rate, 10 billion a second, is an offline attack on a fast hash. Lower it to model what
+you actually store — around 10,000 for bcrypt/Argon2, around 10 for a rate-limited login form — and
+the same password survives far longer. `PasswordCrackTime.Describe(seconds)` returns the unit, count
+and English wording ("21 days") if you want to show it yourself.
 
 Events: `StrengthChanged` (`PasswordStrengthChangedEventArgs`) fires when the verdict changes;
 `Completed` fires on the return key. MAUI also has `StrengthChangedCommand`.
@@ -100,6 +128,9 @@ That includes the warning shown under the field: the built-in evaluator tags eac
 `PasswordStrengthResult.WarningKey` (`WarningCompromised`, `WarningBlocked`, `WarningUserInput`,
 `WarningCommonPassword`), and `Value` carries the word it is about — so
 `$"« {text.Value} » est un mot de passe très courant."` translates `"pass" is a very common password`.
+Durations are localized one unit at a time — `DurationSeconds` … `DurationCenturies` with the count in
+`Argument`, plus `DurationInstant` and `DurationEons` — and the finished phrase then arrives as `Value`
+for `TimeToCrack` ("Time to crack: …") and `RuleMinimumTimeToCrack` ("At least … to crack").
 A custom evaluator's warning with no `WarningKey` is shown exactly as written; translate it in the
 evaluator. `Suggestions` are not painted by the control and stay as the evaluator wrote them.
 

@@ -43,7 +43,10 @@ public class DefaultPasswordStrengthEvaluator : IPasswordStrengthEvaluator
         var rules = BuildRules(password, request.Rules);
 
         if (password.Length == 0)
+        {
+            AddTimeToCrackRule(rules, request.Rules, null);
             return new(PasswordStrengthResult.Empty(rules));
+        }
 
         var suggestions = new List<string>();
         string? warning = null;
@@ -90,6 +93,8 @@ public class DefaultPasswordStrengthEvaluator : IPasswordStrengthEvaluator
 
         var score = (int)Math.Round(Math.Clamp(bits / BitsForFullScore, 0d, 1d) * 100d);
         var level = ToLevel(score);
+        var timeToCrack = EstimateTimeToCrack(bits, request.Rules.GuessesPerSecond);
+        AddTimeToCrackRule(rules, request.Rules, timeToCrack);
 
         if (password.Length < request.Rules.MinimumLength)
             suggestions.Add($"Make it at least {request.Rules.MinimumLength} characters long.");
@@ -101,10 +106,43 @@ public class DefaultPasswordStrengthEvaluator : IPasswordStrengthEvaluator
             Score = score,
             Level = level,
             Rules = rules,
+            TimeToCrackSeconds = timeToCrack,
             Warning = warning,
             WarningKey = warningKey,
             WarningValue = warningValue,
             Suggestions = suggestions
+        });
+    }
+
+
+    /// <summary>
+    /// Seconds to find a password carrying <paramref name="bits"/> of entropy, on average — half the
+    /// search space — at <paramref name="guessesPerSecond"/>.
+    /// </summary>
+    static double EstimateTimeToCrack(double bits, double guessesPerSecond)
+    {
+        var rate = guessesPerSecond > 0 ? guessesPerSecond : PasswordStrengthRules.DefaultGuessesPerSecond;
+        return Math.Pow(2d, Math.Max(bits - 1d, 0d)) / rate;
+    }
+
+
+    /// <summary>
+    /// Appends the time-to-crack rule when the policy asks for one. It goes last so turning it on
+    /// does not reshuffle the rows a user is already reading.
+    /// </summary>
+    static void AddTimeToCrackRule(List<PasswordRuleResult> rules, PasswordStrengthRules policy, double? seconds)
+    {
+        if (policy.MinimumTimeToCrack <= TimeSpan.Zero)
+            return;
+
+        var minimum = policy.MinimumTimeToCrack;
+        rules.Add(new PasswordRuleResult(
+            PasswordRuleKind.MinimumTimeToCrack,
+            $"At least {PasswordCrackTime.Describe(minimum).Default} to crack",
+            seconds is { } value && value >= minimum.TotalSeconds
+        )
+        {
+            Duration = minimum
         });
     }
 
@@ -123,7 +161,7 @@ public class DefaultPasswordStrengthEvaluator : IPasswordStrengthEvaluator
     /// checklist that hides the rules you have already met is a checklist that keeps changing shape
     /// while you type.
     /// </summary>
-    static IReadOnlyList<PasswordRuleResult> BuildRules(string password, PasswordStrengthRules policy)
+    static List<PasswordRuleResult> BuildRules(string password, PasswordStrengthRules policy)
     {
         var results = new List<PasswordRuleResult>
         {

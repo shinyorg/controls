@@ -28,6 +28,12 @@ public partial class PasswordStrengthViewModel : ObservableObject
     bool isLegacyAcceptable;
 
     [ObservableProperty]
+    string crackTimePassword = string.Empty;
+
+    [ObservableProperty]
+    bool isCrackTimeAcceptable;
+
+    [ObservableProperty]
     string personalPassword = string.Empty;
 
     [ObservableProperty]

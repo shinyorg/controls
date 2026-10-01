@@ -95,6 +95,18 @@ public partial class PasswordStrength : ComponentBase, IDisposable
     /// </summary>
     [Parameter] public IReadOnlyList<string>? UserInputs { get; set; }
 
+    /// <summary>
+    /// The least time the password must hold out against <see cref="GuessesPerSecond"/> before it is
+    /// acceptable — <c>TimeSpan.FromDays(36525)</c> for a century. Zero (the default) turns the rule off.
+    /// </summary>
+    [Parameter] public TimeSpan MinimumTimeToCrack { get; set; } = TimeSpan.Zero;
+
+    /// <summary>
+    /// The attacker the time to crack is estimated against. Default 10 billion a second — offline,
+    /// fast hash. See <see cref="PasswordStrengthRules.GuessesPerSecond"/>.
+    /// </summary>
+    [Parameter] public double GuessesPerSecond { get; set; } = PasswordStrengthRules.DefaultGuessesPerSecond;
+
     // ---------------------------------------------------------------------------------------------
     // Scoring
     // ---------------------------------------------------------------------------------------------
@@ -138,6 +150,12 @@ public partial class PasswordStrength : ComponentBase, IDisposable
     /// as the field's hint text.
     /// </summary>
     [Parameter] public bool ShowWarning { get; set; } = true;
+
+    /// <summary>
+    /// A "Time to crack: 21 days" caption under the meter. Off by default; shown only while there is
+    /// a password and the evaluator estimates one.
+    /// </summary>
+    [Parameter] public bool ShowTimeToCrack { get; set; }
 
     /// <summary>
     /// Toggle content while the password is hidden. Defaults to the word "Show", which renders
@@ -259,7 +277,9 @@ public partial class PasswordStrength : ComponentBase, IDisposable
         this.SpecialCharacters,
         this.RequireNotCompromisedPassword,
         this.BlockedPasswords is null ? "" : string.Join(',', this.BlockedPasswords),
-        this.UserInputs is null ? "" : string.Join(',', this.UserInputs)
+        this.UserInputs is null ? "" : string.Join(',', this.UserInputs),
+        this.MinimumTimeToCrack.Ticks,
+        this.GuessesPerSecond
     );
 
 
@@ -374,7 +394,9 @@ public partial class PasswordStrength : ComponentBase, IDisposable
         SpecialCharacters = this.SpecialCharacters,
         RequireNotCompromisedPassword = this.RequireNotCompromisedPassword,
         BlockedPasswords = this.BlockedPasswords,
-        UserInputs = this.UserInputs
+        UserInputs = this.UserInputs,
+        MinimumTimeToCrack = this.MinimumTimeToCrack,
+        GuessesPerSecond = this.GuessesPerSecond
     };
 
 
@@ -417,10 +439,12 @@ public partial class PasswordStrength : ComponentBase, IDisposable
            $"border-radius: {this.MeterCornerRadius}; " +
            $"gap: {(this.MeterStyle == PasswordStrengthMeterStyle.Bar ? 0 : this.SegmentSpacing)}px;";
 
+    string RuleTextColorValue => this.RuleTextColor ?? "var(--shiny-color-on-surface-variant, #3B475B)";
+
     string RuleRowStyle(PasswordRuleResult rule)
         => rule.IsSatisfied
             ? $"color: {this.StrongColor ?? "var(--shiny-color-success, #00711C)"};"
-            : $"color: {this.RuleTextColor ?? "var(--shiny-color-on-surface-variant, #3B475B)"};";
+            : $"color: {this.RuleTextColorValue};";
 
     string LevelText => this.Level switch
     {
@@ -442,9 +466,29 @@ public partial class PasswordStrength : ComponentBase, IDisposable
             PasswordRuleKind.SpecialCharacter => PasswordStrengthTextKey.RuleSpecialCharacter,
             PasswordRuleKind.NotCompromised => PasswordStrengthTextKey.RuleNotCompromised,
             PasswordRuleKind.NotBlocked => PasswordStrengthTextKey.RuleNotBlocked,
+            PasswordRuleKind.MinimumTimeToCrack => PasswordStrengthTextKey.RuleMinimumTimeToCrack,
             _ => PasswordStrengthTextKey.RuleNoUserInput
         };
-        return this.Localize(key, rule.Description, rule.Argument);
+        var duration = rule.Duration is { } d ? this.DurationText(d.TotalSeconds) : null;
+        return this.Localize(key, rule.Description, rule.Argument, duration);
+    }
+
+    string? TimeToCrackCaption => this.ShowTimeToCrack ? this.TimeToCrackText(result) : null;
+
+    /// <summary>"Time to crack: 21 days", or null when there is nothing to say.</summary>
+    internal string? TimeToCrackText(PasswordStrengthResult? verdict)
+    {
+        if (verdict is null || verdict.Level == PasswordStrengthLevel.None || verdict.TimeToCrackSeconds is not { } seconds)
+            return null;
+
+        var duration = this.DurationText(seconds);
+        return this.Localize(PasswordStrengthTextKey.TimeToCrack, $"Time to crack: {duration}", value: duration);
+    }
+
+    string DurationText(double seconds)
+    {
+        var (key, count, fallback) = PasswordCrackTime.Describe(seconds);
+        return this.Localize(key, fallback, count);
     }
 
     string Localize(PasswordStrengthTextKey key, string fallback, int argument = 0, string? value = null)

@@ -231,6 +231,85 @@ public class PasswordStrengthEvaluatorTests
         clean.Warning.ShouldBeNull();
         clean.WarningKey.ShouldBeNull();
     }
+
+
+    [Fact]
+    public void TimeToCrackIsEstimatedAndTracksStrength()
+    {
+        Score("").TimeToCrackSeconds.ShouldBeNull();
+
+        var passphrase = Score("the slow red barn on nine").TimeToCrackSeconds!.Value;
+        var cryptic = Score("Xk7!q").TimeToCrackSeconds!.Value;
+
+        passphrase.ShouldBeGreaterThan(cryptic);
+        cryptic.ShouldBeLessThan(1d);
+    }
+
+
+    [Fact]
+    public void KnownPasswordsCrackInstantly()
+        => Score("Passw0rd!").TimeToCrackSeconds!.Value.ShouldBeLessThan(1d);
+
+
+    [Fact]
+    public void SlowerAttackerTakesLonger()
+    {
+        var fast = Score("the slow red barn").TimeToCrackSeconds!.Value;
+        var slow = Score("the slow red barn", r => r.GuessesPerSecond = 1e4).TimeToCrackSeconds!.Value;
+
+        (slow / fast).ShouldBe(1e6, tolerance: 1);
+    }
+
+
+    [Fact]
+    public void TimeToCrackRuleIsOffByDefault()
+        => Score("the slow red barn on nine").Rules
+            .ShouldNotContain(x => x.Kind == PasswordRuleKind.MinimumTimeToCrack);
+
+
+    /// <summary>
+    /// The case the rule exists for: long enough to pass the length rule, but it would fall in
+    /// moments — so the policy still refuses it.
+    /// </summary>
+    [Fact]
+    public void MinimumTimeToCrackGatesAcceptance()
+    {
+        var century = TimeSpan.FromDays(36525);
+        void Policy(PasswordStrengthRules r) => r.MinimumTimeToCrack = century;
+
+        var weak = Score("abcdefghijklmnop", Policy);
+        weak.Rules.Single(x => x.Kind == PasswordRuleKind.MinimumLength).IsSatisfied.ShouldBeTrue();
+
+        var rule = weak.Rules[^1];
+        rule.Kind.ShouldBe(PasswordRuleKind.MinimumTimeToCrack);
+        rule.IsSatisfied.ShouldBeFalse();
+        rule.Duration.ShouldBe(century);
+        rule.Description.ShouldBe("At least 1 century to crack");
+        weak.IsAcceptable.ShouldBeFalse();
+
+        var strong = Score("the slow red barn on nine", Policy);
+        strong.Rules[^1].IsSatisfied.ShouldBeTrue();
+        strong.IsAcceptable.ShouldBeTrue();
+
+        Score("", Policy).Rules[^1].IsSatisfied.ShouldBeFalse();
+    }
+
+
+    [Theory]
+    [InlineData(0.5, PasswordStrengthTextKey.DurationInstant, 0, "less than a second")]
+    [InlineData(45d, PasswordStrengthTextKey.DurationSeconds, 45, "45 seconds")]
+    [InlineData(86_400d, PasswordStrengthTextKey.DurationDays, 1, "1 day")]
+    [InlineData(1_814_400d, PasswordStrengthTextKey.DurationDays, 21, "21 days")]
+    [InlineData(3_155_760_000d, PasswordStrengthTextKey.DurationCenturies, 1, "1 century")]
+    [InlineData(1e20, PasswordStrengthTextKey.DurationEons, 0, "more than a million years")]
+    public void CrackTimeReadsInOneUnit(double seconds, PasswordStrengthTextKey key, int count, string text)
+    {
+        var described = PasswordCrackTime.Describe(seconds);
+
+        described.Key.ShouldBe(key);
+        described.Count.ShouldBe(count);
+        described.Default.ShouldBe(text);
+    }
 }
 
 

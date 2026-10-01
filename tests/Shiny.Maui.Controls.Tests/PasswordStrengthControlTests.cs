@@ -20,7 +20,9 @@ public class PasswordStrengthControlTests
 
     static VerticalStackLayout Root(PasswordStrength control) => (VerticalStackLayout)control.Content;
 
-    static VerticalStackLayout Rules(PasswordStrength control) => (VerticalStackLayout)Root(control).Children[2];
+    static VerticalStackLayout Rules(PasswordStrength control) => (VerticalStackLayout)Root(control).Children[3];
+
+    static Label TimeToCrack(PasswordStrength control) => (Label)Root(control).Children[2];
 
 
     [Fact]
@@ -93,6 +95,45 @@ public class PasswordStrengthControlTests
         control.Level.ShouldBe(PasswordStrengthLevel.None);
         control.Score.ShouldBe(0);
         control.IsAcceptable.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public async Task TimeToCrackCaptionIsOptIn()
+    {
+        var control = new PasswordStrength { Password = "the slow red barn on nine" };
+        await control.EvaluateNowAsync();
+        TimeToCrack(control).IsVisible.ShouldBeFalse();
+
+        control.ShowTimeToCrack = true;
+        TimeToCrack(control).IsVisible.ShouldBeTrue();
+        TimeToCrack(control).Text.ShouldStartWith("Time to crack: ");
+
+        control.Password = "";
+        await control.EvaluateNowAsync();
+        TimeToCrack(control).IsVisible.ShouldBeFalse();
+    }
+
+
+    [Fact]
+    public async Task TimeToCrackRuleIsLocalizedWithItsDuration()
+    {
+        var control = new PasswordStrength
+        {
+            Password = "abcdefghijklmnop",
+            MinimumTimeToCrack = TimeSpan.FromDays(36525),
+            Localizer = text => text.Key switch
+            {
+                PasswordStrengthTextKey.DurationCenturies => $"{text.Argument} siècle",
+                PasswordStrengthTextKey.RuleMinimumTimeToCrack => $"Au moins {text.Value} pour le casser",
+                _ => null
+            }
+        };
+        await control.EvaluateNowAsync();
+
+        control.IsAcceptable.ShouldBeFalse();
+        var row = (Grid)Rules(control).Children[^1];
+        ((Label)row.Children[1]).Text.ShouldBe("Au moins 1 siècle pour le casser");
     }
 
 

@@ -144,6 +144,32 @@ public partial class PasswordStrength
         set => SetValue(UserInputsProperty, value);
     }
 
+    public static readonly BindableProperty MinimumTimeToCrackProperty = BindableProperty.Create(
+        nameof(MinimumTimeToCrack), typeof(TimeSpan), typeof(PasswordStrength), TimeSpan.Zero,
+        propertyChanged: (b, _, _) => Reevaluate(b));
+    /// <summary>
+    /// The least time the password must hold out against <see cref="GuessesPerSecond"/> before it is
+    /// acceptable — <c>36525.00:00:00</c> in XAML for a century. Zero (the default) turns the rule off.
+    /// </summary>
+    public TimeSpan MinimumTimeToCrack
+    {
+        get => (TimeSpan)GetValue(MinimumTimeToCrackProperty);
+        set => SetValue(MinimumTimeToCrackProperty, value);
+    }
+
+    public static readonly BindableProperty GuessesPerSecondProperty = BindableProperty.Create(
+        nameof(GuessesPerSecond), typeof(double), typeof(PasswordStrength), PasswordStrengthRules.DefaultGuessesPerSecond,
+        propertyChanged: (b, _, _) => Reevaluate(b));
+    /// <summary>
+    /// The attacker the time to crack is estimated against. Default 10 billion a second — offline,
+    /// fast hash. See <see cref="PasswordStrengthRules.GuessesPerSecond"/>.
+    /// </summary>
+    public double GuessesPerSecond
+    {
+        get => (double)GetValue(GuessesPerSecondProperty);
+        set => SetValue(GuessesPerSecondProperty, value);
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Scoring
     // ---------------------------------------------------------------------------------------------
@@ -318,6 +344,19 @@ public partial class PasswordStrength
     {
         get => (bool)GetValue(ShowWarningProperty);
         set => SetValue(ShowWarningProperty, value);
+    }
+
+    public static readonly BindableProperty ShowTimeToCrackProperty = BindableProperty.Create(
+        nameof(ShowTimeToCrack), typeof(bool), typeof(PasswordStrength), false,
+        propertyChanged: (b, _, _) => Refresh(b));
+    /// <summary>
+    /// A "Time to crack: 21 days" caption under the meter. Off by default; shown only while there is
+    /// a password and the evaluator estimates one.
+    /// </summary>
+    public bool ShowTimeToCrack
+    {
+        get => (bool)GetValue(ShowTimeToCrackProperty);
+        set => SetValue(ShowTimeToCrackProperty, value);
     }
 
     // ---------------------------------------------------------------------------------------------

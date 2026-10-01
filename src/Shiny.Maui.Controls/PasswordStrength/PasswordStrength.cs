@@ -46,6 +46,7 @@ public partial class PasswordStrength : ContentView
     readonly Grid meterRow;
     readonly Grid meterHost;
     readonly Label strengthLabel;
+    readonly Label timeToCrackLabel;
     readonly VerticalStackLayout rulesLayout;
     readonly List<Border> segments = new();
 
@@ -101,12 +102,14 @@ public partial class PasswordStrength : ContentView
         meterRow.Add(meterHost, 0);
         meterRow.Add(strengthLabel, 1);
 
+        timeToCrackLabel = new Label { IsVisible = false };
+
         rulesLayout = new VerticalStackLayout { Spacing = 2 };
 
         root = new VerticalStackLayout
         {
             Spacing = RowSpacing,
-            Children = { entry, meterRow, rulesLayout }
+            Children = { entry, meterRow, timeToCrackLabel, rulesLayout }
         };
         this.Content = root;
 
@@ -266,7 +269,9 @@ public partial class PasswordStrength : ContentView
         SpecialCharacters = this.SpecialCharacters,
         RequireNotCompromisedPassword = this.RequireNotCompromisedPassword,
         BlockedPasswords = this.BlockedPasswords?.ToList(),
-        UserInputs = this.UserInputs?.ToList()
+        UserInputs = this.UserInputs?.ToList(),
+        MinimumTimeToCrack = this.MinimumTimeToCrack,
+        GuessesPerSecond = this.GuessesPerSecond
     };
 
 
@@ -297,6 +302,7 @@ public partial class PasswordStrength : ContentView
 
         this.ApplyMeter(result);
         this.ApplyRules(result);
+        this.ApplyTimeToCrack(result);
         this.ApplyWarning(result);
 
         if (!changed)

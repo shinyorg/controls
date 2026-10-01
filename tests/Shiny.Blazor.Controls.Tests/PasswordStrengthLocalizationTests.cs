@@ -52,4 +52,22 @@ public class PasswordStrengthLocalizationTests
 
         control.LocalizedWarning(custom).ShouldBe("custom");
     }
+
+
+    [Fact]
+    public void TimeToCrackCaptionIsLocalizedWithItsDuration()
+    {
+        var control = new PasswordStrength
+        {
+            Localizer = text => text.Key switch
+            {
+                PasswordStrengthTextKey.DurationInstant => "moins d'une seconde",
+                PasswordStrengthTextKey.TimeToCrack => $"Temps pour le casser : {text.Value}",
+                _ => null
+            }
+        };
+
+        control.TimeToCrackText(Score("Xk7!q")).ShouldBe("Temps pour le casser : moins d'une seconde");
+        control.TimeToCrackText(Score("")).ShouldBeNull();
+    }
 }

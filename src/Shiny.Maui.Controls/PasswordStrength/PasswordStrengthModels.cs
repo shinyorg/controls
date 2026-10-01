@@ -24,7 +24,8 @@ public enum PasswordRuleKind
     SpecialCharacter,
     NotCompromised,
     NotBlocked,
-    NoUserInput
+    NoUserInput,
+    MinimumTimeToCrack
 }
 
 
@@ -42,7 +43,14 @@ public sealed record PasswordRuleResult(
     string Description,
     bool IsSatisfied,
     int Argument = 0
-);
+)
+{
+    /// <summary>
+    /// The rule's duration, where it has one — the required time for
+    /// <see cref="PasswordRuleKind.MinimumTimeToCrack"/>. Null otherwise.
+    /// </summary>
+    public TimeSpan? Duration { get; init; }
+}
 
 
 /// <summary>
@@ -94,6 +102,29 @@ public sealed class PasswordStrengthRules
     /// of them is refused and scored as if the matched run were not there.
     /// </summary>
     public IReadOnlyList<string>? UserInputs { get; set; }
+
+    /// <summary>
+    /// The least time the password must hold out against <see cref="GuessesPerSecond"/> before it is
+    /// acceptable — <c>TimeSpan.FromDays(36525)</c> for "a century". <see cref="TimeSpan.Zero"/>
+    /// (the default) turns the rule off.
+    /// </summary>
+    /// <remarks>
+    /// This is the rule to reach for when a policy is phrased in terms of resistance rather than
+    /// composition: it accepts a long lowercase passphrase and refuses a short symbol-salad, which is
+    /// the right way round.
+    /// </remarks>
+    public TimeSpan MinimumTimeToCrack { get; set; } = TimeSpan.Zero;
+
+    /// <summary>
+    /// The attacker <see cref="PasswordStrengthResult.TimeToCrack"/> is estimated against. Defaults to
+    /// <see cref="DefaultGuessesPerSecond"/> — an offline attack on a fast, unsalted hash with a GPU
+    /// rig. Lower it to model a slow hash (bcrypt/Argon2 sit around 10,000) or a rate-limited login
+    /// form (around 10).
+    /// </summary>
+    public double GuessesPerSecond { get; set; } = DefaultGuessesPerSecond;
+
+    /// <summary>Ten billion guesses a second: offline, fast hash, a few GPUs.</summary>
+    public const double DefaultGuessesPerSecond = 1e10;
 }
 
 
@@ -140,6 +171,22 @@ public sealed class PasswordStrengthResult
     /// </summary>
     public string? WarningValue { get; init; }
 
+    /// <summary>
+    /// Estimated time, in seconds, for an attacker making <see cref="PasswordStrengthRules.GuessesPerSecond"/>
+    /// guesses to find the password — on average, so half the search space. Null when the evaluator
+    /// does not estimate it. Kept as a double because a good passphrase outlasts what a
+    /// <see cref="TimeSpan"/> can hold.
+    /// </summary>
+    public double? TimeToCrackSeconds { get; init; }
+
+    /// <summary>
+    /// <see cref="TimeToCrackSeconds"/> as a <see cref="TimeSpan"/>, saturating at
+    /// <see cref="TimeSpan.MaxValue"/> (about 29,000 years). Null when the evaluator does not estimate it.
+    /// </summary>
+    public TimeSpan? TimeToCrack => this.TimeToCrackSeconds is { } seconds
+        ? seconds >= TimeSpan.MaxValue.TotalSeconds ? TimeSpan.MaxValue : TimeSpan.FromSeconds(Math.Max(seconds, 0))
+        : null;
+
     /// <summary>Concrete things that would help, in priority order. May be empty.</summary>
     public IReadOnlyList<string> Suggestions { get; init; } = [];
 
@@ -164,6 +211,10 @@ public enum PasswordStrengthTextKey
     RuleNotCompromised,
     RuleNotBlocked,
     RuleNoUserInput,
+
+    /// <summary>"At least 1 century to crack". <see cref="PasswordStrengthText.Value"/> is the already-localized duration.</summary>
+    RuleMinimumTimeToCrack,
+
     LevelWeak,
     LevelFair,
     LevelGood,
@@ -181,7 +232,86 @@ public enum PasswordStrengthTextKey
     WarningUserInput,
 
     /// <summary><c>"pass" is a very common password.</c> <see cref="PasswordStrengthText.Value"/> is the matched word.</summary>
-    WarningCommonPassword
+    WarningCommonPassword,
+
+    /// <summary>"Time to crack: 21 days". <see cref="PasswordStrengthText.Value"/> is the already-localized duration.</summary>
+    TimeToCrack,
+
+    /// <summary>"less than a second".</summary>
+    DurationInstant,
+
+    /// <summary>"N seconds". <see cref="PasswordStrengthText.Argument"/> is N.</summary>
+    DurationSeconds,
+
+    /// <summary>"N minutes". <see cref="PasswordStrengthText.Argument"/> is N.</summary>
+    DurationMinutes,
+
+    /// <summary>"N hours". <see cref="PasswordStrengthText.Argument"/> is N.</summary>
+    DurationHours,
+
+    /// <summary>"N days". <see cref="PasswordStrengthText.Argument"/> is N.</summary>
+    DurationDays,
+
+    /// <summary>"N months". <see cref="PasswordStrengthText.Argument"/> is N.</summary>
+    DurationMonths,
+
+    /// <summary>"N years". <see cref="PasswordStrengthText.Argument"/> is N.</summary>
+    DurationYears,
+
+    /// <summary>"N centuries". <see cref="PasswordStrengthText.Argument"/> is N.</summary>
+    DurationCenturies,
+
+    /// <summary>"more than a million years" — anything past 10,000 centuries.</summary>
+    DurationEons
+}
+
+
+/// <summary>
+/// Turns a crack time into the one unit a person reads it in — "21 days", not "1,814,400 seconds".
+/// Used by the built-in evaluator for its English rule text and by the control for the caption;
+/// exposed so a custom UI can word it the same way.
+/// </summary>
+public static class PasswordCrackTime
+{
+    const double Minute = 60;
+    const double Hour = 60 * Minute;
+    const double Day = 24 * Hour;
+    const double Month = 30.4375 * Day;
+    const double Year = 365.25 * Day;
+    const double Century = 100 * Year;
+    const double EonThreshold = 10_000 * Century;
+
+    /// <summary>
+    /// The unit, the whole count of it (rounded down, never zero), and the English wording. A
+    /// localizer receives the key and count as <see cref="PasswordStrengthText.Key"/> and
+    /// <see cref="PasswordStrengthText.Argument"/>.
+    /// </summary>
+    public static (PasswordStrengthTextKey Key, int Count, string Default) Describe(double seconds)
+    {
+        if (double.IsNaN(seconds) || seconds < 1)
+            return (PasswordStrengthTextKey.DurationInstant, 0, "less than a second");
+
+        if (seconds >= EonThreshold)
+            return (PasswordStrengthTextKey.DurationEons, 0, "more than a million years");
+
+        var (key, unit, singular, plural) = seconds switch
+        {
+            < Minute => (PasswordStrengthTextKey.DurationSeconds, 1d, "second", "seconds"),
+            < Hour => (PasswordStrengthTextKey.DurationMinutes, Minute, "minute", "minutes"),
+            < Day => (PasswordStrengthTextKey.DurationHours, Hour, "hour", "hours"),
+            < Month => (PasswordStrengthTextKey.DurationDays, Day, "day", "days"),
+            < Year => (PasswordStrengthTextKey.DurationMonths, Month, "month", "months"),
+            < Century => (PasswordStrengthTextKey.DurationYears, Year, "year", "years"),
+            _ => (PasswordStrengthTextKey.DurationCenturies, Century, "century", "centuries")
+        };
+
+        var count = Math.Max(1, (int)Math.Floor(seconds / unit));
+        return (key, count, $"{count:N0} {(count == 1 ? singular : plural)}");
+    }
+
+    /// <inheritdoc cref="Describe(double)"/>
+    public static (PasswordStrengthTextKey Key, int Count, string Default) Describe(TimeSpan duration)
+        => Describe(duration.TotalSeconds);
 }
 
 
