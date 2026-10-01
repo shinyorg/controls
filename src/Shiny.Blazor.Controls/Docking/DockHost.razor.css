@@ -50,8 +50,9 @@
 .shiny-dock-rail-rsz--live.shiny-dock-rail-rsz--top,
 .shiny-dock-rail-rsz--live.shiny-dock-rail-rsz--bottom { cursor: row-resize; }
 
-.shiny-dock-rail-rsz--live:hover {
-    background: var(--shiny-dock-splitter-hover, rgba(59, 130, 246, 0.45));
+.shiny-dock-rail-rsz--live:hover,
+.shiny-dock-rail-rsz.is-dragging {
+    background: var(--shiny-dock-splitter-hover, color-mix(in srgb, var(--shiny-dock-accent, var(--shiny-color-primary, #0055D9)) 55%, transparent));
     border-radius: var(--shiny-shape-corner-extra-small, 2px);
 }
 
@@ -80,8 +81,9 @@
 .shiny-dock-split--h > .shiny-dock-split__separator--live { cursor: col-resize; }
 .shiny-dock-split--v > .shiny-dock-split__separator--live { cursor: row-resize; }
 
-.shiny-dock-split__separator--live:hover {
-    background: var(--shiny-dock-splitter-hover, rgba(59, 130, 246, 0.45));
+.shiny-dock-split__separator--live:hover,
+.shiny-dock-split__separator.is-dragging {
+    background: var(--shiny-dock-splitter-hover, color-mix(in srgb, var(--shiny-dock-accent, var(--shiny-color-primary, #0055D9)) 55%, transparent));
     border-radius: var(--shiny-shape-corner-extra-small, 2px);
 }
 
@@ -96,41 +98,80 @@
     border: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF));
     border-radius: var(--shiny-shape-corner-small, 6px);
     overflow: hidden;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+/* the group holding the active panel — the one keyboard and commands act on */
+.shiny-dock-group--focused {
+    border-color: var(--shiny-dock-focus-border, color-mix(in srgb, var(--shiny-dock-accent, var(--shiny-color-primary, #0055D9)) 55%, var(--shiny-color-outline-variant, #BBC7DF)));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--shiny-dock-accent, var(--shiny-color-primary, #0055D9)) 18%, transparent);
 }
 
 .shiny-dock-tabs {
     display: flex;
     flex: 0 0 auto;
     align-items: stretch;
-    gap: calc(2px * var(--shiny-density-scale, 1));
-    padding: var(--shiny-spacing-1, 4px) calc(6px * var(--shiny-density-scale, 1)) 0 calc(6px * var(--shiny-density-scale, 1));
-    background: var(--shiny-dock-tabs-bg, var(--shiny-color-surface-container, #E8EEF6));
+    gap: 1px;
+    min-height: calc(30px * var(--shiny-density-scale, 1));
+    padding: 0 calc(4px * var(--shiny-density-scale, 1)) 0 0;
+    background: var(--shiny-dock-tabs-bg, var(--shiny-color-surface-container-low, var(--shiny-color-surface-container, #E8EEF6)));
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF));
     overflow-x: auto;
+    scrollbar-width: none;
     -webkit-user-select: none;
     user-select: none;
 }
 
+.shiny-dock-tabs::-webkit-scrollbar { display: none; }
+
 .shiny-dock-tab {
+    position: relative;
     display: flex;
     align-items: center;
+    /* in a narrow rail tabs give way with an ellipsis rather than sliding under the tools */
+    flex: 0 1 auto;
+    min-width: 56px;
     gap: calc(6px * var(--shiny-density-scale, 1));
-    padding: calc(5px * var(--shiny-density-scale, 1)) calc(10px * var(--shiny-density-scale, 1));
+    max-width: 220px;
+    padding: 0 calc(6px * var(--shiny-density-scale, 1)) 0 calc(12px * var(--shiny-density-scale, 1));
     font-size: var(--shiny-type-body-small-size, 12px);
     color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #3B475B));
     background: var(--shiny-dock-tab-bg, transparent);
-    border-radius: var(--shiny-shape-corner-extra-small, 5px) var(--shiny-shape-corner-extra-small, 5px) 0 0;
     cursor: pointer;
     white-space: nowrap;
+    transition: background 100ms ease, color 100ms ease, opacity 120ms ease;
 }
 
 .shiny-dock-tab:hover {
-    background: var(--shiny-dock-tab-hover-bg, rgba(255, 255, 255, 0.55));
+    background: var(--shiny-dock-tab-hover-bg, color-mix(in srgb, currentColor 8%, transparent));
+    color: var(--shiny-dock-tab-active-fg, var(--shiny-color-on-surface, #161C23));
 }
 
 .shiny-dock-tab--active {
     background: var(--shiny-dock-tab-active-bg, var(--shiny-color-surface, #F6FAFE));
     color: var(--shiny-dock-tab-active-fg, var(--shiny-color-on-surface, #161C23));
     font-weight: 600;
+    /* sits on the strip's bottom border so the tab reads as part of its page */
+    margin-bottom: -1px;
+    box-shadow: inset 1px 0 0 var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF)),
+                inset -1px 0 0 var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF));
+}
+
+.shiny-dock-tab--active:hover { background: var(--shiny-dock-tab-active-bg, var(--shiny-color-surface, #F6FAFE)); }
+
+/* the accent bar: quiet on an idle group, full colour on the focused one */
+.shiny-dock-tab--active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: var(--shiny-dock-border, var(--shiny-color-outline, #6C788D));
+}
+
+.shiny-dock-group--focused .shiny-dock-tab--active::before {
+    background: var(--shiny-dock-accent, var(--shiny-color-primary, #0055D9));
 }
 
 .shiny-dock-tab__icon {
@@ -138,36 +179,88 @@
     line-height: 1;
 }
 
-.shiny-dock-tab__close {
-    font-size: calc(13px * var(--shiny-type-scale, 1));
-    line-height: 1;
-    padding: 0 calc(2px * var(--shiny-density-scale, 1));
-    border-radius: var(--shiny-shape-corner-extra-small, 3px);
-    color: var(--shiny-dock-tab-close-fg, var(--shiny-color-on-surface-variant, #3B475B));
+.shiny-dock-tab__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.shiny-dock-tab__close:hover {
-    color: var(--shiny-dock-tab-close-hover-fg, var(--shiny-color-on-surface, #161C23));
-    background: var(--shiny-dock-tab-close-hover-bg, rgba(0, 0, 0, 0.08));
+.shiny-dock-tab__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    color: var(--shiny-dock-tab-close-fg, var(--shiny-color-on-surface-variant, #3B475B));
+    /* revealed on the active tab and on hover, the way VS keeps idle strips calm */
+    opacity: 0;
+    transition: opacity 100ms ease, background 100ms ease;
 }
+
+/* the glyph arrives as a MarkupString, which carries no scope attribute */
+.shiny-dock-tab__close ::deep svg { width: 14px; height: 14px; }
+
+.shiny-dock-tab--active .shiny-dock-tab__close,
+.shiny-dock-tab:hover .shiny-dock-tab__close { opacity: 0.75; }
+
+.shiny-dock-tab__close:hover {
+    opacity: 1 !important;
+    color: var(--shiny-dock-tab-close-hover-fg, var(--shiny-color-on-surface, #161C23));
+    background: var(--shiny-dock-tab-close-hover-bg, color-mix(in srgb, currentColor 14%, transparent));
+}
+
+/* the tab that is being dragged out leaves a faint hole behind */
+.shiny-dock-tab.is-drag-source { opacity: 0.35; }
 
 .shiny-dock-tabs__spacer { flex: 1; }
 
-.shiny-dock-collapse {
+.shiny-dock-tabs__tools {
+    display: flex;
+    align-items: center;
+    gap: 1px;
     flex: 0 0 auto;
-    align-self: center;
-    border: none;
-    background: transparent;
-    color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #3B475B));
-    font-size: var(--shiny-type-body-medium-size, 14px);
-    line-height: 1;
-    padding: calc(2px * var(--shiny-density-scale, 1)) calc(7px * var(--shiny-density-scale, 1));
-    margin-bottom: 4px;
-    border-radius: var(--shiny-shape-corner-extra-small, 4px);
-    cursor: pointer;
+    position: sticky;
+    right: 0;
+    padding-left: 4px;
+    background: inherit;
 }
 
-.shiny-dock-collapse:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+/* small square chrome button — tab-strip tools and floating title bars */
+.shiny-dock-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    opacity: 0.72;
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    cursor: pointer;
+    transition: opacity 100ms ease, background 100ms ease;
+}
+
+.shiny-dock-tabs__tools .shiny-dock-btn { color: var(--shiny-dock-tab-fg, var(--shiny-color-on-surface-variant, #3B475B)); }
+
+.shiny-dock-btn:hover {
+    opacity: 1;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.shiny-dock-btn:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--shiny-dock-accent, var(--shiny-color-primary, #0055D9));
+    outline-offset: -2px;
+}
+
+.shiny-dock-btn--close:hover {
+    background: var(--shiny-color-error, #C20014);
+    color: var(--shiny-color-on-error, #FFFFFF);
+}
 
 /* ---- collapsed rail bars ---- */
 .shiny-dock-railbar {
@@ -215,7 +308,7 @@
 .shiny-dock-railbar--right .shiny-dock-railbar__icon { margin-bottom: 4px; }
 
 .shiny-dock-railbar__item:hover {
-    background: rgba(255, 255, 255, 0.7);
+    background: color-mix(in srgb, currentColor 10%, transparent);
     color: var(--shiny-dock-tab-active-fg, var(--shiny-color-on-surface, #161C23));
 }
 
@@ -235,7 +328,7 @@
 }
 
 .shiny-dock-group--collapsed > .shiny-dock-tabs {
-    padding-bottom: var(--shiny-spacing-1, 4px);
+    border-bottom: none;
 }
 
 /* keep-alive: inactive panels stay rendered (preserving component state), just hidden */
@@ -277,61 +370,101 @@
 }
 
 /* ---- floating windows ---- */
+.shiny-dock-host { position: relative; }
+
 .shiny-dock-float {
     position: absolute;
     z-index: 50;
     display: flex;
     flex-direction: column;
-    min-width: 180px;
-    min-height: 120px;
+    min-width: 200px;
+    min-height: 140px;
     background: var(--shiny-dock-group-bg, var(--shiny-color-surface, #F6FAFE));
+    color: var(--shiny-color-on-surface, #161C23);
     border: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF));
-    border-radius: var(--shiny-shape-corner-small, 8px);
-    box-shadow: var(--shiny-elevation-5, 0 12px 32px rgba(0, 0, 0, 0.25));
-    overflow: hidden;
-    resize: both;
+    border-radius: var(--shiny-shape-corner-medium, 8px);
+    box-shadow: var(--shiny-dock-float-shadow, 0 14px 40px rgba(0, 0, 0, 0.22), 0 3px 10px rgba(0, 0, 0, 0.12));
+    transition: box-shadow 140ms ease, border-color 140ms ease;
 }
 
-.shiny-dock-host { position: relative; }
+.shiny-dock-float--active {
+    border-color: color-mix(in srgb, var(--shiny-dock-accent, var(--shiny-color-primary, #0055D9)) 60%, transparent);
+}
+
+/* lifted while it travels with the pointer */
+.shiny-dock-float.is-dragging {
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32), 0 6px 16px rgba(0, 0, 0, 0.18);
+}
 
 .shiny-dock-float__header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: calc(6px * var(--shiny-density-scale, 1));
     flex: 0 0 auto;
-    padding: calc(5px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px) calc(5px * var(--shiny-density-scale, 1)) calc(10px * var(--shiny-density-scale, 1));
+    min-height: calc(30px * var(--shiny-density-scale, 1));
+    padding: 0 calc(4px * var(--shiny-density-scale, 1)) 0 calc(10px * var(--shiny-density-scale, 1));
     font-size: var(--shiny-type-body-small-size, 12px);
     font-weight: 600;
-    color: var(--shiny-dock-float-header-fg, var(--shiny-color-inverse-on-surface, #F6FAFE));
-    background: var(--shiny-dock-float-header-bg, var(--shiny-color-inverse-surface, #161C23));
+    color: var(--shiny-dock-float-header-fg, var(--shiny-color-on-surface-variant, #3B475B));
+    background: var(--shiny-dock-float-header-bg, var(--shiny-color-surface-container-high, var(--shiny-color-surface-container, #E8EEF6)));
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-dock-border, var(--shiny-color-outline-variant, #BBC7DF));
+    border-radius: var(--shiny-shape-corner-medium, 8px) var(--shiny-shape-corner-medium, 8px) 0 0;
     cursor: move;
     -webkit-user-select: none;
     user-select: none;
+    transition: background 140ms ease, color 140ms ease;
 }
 
+/* the active window's title bar takes the accent, like a focused tool window in VS */
+.shiny-dock-float--active > .shiny-dock-float__header {
+    color: var(--shiny-dock-float-active-header-fg, var(--shiny-color-on-primary, #FFFFFF));
+    background: var(--shiny-dock-float-active-header-bg, var(--shiny-dock-accent, var(--shiny-color-primary, #0055D9)));
+    border-bottom-color: transparent;
+}
+
+.shiny-dock-float__icon { line-height: 1; }
+
 .shiny-dock-float__title {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.shiny-dock-float__actions { display: flex; gap: calc(2px * var(--shiny-density-scale, 1)); }
-
-.shiny-dock-float__btn {
-    border: none;
-    background: transparent;
-    color: inherit;
-    font-size: calc(13px * var(--shiny-type-scale, 1));
-    line-height: 1;
-    padding: calc(2px * var(--shiny-density-scale, 1)) calc(5px * var(--shiny-density-scale, 1));
-    border-radius: var(--shiny-shape-corner-extra-small, 3px);
-    cursor: pointer;
-}
-
-.shiny-dock-float__btn:hover { background: rgba(255, 255, 255, 0.18); }
+.shiny-dock-float__actions { display: flex; gap: 1px; cursor: default; }
 
 .shiny-dock-float__body {
     flex: 1;
     display: flex;
     min-height: 0;
+    overflow: hidden;
+    border-radius: 0 0 var(--shiny-shape-corner-medium, 8px) var(--shiny-shape-corner-medium, 8px);
 }
+
+/* the window frame is the border — groups inside go flush */
+.shiny-dock-float__body > .shiny-dock-group {
+    border-radius: 0;
+    border-width: 0;
+    box-shadow: none;
+}
+
+.shiny-dock-float__body > .shiny-dock-split { padding: var(--shiny-spacing-1, 4px); }
+
+/* a single panel is already named by the title bar */
+.shiny-dock-float--single .shiny-dock-tabs { display: none; }
+
+/* edge + corner resize handles, straddling the frame */
+.shiny-dock-float__rsz { position: absolute; z-index: 2; }
+.shiny-dock-float__rsz--n  { top: -4px; left: 8px; right: 8px; height: 8px; cursor: ns-resize; }
+.shiny-dock-float__rsz--s  { bottom: -4px; left: 8px; right: 8px; height: 8px; cursor: ns-resize; }
+.shiny-dock-float__rsz--e  { right: -4px; top: 8px; bottom: 8px; width: 8px; cursor: ew-resize; }
+.shiny-dock-float__rsz--w  { left: -4px; top: 8px; bottom: 8px; width: 8px; cursor: ew-resize; }
+.shiny-dock-float__rsz--ne { top: -4px; right: -4px; width: 14px; height: 14px; cursor: nesw-resize; }
+.shiny-dock-float__rsz--nw { top: -4px; left: -4px; width: 14px; height: 14px; cursor: nwse-resize; }
+.shiny-dock-float__rsz--se { bottom: -4px; right: -4px; width: 14px; height: 14px; cursor: nwse-resize; }
+.shiny-dock-float__rsz--sw { bottom: -4px; left: -4px; width: 14px; height: 14px; cursor: nesw-resize; }
+
+/* while anything is being dragged, panel content (iframes, editors, canvases) must not
+   swallow the pointer — the drag listens on window */
+.shiny-dock-host--dragging .shiny-dock-panel { pointer-events: none; }

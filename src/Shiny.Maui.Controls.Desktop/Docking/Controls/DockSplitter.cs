@@ -13,6 +13,7 @@ public class DockSplitter : ContentView
 
     readonly BoxView bar;
     double startRatio;
+    bool dragging;
 
     public static readonly BindableProperty OrientationProperty = BindableProperty.Create(
         nameof(Orientation), typeof(DockOrientation), typeof(DockSplitter), DockOrientation.Horizontal);
@@ -55,9 +56,9 @@ public class DockSplitter : ContentView
         BackgroundColor = Colors.Transparent;
         bar = new BoxView
         {
-            Color = Colors.Transparent,
-            CornerRadius = 2
-        };
+            CornerRadius = 2,
+            Opacity = 0
+        }.Tint(BoxView.ColorProperty, Shiny.Maui.Controls.Themes.ShinyThemeKeys.Color.Primary);
         Content = bar;
 
         var pan = new PanGestureRecognizer();
@@ -65,8 +66,8 @@ public class DockSplitter : ContentView
         GestureRecognizers.Add(pan);
 
         var pointer = new PointerGestureRecognizer();
-        pointer.PointerEntered += (_, _) => { if (!IsLocked) bar.Color = Color.FromRgba(59, 130, 246, 110); };
-        pointer.PointerExited += (_, _) => bar.Color = Colors.Transparent;
+        pointer.PointerEntered += (_, _) => { if (!IsLocked) bar.Opacity = 0.55; };
+        pointer.PointerExited += (_, _) => { if (!dragging) bar.Opacity = 0; };
         GestureRecognizers.Add(pointer);
     }
 
@@ -80,6 +81,8 @@ public class DockSplitter : ContentView
         {
             case GestureStatus.Started:
                 startRatio = Ratio;
+                dragging = true;
+                bar.Opacity = 0.55;
                 break;
             case GestureStatus.Running:
             {
@@ -91,6 +94,8 @@ public class DockSplitter : ContentView
             }
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
+                dragging = false;
+                bar.Opacity = 0;
                 RatioCommitted?.Invoke(this, Ratio);
                 break;
         }

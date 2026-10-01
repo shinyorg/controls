@@ -20,6 +20,12 @@ public sealed class DockWindowState
     /// <summary>Panel instance ID to restore focus to on load.</summary>
     public string? ActivePanelId { get; set; }
 
+    /// <summary>
+    /// Floating windows only: the group the window was torn from, so docking it back returns it
+    /// home instead of to a default rail. Ignored when that group no longer exists.
+    /// </summary>
+    public string? RestoreGroupId { get; set; }
+
     /// <summary>Legacy whole-rail collapse state; converted to <see cref="CollapsedTabs"/> on load.</summary>
     public List<DockArea> CollapsedRails { get; set; } = new();
 

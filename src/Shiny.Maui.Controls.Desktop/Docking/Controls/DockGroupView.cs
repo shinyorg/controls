@@ -1,6 +1,7 @@
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui;
+using Keys = Shiny.Maui.Controls.Themes.ShinyThemeKeys;
 
 namespace Shiny.Maui.Controls.Desktop.Docking;
 
@@ -14,6 +15,7 @@ public class DockGroupView : ContentView
     readonly DockTabStrip strip;
     readonly Grid content;
     readonly Dictionary<string, View> panelViews = new();
+    readonly Border frame;
 
     public static readonly BindableProperty GroupIdProperty = BindableProperty.Create(
         nameof(GroupId), typeof(string), typeof(DockGroupView), string.Empty);
@@ -29,19 +31,23 @@ public class DockGroupView : ContentView
     public Grid ContentHost => content;
 
     public event EventHandler<DockTab>? TabActivateRequested;
+    public event EventHandler<DockTab>? TabDoubleTapped;
     public event EventHandler<DockTab>? TabCloseRequested;
     public event EventHandler<(DockTab Tab, Border View, PanUpdatedEventArgs Pan)>? TabPan;
+    public event EventHandler<(DockTab Tab, Border View, Point Position)>? TabPressed;
     public event EventHandler? CollapseRequested;
+    public event EventHandler? FloatRequested;
 
     public DockGroupView()
     {
-        BackgroundColor = Colors.White;
-
-        strip = new DockTabStrip { CollapseGlyph = null };
+        strip = new DockTabStrip();
         strip.TabTapped += (_, tab) => TabActivateRequested?.Invoke(this, tab);
+        strip.TabDoubleTapped += (_, tab) => TabDoubleTapped?.Invoke(this, tab);
         strip.TabCloseTapped += (_, tab) => TabCloseRequested?.Invoke(this, tab);
         strip.TabPan += (_, e) => TabPan?.Invoke(this, e);
+        strip.TabPressed += (_, e) => TabPressed?.Invoke(this, e);
         strip.CollapseTapped += (_, _) => CollapseRequested?.Invoke(this, EventArgs.Empty);
+        strip.FloatTapped += (_, _) => FloatRequested?.Invoke(this, EventArgs.Empty);
 
         content = new Grid();
 
@@ -56,14 +62,33 @@ public class DockGroupView : ContentView
         grid.Add(strip, 0, 0);
         grid.Add(content, 0, 1);
 
-        Content = new Border
+        frame = new Border
         {
             Content = grid,
-            Stroke = Color.FromArgb("#D1D5DB"),
             StrokeThickness = 1,
-            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 6 },
-            BackgroundColor = Colors.White
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 6 }
         };
+        frame.Tint(BackgroundColorProperty, Keys.Color.Surface);
+        Content = frame;
+        SetFocused(false);
+    }
+
+    /// <summary>The group holding the active panel — the one keyboard and commands act on.</summary>
+    public void SetFocused(bool focused)
+    {
+        frame.Tint(Border.StrokeProperty, focused ? Keys.Brush.Primary : Keys.Brush.OutlineVariant);
+        strip.IsGroupFocused = focused;
+    }
+
+    /// <summary>
+    /// Flush mode for a floating window holding exactly this group: the window frame is the border
+    /// and the title bar already names a lone panel, so neither the frame nor the strip is drawn.
+    /// </summary>
+    public void SetFlush(bool flush, bool hideStrip)
+    {
+        frame.StrokeThickness = flush ? 0 : 1;
+        frame.StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = flush ? 0 : 6 };
+        strip.IsVisible = !hideStrip;
     }
 
     public void Apply(
@@ -71,13 +96,15 @@ public class DockGroupView : ContentView
         Func<DockTab, View?> viewResolver,
         Func<DockTab, string> titleSelector,
         bool isLocked,
-        string? collapseGlyph = null,
-        Func<DockTab, string?>? iconSelector = null)
+        DockArea? collapseDirection = null,
+        Func<DockTab, string?>? iconSelector = null,
+        bool showFloatButton = false)
     {
         Group = group;
         GroupId = group.GroupId;
 
-        strip.CollapseGlyph = isLocked ? null : collapseGlyph;
+        strip.CollapseDirection = isLocked ? null : collapseDirection;
+        strip.ShowFloatButton = !isLocked && showFloatButton;
         strip.SetTabs(group, titleSelector, CanClose, isLocked, iconSelector);
 
         content.IsVisible = !group.IsCollapsed;
@@ -127,8 +154,7 @@ public class DockGroupView : ContentView
     {
         Text = $"Unknown panel type '{tab.PanelTypeId}'",
         FontSize = 12,
-        TextColor = Color.FromArgb("#B91C1C"),
         HorizontalOptions = LayoutOptions.Center,
         VerticalOptions = LayoutOptions.Center
-    };
+    }.Tint(Label.TextColorProperty, Keys.Color.Error);
 }

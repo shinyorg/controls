@@ -21,6 +21,9 @@ public interface IDockHost
     /// <summary>Reset to the default layout supplied at startup.</summary>
     Task ResetLayoutAsync(CancellationToken ct = default);
 
+    /// <summary>Tears a docked panel off into its own floating window (a no-op if it already floats alone).</summary>
+    Task FloatPanelAsync(string panelInstanceId, CancellationToken ct = default);
+
     /// <summary>Collapse a rail to a slim edge bar of panel titles, or expand it back.</summary>
     Task SetRailCollapsedAsync(DockArea area, bool collapsed, CancellationToken ct = default);
 }

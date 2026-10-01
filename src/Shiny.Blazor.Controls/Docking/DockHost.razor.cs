@@ -21,6 +21,8 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
     readonly Dictionary<string, RenderFragment> fragments = new();
     readonly DockEventsImpl events = new();
     readonly DockCommandScopeImpl commandScope = new();
+    readonly Dictionary<DockWindowState, int> floatOrder = new(ReferenceEqualityComparer.Instance);
+    int floatZ;
 
     [Inject] IServiceProvider Services { get; set; } = null!;
     [Inject] IJSRuntime JS { get; set; } = null!;
@@ -81,7 +83,6 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
                     lastLocked = IsLocked;
                     await module.InvokeVoidAsync("setLocked", hostRef, IsLocked);
                 }
-                await module.InvokeVoidAsync("refreshFloating", hostRef);
             }
         }
         catch (JSDisconnectedException) { }
@@ -113,6 +114,7 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
         layout = DockSerialization.Deserialize(json)!;
         ConvertLegacyCollapsedRails();
         fragments.Clear();
+        floatOrder.Clear();
         await ResolveFragmentsAsync(ct);
         events.RaiseLayoutChanged(new LayoutChangedEventArgs { Snapshot = Snapshot(), Reason = "load" });
         StateHasChanged();
@@ -200,34 +202,7 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
         StateHasChanged();
     }
 
-    void DockIntoRail(DockArea area, DockTab tab)
-    {
-        var win = layout!.MainWindow;
-        var rail = area switch
-        {
-            DockArea.Top => win.TopRail,
-            DockArea.Right => win.RightRail,
-            DockArea.Bottom => win.BottomRail,
-            _ => win.LeftRail
-        };
-
-        if (GroupsIn(rail).FirstOrDefault() is { } group)
-        {
-            group.Tabs.Add(tab);
-            group.ActiveTabIndex = group.Tabs.Count - 1;
-        }
-        else
-        {
-            DockNode newRail = new DockGroup { Tabs = { tab } };
-            switch (area)
-            {
-                case DockArea.Top: win.TopRail = newRail; break;
-                case DockArea.Right: win.RightRail = newRail; break;
-                case DockArea.Bottom: win.BottomRail = newRail; break;
-                default: win.LeftRail = newRail; break;
-            }
-        }
-    }
+    void DockIntoRail(DockArea area, DockTab tab) => DockLayoutOps.DockIntoRail(layout!, area, tab);
 
     public Task HidePanelAsync(string panelInstanceId, CancellationToken ct = default)
     {
@@ -285,6 +260,7 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
         if (pristineJson is null) return;
         layout = DockSerialization.Deserialize(pristineJson)!;
         fragments.Clear();
+        floatOrder.Clear();
         await ResolveFragmentsAsync(ct);
         OnLayoutMutated("reset");
         StateHasChanged();
@@ -418,14 +394,6 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
         StateHasChanged();
     }
 
-    static string RailCollapseGlyph(DockArea area) => area switch
-    {
-        DockArea.Left => "◂",
-        DockArea.Right => "▸",
-        DockArea.Top => "▴",
-        _ => "▾"
-    };
-
     // ----------------------------------------------------------------- JS callbacks
     [JSInvokable]
     public void OnSplitterRatioChangedJs(string splitId, double ratio)
@@ -452,114 +420,24 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
         => events.RaiseDragCancelled(new DockDragEventArgs { SourcePanelInstanceId = instanceId });
 
     [JSInvokable]
-    public async Task OnTabDroppedJs(string instanceId, string? targetGroupId, string zoneName, int index, double x, double y)
+    public async Task OnTabDroppedJs(string instanceId, string? targetGroupId, string zoneName, int index, double x, double y, double width, double height)
     {
         if (IsLocked || layout is null) return;
         if (!Enum.TryParse<DockZone>(zoneName, out var zone)) return;
 
-        var sourceGroup = AllGroups().FirstOrDefault(g => g.Tabs.Any(t => t.PanelInstanceId == instanceId));
-        var tab = sourceGroup?.Tabs.First(t => t.PanelInstanceId == instanceId);
-        if (sourceGroup is null || tab is null) return;
-
-        var targetGroup = targetGroupId is null
-            ? null
-            : AllGroups().FirstOrDefault(g => g.GroupId == targetGroupId);
-
-        switch (zone)
+        var targetGroup = FindGroup(targetGroupId);
+        var bounds = new DockRect(x, y,
+            width > 0 ? width : DockLayoutOps.DefaultFloatWidth,
+            height > 0 ? height : DockLayoutOps.DefaultFloatHeight);
+        if (!DockLayoutOps.DropTab(layout, instanceId, targetGroup, zone, index, bounds))
         {
-            case DockZone.TabStrip when targetGroup is not null:
-            {
-                var oldIndex = sourceGroup.Tabs.IndexOf(tab);
-                sourceGroup.Tabs.Remove(tab);
-                if (ReferenceEquals(sourceGroup, targetGroup) && oldIndex < index)
-                    index--;
-                index = Math.Clamp(index, 0, targetGroup.Tabs.Count);
-                targetGroup.Tabs.Insert(index, tab);
-                targetGroup.ActiveTabIndex = index;
-                break;
-            }
-            case DockZone.Center when targetGroup is not null:
-            {
-                if (ReferenceEquals(sourceGroup, targetGroup)) return;
-                sourceGroup.Tabs.Remove(tab);
-                targetGroup.Tabs.Add(tab);
-                targetGroup.ActiveTabIndex = targetGroup.Tabs.Count - 1;
-                break;
-            }
-            // dropped on an empty well (the document area with no panels left)
-            case DockZone.Center:
-            {
-                if (layout.MainWindow.DocumentArea is not DockEmpty) return;
-                sourceGroup.Tabs.Remove(tab);
-                layout.MainWindow.DocumentArea = new DockGroup { Tabs = { tab } };
-                break;
-            }
-            case DockZone.Left or DockZone.Right or DockZone.Top or DockZone.Bottom when targetGroup is not null:
-            {
-                // splitting yourself when you're the only tab is a no-op
-                if (ReferenceEquals(sourceGroup, targetGroup) && sourceGroup.Tabs.Count == 1) return;
-                sourceGroup.Tabs.Remove(tab);
-                var newGroup = new DockGroup { Tabs = { tab } };
-                var split = new DockSplit
-                {
-                    Orientation = zone is DockZone.Left or DockZone.Right
-                        ? DockOrientation.Horizontal
-                        : DockOrientation.Vertical,
-                    Ratio = 0.5
-                };
-                if (zone is DockZone.Left or DockZone.Top)
-                {
-                    split.First = newGroup;
-                    split.Second = targetGroup;
-                }
-                else
-                {
-                    split.First = targetGroup;
-                    split.Second = newGroup;
-                }
-                ReplaceNode(targetGroup, split);
-                break;
-            }
-            // dropped on a host edge band → dock into (or re-create) that rail
-            case DockZone.Left or DockZone.Right or DockZone.Top or DockZone.Bottom:
-            {
-                sourceGroup.Tabs.Remove(tab);
-                DockIntoRail(zone switch
-                {
-                    DockZone.Top => DockArea.Top,
-                    DockZone.Right => DockArea.Right,
-                    DockZone.Bottom => DockArea.Bottom,
-                    _ => DockArea.Left
-                }, tab);
-                break;
-            }
-            case DockZone.TearOff:
-            {
-                if (ReferenceEquals(sourceGroup, FindFloatingGroup(sourceGroup)) && sourceGroup.Tabs.Count == 1)
-                {
-                    // dragging the only tab of a floating window: just move the window
-                    var fw = layout.FloatingWindows.FirstOrDefault(w => GroupsIn(w.DocumentArea).Contains(sourceGroup));
-                    if (fw is not null)
-                    {
-                        var b = fw.Bounds ?? new DockRect(x, y, 360, 260);
-                        fw.Bounds = new DockRect(x, y, b.Width, b.Height);
-                        break;
-                    }
-                }
-                sourceGroup.Tabs.Remove(tab);
-                layout.FloatingWindows.Add(new DockWindowState
-                {
-                    Bounds = new DockRect(x, y, 360, 260),
-                    DocumentArea = new DockGroup { Tabs = { tab }, ActiveTabIndex = 0 }
-                });
-                break;
-            }
-            default:
-                return;
+            events.RaiseDragCancelled(new DockDragEventArgs { SourcePanelInstanceId = instanceId });
+            StateHasChanged();
+            return;
         }
 
-        sourceGroup.ActiveTabIndex = Math.Clamp(sourceGroup.ActiveTabIndex, 0, Math.Max(0, sourceGroup.Tabs.Count - 1));
-        SimplifyAll();
+        if (zone == DockZone.TearOff)
+            BringFloatingToFront(layout.FloatingWindows.Count - 1);
         OnLayoutMutated("drag-drop");
         events.RaiseDragCompleted(new DockDragEventArgs
         {
@@ -571,47 +449,80 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
         StateHasChanged();
     }
 
+    /// <summary>A whole floating window dragged by its title bar and released on a docking guide.</summary>
+    [JSInvokable]
+    public async Task OnFloatingDroppedJs(int windowIndex, string? targetGroupId, string zoneName, int index)
+    {
+        if (IsLocked || layout is null) return;
+        if (!Enum.TryParse<DockZone>(zoneName, out var zone)) return;
+        if (windowIndex < 0 || windowIndex >= layout.FloatingWindows.Count) return;
+
+        var fw = layout.FloatingWindows[windowIndex];
+        var active = ActiveTabOf(fw);
+        if (!DockLayoutOps.DropFloatingWindow(layout, windowIndex, FindGroup(targetGroupId), zone, index))
+        {
+            StateHasChanged();
+            return;
+        }
+        floatOrder.Remove(fw);
+
+        OnLayoutMutated("float-dock");
+        if (active is not null)
+        {
+            events.RaiseDragCompleted(new DockDragEventArgs
+            {
+                SourcePanelInstanceId = active.PanelInstanceId,
+                TargetGroupId = targetGroupId,
+                TargetZone = zone
+            });
+            await ActivatePanelAsync(active.PanelInstanceId);
+        }
+        StateHasChanged();
+    }
+
     [JSInvokable]
     public void OnFloatingMovedJs(int index, double x, double y)
     {
         if (IsLocked || layout is null || index < 0 || index >= layout.FloatingWindows.Count) return;
         var fw = layout.FloatingWindows[index];
-        var b = fw.Bounds ?? new DockRect(x, y, 360, 260);
-        // no-change guard: re-observation echoes from JS must not loop into
-        // LayoutChanged → render → re-observe → echo, which starves the debounced save
+        var b = fw.Bounds ?? new DockRect(x, y, DockLayoutOps.DefaultFloatWidth, DockLayoutOps.DefaultFloatHeight);
+        // no-change guard: a click on the title bar must not churn LayoutChanged / the debounced save
         if (Math.Abs(b.X - x) < 0.5 && Math.Abs(b.Y - y) < 0.5) return;
-        fw.Bounds = new DockRect(x, y, b.Width, b.Height);
+        fw.Bounds = DockLayoutOps.ClampFloat(b with { X = x, Y = y });
         OnLayoutMutated("float-move");
+        StateHasChanged();
     }
 
     [JSInvokable]
-    public void OnFloatingResizedJs(int index, double width, double height)
+    public void OnFloatingBoundsChangedJs(int index, double x, double y, double width, double height)
     {
         if (IsLocked || layout is null || index < 0 || index >= layout.FloatingWindows.Count) return;
         var fw = layout.FloatingWindows[index];
-        var b = fw.Bounds ?? new DockRect(60, 40, width, height);
-        if (Math.Abs(b.Width - width) < 0.5 && Math.Abs(b.Height - height) < 0.5) return;
-        fw.Bounds = new DockRect(b.X, b.Y, width, height);
+        var next = DockLayoutOps.ClampFloat(new DockRect(x, y, width, height));
+        if (fw.Bounds is { } b
+            && Math.Abs(b.X - next.X) < 0.5 && Math.Abs(b.Y - next.Y) < 0.5
+            && Math.Abs(b.Width - next.Width) < 0.5 && Math.Abs(b.Height - next.Height) < 0.5)
+            return;
+        fw.Bounds = next;
         OnLayoutMutated("float-resize");
+        StateHasChanged();
+    }
+
+    /// <summary>Raises a floating window above its siblings. Z-order is session state, never persisted.</summary>
+    [JSInvokable]
+    public void OnFloatingFocusedJs(int index)
+    {
+        if (layout is null || index < 0 || index >= layout.FloatingWindows.Count) return;
+        if (BringFloatingToFront(index))
+            StateHasChanged();
     }
 
     // ----------------------------------------------------------------- floating
     async Task DockFloatingAsync(int index)
     {
-        if (layout is null || index < 0 || index >= layout.FloatingWindows.Count) return;
-        var fw = layout.FloatingWindows[index];
-        var tabs = GroupsIn(fw.DocumentArea).SelectMany(g => g.Tabs).ToList();
-        layout.FloatingWindows.RemoveAt(index);
-
-        var win = layout.MainWindow;
-        var target = GroupsIn(win.LeftRail).FirstOrDefault();
-        if (target is null)
-        {
-            target = new DockGroup();
-            win.LeftRail = target;
-        }
-        target.Tabs.AddRange(tabs);
-        target.ActiveTabIndex = target.Tabs.Count - 1;
+        if (IsLocked || layout is null || index < 0 || index >= layout.FloatingWindows.Count) return;
+        floatOrder.Remove(layout.FloatingWindows[index]);
+        var tabs = DockLayoutOps.DockFloatingBack(layout, index);
 
         OnLayoutMutated("dock-floating");
         if (tabs.Count > 0)
@@ -621,26 +532,87 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
 
     Task CloseFloatingAsync(int index)
     {
-        if (layout is null || index < 0 || index >= layout.FloatingWindows.Count) return Task.CompletedTask;
+        if (IsLocked || layout is null || index < 0 || index >= layout.FloatingWindows.Count) return Task.CompletedTask;
         var fw = layout.FloatingWindows[index];
-        foreach (var t in GroupsIn(fw.DocumentArea).SelectMany(g => g.Tabs))
+        if (!CanCloseFloating(fw)) return Task.CompletedTask;
+        foreach (var t in DockLayoutOps.GroupsIn(fw.DocumentArea).SelectMany(g => g.Tabs))
             fragments.Remove(t.PanelInstanceId);
         layout.FloatingWindows.RemoveAt(index);
+        floatOrder.Remove(fw);
         OnLayoutMutated("close-floating");
         StateHasChanged();
         return Task.CompletedTask;
     }
 
-    string FloatTitle(DockWindowState fw)
+    public async Task FloatPanelAsync(string panelInstanceId, CancellationToken ct = default)
     {
-        var group = GroupsIn(fw.DocumentArea).FirstOrDefault();
-        if (group is null || group.Tabs.Count == 0) return "Floating";
-        var active = group.Tabs[Math.Clamp(group.ActiveTabIndex, 0, group.Tabs.Count - 1)];
-        return GetTabTitle(active);
+        if (IsLocked || layout is null) return;
+        var n = layout.FloatingWindows.Count;
+        var bounds = new DockRect(60 + n * 28, 48 + n * 28, DockLayoutOps.DefaultFloatWidth, DockLayoutOps.DefaultFloatHeight);
+        var before = layout.FloatingWindows.Count;
+        var fw = DockLayoutOps.FloatTab(layout, panelInstanceId, bounds);
+        if (fw is null || layout.FloatingWindows.Count == before) return;
+
+        BringFloatingToFront(layout.FloatingWindows.IndexOf(fw));
+        OnLayoutMutated("float-panel");
+        await ActivatePanelAsync(panelInstanceId, ct);
+        StateHasChanged();
     }
 
-    static string FloatStyle(DockRect b) => string.Create(CultureInfo.InvariantCulture,
-        $"left:{b.X:0.##}px;top:{b.Y:0.##}px;width:{b.Width:0.##}px;height:{b.Height:0.##}px;");
+    /// <summary>Double-clicking a tab floats it; inside a floating window it docks the window back home.</summary>
+    Task OnTabDoubleClickAsync(DockTab tab)
+    {
+        if (IsLocked || layout is null) return Task.CompletedTask;
+        var group = DockLayoutOps.AllGroups(layout).FirstOrDefault(g => g.Tabs.Contains(tab));
+        if (group is not null && DockLayoutOps.FloatingWindowOf(layout, group) is { } owner)
+            return DockFloatingAsync(layout.FloatingWindows.IndexOf(owner));
+        return FloatPanelAsync(tab.PanelInstanceId);
+    }
+
+    bool BringFloatingToFront(int index)
+    {
+        if (layout is null || index < 0 || index >= layout.FloatingWindows.Count) return false;
+        var fw = layout.FloatingWindows[index];
+        if (floatOrder.TryGetValue(fw, out var z) && z == floatZ) return false;
+        floatOrder[fw] = ++floatZ;
+        return true;
+    }
+
+    int FloatZ(DockWindowState fw)
+        => floatOrder.TryGetValue(fw, out var z) ? z : 0;
+
+    bool CanCloseFloating(DockWindowState fw)
+        => DockLayoutOps.GroupsIn(fw.DocumentArea).SelectMany(g => g.Tabs).All(CanCloseTab);
+
+    DockTab? ActiveTabOf(DockWindowState fw)
+    {
+        var group = DockLayoutOps.GroupsIn(fw.DocumentArea).FirstOrDefault();
+        if (group is null || group.Tabs.Count == 0) return null;
+        return group.Tabs[Math.Clamp(group.ActiveTabIndex, 0, group.Tabs.Count - 1)];
+    }
+
+    bool IsFloatingActive(DockWindowState fw)
+        => layout?.MainWindow.ActivePanelId is { } id
+           && DockLayoutOps.GroupsIn(fw.DocumentArea).Any(g => g.Tabs.Any(t => t.PanelInstanceId == id));
+
+    bool IsGroupFocused(DockGroup group)
+        => layout?.MainWindow.ActivePanelId is { } id && group.Tabs.Any(t => t.PanelInstanceId == id);
+
+    DockGroup? FindGroup(string? groupId)
+        => groupId is null ? null : AllGroups().FirstOrDefault(g => g.GroupId == groupId);
+
+    string FloatTitle(DockWindowState fw)
+        => ActiveTabOf(fw) is { } active ? GetTabTitle(active) : "Floating";
+
+    string? FloatIcon(DockWindowState fw)
+        => ActiveTabOf(fw) is { } active ? GetTabIcon(active) : null;
+
+    /// <summary>One group holding one tab: the title bar already names it, so the tab strip is hidden.</summary>
+    static bool IsSingleTabFloat(DockWindowState fw)
+        => fw.DocumentArea is DockGroup { Tabs.Count: 1 };
+
+    string FloatStyle(DockWindowState fw, DockRect b) => string.Create(CultureInfo.InvariantCulture,
+        $"left:{b.X:0.##}px;top:{b.Y:0.##}px;width:{b.Width:0.##}px;height:{b.Height:0.##}px;z-index:{50 + FloatZ(fw)};");
 
     // ----------------------------------------------------------------- internals
     void OnLayoutMutated(string reason)
@@ -754,20 +726,8 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
         fragments[tab.PanelInstanceId] = await factory.CreateAsync(tab.PanelInstanceId, ct);
     }
 
-    DockGroup? FindFloatingGroup(DockGroup group)
-        => layout?.FloatingWindows.SelectMany(w => GroupsIn(w.DocumentArea)).FirstOrDefault(g => ReferenceEquals(g, group));
-
     IEnumerable<DockGroup> AllGroups()
-    {
-        if (layout is null) yield break;
-        var win = layout.MainWindow;
-        foreach (var node in new[] { win.DocumentArea, win.LeftRail, win.TopRail, win.RightRail, win.BottomRail })
-            foreach (var group in GroupsIn(node))
-                yield return group;
-        foreach (var fw in layout.FloatingWindows)
-            foreach (var group in GroupsIn(fw.DocumentArea))
-                yield return group;
-    }
+        => layout is null ? Enumerable.Empty<DockGroup>() : DockLayoutOps.AllGroups(layout);
 
     IEnumerable<DockSplit> AllSplits()
     {
@@ -776,105 +736,16 @@ public partial class DockHost : ComponentBase, IDockHost, IAsyncDisposable
         var roots = new List<DockNode?> { win.DocumentArea, win.LeftRail, win.TopRail, win.RightRail, win.BottomRail };
         roots.AddRange(layout.FloatingWindows.Select(w => (DockNode?)w.DocumentArea));
         foreach (var node in roots)
-            foreach (var split in SplitsIn(node))
+            foreach (var split in DockLayoutOps.SplitsIn(node))
                 yield return split;
     }
 
-    static IEnumerable<DockSplit> SplitsIn(DockNode? node)
-    {
-        if (node is not DockSplit s) yield break;
-        yield return s;
-        foreach (var c in SplitsIn(s.First)) yield return c;
-        foreach (var c in SplitsIn(s.Second)) yield return c;
-    }
-
-    static IEnumerable<DockGroup> GroupsIn(DockNode? node)
-    {
-        switch (node)
-        {
-            case DockGroup g:
-                yield return g;
-                break;
-            case DockSplit s:
-                foreach (var g in GroupsIn(s.First)) yield return g;
-                foreach (var g in GroupsIn(s.Second)) yield return g;
-                break;
-        }
-    }
-
-    void ReplaceNode(DockNode target, DockNode replacement)
-    {
-        if (layout is null) return;
-        var win = layout.MainWindow;
-        win.DocumentArea = ReplaceIn(win.DocumentArea, target, replacement) ?? new DockEmpty();
-        win.LeftRail = win.LeftRail is null ? null : ReplaceIn(win.LeftRail, target, replacement);
-        win.TopRail = win.TopRail is null ? null : ReplaceIn(win.TopRail, target, replacement);
-        win.RightRail = win.RightRail is null ? null : ReplaceIn(win.RightRail, target, replacement);
-        win.BottomRail = win.BottomRail is null ? null : ReplaceIn(win.BottomRail, target, replacement);
-        foreach (var fw in layout.FloatingWindows)
-            fw.DocumentArea = ReplaceIn(fw.DocumentArea, target, replacement) ?? new DockEmpty();
-    }
-
-    static DockNode? ReplaceIn(DockNode? node, DockNode target, DockNode replacement)
-    {
-        if (node is null) return null;
-        if (ReferenceEquals(node, target)) return replacement;
-        if (node is DockSplit s)
-        {
-            s.First = ReplaceIn(s.First, target, replacement) ?? new DockEmpty();
-            s.Second = ReplaceIn(s.Second, target, replacement) ?? new DockEmpty();
-        }
-        return node;
-    }
+    static IEnumerable<DockGroup> GroupsIn(DockNode? node) => DockLayoutOps.GroupsIn(node);
 
     void SimplifyAll()
     {
-        if (layout is null) return;
-        var win = layout.MainWindow;
-        win.DocumentArea = Simplify(win.DocumentArea) ?? new DockEmpty();
-        win.LeftRail = Simplify(win.LeftRail);
-        win.TopRail = Simplify(win.TopRail);
-        win.RightRail = Simplify(win.RightRail);
-        win.BottomRail = Simplify(win.BottomRail);
-        for (var i = layout.FloatingWindows.Count - 1; i >= 0; i--)
-        {
-            var area = Simplify(layout.FloatingWindows[i].DocumentArea);
-            if (area is null)
-                layout.FloatingWindows.RemoveAt(i);
-            else
-                layout.FloatingWindows[i].DocumentArea = area;
-        }
-
-        // a group left alone in a document well has nothing to collapse against —
-        // auto-expand so it can't get stuck as a strip-only sliver
-        if (win.DocumentArea is DockGroup lone)
-            lone.IsCollapsed = false;
-        foreach (var fw in layout.FloatingWindows)
-            if (fw.DocumentArea is DockGroup floatLone)
-                floatLone.IsCollapsed = false;
-    }
-
-    static DockNode? Simplify(DockNode? node)
-    {
-        switch (node)
-        {
-            case null:
-            case DockEmpty:
-                return null;
-            case DockGroup g:
-                return g.Tabs.Count == 0 ? null : g;
-            case DockSplit s:
-                var first = Simplify(s.First);
-                var second = Simplify(s.Second);
-                if (first is null && second is null) return null;
-                if (first is null) return second;
-                if (second is null) return first;
-                s.First = first;
-                s.Second = second;
-                return s;
-            default:
-                return node;
-        }
+        if (layout is not null)
+            DockLayoutOps.Simplify(layout);
     }
 
     public async ValueTask DisposeAsync()

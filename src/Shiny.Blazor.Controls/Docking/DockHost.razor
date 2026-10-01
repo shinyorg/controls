@@ -35,29 +35,52 @@
         {
             var windowIndex = w;
             var fw = layout.FloatingWindows[w];
-            var bounds = fw.Bounds ?? new DockRect(60 + w * 30, 40 + w * 30, 360, 260);
-            <div class="shiny-dock-float"
+            var bounds = fw.Bounds ?? new DockRect(60 + w * 28, 48 + w * 28, DockLayoutOps.DefaultFloatWidth, DockLayoutOps.DefaultFloatHeight);
+            var floatIcon = FloatIcon(fw);
+            <div class="shiny-dock-float @(IsFloatingActive(fw) ? "shiny-dock-float--active" : "") @(IsSingleTabFloat(fw) ? "shiny-dock-float--single" : "")"
                  data-dock-float="@windowIndex"
-                 style="@FloatStyle(bounds)"
+                 role="dialog"
+                 aria-label="@FloatTitle(fw)"
+                 style="@FloatStyle(fw, bounds)"
                  @key="fw">
-                <div class="shiny-dock-float__header" data-dock-float-header>
+                <div class="shiny-dock-float__header" data-dock-float-header
+                     @ondblclick="() => DockFloatingAsync(windowIndex)">
+                    @if (floatIcon is not null)
+                    {
+                        <span class="shiny-dock-float__icon">@floatIcon</span>
+                    }
                     <span class="shiny-dock-float__title">@FloatTitle(fw)</span>
-                    <span class="shiny-dock-float__actions">
-                        <button type="button" class="shiny-dock-float__btn" data-dock-float-btn
-                                title="Dock back into the layout"
-                                @onclick="() => DockFloatingAsync(windowIndex)">⇤</button>
-                        <button type="button" class="shiny-dock-float__btn" data-dock-float-btn
-                                title="Close"
-                                @onclick="() => CloseFloatingAsync(windowIndex)">×</button>
-                    </span>
+                    @if (!IsLocked)
+                    {
+                        <span class="shiny-dock-float__actions" @ondblclick:stopPropagation="true">
+                            <button type="button" class="shiny-dock-btn" data-dock-float-btn
+                                    title="Dock" aria-label="Dock"
+                                    @onclick="() => DockFloatingAsync(windowIndex)">@DockIcons.DockBack</button>
+                            @if (CanCloseFloating(fw))
+                            {
+                                <button type="button" class="shiny-dock-btn shiny-dock-btn--close" data-dock-float-btn
+                                        title="Close" aria-label="Close"
+                                        @onclick="() => CloseFloatingAsync(windowIndex)">@DockIcons.Close</button>
+                            }
+                        </span>
+                    }
                 </div>
                 <div class="shiny-dock-float__body">@RenderNode(fw.DocumentArea)</div>
+                @if (!IsLocked)
+                {
+                    @foreach (var dir in FloatResizeEdges)
+                    {
+                        <div class="shiny-dock-float__rsz shiny-dock-float__rsz--@dir" data-dock-float-rsz="@dir"></div>
+                    }
+                }
             </div>
         }
     }
 </div>
 
 @code {
+    static readonly string[] FloatResizeEdges = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+
     RenderFragment RenderRail(DockNode? node, DockArea area) => __builder =>
     {
         var areaName = area.ToString().ToLowerInvariant();
@@ -128,7 +151,8 @@
 
             case DockGroup group:
                 var activeIndex = Math.Clamp(group.ActiveTabIndex, 0, Math.Max(0, group.Tabs.Count - 1));
-                <div class="shiny-dock-group @(group.IsCollapsed ? "shiny-dock-group--collapsed" : "")"
+                var isFloating = layout is not null && DockLayoutOps.FloatingWindowOf(layout, group) is not null;
+                <div class="shiny-dock-group @(group.IsCollapsed ? "shiny-dock-group--collapsed" : "") @(IsGroupFocused(group) ? "shiny-dock-group--focused" : "")"
                      data-dock-group="@group.GroupId">
                     <div class="shiny-dock-tabs" role="tablist" data-dock-tabstrip="@group.GroupId">
                         @for (var i = 0; i < group.Tabs.Count; i++)
@@ -140,7 +164,9 @@
                                  role="tab"
                                  data-dock-tab="@tab.PanelInstanceId"
                                  aria-selected="@(tabIndex == activeIndex ? "true" : "false")"
-                                 @onclick="() => ActivateTab(group, tabIndex)">
+                                 title="@GetTabTitle(tab)"
+                                 @onclick="() => ActivateTab(group, tabIndex)"
+                                 @ondblclick="() => OnTabDoubleClickAsync(tab)">
                                 @if (GetTabIcon(tab) is { } tabIcon)
                                 {
                                     <span class="shiny-dock-tab__icon">@tabIcon</span>
@@ -150,27 +176,37 @@
                                 {
                                     <span class="shiny-dock-tab__close"
                                           title="Close"
+                                          role="button"
+                                          aria-label="Close @GetTabTitle(tab)"
                                           @onclick="() => HidePanelAsync(tab.PanelInstanceId)"
-                                          @onclick:stopPropagation="true">×</span>
+                                          @onclick:stopPropagation="true"
+                                          @ondblclick:stopPropagation="true">@DockIcons.Close</span>
                                 }
                             </div>
                         }
                         @if (!IsLocked)
                         {
-                            @* one collapse button, collapsing toward where the panel is docked *@
-                            @if (rail is { } railArea)
-                            {
-                                <span class="shiny-dock-tabs__spacer"></span>
-                                <button type="button" class="shiny-dock-collapse" title="Collapse panel"
-                                        @onclick="() => CollapseActiveTabAsync(railArea, group)">@RailCollapseGlyph(railArea)</button>
-                            }
-                            else if (inSplit || group.IsCollapsed)
-                            {
-                                <span class="shiny-dock-tabs__spacer"></span>
-                                <button type="button" class="shiny-dock-collapse"
-                                        title="@(group.IsCollapsed ? "Expand panel" : "Collapse panel")"
-                                        @onclick="() => ToggleGroupCollapsedAsync(group)">@(group.IsCollapsed ? "▸" : "▾")</button>
-                            }
+                            <span class="shiny-dock-tabs__spacer"></span>
+                            <span class="shiny-dock-tabs__tools">
+                                @if (!isFloating && group.Tabs.Count > 0)
+                                {
+                                    <button type="button" class="shiny-dock-btn" title="Float" aria-label="Float panel"
+                                            @onclick="() => FloatPanelAsync(group.Tabs[activeIndex].PanelInstanceId)">@DockIcons.Float</button>
+                                }
+                                @* one collapse button, collapsing toward where the panel is docked *@
+                                @if (rail is { } railArea)
+                                {
+                                    <button type="button" class="shiny-dock-btn" title="Collapse panel" aria-label="Collapse panel"
+                                            @onclick="() => CollapseActiveTabAsync(railArea, group)">@DockIcons.Chevron(railArea)</button>
+                                }
+                                else if (inSplit || group.IsCollapsed)
+                                {
+                                    <button type="button" class="shiny-dock-btn"
+                                            title="@(group.IsCollapsed ? "Expand panel" : "Collapse panel")"
+                                            aria-label="@(group.IsCollapsed ? "Expand panel" : "Collapse panel")"
+                                            @onclick="() => ToggleGroupCollapsedAsync(group)">@DockIcons.Chevron(group.IsCollapsed ? DockArea.Right : DockArea.Bottom)</button>
+                                }
+                            </span>
                         }
                     </div>
                     <div class="shiny-dock-group__content" data-dock-group-content="@group.GroupId">

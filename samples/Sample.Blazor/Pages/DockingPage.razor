@@ -8,14 +8,17 @@
 <div style="padding: 16px;">
     <h2>Docking</h2>
     <p style="color: gray; font-size: 13px;">
-        Visual-Studio-style docking host. Drag tabs between groups (drop on the middle to merge,
-        on an edge to split, on empty space to tear off a floating window), drag the separators
-        to resize, and the layout persists to localStorage across reloads.
+        Visual-Studio-style docking host. Drag a tab out and it becomes a translucent floating window:
+        drop it on a docking guide (the compass over a pane, or the guides on the outer edges) to dock it
+        there, or anywhere else to leave it floating. Drag a floating window's title bar onto a guide to
+        dock it back; double-click a tab to float it, or a title bar to send it home. Resize floating
+        windows from any edge. The layout persists to localStorage across reloads.
     </p>
 
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
         <button @onclick="ShowExplorer">Show Explorer (left)</button>
         <button @onclick="ShowOutput">Show Output (bottom)</button>
+        <button @onclick="FloatProperties">Float Properties</button>
         <button @onclick="ResetLayout">Reset layout</button>
         <button @onclick="ClearSaved">Clear saved layout</button>
         <label style="font-size:13px;">
@@ -112,6 +115,23 @@
 
     Task ShowExplorer() => host?.ShowPanelAsync("explorer", DockArea.Left) ?? Task.CompletedTask;
     Task ShowOutput() => host?.ShowPanelAsync("output", DockArea.Bottom) ?? Task.CompletedTask;
+    Task FloatProperties()
+    {
+        if (host is null) return Task.CompletedTask;
+        var win = host.Snapshot().MainWindow;
+        var tab = new[] { win.DocumentArea, win.LeftRail, win.TopRail, win.RightRail, win.BottomRail }
+            .SelectMany(Tabs)
+            .FirstOrDefault(t => t.PanelTypeId == "properties");
+        return tab is null ? Task.CompletedTask : host.FloatPanelAsync(tab.PanelInstanceId);
+    }
+
+    static IEnumerable<DockTab> Tabs(DockNode? node) => node switch
+    {
+        DockGroup g => g.Tabs,
+        DockSplit s => Tabs(s.First).Concat(Tabs(s.Second)),
+        _ => []
+    };
+
     Task ResetLayout() => host?.ResetLayoutAsync() ?? Task.CompletedTask;
 
     public void Dispose()

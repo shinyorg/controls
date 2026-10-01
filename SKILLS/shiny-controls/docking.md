@@ -153,7 +153,7 @@ readonly DockRoot layout = new()
 DockRoot
 ├── int SchemaVersion + int MinReadableVersion
 ├── DockWindowState MainWindow
-└── List<DockWindowState> FloatingWindows         (order = z-order)
+└── List<DockWindowState> FloatingWindows         (stacking order is session state, not persisted)
 
 DockWindowState
 ├── DockRect? Bounds                              (screen-coord rectangle — desktop only)
@@ -163,7 +163,8 @@ DockWindowState
 ├── double? LeftRailSize + TopRailSize + RightRailSize + BottomRailSize
 ├── List<DockArea> CollapsedRails                 (legacy whole-rail collapse — converted to per-panel on load)
 ├── List<DockCollapsedPanel> CollapsedTabs        (per-panel edge-bar collapse: which panel, which edge)
-└── string? ActivePanelId                         (for focus restoration on load)
+├── string? ActivePanelId                         (for focus restoration on load)
+└── string? RestoreGroupId                        (floating windows only: the group it was torn from — docking back returns it there)
 
 DockNode = DockSplit | DockGroup | DockEmpty       (System.Text.Json polymorphic, $kind discriminator)
 DockSplit  { Orientation, Ratio (0..1), First, Second }
@@ -192,6 +193,7 @@ public interface IDockHost
     Task HidePanelAsync(string panelInstanceId, CancellationToken ct = default);
     Task ActivatePanelAsync(string panelInstanceId, CancellationToken ct = default);
     Task ResetLayoutAsync(CancellationToken ct = default);
+    Task FloatPanelAsync(string panelInstanceId, CancellationToken ct = default);   // tear a panel off into its own floating window
     Task SetRailCollapsedAsync(DockArea area, bool collapsed, CancellationToken ct = default);
 }
 
@@ -255,13 +257,14 @@ public interface IDockCommandScope                 // for routing Ctrl+W / Ctrl+
 |---|---|
 | `DockHostView` (MAUI) / `<DockHost />` (Blazor) | Root dock surface. Attaches to an existing page; exposes `IDockHost` |
 | `DockGroupView` | Tabbed group of panels |
-| `DockTabStrip` | Tab strip with overflow (scroll + chevron) and drag-to-reorder/tear-off |
+| `DockTabStrip` | Tab strip with overflow (scroll + chevron), drag-to-reorder/tear-off, double-click to float |
 | `DockSplitter` | Draggable splitter between two adjacent dock children; reports position as a 0..1 ratio so layouts survive resize |
 
 ## Interactions (what ships, end-to-end)
 
-- **Tab drag** — drop on another group's center to merge, on a group edge (left/right/top/bottom) to split, within the tab strip to reorder, or outside the host to tear off a floating window. Drop zones render as a colored overlay while dragging.
-- **Floating windows** — independent dockable windows with their own bounds, persisted in `DockRoot.FloatingWindows`. Move via the header, resize via the corner grip, re-dock with the ⇤ button, close with ×.
+- **Tab drag (Visual Studio model)** — once a tab leaves its strip it becomes a **translucent floating window** that follows the pointer (on Blazor it carries a live snapshot of the panel). A **docking compass** (five guides: centre = tab into the group, left/right/top/bottom = split it) appears over the pane under the pointer, and **four outer guides** sit on the host edges (dock to that side of the whole layout). Only hovering a guide makes it a target — the accent **preview rectangle** shows exactly where the panel will land. Releasing anywhere else **floats** the panel right where it was let go, at the drag window's size. Over a tab strip the drop inserts at the caret. Escape cancels on Blazor (MAUI has no key hook). MAUI's drag window shows the panel title rather than a snapshot, and its resize grips do not change the cursor.
+- **Floating windows** — real window chrome: title bar (icon + title), **Dock** and **Close** buttons (close is hidden when any panel in it is `CanClose: false`), accent title bar on the window holding the active panel, tab strip hidden for a single panel, **resize from all four edges and corners**, click to bring to front. **Drag the title bar** and the window itself travels translucent with the same guides — drop on a guide to dock the whole window (edge drops keep its internal splits; centre / tab-strip drops merge its tabs), anywhere else to just move it. Bounds persist in `DockRoot.FloatingWindows`.
+- **Double-click** a tab to float it; double-click a floating title bar (or press Dock) to send it **home** — back into the group it was torn from (`RestoreGroupId`), or the left rail if that group is gone. `IDockHost.FloatPanelAsync(instanceId)` floats programmatically.
 - **Splitters** — drag to resize; `DockSplit.Ratio` persists and is clamped to 0.08–0.92 so neither side can vanish.
 - **Per-panel collapse** — collapse a tab to a slim edge bar (icon + rotated title); click to restore. `SetRailCollapsedAsync(area, collapsed)` collapses/restores a whole rail at once. Collapsed state persists via `CollapsedTabs`.
 - **Locked mode** — `IsLocked = true` disables drag, resize, collapse, and close; switching between existing tabs still works.
@@ -314,6 +317,8 @@ public sealed class ShinyStoreDockLayoutStore(IKeyValueStore store) : IDockLayou
 ```
 
 ## Theming
+
+Chrome follows the theme tokens (`--shiny-color-primary` is the accent for the active-tab bar, focused-group border, active floating title bar, guides and preview). Blazor overrides: `--shiny-dock-accent`, `--shiny-dock-host-bg`, `--shiny-dock-group-bg`, `--shiny-dock-border`, `--shiny-dock-tabs-bg`, `--shiny-dock-tab-*`, `--shiny-dock-focus-border`, `--shiny-dock-float-header-bg/-fg`, `--shiny-dock-float-active-header-bg/-fg`, `--shiny-dock-float-shadow`, `--shiny-dock-splitter-hover`.
 
 CSS custom properties (Blazor) and `ResourceDictionary` keys (MAUI) mirror each other so the same token list themes both hosts. Tokens are locked before styling lands so you don't end up with consumer-side `!important` hacks. Reduced-motion respect and `prefers-reduced-motion` honoring are first-class — animation duration is a theme token, not a constant.
 
