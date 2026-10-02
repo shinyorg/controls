@@ -428,6 +428,8 @@ public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICamera
 
     static partial void MapFlashMode(CameraViewHandler handler, CameraView view) { }
 
+    static partial void MapFocusMode(CameraViewHandler handler, CameraView view) { /* no focus control worth the name */ }
+
     static partial void MapZoom(CameraViewHandler handler, CameraView view)
     {
         try

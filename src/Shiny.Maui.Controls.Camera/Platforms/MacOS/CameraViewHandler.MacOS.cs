@@ -341,6 +341,8 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
 
     static partial void MapZoom(CameraViewHandler handler, CameraView view) { /* macOS cameras lack zoom */ }
 
+    static partial void MapFocusMode(CameraViewHandler handler, CameraView view) { /* no focus control worth the name */ }
+
     static partial void MapScaleMode(CameraViewHandler handler, CameraView view)
     {
         if (handler.previewLayer != null)
