@@ -52,6 +52,29 @@ public partial class CameraView
         nameof(IsPinchToZoomEnabled), typeof(bool), typeof(CameraView), false,
         propertyChanged: OnPinchToZoomEnabledChanged);
 
+    /// <summary>
+    /// How the lens chooses what to focus on. Default <see cref="CameraFocusMode.Auto"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The default is continuous, full-range autofocus, which is what a handheld camera wants. A camera
+    /// mounted behind glass does not: autofocus has no idea the glass is not the subject, so rain drops,
+    /// smears and glare on a windscreen are exactly what it locks onto, and the road goes soft. Set
+    /// <see cref="CameraFocusMode.Far"/> or <see cref="CameraFocusMode.Infinity"/> for that.
+    /// </para>
+    /// <para>
+    /// Applied live — it touches the device, never the session, so changing it mid-recording is safe and
+    /// does not interrupt anything. Re-applied whenever the camera changes (facing, <see cref="CameraId"/>).
+    /// </para>
+    /// <para>
+    /// <b>Per platform:</b> Apple supports all three. Android treats <see cref="CameraFocusMode.Far"/> as
+    /// <see cref="CameraFocusMode.Infinity"/> (Camera2 has no autofocus range restriction), and a
+    /// fixed-focus lens ignores the setting entirely. macOS and Windows ignore it.
+    /// </para>
+    /// </remarks>
+    public static readonly BindableProperty FocusModeProperty = BindableProperty.Create(
+        nameof(FocusMode), typeof(CameraFocusMode), typeof(CameraView), CameraFocusMode.Auto);
+
     /// <summary>How the preview fills the view. Default <see cref="PreviewScaleMode.AspectFill"/>.</summary>
     public static readonly BindableProperty ScaleModeProperty = BindableProperty.Create(
         nameof(ScaleMode), typeof(PreviewScaleMode), typeof(CameraView), PreviewScaleMode.AspectFill);
@@ -387,6 +410,13 @@ public partial class CameraView
     {
         get => (bool)this.GetValue(IsPinchToZoomEnabledProperty);
         set => this.SetValue(IsPinchToZoomEnabledProperty, value);
+    }
+
+    /// <inheritdoc cref="FocusModeProperty"/>
+    public CameraFocusMode FocusMode
+    {
+        get => (CameraFocusMode)this.GetValue(FocusModeProperty);
+        set => this.SetValue(FocusModeProperty, value);
     }
 
     /// <inheritdoc cref="ScaleModeProperty"/>

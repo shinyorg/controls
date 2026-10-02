@@ -276,6 +276,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
     static partial void MapZoom(CameraViewHandler handler, CameraView view)
         => handler.ApplyZoom(view.Zoom);
 
+    static partial void MapFocusMode(CameraViewHandler handler, CameraView view)
+        => handler.ConfigureFocus();
+
     static partial void MapScaleMode(CameraViewHandler handler, CameraView view)
     {
         if (handler.PlatformView is { } pv)
@@ -1059,10 +1062,13 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
     }
 
 
-    // Put the device into continuous autofocus and clear any near-limit restriction so the lens can
-    // re-focus as the subject distance changes. Without this the device can sit in a one-shot focus
-    // mode (or keep a "Far" range restriction), which is exactly why moving in close — e.g. to scan a
-    // document — leaves the preview blurry and never recovers.
+    // Auto: continuous autofocus with any near-limit restriction cleared, so the lens can re-focus as the
+    // subject distance changes. Without this the device can sit in a one-shot focus mode (or keep a "Far"
+    // range restriction), which is exactly why moving in close - e.g. to scan a document - leaves the
+    // preview blurry and never recovers.
+    //
+    // Far / Infinity: the opposite case, a camera behind glass. Full-range autofocus locks onto rain on a
+    // windscreen, so Far restricts it to distant subjects and Infinity parks the lens at its far limit.
     void ConfigureFocus()
     {
         if (this.device == null)
@@ -1072,16 +1078,31 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
             if (!this.device.LockForConfiguration(out var err) || err != null)
                 return;
 
-            if (this.device.IsFocusModeSupported(AVCaptureFocusMode.ContinuousAutoFocus))
-                this.device.FocusMode = AVCaptureFocusMode.ContinuousAutoFocus;
+            var mode = this.MaybeVirtualView?.FocusMode ?? CameraFocusMode.Auto;
+            var locked = mode == CameraFocusMode.Infinity && this.device.LockingFocusWithCustomLensPositionSupported;
 
-            // allow the lens to travel all the way to its near limit (macro/close range)
-            if (this.device.AutoFocusRangeRestrictionSupported)
-                this.device.AutoFocusRangeRestriction = AVCaptureAutoFocusRangeRestriction.None;
+            if (locked)
+            {
+                // 1.0 is the lens's far limit; not a calibrated infinity, but past the hyperfocal distance
+                // of every phone lens, which is what matters
+                this.device.SetFocusModeLocked(1.0f, null!);
+            }
+            else
+            {
+                if (this.device.IsFocusModeSupported(AVCaptureFocusMode.ContinuousAutoFocus))
+                    this.device.FocusMode = AVCaptureFocusMode.ContinuousAutoFocus;
 
-            // drive focus from the centre of the frame, where the subject the user is moving toward sits
-            if (this.device.FocusPointOfInterestSupported)
-                this.device.FocusPointOfInterest = new CGPoint(0.5, 0.5);
+                // Auto lets the lens travel all the way to its near limit (macro/close range); Far, and an
+                // Infinity the device cannot lock, keep it off anything close to the glass
+                if (this.device.AutoFocusRangeRestrictionSupported)
+                    this.device.AutoFocusRangeRestriction = mode == CameraFocusMode.Auto
+                        ? AVCaptureAutoFocusRangeRestriction.None
+                        : AVCaptureAutoFocusRangeRestriction.Far;
+
+                // drive focus from the centre of the frame, where the subject the user is moving toward sits
+                if (this.device.FocusPointOfInterestSupported)
+                    this.device.FocusPointOfInterest = new CGPoint(0.5, 0.5);
+            }
 
             // smoother lens travel for video/preview rather than abrupt hunting
             if (this.device.SmoothAutoFocusSupported)

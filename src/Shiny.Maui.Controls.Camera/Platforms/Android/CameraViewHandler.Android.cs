@@ -430,6 +430,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLa
     static partial void MapZoom(CameraViewHandler handler, CameraView view)
         => handler.camera?.CameraControl.SetZoomRatio((float)view.Zoom);
 
+    static partial void MapFocusMode(CameraViewHandler handler, CameraView view)
+        => handler.ApplyFocusMode(view.FocusMode);
+
     static partial void MapScaleMode(CameraViewHandler handler, CameraView view)
     {
         if (handler.previewView != null)
@@ -618,6 +621,50 @@ public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLa
         this.ReportZoomRange();
         this.camera.CameraControl.SetZoomRatio((float)this.VirtualView.Zoom);
         this.camera.CameraControl.EnableTorch(this.VirtualView.IsTorchOn);
+        this.ApplyFocusMode(this.VirtualView.FocusMode);
+    }
+
+
+    // Auto hands focus back to CameraX's own continuous autofocus. Far and Infinity both turn autofocus off
+    // and park the lens at distance 0, which Camera2 defines as infinity - there is no far-range restriction
+    // on Android, and for a camera behind a rainy windscreen a locked lens is the stricter answer anyway.
+    // A fixed-focus lens (minimum focus distance 0) has nothing to drive, and is left alone.
+    void ApplyFocusMode(CameraFocusMode mode)
+    {
+        if (this.camera == null)
+            return;
+
+        try
+        {
+            var c2 = AndroidX.Camera.Camera2.InterOp.Camera2CameraControl.From(this.camera.CameraControl);
+            if (mode == CameraFocusMode.Auto)
+            {
+                c2.ClearCaptureRequestOptions();
+            }
+            else
+            {
+                var info = AndroidX.Camera.Camera2.InterOp.Camera2CameraInfo.From(this.camera.CameraInfo);
+                var minFocus = info.GetCameraCharacteristic(
+                    Android.Hardware.Camera2.CameraCharacteristics.LensInfoMinimumFocusDistance!) as Java.Lang.Float;
+
+                if (minFocus != null && minFocus.FloatValue() > 0f)
+                {
+                    var options = new AndroidX.Camera.Camera2.InterOp.CaptureRequestOptions.Builder()
+                        .SetCaptureRequestOption(
+                            Android.Hardware.Camera2.CaptureRequest.ControlAfMode!,
+                            Java.Lang.Integer.ValueOf((int)Android.Hardware.Camera2.ControlAFMode.Off))
+                        .SetCaptureRequestOption(
+                            Android.Hardware.Camera2.CaptureRequest.LensFocusDistance!,
+                            Java.Lang.Float.ValueOf(0f))
+                        .Build();
+                    c2.SetCaptureRequestOptions(options);
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+            this.MaybeVirtualView?.OnCameraError("Focus configuration failed", ex);
+        }
     }
 
 

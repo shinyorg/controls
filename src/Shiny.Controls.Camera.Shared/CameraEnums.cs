@@ -43,3 +43,32 @@ public enum CameraFrameFormat
     /// <summary>Single 8-bit luminance plane.</summary>
     Grayscale8
 }
+
+
+/// <summary>How the lens chooses what to focus on.</summary>
+public enum CameraFocusMode
+{
+    /// <summary>
+    /// Continuous autofocus across the lens's whole range, from the centre of the frame (default). Right for
+    /// a handheld camera whose subject distance keeps changing — a document moved in close, a barcode.
+    /// </summary>
+    Auto,
+
+    /// <summary>
+    /// Continuous autofocus that is told to ignore close subjects. For a camera looking <i>through</i>
+    /// something — a windscreen, a window — where full-range autofocus will happily lock onto rain, dirt
+    /// or glare on the glass and leave the scene behind it soft.
+    /// </summary>
+    /// <remarks>
+    /// Only Apple has a far-range restriction on autofocus. Android has no equivalent, so there this
+    /// behaves as <see cref="Infinity"/>, which is the stricter answer to the same problem.
+    /// </remarks>
+    Far,
+
+    /// <summary>
+    /// Autofocus off, lens parked at its far limit. Nothing close to the lens can pull focus, ever — and
+    /// because a phone's wide lens has a short hyperfocal distance, everything from a couple of metres out
+    /// stays sharp. This is how a dedicated dash cam works (most are fixed-focus).
+    /// </summary>
+    Infinity
+}

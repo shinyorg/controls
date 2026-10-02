@@ -184,6 +184,18 @@ IReadOnlyList<CameraInfo> cameras = await this.Camera.GetAvailableCamerasAsync()
 this.Camera.CameraId = cameras.First(c => c.Name.Contains("USB")).Id;   // null => fall back to Facing
 ```
 
+### Focus (`FocusMode`)
+
+Default `Auto` = continuous full-range autofocus. A camera mounted **behind glass** (dash cam, window-mounted monitor) should not use it — autofocus locks onto rain drops, dirt and glare on the glass.
+
+```xml
+<cam:CameraView FocusMode="Infinity" />   <!-- Auto | Far | Infinity -->
+```
+
+- `Far` — continuous AF restricted to distant subjects (Apple `AutoFocusRangeRestriction.Far`). Android has no range restriction and treats it as `Infinity`.
+- `Infinity` — AF off, lens parked at its far limit (Apple `SetFocusModeLocked(1.0)`, Android `CONTROL_AF_MODE_OFF` + `LENS_FOCUS_DISTANCE = 0`). Fixed-focus Android lenses ignore it.
+- Live: touches the device, never the session — safe mid-recording. Re-applied on facing/`CameraId` changes. macOS/Windows ignore it.
+
 ### Photo quality
 
 Stills default to `PhotoQuality.Highest` — the device's **full sensor resolution** at the platform's best quality — and this is **independent of `VideoQuality`**. Before this existed the still rode the session preset, so the default 1080p session handed back a ~2MP photo from a 12MP sensor with no way to ask for more.

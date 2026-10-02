@@ -57,6 +57,7 @@ public partial class CameraViewHandler
             [nameof(CameraView.IsTorchOn)] = MapTorch,
             [nameof(CameraView.FlashMode)] = MapFlashMode,
             [nameof(CameraView.Zoom)] = MapZoom,
+            [nameof(CameraView.FocusMode)] = MapFocusMode,
             [nameof(CameraView.ScaleMode)] = MapScaleMode,
             [nameof(CameraView.ShowPreview)] = MapShowPreview,
             [nameof(CameraView.ShowDetectionOverlay)] = MapOverlay,
@@ -92,6 +93,9 @@ public partial class CameraViewHandler
     static partial void MapFlashMode(CameraViewHandler handler, CameraView view);
     static partial void MapZoom(CameraViewHandler handler, CameraView view);
     static partial void MapScaleMode(CameraViewHandler handler, CameraView view);
+
+    // Implemented on Apple and Android only; macOS and Windows cameras expose no focus control worth the name.
+    static partial void MapFocusMode(CameraViewHandler handler, CameraView view);
 
     // The display path on its own. Never the session: every implementation of this leaves capture, the
     // analyzer and any recording in flight exactly as they were - see CameraView.ShowPreviewProperty.
