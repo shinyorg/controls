@@ -69,6 +69,19 @@ sealed class DialogView : ContentView
 
         this.Content = root;
         AutomationProperties.SetName(this, string.IsNullOrEmpty(config.Title) ? config.Message : config.Title);
+
+        // While the dialog is up, the page behind it must not react to its keyboard shortcuts — and
+        // on a hardware keyboard Escape should do what Cancel (or a backdrop tap) does.
+        KeyboardShortcuts.SetIsModal(this, true);
+        if (!string.IsNullOrEmpty(config.CancelText) || config.DismissOnBackdrop)
+        {
+            KeyboardShortcuts.GetShortcuts(this).Add(new KeyboardShortcut
+            {
+                Key = "Escape",
+                TextInput = Shiny.Controls.Keyboard.TextInputBehavior.Always,
+                Command = new Command(this.OnCancel)
+            });
+        }
     }
 
     public DialogOutcome Outcome { get; private set; }

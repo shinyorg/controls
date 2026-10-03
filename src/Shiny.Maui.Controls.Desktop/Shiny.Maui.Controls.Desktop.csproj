@@ -29,7 +29,7 @@
         <SingleProject>true</SingleProject>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <RootNamespace>Shiny.Maui.Controls.Desktop</RootNamespace>
-        <Description>Desktop-only .NET MAUI controls — system tray / status bar icon (Windows, macOS AppKit + Catalyst, Linux ayatana-appindicator), Visual-Studio-style docking (dockable tool windows, tabbed groups, splitters, auto-hide rails, tear-off floating windows), global hotkeys, and the desktop-window presentation of Shiny's quick entry popup and screen-edge glow.</Description>
+        <Description>Desktop-only .NET MAUI controls — system tray / status bar icon (Windows, macOS AppKit + Catalyst, Linux ayatana-appindicator), Visual-Studio-style docking (dockable tool windows, tabbed groups, splitters, auto-hide rails, tear-off floating windows), global hotkeys, the native key sources for in-app keyboard shortcuts on AppKit, GTK4 and Catalyst, and the desktop-window presentation of Shiny's quick entry popup and screen-edge glow.</Description>
     </PropertyGroup>
 
     <ItemGroup>
@@ -62,6 +62,9 @@
 
     <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'maccatalyst'">
         <Compile Include="Platforms/MacCatalyst/**/*.cs" />
+        <!-- The GameController keyboard source core compiles for iOS. Core has no Catalyst target, so
+             its net10.0 asset is what Catalyst gets — this links the same file in instead. -->
+        <Compile Include="../Shiny.Maui.Controls/KeyboardShortcuts/GameControllerKeySource.cs" Link="KeyboardShortcuts/GameControllerKeySource.cs" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'macos'">

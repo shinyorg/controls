@@ -1,0 +1,40 @@
+@namespace Shiny.Blazor.Controls
+@implements IDisposable
+@inject IKeyboardShortcutService Service
+
+<kbd class="shiny-kbd @this.Class" title="@this.Title" @attributes="this.AdditionalAttributes">@this.text</kbd>
+
+@code {
+    string text = String.Empty;
+
+    /// <summary>The gesture to show, in gesture syntax — written out the way the viewer's platform writes it (<c>⇧⌘P</c> on a Mac, <c>Ctrl+Shift+P</c> elsewhere).</summary>
+    [Parameter, EditorRequired] public string Gesture { get; set; } = String.Empty;
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Title { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override void OnInitialized() => this.Service.PlatformChanged += this.OnPlatformChanged;
+
+    protected override void OnParametersSet() => this.Format();
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+        => firstRender ? this.Service.StartAsync() : Task.CompletedTask;
+
+    void Format()
+        => this.text = Shiny.Controls.Keyboard.KeyGesture.TryParse(this.Gesture, out var gesture)
+            ? this.Service.Format(gesture)
+            : this.Gesture;
+
+    // The platform is only known once the JS module reports it, after the first render: Ctrl+K
+    // becomes ⌘K on a Mac at that point.
+    void OnPlatformChanged(object? sender, EventArgs e) => _ = this.InvokeAsync(() =>
+    {
+        this.Format();
+        this.StateHasChanged();
+    });
+
+    public void Dispose() => this.Service.PlatformChanged -= this.OnPlatformChanged;
+}

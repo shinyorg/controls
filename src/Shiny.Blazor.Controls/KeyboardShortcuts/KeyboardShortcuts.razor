@@ -1,0 +1,17 @@
+@namespace Shiny.Blazor.Controls
+@implements IDisposable
+
+@* Shortcut children register themselves through the cascade; IsFixed because they only need the
+   reference, never a re-render when this component's parameters change. *@
+<CascadingValue Value="this" IsFixed="true">
+    @if (this.isElementScope)
+    {
+        @* display: contents keeps the wrapper out of layout — it exists only so the browser can ask
+           "is focus inside this?" *@
+        <div class="shiny-keyboard-scope" style="display: contents" @ref="this.element">@this.ChildContent</div>
+    }
+    else
+    {
+        @this.ChildContent
+    }
+</CascadingValue>

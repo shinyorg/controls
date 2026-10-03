@@ -60,4 +60,4 @@ await dialogs.Confirm("Delete?", "This cannot be undone.", configure: c =>
 - **Full template override**: MAUI `DialogOptions.ContentTemplate` (a `DataTemplate` bound to `DialogContext`); Blazor `<DialogHost Template="...">` (a `RenderFragment<DialogContext>`). The host still supplies the dimmed backdrop and animation.
 - **Replace the service**: MAUI `c.SetCustomDialogs<T>()`.
 
-Tapping the backdrop or pressing `Escape` (Blazor) cancels (`Confirm` → `false`, `Prompt` → `Cancelled`); `Enter` confirms. Colors follow the theme tokens (`--shiny-color-surface` / `Shiny.Color.Surface`, `Primary`, …) so dialogs match light/dark automatically.
+Tapping the backdrop or pressing `Escape` cancels (`Confirm` → `false`, `Prompt` → `Cancelled`); `Enter` confirms on Blazor. On MAUI, `Escape` comes from a hardware keyboard and works whenever the dialog has a Cancel button or `DismissOnBackdrop` is on. While a MAUI dialog is open it is a modal [keyboard-shortcut](keyboard-shortcuts.md) scope, so the page behind it ignores its shortcuts. Colors follow the theme tokens (`--shiny-color-surface` / `Shiny.Color.Surface`, `Primary`, …) so dialogs match light/dark automatically.

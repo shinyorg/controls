@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             xmlns:local="clr-namespace:Sample.Features.KeyboardShortcuts"
+             x:Class="Sample.Features.KeyboardShortcuts.KeyboardShortcutsPage"
+             x:DataType="local:KeyboardShortcutsViewModel"
+             Title="Keyboard Shortcuts"
+             AutomationId="KeyboardShortcutsPage">
+
+    <!-- Page-wide: live while this page is showing. -->
+    <shiny:KeyboardShortcuts.Shortcuts>
+        <shiny:KeyboardShortcut Gesture="Primary+S" Command="{Binding SaveCommand}" Description="Save" Category="File" />
+        <shiny:KeyboardShortcut Gesture="Primary+Shift+P" Command="{Binding PaletteCommand}" Description="Command palette" Category="General" />
+        <shiny:KeyboardShortcut Gesture="Primary+K, Primary+C" Command="{Binding CommentCommand}" Description="Comment (a two-step chord)" Category="Edit" />
+        <shiny:KeyboardShortcut Gesture="?" Command="{Binding ToggleCheatSheetCommand}" Description="Show these shortcuts" Category="General" />
+        <shiny:KeyboardShortcut Key="M" Command="{Binding OpenModalCommand}" Description="Open the modal overlay" Category="General" />
+        <shiny:KeyboardShortcut Key="Left" AllowRepeat="True" Command="{Binding NudgeCommand}" CommandParameter="left" Description="Nudge the box (hold to repeat)" Category="Move" />
+        <shiny:KeyboardShortcut Key="Right" AllowRepeat="True" Command="{Binding NudgeCommand}" CommandParameter="right" Description="Nudge the box" Category="Move" />
+        <shiny:KeyboardShortcut Key="Up" AllowRepeat="True" Command="{Binding NudgeCommand}" CommandParameter="up" Description="Nudge the box" Category="Move" />
+        <shiny:KeyboardShortcut Key="Down" AllowRepeat="True" Command="{Binding NudgeCommand}" CommandParameter="down" Description="Nudge the box" Category="Move" />
+        <shiny:KeyboardShortcut Key="Space"
+                                TextInput="Never"
+                                Command="{Binding StartTalkingCommand}"
+                                ReleasedCommand="{Binding StopTalkingCommand}"
+                                Description="Push to talk (hold)"
+                                Category="Voice" />
+    </shiny:KeyboardShortcuts.Shortcuts>
+
+    <Grid>
+        <ScrollView Padding="16">
+            <VerticalStackLayout Spacing="18">
+
+                <Label Text="Keyboard shortcuts" FontSize="22" FontAttributes="Bold" />
+                <Label Text="Declared in XAML on the page, on a view, and on a modal overlay. Primary is ⌘ on Apple platforms and Ctrl everywhere else. Hardware keyboards on iPad and Android work too." />
+
+                <Border Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#374151}" StrokeThickness="1" Padding="14" StrokeShape="RoundRectangle 10">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="{Binding SupportMessage}" AutomationId="KeyboardShortcutsSupport" />
+                        <Label Text="{Binding ChordStatus}" TextColor="#2563EB" FontAttributes="Italic" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Page shortcuts -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="On the page" FontSize="16" FontAttributes="Bold" />
+                    <Label>
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="{Binding SaveText}" FontAttributes="Bold" />
+                                <Span Text=" saves — " />
+                                <Span Text="{Binding SaveCount, StringFormat='{0} so far'}" />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                    <HorizontalStackLayout Spacing="8">
+                        <Switch IsToggled="{Binding CanSave}" />
+                        <Label Text="Save enabled — turn off and the key falls through (CanExecute)" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    <Label Text="{Binding PaletteText, StringFormat='{0} opens the command palette'}" />
+                    <Label Text="{Binding ChordText, StringFormat='{0} is a two-step chord'}" />
+                    <Label Text="? shows every reachable shortcut. Arrow keys nudge the box below; hold one to repeat. Hold Space to talk." />
+
+                    <Border HeightRequest="110" WidthRequest="280" HorizontalOptions="Start" Stroke="#CBD5E1" StrokeShape="RoundRectangle 8" Padding="0">
+                        <AbsoluteLayout>
+                            <BoxView Color="#6366F1" CornerRadius="6"
+                                     WidthRequest="30" HeightRequest="30"
+                                     AbsoluteLayout.LayoutBounds="0,0,30,30"
+                                     TranslationX="{Binding BoxX}"
+                                     TranslationY="{Binding BoxY}" />
+                        </AbsoluteLayout>
+                    </Border>
+
+                    <Border Padding="10" StrokeShape="RoundRectangle 8"
+                            BackgroundColor="{AppThemeBinding Light=#DCFCE7, Dark=#14532D}"
+                            IsVisible="{Binding IsTalking}">
+                        <Label Text="🎙 Talking…" FontAttributes="Bold" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- Text input rule -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="While typing" FontSize="16" FontAttributes="Bold" />
+                    <Label Text="Plain keys (?, the arrows, Space) stay with the field. Shortcuts with Ctrl/⌘/Alt still fire." FontSize="13" Opacity="0.75" />
+                    <Entry Placeholder="Type here — try ?, Space and the save shortcut" Text="{Binding Notes}" AutomationId="KeyboardShortcutsEntry" />
+                </VerticalStackLayout>
+
+                <!-- View scope: outranks the page for the same keys -->
+                <Border Stroke="#A78BFA" StrokeThickness="1" Padding="14" StrokeShape="RoundRectangle 10">
+                    <shiny:KeyboardShortcuts.Shortcuts>
+                        <shiny:KeyboardShortcut Gesture="Primary+B" Command="{Binding ToggleBoldCommand}" Description="Bold" Category="Editor" />
+                    </shiny:KeyboardShortcuts.Shortcuts>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="A view with its own shortcuts" FontSize="16" FontAttributes="Bold" />
+                        <Label Text="{Binding BoldText, StringFormat='{0} toggles bold. A view outranks its page, and goes quiet when it is hidden.'}" />
+                        <Label Text="The quick brown fox jumps over the lazy dog.">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding IsBold}" Value="True">
+                                    <Setter Property="FontAttributes" Value="Bold" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="Open a modal overlay (M)" Command="{Binding OpenModalCommand}" HorizontalOptions="Start" />
+
+                <!-- Event log -->
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Event log" FontSize="16" FontAttributes="Bold" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding EventLog}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Label Text="{Binding .}" FontFamily="Courier" FontSize="12" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Cheat sheet -->
+        <Grid IsVisible="{Binding IsCheatSheetOpen}" BackgroundColor="#80000000">
+            <Border WidthRequest="420" VerticalOptions="Center" Padding="18" StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=#1F2937}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Shortcuts" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="{Binding CheatSheet}" FontFamily="Courier" FontSize="13" AutomationId="KeyboardShortcutsCheatSheet" />
+                    <Label Text="Press ? again to close." FontSize="12" Opacity="0.7" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- Modal: blocks every page shortcut while it is showing -->
+        <Grid IsVisible="{Binding IsModalOpen}" BackgroundColor="#80000000" shiny:KeyboardShortcuts.IsModal="True">
+            <shiny:KeyboardShortcuts.Shortcuts>
+                <shiny:KeyboardShortcut Key="Escape" Command="{Binding CloseModalCommand}" Description="Close" Category="Modal" />
+                <shiny:KeyboardShortcut Key="Enter" Command="{Binding ModalActionCommand}" Description="Act" Category="Modal" />
+            </shiny:KeyboardShortcuts.Shortcuts>
+            <Border WidthRequest="360" VerticalOptions="Center" Padding="18" StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=#1F2937}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="A modal scope" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="While this is open the page's shortcuts are blocked — try the save shortcut. Enter acts, Escape closes." />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Dependency-free and shared rather than mirrored. Which key a stroke "is" depends on the
+             keyboard layout, the platform's idea of Cmd vs Ctrl, whether a text field has focus and
+             whether a chord is half-typed — rules that are easy to get subtly different on two hosts
+             and impossible to notice until a user on an AZERTY keyboard files a bug. They live once. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <!-- The repo uses two feeds (nuget.org + dotnet10) without source mapping; NU1507 is a
+             restore-config warning, not a code-quality one, so it must not fail these builds. -->
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.Keyboard</RootNamespace>
+        <Description>Host-neutral keyboard shortcut engine — gesture parsing and platform display (Ctrl+Shift+A / ⌃⇧A), a Primary modifier that is Cmd on Apple and Ctrl elsewhere, layout-aware matching, chords, scopes with modal precedence, repeat and release tracking, and native key-code tables for Windows, macOS, X11/evdev, USB HID and Android. Used by the .NET MAUI and Blazor keyboard shortcut controls.</Description>
+        <PackageTags>maui blazor shiny keyboard shortcuts hotkeys accelerators keybindings</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.Keyboard.Tests" />
+    </ItemGroup>
+
+</Project>

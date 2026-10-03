@@ -1,0 +1,13 @@
+.shiny-kbd {
+    display: inline-block;
+    padding: 0.1em 0.45em;
+    border: 1px solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--shiny-color-surface-container, #E8EEF6);
+    color: var(--shiny-color-on-surface, #161C23);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    line-height: 1.4;
+    white-space: nowrap;
+}

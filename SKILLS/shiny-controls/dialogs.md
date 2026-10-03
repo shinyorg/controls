@@ -164,7 +164,8 @@ Four levels, smallest to largest:
 ## Behavior
 
 - **Modal & queued**: dialogs show one at a time; awaiting several in a row displays them sequentially.
-- **Backdrop / Escape**: tapping the dimmed backdrop cancels (configurable via `DismissOnBackdrop`); on Blazor `Escape` cancels and `Enter` confirms.
+- **Backdrop / Escape**: tapping the dimmed backdrop cancels (configurable via `DismissOnBackdrop`); on Blazor `Escape` cancels and `Enter` confirms. On MAUI, a hardware-keyboard `Escape` cancels too, whenever the dialog has a Cancel button or `DismissOnBackdrop` is on.
+- **Keyboard shortcuts**: an open MAUI dialog is a modal keyboard-shortcut scope (`KeyboardShortcuts.IsModal`), so page shortcuts are blocked until it closes (see `keyboard-shortcuts.md`).
 - **Theming**: surface/text/outline/primary colors come from the theme tokens, so dialogs match light/dark automatically.
 
 ## Code Generation Guidance

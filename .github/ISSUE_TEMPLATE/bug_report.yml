@@ -66,6 +66,7 @@ body:
         - Shiny.Controls.FloorPlan.Shared
         - Shiny.Controls.Gamepad.Shared
         - Shiny.Controls.Gantt.Shared
+        - Shiny.Controls.Keyboard.Shared
         - Shiny.Controls.Keyframe.Shared
         - Shiny.Controls.MediaElement.Shared
         - Shiny.Controls.MotionIcons.Shared

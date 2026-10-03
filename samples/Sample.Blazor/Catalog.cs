@@ -85,6 +85,7 @@ public static class Catalog
             new("captcha", "Captcha", "🛡", "Human check — local challenge, reCAPTCHA, hCaptcha or Turnstile"),
             new("signaturepad", "Signature Pad", "✍", "Draw, clear and export a signature"),
             new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Touch / kiosk QWERTY that never steals the caret"),
+            new("keyboardshortcuts", "Keyboard Shortcuts", "⌘", "Page, element and modal shortcuts, chords and push-to-talk"),
             new("gamepad", "Gamepad", "✚", "On-screen NES, SNES and Xbox/PlayStation controller that is a real Shiny.Gamepad IGamepad")
         ]),
 

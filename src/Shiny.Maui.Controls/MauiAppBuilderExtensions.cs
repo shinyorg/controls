@@ -56,6 +56,12 @@ public static class ControlsMauiAppBuilderExtensions
         builder.Services.TryAddSingleton(cfg.DialogOptions);
         builder.Services.TryAddSingleton<IDialogService, DialogService>();
 
+        // Keyboard shortcuts run on one static engine (XAML-declared shortcuts have no route to DI);
+        // the service is a facade over it. The initializer gets app-wide shortcuts registered during
+        // startup a key source once the first window exists.
+        builder.Services.TryAddSingleton<IKeyboardShortcutService, KeyboardShortcutService>();
+        builder.Services.AddSingleton<IMauiInitializeService, KeyboardShortcutInitializer>();
+
         // ShinyImage's stack. The downloader is registered separately from the service so an app can
         // swap in its own HttpClient (auth headers, pinning) without also taking over caching,
         // queueing and de-duplication - which is what almost every "custom image loading" need
@@ -91,8 +97,11 @@ public static class ControlsMauiAppBuilderExtensions
 #if ANDROID
         // In-page overlays (ribbon dropdowns, the Office backstage and dialogs) take the back button
         // while they are open - see AndroidBackButton.
-        builder.ConfigureLifecycleEvents(events => events.AddAndroid(android =>
-            android.OnBackPressed(_ => AndroidBackButton.HandleBack())));
+        builder.ConfigureLifecycleEvents(events => events.AddAndroid(android => android
+            .OnBackPressed(_ => AndroidBackButton.HandleBack())
+            // Hardware-keyboard shortcuts. The activity only sees keys the focused view declined.
+            .OnKeyDown((activity, keyCode, e) => AndroidKeySource.OnKey(activity, keyCode, e, isUp: false))
+            .OnKeyUp((activity, keyCode, e) => AndroidKeySource.OnKey(activity, keyCode, e, isUp: true))));
 #endif
 
         EntryHandler.Mapper.AppendToMapping("ShinyBorderless", (handler, view) =>

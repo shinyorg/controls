@@ -19,7 +19,7 @@ public static class ShinyControlsServiceCollectionExtensions
 {
     /// <summary>
     /// Registers everything the host components need — Toast, the progress line, Dialogs, the splash
-    /// screen, the walkthrough store, docking, file drop and the on-screen keyboard — in one call, mirroring
+    /// screen, the walkthrough store, docking, file drop, keyboard shortcuts and the on-screen keyboard — in one call, mirroring
     /// MAUI's <c>UseShinyControls</c>.
     /// </summary>
     /// <remarks>
@@ -58,6 +58,7 @@ public static class ShinyControlsServiceCollectionExtensions
         services.AddShinyOnScreenKeyboard(cfg.KeyboardConfigure);
         services.AddShinyQuickEntry(cfg.QuickEntryConfigure);
         services.AddShinyFileDrop(cfg.FileDropConfigure);
+        services.AddShinyKeyboardShortcuts();
 
         return services;
     }

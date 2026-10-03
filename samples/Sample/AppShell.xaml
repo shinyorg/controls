@@ -57,6 +57,7 @@
                   xmlns:filedrop="clr-namespace:Sample.Features.FileDrop"
                   xmlns:quickentry="clr-namespace:Sample.Features.QuickEntry"
                   xmlns:osk="clr-namespace:Sample.Features.OnScreenKeyboard"
+                  xmlns:kbshortcuts="clr-namespace:Sample.Features.KeyboardShortcuts"
                   xmlns:progressbar="clr-namespace:Sample.Features.ProgressBar"
                   xmlns:progressline="clr-namespace:Sample.Features.ProgressLine"
                   xmlns:slider="clr-namespace:Sample.Features.Slider"
@@ -795,6 +796,14 @@
                              Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate osk:OnScreenKeyboardPage}" Route="onscreenkeyboard" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Keyboard Shortcuts">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2318;" Size="20"
+                             Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate kbshortcuts:KeyboardShortcutsPage}" Route="keyboardshortcuts" />
     </FlyoutItem>
 
     <FlyoutItem Title="Gamepad">

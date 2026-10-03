@@ -55,10 +55,10 @@
     -->
     <ItemGroup>
         <Compile Include="..\Sample\**\*.cs"
-                 Exclude="..\Sample\Platforms\**;..\Sample\MauiProgram.cs;..\Sample\MyCustomFeedbackService.cs;..\Sample\App.xaml.cs;..\Sample\AppShell.xaml.cs;..\Sample\Features\Chat\**;..\Sample\Features\Camera\**;..\Sample\Features\KitchenSink\**;..\Sample\bin\**;..\Sample\obj\**"
+                 Exclude="..\Sample\Platforms\**;..\Sample\MauiProgram.cs;..\Sample\MyCustomFeedbackService.cs;..\Sample\App.xaml.cs;..\Sample\AppShell.xaml.cs;..\Sample\Features\Chat\**;..\Sample\Features\Camera\**;..\Sample\Features\KitchenSink\**;..\Sample\Features\Diagram\**;..\Sample\Features\Gamepad\**;..\Sample\bin\**;..\Sample\obj\**"
                  Link="%(RecursiveDir)%(Filename)%(Extension)" />
         <MauiXaml Include="..\Sample\**\*.xaml"
-                  Exclude="..\Sample\Platforms\**;..\Sample\App.xaml;..\Sample\AppShell.xaml;..\Sample\Features\Chat\**;..\Sample\Features\Camera\**;..\Sample\Features\KitchenSink\**;..\Sample\bin\**;..\Sample\obj\**"
+                  Exclude="..\Sample\Platforms\**;..\Sample\App.xaml;..\Sample\AppShell.xaml;..\Sample\Features\Chat\**;..\Sample\Features\Camera\**;..\Sample\Features\KitchenSink\**;..\Sample\Features\Diagram\**;..\Sample\Features\Gamepad\**;..\Sample\bin\**;..\Sample\obj\**"
                   Link="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
 

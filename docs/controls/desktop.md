@@ -20,7 +20,8 @@ builder
     .UseShinyDocking()     // docking host
     .AddDockPanel<SolutionExplorerPanel>("solution-explorer", displayName: "Explorer", icon: "📁")
     .AddDockPanel<OutputPanel>("output")
-    .UseDesktopQuickEntry();   // native-window quick entry + global hotkeys
+    .UseDesktopQuickEntry()    // native-window quick entry + global hotkeys
+    .UseDesktopKeyboardShortcuts();   // in-app keyboard shortcuts on AppKit, GTK4 and Mac Catalyst
 ```
 
 > Namespaces: `using Shiny.Maui.Controls.Desktop.TrayIcon;` for the tray API, `using Shiny.Maui.Controls.Desktop.Docking;` for docking, and `using Shiny.Maui.Controls.Desktop.QuickEntry;` for global hotkeys (the popup's own API is in `Shiny.Maui.Controls.QuickEntry`). The extension methods themselves live in the `Shiny` namespace. There is no `UseOnScreenKeyboard` — see below.
@@ -134,6 +135,8 @@ var registration = hotKeys.Register("Ctrl+Shift+K", () => DoSomething());
 | Linux / X11 | `XGrabKey` on the root window | Full support, including window placement and always-on-top |
 | Linux / Wayland | `org.freedesktop.portal.GlobalShortcuts` | GNOME 45+ / KDE Plasma 6+. Binding shows the user a confirmation prompt, so the hotkey starts working asynchronously, and the compositor may bind a different trigger than the one you asked for |
 | MacCatalyst | — | Not supported |
+
+> **In-app shortcuts are a different thing.** Global hotkeys fire while your app is in the background. To react to keys while your own window has focus (`Primary+S`, `?`, `Ctrl+K, Ctrl+C`), declare [Keyboard Shortcuts](keyboard-shortcuts.md) on the page instead. `UseDesktopKeyboardShortcuts()` supplies their key sources on AppKit, GTK4 and Mac Catalyst; Windows needs nothing beyond core.
 
 > **Wayland caveats.** A Wayland client cannot position its own toplevel or raise itself above other windows, so under Wayland the desktop popup is undecorated but the compositor decides where it appears and it is an ordinary window in the stack; the whole-display glow is unavailable and the in-app one is used instead. Under X11 everything behaves as it does on Windows and macOS.
 

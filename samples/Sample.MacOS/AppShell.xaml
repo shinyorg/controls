@@ -46,6 +46,7 @@
        xmlns:floorplan="clr-namespace:Sample.Features.FloorPlan;assembly=Sample.MacOS"
        xmlns:office="clr-namespace:Sample.Features.Office;assembly=Sample.MacOS"
        xmlns:osk="clr-namespace:Sample.Features.OnScreenKeyboard;assembly=Sample.MacOS"
+       xmlns:kbshortcuts="clr-namespace:Sample.Features.KeyboardShortcuts;assembly=Sample.MacOS"
        xmlns:overlay="clr-namespace:Sample.Features.Overlay;assembly=Sample.MacOS"
        xmlns:parallax="clr-namespace:Sample.Features.ParallaxCollectionView;assembly=Sample.MacOS"
        xmlns:pickers="clr-namespace:Sample.Features.Pickers;assembly=Sample.MacOS"
@@ -212,6 +213,10 @@
     </FlyoutItem>
     <FlyoutItem Title="On-Screen Keyboard">
         <ShellContent ContentTemplate="{DataTemplate osk:OnScreenKeyboardPage}" Route="onscreenkeyboard" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Keyboard Shortcuts">
+        <ShellContent ContentTemplate="{DataTemplate kbshortcuts:KeyboardShortcutsPage}" Route="keyboardshortcuts" />
     </FlyoutItem>
 
     <MenuItem Text="ACTIONS &amp; NAVIGATION" IsEnabled="False" />

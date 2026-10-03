@@ -32,3 +32,6 @@
 // means a XAML author never has to know there are two assemblies involved.
 [assembly: Microsoft.Maui.Controls.XmlnsDefinition("http://shiny.net/maui/controls", "Shiny.Controls.MotionIcons", AssemblyName = "Shiny.Controls.MotionIcons.Shared")]
 [assembly: Microsoft.Maui.Controls.XmlnsPrefix("http://shiny.net/maui/controls", "shiny")]
+// KeyModifiers, TextInputBehavior and friends live in the dependency-free shared engine, so XAML
+// can name them (x:Static, x:TypeArguments) under the same prefix as the controls that use them.
+[assembly: Microsoft.Maui.Controls.XmlnsDefinition("http://shiny.net/maui/controls", "Shiny.Controls.Keyboard", AssemblyName = "Shiny.Controls.Keyboard.Shared")]

@@ -39,6 +39,7 @@
        xmlns:mediapicker="clr-namespace:Sample.Features.Media;assembly=Sample.Linux"
        xmlns:motionicons="clr-namespace:Sample.Features.MotionIcons;assembly=Sample.Linux"
        xmlns:osk="clr-namespace:Sample.Features.OnScreenKeyboard;assembly=Sample.Linux"
+       xmlns:kbshortcuts="clr-namespace:Sample.Features.KeyboardShortcuts;assembly=Sample.Linux"
        xmlns:overlay="clr-namespace:Sample.Features.Overlay;assembly=Sample.Linux"
        xmlns:parallax="clr-namespace:Sample.Features.ParallaxCollectionView;assembly=Sample.Linux"
        xmlns:pickers="clr-namespace:Sample.Features.Pickers;assembly=Sample.Linux"
@@ -178,6 +179,10 @@
     </FlyoutItem>
     <FlyoutItem Title="On-Screen Keyboard">
         <ShellContent ContentTemplate="{DataTemplate osk:OnScreenKeyboardPage}" Route="onscreenkeyboard" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Keyboard Shortcuts">
+        <ShellContent ContentTemplate="{DataTemplate kbshortcuts:KeyboardShortcutsPage}" Route="keyboardshortcuts" />
     </FlyoutItem>
 
     <MenuItem Text="ACTIONS &amp; NAVIGATION" IsEnabled="False" />

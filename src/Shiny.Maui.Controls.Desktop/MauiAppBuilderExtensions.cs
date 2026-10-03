@@ -101,6 +101,42 @@ public static class DesktopMauiAppBuilderExtensions
     }
 
     /// <summary>
+    /// Supplies the native key sources that make Shiny's keyboard shortcuts work on macOS (AppKit),
+    /// Linux (GTK4) and Mac Catalyst.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// builder
+    ///     .UseShinyControls()
+    ///     .UseDesktopKeyboardShortcuts();
+    /// </code>
+    /// </example>
+    /// <remarks>
+    /// <para>
+    /// <c>KeyboardShortcut</c>, <c>KeyboardShortcuts.Shortcuts</c> and <c>IKeyboardShortcutService</c>
+    /// live in <c>Shiny.Maui.Controls</c>, which already listens for keys on Windows, Android and iOS.
+    /// The AppKit and GTK4 heads ship their own window types, so their key sources live here with the
+    /// rest of the desktop interop; without this call, shortcuts there are declared but never fire.
+    /// </para>
+    /// <para>
+    /// Safe to call unconditionally: on Windows, Android and iOS core's own source stays in place.
+    /// These are in-app shortcuts that fire while your window has focus — for system-wide hotkeys see
+    /// <see cref="IGlobalHotKeyService"/>.
+    /// </para>
+    /// </remarks>
+    public static MauiAppBuilder UseDesktopKeyboardShortcuts(this MauiAppBuilder builder)
+    {
+#if MACOS || MACCATALYST
+        Shiny.Maui.Controls.KeyboardShortcutManager.PlatformAttach = Shiny.Maui.Controls.Desktop.KeyboardShortcuts.KeyboardShortcutPlatform.Attach;
+#elif !WINDOWS
+        // net10.0 asset — Linux at runtime, otherwise nothing to attach.
+        if (OperatingSystem.IsLinux())
+            Shiny.Maui.Controls.KeyboardShortcutManager.PlatformAttach = Shiny.Maui.Controls.Desktop.KeyboardShortcuts.KeyboardShortcutPlatform.Attach;
+#endif
+        return builder;
+    }
+
+    /// <summary>
     /// Registers the docking infrastructure. Call once during MAUI app startup, then
     /// register each panel with <see cref="AddDockPanel{TView}"/>.
     /// </summary>

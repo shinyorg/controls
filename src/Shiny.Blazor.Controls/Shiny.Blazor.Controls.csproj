@@ -19,6 +19,9 @@
              the time-to-pixel geometry, shared verbatim with the MAUI package so the two hosts
              cannot schedule a plan differently. -->
         <ProjectReference Include="..\Shiny.Controls.Gantt.Shared\Shiny.Controls.Gantt.Shared.csproj" />
+        <!-- The keyboard shortcut engine: gesture parsing and display, scopes and the registry the
+             service keeps. keyboard-shortcuts.js mirrors its matching rules for the browser. -->
+        <ProjectReference Include="..\Shiny.Controls.Keyboard.Shared\Shiny.Controls.Keyboard.Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup>

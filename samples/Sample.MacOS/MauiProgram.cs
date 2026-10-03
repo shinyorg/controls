@@ -40,6 +40,8 @@ public static class MauiProgram
             .UseTrayIcon()
             .UseFileDrop()
             .UseDesktopQuickEntry()
+            // AppKit, GTK4 and Catalyst key sources for keyboard shortcuts (Windows/iOS/Android need nothing)
+            .UseDesktopKeyboardShortcuts()
             .UseShinyMediaElement()
             .UseShinyDocking()
             .AddDockPanel<SolutionExplorerPanel>("solution-explorer", "Solution Explorer", "\U0001F4C1")

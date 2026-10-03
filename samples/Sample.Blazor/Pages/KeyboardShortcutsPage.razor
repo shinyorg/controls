@@ -1,0 +1,178 @@
+@page "/keyboardshortcuts"
+@inject IKeyboardShortcutService Shortcuts
+@implements IDisposable
+
+<PageTitle>Keyboard Shortcuts</PageTitle>
+
+<h1>Keyboard Shortcuts</h1>
+
+@* Page-wide: live while this page is rendered. *@
+<KeyboardShortcuts Name="Page">
+    <KeyboardShortcut Gesture="Primary+S" OnPressed="Save" Description="Save" Category="File" IsEnabled="this.canSave" />
+    <KeyboardShortcut Gesture="Primary+Shift+P" OnPressed="@(() => this.Log("Command palette opened"))" Description="Command palette" />
+    <KeyboardShortcut Gesture="Primary+K, Primary+C" OnPressed="@(() => this.Log("Commented the selection (chord)"))" Description="Comment (a two-step chord)" Category="Edit" />
+    <KeyboardShortcut Gesture="?" OnPressed="ToggleCheatSheet" Description="Show these shortcuts" />
+    <KeyboardShortcut Key="M" OnPressed="@(() => this.modalOpen = true)" Description="Open the modal" />
+    <KeyboardShortcut Key="ArrowLeft" AllowRepeat="true" OnPressed="@(() => this.Nudge(-8, 0))" Description="Nudge the box (hold to repeat)" Category="Move" />
+    <KeyboardShortcut Key="ArrowRight" AllowRepeat="true" OnPressed="@(() => this.Nudge(8, 0))" Description="Nudge the box" Category="Move" />
+    <KeyboardShortcut Key="ArrowUp" AllowRepeat="true" OnPressed="@(() => this.Nudge(0, -8))" Description="Nudge the box" Category="Move" />
+    <KeyboardShortcut Key="ArrowDown" AllowRepeat="true" OnPressed="@(() => this.Nudge(0, 8))" Description="Nudge the box" Category="Move" />
+    <KeyboardShortcut Key="Space"
+                      TextInput="TextInputBehavior.Never"
+                      OnPressed="@(() => this.Talk(true))"
+                      OnReleased="@(() => this.Talk(false))"
+                      Description="Push to talk (hold)"
+                      Category="Voice" />
+</KeyboardShortcuts>
+
+<section class="demo-section">
+    <p>
+        Shortcuts are matched in the browser, synchronously, so the page decides before the browser acts on
+        the key — and only a match crosses to .NET. <code>Primary</code> is ⌘ on a Mac and Ctrl
+        everywhere else.
+    </p>
+    <p id="kbs-status"><strong>@this.Shortcuts.Platform</strong> @(this.chordStatus)</p>
+</section>
+
+<section class="demo-section">
+    <h2>1. On the page</h2>
+    <p><KeyboardShortcutHint Gesture="Primary+S" /> saves — <span id="kbs-saves">@this.saves</span> so far.
+        <label style="margin-left:1rem;"><input type="checkbox" @bind="this.canSave" /> enabled</label>
+    </p>
+    <p><KeyboardShortcutHint Gesture="Primary+Shift+P" /> palette ·
+        <KeyboardShortcutHint Gesture="Primary+K, Primary+C" /> chord ·
+        <KeyboardShortcutHint Gesture="?" /> cheat sheet ·
+        <KeyboardShortcutHint Gesture="M" /> modal ·
+        arrows nudge · hold <KeyboardShortcutHint Gesture="Space" /> to talk</p>
+
+    <div style="position:relative;width:280px;height:110px;border:1px solid var(--shiny-color-outline-variant, #BBC7DF);border-radius:8px;">
+        <div id="kbs-box" style="position:absolute;left:@(this.x)px;top:@(this.y)px;width:30px;height:30px;border-radius:6px;background:#6366F1;"></div>
+    </div>
+    @if (this.talking)
+    {
+        <p id="kbs-talking"><strong>🎙 Talking…</strong></p>
+    }
+</section>
+
+<section class="demo-section">
+    <h2>2. While typing</h2>
+    <p style="font-size:0.875rem;">Plain keys (<code>?</code>, the arrows, Space) stay with the field. Shortcuts with Ctrl/⌘/Alt still fire.</p>
+    <input id="kbs-input" placeholder="Type here — try ?, Space and the save shortcut" style="width:100%;max-width:420px;" @bind="this.notes" />
+</section>
+
+<section class="demo-section">
+    <h2>3. An element scope</h2>
+    <p style="font-size:0.875rem;">These only fire while focus is inside the box — and they outrank the page.</p>
+    <KeyboardShortcuts Scope="KeyboardShortcutScopeKind.Element" Name="Editor">
+        <KeyboardShortcut Gesture="Primary+B" OnPressed="@(() => { this.bold = !this.bold; this.Log($"Bold {(this.bold ? "on" : "off")} (element scope)"); })" Description="Bold" Category="Editor" />
+        <textarea id="kbs-editor" rows="3" style="width:100%;max-width:420px;font-weight:@(this.bold ? "bold" : "normal")">The quick brown fox jumps over the lazy dog.</textarea>
+    </KeyboardShortcuts>
+</section>
+
+<section class="demo-section">
+    <h2>Event log</h2>
+    <ul id="kbs-log" style="font-family:monospace;font-size:0.8rem;">
+        @foreach (var line in this.log)
+        {
+            <li>@line</li>
+        }
+    </ul>
+</section>
+
+@if (this.cheatSheetOpen)
+{
+    <div style="position:fixed;inset:0;background:#0008;display:grid;place-items:center;z-index:1000;">
+        <div id="kbs-cheatsheet" style="background:var(--shiny-color-surface, #fff);color:var(--shiny-color-on-surface, #161C23);padding:1.25rem;border-radius:12px;min-width:360px;">
+            <h3 style="margin-top:0;">Shortcuts</h3>
+            <table>
+                @foreach (var item in this.Shortcuts.GetActiveShortcuts().Where(x => !x.IsShadowed))
+                {
+                    <tr>
+                        <td style="padding-right:1.5rem;"><KeyboardShortcutHint Gesture="@item.Binding.Gesture.ToString()" /></td>
+                        <td>@(item.Binding.Description ?? item.Binding.Gesture.ToString())</td>
+                    </tr>
+                }
+            </table>
+            <p style="font-size:0.8rem;opacity:0.7;">Press ? again to close.</p>
+        </div>
+    </div>
+}
+
+@if (this.modalOpen)
+{
+    @* A modal group: while it is rendered, nothing outside it fires — try the save shortcut. *@
+    <KeyboardShortcuts IsModal="true" Name="Modal">
+        <KeyboardShortcut Key="Escape" OnPressed="@(() => { this.modalOpen = false; this.Log("Modal closed with Escape"); })" Description="Close" />
+        <KeyboardShortcut Key="Enter" OnPressed="@(() => this.Log("Modal's own Enter shortcut"))" Description="Act" />
+        <div id="kbs-modal" style="position:fixed;inset:0;background:#0008;display:grid;place-items:center;z-index:1000;">
+            <div style="background:var(--shiny-color-surface, #fff);color:var(--shiny-color-on-surface, #161C23);padding:1.25rem;border-radius:12px;max-width:380px;">
+                <h3 style="margin-top:0;">A modal scope</h3>
+                <p>While this is open the page's shortcuts are blocked. Enter acts, Escape closes.</p>
+            </div>
+        </div>
+    </KeyboardShortcuts>
+}
+
+@code {
+    readonly List<string> log = new();
+    int saves;
+    bool canSave = true;
+    bool talking;
+    bool bold;
+    bool cheatSheetOpen;
+    bool modalOpen;
+    int x;
+    int y;
+    string notes = String.Empty;
+    string chordStatus = String.Empty;
+
+    protected override void OnInitialized()
+    {
+        this.Shortcuts.ChordStateChanged += this.OnChordStateChanged;
+        // The platform is only known once the browser reports it, after the first render.
+        this.Shortcuts.PlatformChanged += this.OnPlatformChanged;
+    }
+
+    void OnPlatformChanged(object? sender, EventArgs e) => _ = this.InvokeAsync(this.StateHasChanged);
+
+    void Save()
+    {
+        this.saves++;
+        this.Log($"Saved ({this.saves})");
+    }
+
+    void ToggleCheatSheet() => this.cheatSheetOpen = !this.cheatSheetOpen;
+
+    void Nudge(int dx, int dy)
+    {
+        this.x = Math.Clamp(this.x + dx, 0, 248);
+        this.y = Math.Clamp(this.y + dy, 0, 78);
+    }
+
+    void Talk(bool on)
+    {
+        this.talking = on;
+        this.Log($"Push-to-talk: {(on ? "pressed" : "released")}");
+    }
+
+    void Log(string message)
+    {
+        this.log.Insert(0, $"{DateTime.Now:HH:mm:ss}  {message}");
+        if (this.log.Count > 30)
+            this.log.RemoveAt(this.log.Count - 1);
+    }
+
+    void OnChordStateChanged(object? sender, EventArgs e) => _ = this.InvokeAsync(() =>
+    {
+        this.chordStatus = this.Shortcuts.IsChordPending
+            ? $"— {String.Join(" ", this.Shortcuts.PendingChords.Select(c => c.ToDisplayString(this.Shortcuts.Platform)))} was pressed, waiting for the next key…"
+            : String.Empty;
+        this.StateHasChanged();
+    });
+
+    public void Dispose()
+    {
+        this.Shortcuts.ChordStateChanged -= this.OnChordStateChanged;
+        this.Shortcuts.PlatformChanged -= this.OnPlatformChanged;
+    }
+}

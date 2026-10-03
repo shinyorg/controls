@@ -32,6 +32,10 @@
 		     the time-to-pixel geometry. Shared verbatim with the Blazor package, because a plan that
 		     schedules differently on two hosts is a bug neither host's code would ever reveal. -->
 		<ProjectReference Include="..\Shiny.Controls.Gantt.Shared\Shiny.Controls.Gantt.Shared.csproj" />
+		<!-- The keyboard shortcut engine: gesture parsing, layout-aware matching, scopes, chords and
+		     the native key-code tables. Shared verbatim with the Blazor package so a shortcut means
+		     the same keys on both hosts. -->
+		<ProjectReference Include="..\Shiny.Controls.Keyboard.Shared\Shiny.Controls.Keyboard.Shared.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
