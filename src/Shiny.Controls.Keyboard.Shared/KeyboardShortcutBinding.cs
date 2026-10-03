@@ -5,6 +5,7 @@ namespace Shiny.Controls.Keyboard;
 /// </summary>
 public sealed class KeyboardShortcutEventArgs : EventArgs
 {
+    /// <summary>Create the arguments for <paramref name="binding"/> firing on <paramref name="stroke"/>.</summary>
     public KeyboardShortcutEventArgs(KeyboardShortcutBinding binding, KeyStroke stroke)
     {
         this.Binding = binding;
@@ -40,6 +41,7 @@ public sealed class KeyboardShortcutEventArgs : EventArgs
 /// </remarks>
 public sealed class KeyboardShortcutBinding
 {
+    /// <summary>Create a shortcut for <paramref name="gesture"/>, optionally with its <see cref="Pressed"/> handler.</summary>
     public KeyboardShortcutBinding(KeyGesture gesture, Action<KeyboardShortcutEventArgs>? pressed = null)
     {
         this.Gesture = gesture;

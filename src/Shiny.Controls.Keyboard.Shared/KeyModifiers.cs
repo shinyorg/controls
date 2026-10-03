@@ -19,6 +19,7 @@ namespace Shiny.Controls.Keyboard;
 [Flags]
 public enum KeyModifiers
 {
+    /// <summary>No modifier held.</summary>
     None = 0,
 
     /// <summary>Ctrl on every platform — ⌃ on a Mac, which is <em>not</em> where Mac shortcuts live. See <see cref="Primary"/>.</summary>
@@ -50,13 +51,16 @@ public enum KeyboardPlatform
     /// <summary>Anything not listed — treated like Windows (Ctrl as the primary modifier).</summary>
     Other,
 
+    /// <summary>Windows — Ctrl is the primary modifier and Meta is written "Win".</summary>
     Windows,
 
     /// <summary>macOS, iOS, iPadOS and Mac Catalyst — ⌘ is the primary modifier.</summary>
     Apple,
 
+    /// <summary>Linux — Ctrl is the primary modifier and Meta is written "Super".</summary>
     Linux,
 
+    /// <summary>Android — Ctrl is the primary modifier.</summary>
     Android
 }
 
@@ -79,6 +83,7 @@ public enum TextInputBehavior
     Never
 }
 
+/// <summary>Helpers for <see cref="KeyModifiers"/>.</summary>
 public static class KeyModifiersExtensions
 {
     /// <summary>

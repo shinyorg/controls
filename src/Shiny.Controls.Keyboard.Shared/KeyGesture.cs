@@ -262,11 +262,14 @@ public sealed class KeyGesture : IEquatable<KeyGesture>
     /// <summary>Gesture syntax, round-trippable through <see cref="Parse"/>.</summary>
     public override string ToString() => String.Join(", ", this.Chords);
 
+    /// <summary>True when both gestures have the same chords in the same order.</summary>
     public bool Equals(KeyGesture? other)
         => other != null && this.Chords.SequenceEqual(other.Chords);
 
+    /// <inheritdoc/>
     public override bool Equals(object? obj) => this.Equals(obj as KeyGesture);
 
+    /// <inheritdoc/>
     public override int GetHashCode()
     {
         var hash = new HashCode();

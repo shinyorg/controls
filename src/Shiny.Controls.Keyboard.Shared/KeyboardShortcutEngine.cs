@@ -29,6 +29,9 @@ public sealed class KeyboardShortcutEngine
     long pendingAt;
     object? pendingWindow;
 
+    /// <summary>Create an engine for <paramref name="platform"/>.</summary>
+    /// <param name="platform">Decides what <see cref="KeyModifiers.Primary"/> means.</param>
+    /// <param name="timeProvider">The clock behind <see cref="ChordTimeout"/>; the system clock when null.</param>
     public KeyboardShortcutEngine(KeyboardPlatform platform, TimeProvider? timeProvider = null)
     {
         this.Platform = platform;

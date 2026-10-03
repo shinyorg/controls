@@ -44,6 +44,7 @@ public sealed record KeyStroke
     /// <summary>The key that identifies this stroke for repeat and release tracking.</summary>
     internal string Identity => this.Code ?? this.Character?.ToUpperInvariant() ?? String.Empty;
 
+    /// <inheritdoc/>
     public override string ToString()
         => $"{(this.IsKeyUp ? "up" : "down")} {this.Modifiers} {this.Code ?? "?"} '{this.Character}'{(this.IsRepeat ? " (repeat)" : "")}";
 }

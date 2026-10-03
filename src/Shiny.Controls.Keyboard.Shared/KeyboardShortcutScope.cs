@@ -167,5 +167,6 @@ public sealed class KeyboardShortcutScope : IDisposable
         this.Activation = 0;
     }
 
+    /// <inheritdoc/>
     public override string ToString() => $"Scope '{this.Name}' ({this.bindings.Count} shortcut(s), {(this.IsActive ? "active" : "inactive")}{(this.IsModal ? ", modal" : "")})";
 }
