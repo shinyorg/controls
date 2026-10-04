@@ -1,0 +1,119 @@
+@page "/rangepickers"
+@using Shiny.Blazor.Controls
+@using Shiny.Controls.RangePickers
+
+<PageTitle>Range Pickers</PageTitle>
+
+<h1>Range Pickers</h1>
+
+<p>
+    Date ranges, time ranges and date/time ranges. The selection rules - which day a click picks, what
+    a span may cross, which end times a start allows - come from <code>Shiny.Controls.RangePickers.Shared</code>,
+    the same engine the MAUI controls use.
+</p>
+
+<section class="demo-section">
+    <h2>Inline calendar</h2>
+    <p>Two months side by side, with presets. Hover a day after picking a start to preview the range.</p>
+
+    <DateRangeCalendar @bind-StartDate="inlineStart"
+                       @bind-EndDate="inlineEnd"
+                       Months="2"
+                       Presets="@reporting" />
+
+    <p><strong>@Describe(inlineStart, inlineEnd)</strong></p>
+</section>
+
+<section class="demo-section">
+    <h2>Date range picker</h2>
+    <p>The calendar edits a draft; Apply commits it, Cancel throws it away.</p>
+
+    <DateRangePicker @bind-StartDate="reportStart"
+                     @bind-EndDate="reportEnd"
+                     Presets="@reporting"
+                     Title="Report period" />
+
+    <p>Bound: <strong>@Describe(reportStart, reportEnd)</strong></p>
+</section>
+
+<section class="demo-section">
+    <h2>Booking</h2>
+    <p>From today, 2 to 14 nights, and a stay cannot straddle a booked night (the struck-through days).</p>
+
+    <DateRangePicker @bind-StartDate="stayStart"
+                     @bind-EndDate="stayEnd"
+                     MinDate="@today"
+                     MinDays="2"
+                     MaxDays="14"
+                     AllowSingleDay="false"
+                     DisabledDates="@booked"
+                     Presets="@DateRangePresets.Booking(DayOfWeek.Sunday)"
+                     Placeholder="Check in – check out" />
+
+    <p>Bound: <strong>@Describe(stayStart, stayEnd)</strong></p>
+</section>
+
+<section class="demo-section">
+    <h2>Time range picker</h2>
+    <p>Moving the start keeps the length, as calendar apps do. Ends show the length they make.</p>
+
+    <div class="demo-row">
+        <TimeRangePicker @bind-StartTime="meetingStart"
+                         @bind-EndTime="meetingEnd"
+                         Interval="TimeSpan.FromMinutes(15)"
+                         MinTime="new TimeOnly(8, 0)"
+                         MaxTime="new TimeOnly(18, 0)"
+                         Title="Meeting" />
+
+        <TimeRangePicker @bind-StartTime="shiftStart"
+                         @bind-EndTime="shiftEnd"
+                         Interval="TimeSpan.FromMinutes(30)"
+                         AllowOvernight="true"
+                         MaxDuration="TimeSpan.FromHours(12)"
+                         Placeholder="Night shift"
+                         Title="Overnight shift" />
+    </div>
+
+    <p>Meeting: <strong>@(meetingStart is { } ms && meetingEnd is { } me ? new TimeRange(ms, me).ToString() : "—")</strong> ·
+       Shift: <strong>@(shiftStart is { } ss && shiftEnd is { } se ? $"{new TimeRange(ss, se)} ({RangeFormatter.FormatDuration(new TimeRange(ss, se).Duration)})" : "—")</strong></p>
+</section>
+
+<section class="demo-section">
+    <h2>Date/time range picker</h2>
+    <p>One day gives a same-day range; two days span them. Apply stays off until the end is after the start and the length is at most 3 days.</p>
+
+    <DateTimeRangePicker @bind-StartDateTime="eventStart"
+                         @bind-EndDateTime="eventEnd"
+                         Interval="TimeSpan.FromMinutes(30)"
+                         MaxDuration="TimeSpan.FromDays(3)"
+                         Title="Event" />
+
+    <p>Bound: <strong>@(eventStart is { } es && eventEnd is { } ee ? new DateTimeRange(es, ee).ToString() : "—")</strong></p>
+</section>
+
+@code {
+    static readonly DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+
+    readonly IReadOnlyList<DateRangePreset> reporting = DateRangePresets.Reporting(DayOfWeek.Sunday);
+    readonly DateOnly[] booked = [today.AddDays(5), today.AddDays(6), today.AddDays(19)];
+
+    DateOnly? inlineStart = today.AddDays(-3);
+    DateOnly? inlineEnd = today.AddDays(3);
+    DateOnly? reportStart;
+    DateOnly? reportEnd;
+    DateOnly? stayStart;
+    DateOnly? stayEnd;
+    TimeOnly? meetingStart = new(9, 30);
+    TimeOnly? meetingEnd = new(10, 30);
+    TimeOnly? shiftStart;
+    TimeOnly? shiftEnd;
+    DateTime? eventStart;
+    DateTime? eventEnd;
+
+    static string Describe(DateOnly? start, DateOnly? end) => start switch
+    {
+        null => "—",
+        { } s when end is { } e => $"{new DateRange(s, e)} ({new DateRange(s, e).Days} days)",
+        { } s => $"{s:d} – …"
+    };
+}

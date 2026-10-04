@@ -1,0 +1,146 @@
+.shiny-rangefield {
+    position: relative;
+    display: inline-flex;
+    vertical-align: middle;
+    max-width: 100%;
+    font-family: var(--shiny-type-font-family, inherit);
+}
+
+.shiny-rangefield-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    box-sizing: border-box;
+    min-width: 220px;
+    max-width: 100%;
+    min-height: calc(40px * var(--shiny-density-scale, 1));
+    padding: 6px 10px 6px 12px;
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #6C788D);
+    border-radius: var(--shiny-shape-corner-small, 6px);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+    font-size: var(--shiny-type-body-medium-size, 14px);
+    text-align: left;
+    cursor: pointer;
+}
+
+.shiny-rangefield-trigger:hover:not(:disabled) { border-color: var(--shiny-color-on-surface, #161C23); }
+
+.shiny-rangefield-trigger:focus-visible,
+.shiny-rangefield-trigger[aria-expanded="true"] {
+    outline: none;
+    border-color: var(--shiny-color-primary, #0055D9);
+    box-shadow: 0 0 0 1px var(--shiny-color-primary, #0055D9);
+}
+
+.shiny-rangefield-trigger:disabled { opacity: 0.45; cursor: default; }
+
+.shiny-rangefield-trigger.is-placeholder .shiny-rangefield-text { color: var(--shiny-color-on-surface-variant, #3B475B); }
+
+.shiny-rangefield-icon,
+.shiny-rangefield-chevron {
+    flex: 0 0 auto;
+    display: inline-flex;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+.shiny-rangefield-text {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shiny-rangefield-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+}
+
+/* width:max-content is load-bearing. An absolutely positioned box shrinks to fit against its
+   containing block - the 220px trigger - so the calendar's wrapping flex rows wrapped at that width
+   and two months plus presets stacked into a column a thousand pixels tall. max-content lays them out
+   on one line; the viewport cap (vw, not %, which would resolve against the trigger again) wraps them
+   only when the screen really is too narrow.
+   `display` is load-bearing too: [popover] is display:none in the UA sheet until something shows it. */
+.shiny-rangefield-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 41;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    margin: 0;
+    padding: var(--shiny-spacing-3, 12px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-medium, 10px);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
+    color: var(--shiny-color-on-surface, #161C23);
+    box-shadow: var(--shiny-elevation-3, 0 8px 24px rgba(0, 0, 0, 0.18));
+}
+
+.shiny-rangefield-title {
+    margin: 0 0 var(--shiny-spacing-2, 8px);
+    font-weight: 600;
+}
+
+.shiny-rangefield-summary {
+    margin-top: var(--shiny-spacing-2, 8px);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-body-small-size, 12px);
+}
+
+.shiny-rangefield-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    margin-top: var(--shiny-spacing-3, 12px);
+    padding-top: var(--shiny-spacing-3, 12px);
+    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+.shiny-rangefield-spacer { flex: 1 1 auto; }
+
+.shiny-rangefield-button {
+    padding: 7px 14px;
+    border: 0;
+    border-radius: var(--shiny-shape-corner-small, 6px);
+    font: inherit;
+    font-size: var(--shiny-type-body-medium-size, 14px);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.shiny-rangefield-button.is-text {
+    background: transparent;
+    color: var(--shiny-color-primary, #0055D9);
+}
+
+.shiny-rangefield-button.is-text:hover { background: var(--shiny-color-surface-container-high, #E2E6EA); }
+
+.shiny-rangefield-button.is-filled {
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
+}
+
+.shiny-rangefield-button.is-filled:disabled { opacity: 0.4; cursor: default; }
+
+@media (max-width: 600px) {
+    .shiny-rangefield-backdrop {
+        background: var(--shiny-color-scrim, #000000);
+        opacity: 0.32;
+    }
+
+    .shiny-rangefield-popover {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-height: calc(100dvh - 32px);
+        overflow-y: auto;
+    }
+}

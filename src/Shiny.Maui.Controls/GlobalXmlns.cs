@@ -35,3 +35,5 @@
 // KeyModifiers, TextInputBehavior and friends live in the dependency-free shared engine, so XAML
 // can name them (x:Static, x:TypeArguments) under the same prefix as the controls that use them.
 [assembly: Microsoft.Maui.Controls.XmlnsDefinition("http://shiny.net/maui/controls", "Shiny.Controls.Keyboard", AssemblyName = "Shiny.Controls.Keyboard.Shared")]
+// DateRange, TimeRange, DateRangePreset and friends live in the shared range picker engine.
+[assembly: Microsoft.Maui.Controls.XmlnsDefinition("http://shiny.net/maui/controls", "Shiny.Controls.RangePickers", AssemblyName = "Shiny.Controls.RangePickers.Shared")]

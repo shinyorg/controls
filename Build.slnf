@@ -5,6 +5,7 @@
             "src/Shiny.Controls.MotionIcons.Shared/Shiny.Controls.MotionIcons.Shared.csproj",
             "src/Shiny.Controls.Gantt.Shared/Shiny.Controls.Gantt.Shared.csproj",
             "src/Shiny.Controls.Keyboard.Shared/Shiny.Controls.Keyboard.Shared.csproj",
+            "src/Shiny.Controls.RangePickers.Shared/Shiny.Controls.RangePickers.Shared.csproj",
             "src/Shiny.Controls.Diagram.Shared/Shiny.Controls.Diagram.Shared.csproj",
             "src/Shiny.Controls.Gamepad.Shared/Shiny.Controls.Gamepad.Shared.csproj",
             "src/Shiny.Controls.FloorPlan.Shared/Shiny.Controls.FloorPlan.Shared.csproj",

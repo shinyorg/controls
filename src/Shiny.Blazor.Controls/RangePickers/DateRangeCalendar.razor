@@ -1,0 +1,113 @@
+@namespace Shiny.Blazor.Controls
+
+@*
+    The inline range calendar. Everything that decides what a day is - selectable, the start, inside
+    the range, unavailable as an end - comes from the shared engine's DateRangeSelector, so this file
+    only draws. Declared in markup rather than built in C#: CSS isolation only stamps its scope onto
+    elements that appear here.
+*@
+
+<div class="shiny-rangecal @Class" style="@Style" @onmouseleave="OnLeave">
+    @if (this.Presets is { Count: > 0 } presets)
+    {
+        <div class="shiny-rangecal-presets" role="group" aria-label="Presets">
+            @foreach (var preset in presets)
+            {
+                var active = this.IsActivePreset(preset);
+                <button type="button"
+                        class="shiny-rangecal-preset @(active ? "is-active" : null)"
+                        aria-pressed="@(active ? "true" : "false")"
+                        @onclick="() => this.ApplyPresetAsync(preset)">@preset.Label</button>
+            }
+        </div>
+    }
+
+    <div class="shiny-rangecal-months">
+        @for (var m = 0; m < this.MonthCount; m++)
+        {
+            var month = this.displayMonth.AddMonths(m);
+            var first = m == 0;
+            var last = m == this.MonthCount - 1;
+
+            <div class="shiny-rangecal-month" data-month-index="@m">
+                <div class="shiny-rangecal-header">
+                    @* Every month carries both buttons; only the outer ones show. A host that hides later months on
+                       a narrow screen can then reveal the first month's inner "next" and keep paging. *@
+                    <button type="button" class="shiny-rangecal-nav is-prev @(first ? null : "is-inner")" aria-label="@PreviousMonthText" tabindex="@(first ? null : "-1")" aria-hidden="@(first ? null : "true")" @onclick="() => this.ShiftMonthAsync(-1)">
+                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    </button>
+
+                    <div class="shiny-rangecal-title" aria-live="polite">@CalendarMath.MonthTitle(month.Year, month.Month, this.CultureOrCurrent)</div>
+
+                    <button type="button" class="shiny-rangecal-nav is-next @(last ? null : "is-inner")" aria-label="@NextMonthText" tabindex="@(last ? null : "-1")" aria-hidden="@(last ? null : "true")" @onclick="() => this.ShiftMonthAsync(1)">
+                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    </button>
+                </div>
+
+                <div class="shiny-rangecal-grid" role="grid" aria-label="@CalendarMath.MonthTitle(month.Year, month.Month, this.CultureOrCurrent)">
+                    <div class="shiny-rangecal-row shiny-rangecal-weekdays" role="row">
+                        @foreach (var day in CalendarMath.WeekdayOrder(this.FirstDay))
+                        {
+                            <div class="shiny-rangecal-weekday" role="columnheader" title="@this.CultureOrCurrent.DateTimeFormat.GetDayName(day)">@CalendarMath.ShortDayName(day, this.CultureOrCurrent)</div>
+                        }
+                    </div>
+
+                    @{ var cells = CalendarMath.MonthCells(month.Year, month.Month, this.FirstDay); }
+                    @for (var w = 0; w < cells.Count / 7; w++)
+                    {
+                        <div class="shiny-rangecal-row" role="row">
+                            @for (var d = 0; d < 7; d++)
+                            {
+                                var date = cells[(w * 7) + d];
+                                var state = this.selector.StateOf(date, month.Year, month.Month);
+                                var outside = (state & CalendarDayState.OutsideMonth) != 0;
+
+                                @if (outside && this.MonthCount > 1)
+                                {
+                                    @* Two months side by side would show the same day twice; the neighbour owns it. *@
+                                    <div class="shiny-rangecal-cell is-empty" role="gridcell"></div>
+                                }
+                                else
+                                {
+                                    var inert = (state & (CalendarDayState.Disabled | CalendarDayState.Unavailable)) != 0;
+                                    var selected = (state & (CalendarDayState.RangeStart | CalendarDayState.RangeEnd)) != 0;
+                                    var focusable = date == this.FocusDate(month);
+
+                                    <div class="shiny-rangecal-cell @CellClass(state)" role="gridcell" aria-selected="@(selected || (state & CalendarDayState.InRange) != 0 ? "true" : "false")">
+                                        @if (focusable)
+                                        {
+                                            <button type="button"
+                                                    class="shiny-rangecal-day @DayClass(state)"
+                                                    data-date="@date.ToString("yyyy-MM-dd")"
+                                                    tabindex="0"
+                                                    aria-label="@this.DayLabel(date)"
+                                                    aria-pressed="@(selected ? "true" : "false")"
+                                                    aria-disabled="@(inert ? "true" : null)"
+                                                    @ref="this.focusRef"
+                                                    @onclick="() => this.TapAsync(date)"
+                                                    @onmouseenter="() => this.OnHover(date)"
+                                                    @onkeydown="e => this.OnKeyDownAsync(e, date)">@date.Day</button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button"
+                                                    class="shiny-rangecal-day @DayClass(state)"
+                                                    data-date="@date.ToString("yyyy-MM-dd")"
+                                                    tabindex="-1"
+                                                    aria-label="@this.DayLabel(date)"
+                                                    aria-pressed="@(selected ? "true" : "false")"
+                                                    aria-disabled="@(inert ? "true" : null)"
+                                                    @onclick="() => this.TapAsync(date)"
+                                                    @onmouseenter="() => this.OnHover(date)"
+                                                    @onkeydown="e => this.OnKeyDownAsync(e, date)">@date.Day</button>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

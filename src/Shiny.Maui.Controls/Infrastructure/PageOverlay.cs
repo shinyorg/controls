@@ -61,6 +61,18 @@ static class PageOverlay
 
     internal sealed class ScreenGlowLayer : Grid, IOverlayLayer;
 
+    /// <summary>Where the date/time range pickers open their popup card.</summary>
+    internal sealed class RangePickerLayer : Grid, IOverlayLayer;
+
+    /// <summary>
+    /// Where confetti is thrown. Edge-to-edge: origins are fractions of the page, and a safe-area
+    /// inset would shift every burst off the point that was tapped.
+    /// </summary>
+    internal sealed class ConfettiLayer : Grid, IOverlayLayer
+    {
+        public ConfettiLayer() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
+
     /// <summary>
     /// Where <see cref="ShinyTabBarBehavior"/> docks the tab bar over a Shell page. Below the menu
     /// layer, because the menu is drawn above the bar that opened it.
@@ -155,10 +167,22 @@ static class PageOverlay
         /// </summary>
         public const int ImageViewer = 9_800;
 
+        /// <summary>
+        /// A range picker's popup: above a lightbox, below a dialog - a picker opened from a form in a
+        /// dialog is placed by the dialog's own content, and anything confirming a pick wins outright.
+        /// </summary>
+        public const int RangePicker = 9_900;
+
         public const int Dialog = 10_000;
 
         /// <summary>Above a dialog: the quick entry popup is summoned over whatever is on screen, including one.</summary>
         public const int QuickEntry = 10_500;
+
+        /// <summary>
+        /// Above a dialog and the quick entry popup - confetti celebrating a confirmation lands on top
+        /// of it - and below the screen glow, which rims everything.
+        /// </summary>
+        public const int Confetti = 10_800;
 
         /// <summary>Above everything. The glow rims the screen and is never the thing being interacted with.</summary>
         public const int ScreenGlow = 11_000;

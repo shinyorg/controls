@@ -42,7 +42,9 @@ public class LateImportLeakTests
         typeof(Walkthrough),
         typeof(OnScreenKeyboardHost),
         typeof(DockHost),
-        typeof(ChatView)
+        typeof(ChatView),
+        typeof(Confetti),
+        typeof(Marquee)
     ];
 
 

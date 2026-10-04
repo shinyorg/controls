@@ -60,6 +60,9 @@
                   xmlns:kbshortcuts="clr-namespace:Sample.Features.KeyboardShortcuts"
                   xmlns:progressbar="clr-namespace:Sample.Features.ProgressBar"
                   xmlns:progressline="clr-namespace:Sample.Features.ProgressLine"
+                  xmlns:marquee="clr-namespace:Sample.Features.Marquee"
+                  xmlns:confetti="clr-namespace:Sample.Features.Confetti"
+                  xmlns:rangepickers="clr-namespace:Sample.Features.RangePickers"
                   xmlns:slider="clr-namespace:Sample.Features.Slider"
                   xmlns:expanders="clr-namespace:Sample.Features.Expanders"
                   xmlns:carouselgallery="clr-namespace:Sample.Features.CarouselGallery"
@@ -946,6 +949,30 @@
                              Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate progressline:ProgressLinePage}" Route="progressline" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Confetti">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2728;" Size="20"
+                             Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate confetti:ConfettiPage}" Route="confetti" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Range Pickers">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x1F4C5;" Size="20"
+                             Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate rangepickers:RangePickersPage}" Route="rangepickers" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Marquee">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x21C6;" Size="20"
+                             Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate marquee:MarqueePage}" Route="marquee" />
     </FlyoutItem>
 
     <FlyoutItem Title="Skeleton">

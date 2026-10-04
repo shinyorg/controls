@@ -18,7 +18,7 @@ namespace Shiny.Blazor.Controls;
 public static class ShinyControlsServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers everything the host components need — Toast, the progress line, Dialogs, the splash
+    /// Registers everything the host components need — Toast, the progress line, confetti, Dialogs, the splash
     /// screen, the walkthrough store, docking, file drop, keyboard shortcuts and the on-screen keyboard — in one call, mirroring
     /// MAUI's <c>UseShinyControls</c>.
     /// </summary>
@@ -51,6 +51,7 @@ public static class ShinyControlsServiceCollectionExtensions
         services.AddShinyTheme();
         services.AddShinyToast();
         services.AddShinyProgressLine();
+        services.AddShinyConfetti();
         services.AddShinyDialogs(cfg.DialogConfigure);
         services.AddShinySplashScreen();
         services.AddShinyWalkthrough();

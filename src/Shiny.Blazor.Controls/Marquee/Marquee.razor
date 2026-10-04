@@ -1,0 +1,21 @@
+@namespace Shiny.Blazor.Controls
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@*
+    Magic UI's construction: the content is rendered several times as sibling groups, and every group
+    slides back by its own width plus the gap on a CSS animation. When one group has moved exactly one
+    group-length the next sits where it started, so the loop has no seam and no script runs per frame.
+
+    Declared in markup rather than RenderTreeBuilder so CSS isolation stamps its scope attribute on the
+    strip and the groups.
+*@
+
+<div class="shiny-marquee @this.ModeClass @this.StateClasses @Class" style="@this.RootStyle" @ref="root">
+    <div class="shiny-marquee__strip">
+        @for (var i = 0; i < this.copies; i++)
+        {
+            <div class="shiny-marquee__group" @key="i" aria-hidden="@(i > 0 ? "true" : null)">@ChildContent</div>
+        }
+    </div>
+</div>

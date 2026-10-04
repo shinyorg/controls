@@ -26,7 +26,8 @@ public class ServiceLifetimeTests
         typeof(IOnScreenKeyboardService), typeof(OnScreenKeyboardService), typeof(OnScreenKeyboardOptions),
         typeof(ISplashScreen),
         typeof(IWalkthroughStore),
-        typeof(IShinyThemeService), typeof(ShinyThemeService)
+        typeof(IShinyThemeService), typeof(ShinyThemeService),
+        typeof(IConfettiService)
     ];
 
     [Theory]

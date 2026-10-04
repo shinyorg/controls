@@ -1,0 +1,108 @@
+.shiny-marquee {
+    position: relative;
+    display: flex;
+    overflow: hidden;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.shiny-marquee__strip {
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--shiny-marquee-gap, 16px);
+}
+
+/*
+    One group is one copy of the content. It slides back by its own length plus the gap, at which point
+    the next group is exactly where it began - so the loop is seamless with no script per frame.
+    --shiny-marquee-speed-duration is written by the script when Speed is set; it lives on the strip,
+    which Blazor never restyles, so a re-render cannot wipe it.
+*/
+.shiny-marquee__group {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-around;
+    gap: var(--shiny-marquee-gap, 16px);
+    animation: shiny-marquee-x var(--shiny-marquee-speed-duration, var(--shiny-marquee-duration, 40s)) linear infinite;
+}
+
+/* ---- Vertical: a column that rises ---- */
+
+.shiny-marquee--vertical {
+    flex-direction: column;
+}
+
+.shiny-marquee--vertical .shiny-marquee__strip {
+    flex-direction: column;
+}
+
+.shiny-marquee--vertical .shiny-marquee__group {
+    flex-direction: column;
+    animation: shiny-marquee-y var(--shiny-marquee-speed-duration, var(--shiny-marquee-duration, 40s)) linear infinite;
+}
+
+/*
+    ---- Any other angle ----
+    A horizontal strip, centred in the box and turned to the angle. The box has no intrinsic height in
+    this mode (the strip is out of flow), so it needs one from the page; 160px stands in until it gets it.
+*/
+.shiny-marquee--angled {
+    min-height: 160px;
+}
+
+.shiny-marquee--angled .shiny-marquee__strip {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(var(--shiny-marquee-angle, 0deg));
+}
+
+/*
+    Upright: each item turns back by the angle. The script pads the group by half the tallest item's
+    projection along the strip, so turned items do not overlap their neighbours.
+*/
+.shiny-marquee--upright .shiny-marquee__group {
+    padding-inline: var(--shiny-marquee-upright-pad, 0px);
+}
+
+.shiny-marquee--upright .shiny-marquee__group ::deep > * {
+    rotate: calc(-1 * var(--shiny-marquee-angle, 0deg));
+}
+
+/* ---- State ---- */
+
+.shiny-marquee--reverse .shiny-marquee__group {
+    animation-direction: reverse;
+}
+
+.shiny-marquee--paused .shiny-marquee__group,
+.shiny-marquee--pause-hover:hover .shiny-marquee__group,
+.shiny-marquee__strip.is-pressed .shiny-marquee__group {
+    animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-marquee--respect-motion .shiny-marquee__group {
+        animation-play-state: paused;
+    }
+}
+
+/*
+    A mask rather than a painted gradient, so the fade works over any background - including an image.
+    The gradient runs along the direction of travel.
+*/
+.shiny-marquee--fade {
+    -webkit-mask-image: linear-gradient(var(--shiny-marquee-fade-angle, 90deg), transparent, #000 var(--shiny-marquee-fade, 48px), #000 calc(100% - var(--shiny-marquee-fade, 48px)), transparent);
+    mask-image: linear-gradient(var(--shiny-marquee-fade-angle, 90deg), transparent, #000 var(--shiny-marquee-fade, 48px), #000 calc(100% - var(--shiny-marquee-fade, 48px)), transparent);
+}
+
+@keyframes shiny-marquee-x {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(-100% - var(--shiny-marquee-gap, 16px))); }
+}
+
+@keyframes shiny-marquee-y {
+    from { transform: translateY(0); }
+    to { transform: translateY(calc(-100% - var(--shiny-marquee-gap, 16px))); }
+}

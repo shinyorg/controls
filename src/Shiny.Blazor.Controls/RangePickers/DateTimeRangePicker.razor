@@ -1,0 +1,78 @@
+@namespace Shiny.Blazor.Controls
+
+<RangePickerField Text="@this.DisplayText"
+                  Placeholder="@Placeholder"
+                  Icon="RangePickerIcon.Calendar"
+                  Title="@Title"
+                  IsOpen="@IsOpen"
+                  Disabled="@Disabled"
+                  ShowClear="@ShowClear"
+                  ApplyDisabled="@(this.DraftRange is null)"
+                  ClearText="@ClearText"
+                  CancelText="@CancelText"
+                  ApplyText="@ApplyText"
+                  OnToggle="ToggleAsync"
+                  OnDismiss="CancelAsync"
+                  OnClear="ClearAsync"
+                  OnApply="ApplyAsync"
+                  Class="@Class"
+                  Style="@Style">
+    <ChildContent>
+        <div class="shiny-datetimerange">
+            <DateRangeCalendar StartDate="@this.draftStartDate"
+                               StartDateChanged="OnDraftStartDate"
+                               EndDate="@this.draftEndDate"
+                               EndDateChanged="OnDraftEndDate"
+                               MinDate="@MinDate"
+                               MaxDate="@MaxDate"
+                               MinDays="@MinDays"
+                               MaxDays="@MaxDays"
+                               AllowSingleDay="true"
+                               DisabledDates="@DisabledDates"
+                               DisabledDaysOfWeek="@DisabledDaysOfWeek"
+                               IsDateDisabled="@IsDateDisabled"
+                               AllowDisabledDatesInRange="@AllowDisabledDatesInRange"
+                               FirstDayOfWeek="@FirstDayOfWeek"
+                               Months="1"
+                               Culture="@Culture"
+                               Today="@Today" />
+
+            <div class="shiny-datetimerange-times">
+                <label class="shiny-datetimerange-row">
+                    <span class="shiny-datetimerange-label">@StartText</span>
+                    <span class="shiny-datetimerange-date">@this.FormatDate(this.draftStartDate)</span>
+                    <select class="shiny-datetimerange-select"
+                            aria-label="@($"{StartText} time")"
+                            value="@this.draftStartTime.ToString("HH:mm", CultureInfo.InvariantCulture)"
+                            @onchange="OnStartTimeChanged">
+                        @foreach (var slot in this.timeSlots)
+                        {
+                            <option value="@slot.ToString("HH:mm", CultureInfo.InvariantCulture)">@this.FormatTime(slot)</option>
+                        }
+                    </select>
+                </label>
+
+                <label class="shiny-datetimerange-row">
+                    <span class="shiny-datetimerange-label">@EndText</span>
+                    <span class="shiny-datetimerange-date">@this.FormatDate(this.EffectiveEndDate)</span>
+                    @*
+                        Keyed on its option set: Blazor writes a select's value only when the value
+                        changes, so when same-day filtering swapped the options out from under an
+                        unchanged value the browser showed whichever option slid into place.
+                    *@
+                    <select @key="@this.EndSlotsKey"
+                            class="shiny-datetimerange-select"
+                            aria-label="@($"{EndText} time")"
+                            value="@this.draftEndTime.ToString("HH:mm", CultureInfo.InvariantCulture)"
+                            @onchange="OnEndTimeChanged">
+                        @foreach (var slot in this.EndTimeSlots)
+                        {
+                            <option value="@slot.ToString("HH:mm", CultureInfo.InvariantCulture)">@this.FormatTime(slot)</option>
+                        }
+                    </select>
+                </label>
+            </div>
+        </div>
+    </ChildContent>
+    <Summary>@this.SummaryText</Summary>
+</RangePickerField>

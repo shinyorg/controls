@@ -71,6 +71,7 @@ public static class Catalog
 
         new("Input", "#34D399",
         [
+            new("rangepickers", "Range Pickers", "📅", "Date, time and date/time range pickers with presets"),
             new("textentry", "Text Entry", "✏", "Floating-label entry with validation states"),
             new("autocomplete", "AutoComplete", "≣", "Type-ahead suggestions from any source"),
             new("colorpicker", "Pickers", "◉", "Colour, font family and font size, as panels and as toolbar buttons"),
@@ -120,6 +121,7 @@ public static class Catalog
             new("dialogs", "Dialogs", "❕", "Owned alert, confirm, prompt and action sheet"),
             new("toast", "Toast", "▬", "Queued toasts with progress and spinners"),
             new("progressline", "Progress Line", "━", "Page-edge loading line, docked and service-driven"),
+            new("confetti", "Confetti", "🎉", "Confetti bursts on any click, or from code"),
             new("mediaservice", "Media Service", "⚙", "Camera capture, gallery picks and barcode/document scans from one service"),
             new("filedrop", "File Drop", "⇩", "Files dropped anywhere on the page, caught before the browser navigates"),
             new("quickentry", "Quick Entry", "✧", "Assistant-style prompt popup with a Siri-style screen glow")
@@ -153,7 +155,8 @@ public static class Catalog
         [
             new("markdown", "Markdown", "↓", "Markdig-powered renderer"),
             new("markdown-editor", "Markdown Editor", "✍", "Toolbar editor with live preview"),
-            new("mermaid", "Mermaid", "⬓", "Flowcharts and diagrams, with an interactive editor")
+            new("mermaid", "Mermaid", "⬓", "Flowcharts and diagrams, with an interactive editor"),
+            new("marquee", "Marquee", "⇆", "Endless scrolling content - horizontal, vertical or any angle")
         ]),
 
         new("Barcodes", "#A78BFA",

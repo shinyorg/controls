@@ -1,0 +1,53 @@
+@namespace Shiny.Blazor.Controls
+
+@*
+    The wrapper exists for CSS isolation: a scoped ::deep rule needs an element of this component's
+    own to hang from, and everything else here is a child component. display:contents keeps it out of
+    the layout.
+*@
+<div class="shiny-daterangepicker" style="display: contents">
+<RangePickerField Text="@this.DisplayText"
+                  Placeholder="@Placeholder"
+                  Icon="RangePickerIcon.Calendar"
+                  Title="@Title"
+                  IsOpen="@IsOpen"
+                  Disabled="@Disabled"
+                  ShowClear="@ShowClear"
+                  ShowApply="@(!AutoApply)"
+                  ApplyDisabled="@(this.draftStart is null)"
+                  ClearText="@ClearText"
+                  CancelText="@CancelText"
+                  ApplyText="@ApplyText"
+                  OnToggle="ToggleAsync"
+                  OnDismiss="CancelAsync"
+                  OnClear="ClearAsync"
+                  OnApply="ApplyAsync"
+                  Class="@Class"
+                  Style="@Style">
+    <ChildContent>
+        <DateRangeCalendar StartDate="@this.draftStart"
+                           StartDateChanged="OnDraftStart"
+                           EndDate="@this.draftEnd"
+                           EndDateChanged="OnDraftEnd"
+                           RangeChanged="OnDraftRangeAsync"
+                           MinDate="@MinDate"
+                           MaxDate="@MaxDate"
+                           MinDays="@MinDays"
+                           MaxDays="@MaxDays"
+                           AllowSingleDay="@AllowSingleDay"
+                           DisabledDates="@DisabledDates"
+                           DisabledDaysOfWeek="@DisabledDaysOfWeek"
+                           IsDateDisabled="@IsDateDisabled"
+                           AllowDisabledDatesInRange="@AllowDisabledDatesInRange"
+                           FirstDayOfWeek="@FirstDayOfWeek"
+                           Months="@Months"
+                           DisplayMonth="@DisplayMonth"
+                           DisplayMonthChanged="DisplayMonthChanged"
+                           Presets="@Presets"
+                           Culture="@Culture"
+                           Today="@Today"
+                           Class="@(Months > 1 ? "shiny-daterangepicker-multi" : null)" />
+    </ChildContent>
+    <Summary>@this.SummaryText</Summary>
+</RangePickerField>
+</div>

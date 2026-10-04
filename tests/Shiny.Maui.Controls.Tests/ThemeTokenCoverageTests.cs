@@ -36,6 +36,8 @@ public class ThemeTokenCoverageTests(ITestOutputHelper output)
         ["SelectionBackgroundConverter.cs"] = "fallbacks only - DataGrid.ApplyTheme overwrites both from theme tokens",
         ["SectionRenderer.cs"] = "deliberately emulates the iOS system separator/label colours, and already ships a light/dark pair for each",
         ["ColorPickerButton.cs"] = "the swatch fill and SelectedColor's default are the colour being picked - data, not chrome (its border, popup surface, backdrop and Done button are themed)",
+        ["ConfettiOptions.cs"] = "the default palette is canvas-confetti's own - the burst's colours are the effect itself, and callers pass their own Colors",
+        ["ConfettiCanvas.cs"] = "emoji particles are drawn with a fixed ink (colour emoji ignore it); everything else is the particle's own colour",
         ["ScreenGlowOptions.cs"] = "the glow palette is the effect itself - a Siri-style rainbow wash whose colours are its identity, not chrome that should follow a theme pack",
         ["ImageEditor.cs"] = "toolbar chrome is a fixed dark scrim over arbitrary photos, so its separator must stay a mid grey that reads on that scrim in both schemes; only the semantic Delete/Confirm buttons are themed",
 

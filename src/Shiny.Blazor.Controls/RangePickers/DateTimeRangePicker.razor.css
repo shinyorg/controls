@@ -1,0 +1,48 @@
+.shiny-datetimerange {
+    display: flex;
+    flex-direction: column;
+    gap: var(--shiny-spacing-3, 12px);
+    font-family: var(--shiny-type-font-family, inherit);
+    font-size: var(--shiny-type-body-medium-size, 14px);
+}
+
+.shiny-datetimerange-times {
+    display: flex;
+    flex-direction: column;
+    gap: var(--shiny-spacing-2, 8px);
+    padding-top: var(--shiny-spacing-3, 12px);
+    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+.shiny-datetimerange-row {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+}
+
+.shiny-datetimerange-label {
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-label-small-size, 12px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.shiny-datetimerange-date { font-variant-numeric: tabular-nums; }
+
+.shiny-datetimerange-select {
+    min-width: 110px;
+    padding: 5px 8px;
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #6C788D);
+    border-radius: var(--shiny-shape-corner-small, 6px);
+    background: var(--shiny-color-surface, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+}
+
+.shiny-datetimerange-select:focus-visible {
+    outline: 2px solid var(--shiny-color-primary, #0055D9);
+    outline-offset: 1px;
+}

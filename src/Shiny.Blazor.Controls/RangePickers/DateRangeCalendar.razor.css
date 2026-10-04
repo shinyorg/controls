@@ -1,0 +1,197 @@
+.shiny-rangecal {
+    --rc-cell: calc(38px * var(--shiny-density-scale, 1));
+    --rc-accent: var(--shiny-color-primary, #0055D9);
+    --rc-on-accent: var(--shiny-color-on-primary, #FFFFFF);
+    --rc-band: var(--shiny-color-primary-container, #C2D8FA);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--shiny-spacing-4, 16px);
+    align-items: flex-start;
+    box-sizing: border-box;
+    color: var(--shiny-color-on-surface, #161C23);
+    font-family: var(--shiny-type-font-family, inherit);
+    font-size: var(--shiny-type-body-medium-size, 14px);
+    user-select: none;
+}
+
+.shiny-rangecal-presets {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 130px;
+    padding-right: var(--shiny-spacing-3, 12px);
+    border-right: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+
+.shiny-rangecal-preset {
+    padding: 6px 10px;
+    border: 0;
+    border-radius: var(--shiny-shape-corner-small, 6px);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.shiny-rangecal-preset:hover { background: var(--shiny-color-surface-container-high, #E2E6EA); }
+
+.shiny-rangecal-preset.is-active {
+    background: var(--rc-band);
+    color: var(--shiny-color-on-primary-container, #124294);
+    font-weight: 600;
+}
+
+.shiny-rangecal-months {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--shiny-spacing-5, 24px);
+}
+
+.shiny-rangecal-month { width: calc(var(--rc-cell) * 7); }
+
+.shiny-rangecal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--rc-cell);
+    margin-bottom: 4px;
+}
+
+.shiny-rangecal-title { font-weight: 600; text-transform: capitalize; }
+
+.shiny-rangecal-nav {
+    width: 32px;
+    height: 32px;
+}
+
+.shiny-rangecal-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    cursor: pointer;
+}
+
+.shiny-rangecal-nav:hover { background: var(--shiny-color-surface-container-high, #E2E6EA); }
+
+.shiny-rangecal-nav.is-inner { visibility: hidden; }
+
+.shiny-rangecal-row {
+    display: grid;
+    grid-template-columns: repeat(7, var(--rc-cell));
+}
+
+.shiny-rangecal-weekday {
+    height: 28px;
+    line-height: 28px;
+    text-align: center;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-label-small-size, 12px);
+}
+
+.shiny-rangecal-cell {
+    position: relative;
+    height: var(--rc-cell);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* The band behind a range is drawn on the cell, the pill on the button, so the band runs edge to edge
+   between days while the ends stay round. */
+.shiny-rangecal-cell.band,
+.shiny-rangecal-cell.band-start,
+.shiny-rangecal-cell.band-end,
+.shiny-rangecal-cell.preview,
+.shiny-rangecal-cell.preview-end {
+    background: var(--rc-band);
+    background-clip: content-box;
+    padding: 3px 0;
+    box-sizing: border-box;
+}
+
+.shiny-rangecal-cell.band-start { background: linear-gradient(to right, transparent 50%, var(--rc-band) 50%); background-clip: content-box; }
+.shiny-rangecal-cell.band-end { background: linear-gradient(to left, transparent 50%, var(--rc-band) 50%); background-clip: content-box; }
+
+.shiny-rangecal-cell.preview,
+.shiny-rangecal-cell.preview-end {
+    background: transparent;
+    border-top: 1px dashed var(--rc-accent);
+    border-bottom: 1px dashed var(--rc-accent);
+    padding: 2px 0;
+}
+
+.shiny-rangecal-cell.preview-end { border-right: 1px dashed var(--rc-accent); border-radius: 0 999px 999px 0; }
+
+.shiny-rangecal-day {
+    position: relative;
+    z-index: 1;
+    width: calc(var(--rc-cell) - 4px);
+    height: calc(var(--rc-cell) - 4px);
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.shiny-rangecal-day:hover { background: var(--shiny-color-surface-container-highest, #D7DCE1); }
+
+.shiny-rangecal-day:focus-visible {
+    outline: 2px solid var(--rc-accent);
+    outline-offset: 1px;
+}
+
+.shiny-rangecal-day.is-today { box-shadow: inset 0 0 0 1px var(--rc-accent); font-weight: 600; }
+
+.shiny-rangecal-day.is-in-range { color: var(--shiny-color-on-primary-container, #124294); }
+.shiny-rangecal-day.is-in-range:hover { background: transparent; box-shadow: inset 0 0 0 1px var(--rc-accent); }
+
+.shiny-rangecal-day.is-start,
+.shiny-rangecal-day.is-end,
+.shiny-rangecal-day.is-start:hover,
+.shiny-rangecal-day.is-end:hover {
+    background: var(--rc-accent);
+    color: var(--rc-on-accent);
+    font-weight: 600;
+}
+
+.shiny-rangecal-day.is-outside { color: var(--shiny-color-on-surface-variant, #3B475B); opacity: 0.55; }
+
+.shiny-rangecal-day.is-disabled,
+.shiny-rangecal-day.is-unavailable {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.shiny-rangecal-day.is-disabled { text-decoration: line-through; }
+.shiny-rangecal-day.is-disabled:hover,
+.shiny-rangecal-day.is-unavailable:hover { background: transparent; }
+
+@media (max-width: 480px) {
+    .shiny-rangecal-presets {
+        flex-direction: row;
+        flex-wrap: wrap;
+        min-width: 0;
+        width: 100%;
+        padding: 0 0 var(--shiny-spacing-2, 8px);
+        border-right: 0;
+        border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    }
+
+    .shiny-rangecal-preset {
+        border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: var(--shiny-type-body-small-size, 12px);
+    }
+}

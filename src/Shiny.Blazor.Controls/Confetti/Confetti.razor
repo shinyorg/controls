@@ -1,0 +1,6 @@
+@namespace Shiny.Blazor.Controls
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* display:contents, so wrapping a control to give it confetti does not change how it lays out. *@
+<span class="shiny-confetti" style="display: contents" @ref="anchor">@ChildContent</span>

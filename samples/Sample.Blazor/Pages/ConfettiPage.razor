@@ -1,0 +1,79 @@
+@page "/confetti"
+@using Shiny.Blazor.Controls
+@inject IConfettiService ConfettiService
+
+<PageTitle>Confetti</PageTitle>
+
+<h1>Confetti</h1>
+
+<p>
+    Wrap anything in <code>&lt;Confetti&gt;</code> and a click throws confetti from the pointer. The click
+    still reaches the wrapped control - this adds to it, it doesn't replace it.
+</p>
+
+<section class="demo-section">
+    <h2>Wrap any click</h2>
+
+    <div class="demo-row">
+        <Confetti>
+            <button class="demo-button">Burst</button>
+        </Confetti>
+
+        <Confetti Preset="ConfettiPreset.Stars">
+            <ShinyButton Text="Stars (ShinyButton)" />
+        </Confetti>
+
+        <Confetti Preset="ConfettiPreset.Random">
+            <button class="demo-button">Random direction</button>
+        </Confetti>
+
+        <Confetti Options="unicorns">
+            <button class="demo-button">Emoji (custom options)</button>
+        </Confetti>
+    </div>
+
+    <Confetti>
+        <div style="margin-top: 16px; height: 140px; border: 1px dashed #8888; border-radius: 12px; display: grid; place-items: center;">
+            Click anywhere in here
+        </div>
+    </Confetti>
+
+    <Confetti Trigger="ConfettiTrigger.DoubleTap" Preset="ConfettiPreset.Stars">
+        <div style="margin-top: 12px; height: 80px; border: 1px dashed #8888; border-radius: 12px; display: grid; place-items: center;">
+            Double click in here
+        </div>
+    </Confetti>
+</section>
+
+<section class="demo-section">
+    <h2>From code</h2>
+    <p><code>IConfettiService</code> - for celebrating something that wasn't a click. No host component needed.</p>
+
+    <div class="demo-row">
+        <button class="demo-button" @onclick="@(() => ConfettiService.FireAsync(ConfettiPreset.Fireworks))">Fireworks</button>
+        <button class="demo-button" @onclick="@(() => ConfettiService.FireAsync(ConfettiPreset.SideCannons))">Side cannons</button>
+        <button class="demo-button" @ref="fromButton" @onclick="FromElement">Burst from this button, then report</button>
+        <button class="demo-button" @onclick="@(() => ConfettiService.ClearAsync())">Clear</button>
+    </div>
+    <p><strong>@status</strong></p>
+</section>
+
+@code {
+    ElementReference fromButton;
+    string status = "";
+
+    readonly ConfettiOptions unicorns = new()
+    {
+        ParticleCount = 30,
+        Spread = 80,
+        Scalar = 2,
+        Emoji = ["🦄", "🎉"]
+    };
+
+    async Task FromElement()
+    {
+        status = "In the air...";
+        await ConfettiService.FireFromAsync(fromButton, ConfettiPreset.Burst);
+        status = "Landed.";
+    }
+}

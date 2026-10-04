@@ -1,0 +1,102 @@
+@page "/marquee"
+@using Shiny.Blazor.Controls
+
+<PageTitle>Marquee</PageTitle>
+
+<h1>Marquee</h1>
+
+<p>
+    Content that scrolls endlessly - horizontally, vertically or along any angle. The movement is a CSS
+    animation; the copies are laid end to end so the loop has no seam.
+</p>
+
+<section class="demo-section">
+    <h2>Reviews, both directions</h2>
+    <p>The same cards running opposite ways, with faded edges. Hover or press to pause.</p>
+
+    <Marquee Duration="TimeSpan.FromSeconds(30)" FadeEdges="true" PauseOnHover="true" PauseOnPress="true">
+        @foreach (var review in reviews)
+        {
+            <figure style="@CardStyle">
+                <strong>@review.Name</strong> <span style="opacity:.6">@review.Handle</span>
+                <blockquote style="margin:6px 0 0">@review.Body</blockquote>
+            </figure>
+        }
+    </Marquee>
+
+    <Marquee Duration="TimeSpan.FromSeconds(30)" Reverse="true" FadeEdges="true" PauseOnHover="true" PauseOnPress="true">
+        @foreach (var review in reviews)
+        {
+            <figure style="@CardStyle">
+                <strong>@review.Name</strong> <span style="opacity:.6">@review.Handle</span>
+                <blockquote style="margin:6px 0 0">@review.Body</blockquote>
+            </figure>
+        }
+    </Marquee>
+</section>
+
+<section class="demo-section">
+    <h2>Vertical</h2>
+    <p><code>Angle="90"</code> rises. Give it a height.</p>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <Marquee Angle="90" Speed="30" Gap="10" FadeEdges="true" Style="height:300px">
+            @foreach (var tag in tags)
+            {
+                <span style="@ChipStyle">@tag</span>
+            }
+        </Marquee>
+        <Marquee Angle="90" Reverse="true" Speed="30" Gap="10" FadeEdges="true" Style="height:300px">
+            @foreach (var tag in tags)
+            {
+                <span style="@ChipStyle">@tag</span>
+            }
+        </Marquee>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Any angle</h2>
+    <p><code>Angle="-15"</code>. Items stay upright by default; untick to tilt them with the track like a ribbon.</p>
+
+    <label><input type="checkbox" @bind="upright" /> Keep content upright</label>
+
+    <Marquee Angle="-15" Speed="40" KeepContentUpright="upright" FadeEdges="true" Style="height:220px; margin-top:8px">
+        @foreach (var tag in tags)
+        {
+            <span style="@ChipStyle">@tag</span>
+        }
+    </Marquee>
+</section>
+
+<section class="demo-section">
+    <h2>Stopped and started</h2>
+    <label><input type="checkbox" @bind="running" /> Running</label>
+
+    <Marquee Speed="60" Gap="8" IsRunning="running">
+        @foreach (var tag in tags)
+        {
+            <span style="@ChipStyle">@tag</span>
+        }
+    </Marquee>
+</section>
+
+@code {
+    const string CardStyle = "width:220px; margin:0; padding:12px; border:1px solid #8884; border-radius:12px; font-size:14px;";
+    const string ChipStyle = "display:inline-block; padding:6px 14px; border:1px solid #8888ff66; border-radius:16px; font-weight:600; white-space:nowrap;";
+
+    bool upright = true;
+    bool running = true;
+
+    readonly (string Name, string Handle, string Body)[] reviews =
+    [
+        ("Jack", "@jack", "I've never seen anything like this before. It's amazing."),
+        ("Jill", "@jill", "I don't know what to say. I'm speechless."),
+        ("John", "@john", "I'm at a loss for words. This is amazing."),
+        ("Jane", "@jane", "Honestly the smoothest marquee I've dropped into an app."),
+        ("Jenny", "@jenny", "Works on my phone and my desktop with the same markup."),
+        ("James", "@james", "Any angle! Even the tilted one keeps its text level.")
+    ];
+
+    readonly string[] tags = [".NET MAUI", "Blazor", "Shiny", "C#", "XAML", "iOS", "Android", "Windows", "macOS", "Linux"];
+}

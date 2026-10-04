@@ -47,6 +47,7 @@ body:
         - Mermaid Diagrams (*.Controls.MermaidDiagrams)
         - Motion Icons (core packages / Shiny.Controls.MotionIcons.Shared)
         - Office — Spreadsheet / Document / Slide (*.Controls.Office)
+        - Range Pickers — date / time / date-time ranges (core packages / Shiny.Controls.RangePickers.Shared)
         - Speech Addins (*.Controls.SpeechAddins)
         - Themes (Aurora / Material / Ocean / Terminal)
         - New package / control

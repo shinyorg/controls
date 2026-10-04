@@ -1,0 +1,12 @@
+/* The calendar is a child component, so its months are only reachable through ::deep. On a narrow
+   screen only the first month shows, and its own "next" button (normally hidden, because the last
+   month carries the visible one) takes over the paging. */
+@media (max-width: 640px) {
+    ::deep .shiny-daterangepicker-multi .shiny-rangecal-month:not([data-month-index="0"]) {
+        display: none;
+    }
+
+    ::deep .shiny-daterangepicker-multi .shiny-rangecal-month[data-month-index="0"] .shiny-rangecal-nav.is-next {
+        visibility: visible;
+    }
+}

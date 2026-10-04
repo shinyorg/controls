@@ -50,6 +50,9 @@ public static class ControlsMauiAppBuilderExtensions
         // same edge the moment a second operation started.
         builder.Services.TryAddSingleton<IProgressLineService, ProgressLineService>();
 
+        // Stateless: the particles live on each page's canvas, not in the service.
+        builder.Services.TryAddSingleton<IConfettiService, ConfettiService>();
+
         // Lets a view model drive whatever flyout is on the page that is showing, without the page
         // having to hand its FlyoutView over. The registry it reads is weak, so this holds nothing alive.
         builder.Services.TryAddSingleton<IFlyoutService, FlyoutService>();

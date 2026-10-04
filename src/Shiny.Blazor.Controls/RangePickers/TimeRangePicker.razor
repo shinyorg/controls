@@ -1,0 +1,72 @@
+@namespace Shiny.Blazor.Controls
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<RangePickerField @ref="this.field"
+                  Text="@this.DisplayText"
+                  Placeholder="@Placeholder"
+                  Icon="RangePickerIcon.Clock"
+                  Title="@Title"
+                  IsOpen="@IsOpen"
+                  Disabled="@Disabled"
+                  ShowClear="@ShowClear"
+                  ApplyDisabled="@(!this.DraftIsValid)"
+                  ClearText="@ClearText"
+                  CancelText="@CancelText"
+                  ApplyText="@ApplyText"
+                  OnToggle="ToggleAsync"
+                  OnDismiss="CancelAsync"
+                  OnClear="ClearAsync"
+                  OnApply="ApplyAsync"
+                  Class="@Class"
+                  Style="@Style">
+    <ChildContent>
+        <div class="shiny-timerange">
+            <div class="shiny-timerange-column">
+                <div class="shiny-timerange-heading">@StartText</div>
+                <div class="shiny-timerange-list" role="listbox" aria-label="@StartText" data-rp-scroll>
+                    @foreach (var slot in this.startSlots)
+                    {
+                        var selected = slot == this.draftStart;
+                        <button type="button"
+                                class="shiny-timerange-slot @(selected ? "is-selected" : null)"
+                                role="option"
+                                aria-selected="@(selected ? "true" : "false")"
+                                data-rp-anchor="@(slot == this.startAnchor ? "true" : null)"
+                                @onclick="() => this.SelectStart(slot)">@this.FormatTime(slot)</button>
+                    }
+                </div>
+            </div>
+
+            <div class="shiny-timerange-column">
+                <div class="shiny-timerange-heading">@EndText</div>
+                <div class="shiny-timerange-list" role="listbox" aria-label="@EndText" data-rp-scroll>
+                    @if (this.draftStart is { } start)
+                    {
+                        var first = true;
+                        @foreach (var slot in this.endSlots)
+                        {
+                            var selected = slot.Time == this.draftEnd;
+                            var nextDay = slot.Time <= start;
+                            <button type="button"
+                                    class="shiny-timerange-slot @(selected ? "is-selected" : null)"
+                                    role="option"
+                                    aria-selected="@(selected ? "true" : "false")"
+                                    data-rp-anchor="@(first ? "true" : null)"
+                                    @onclick="() => this.SelectEnd(slot.Time)">
+                                <span>@this.FormatTime(slot.Time)</span>
+                                <span class="shiny-timerange-duration">@RangeFormatter.FormatDuration(slot.Duration ?? TimeSpan.Zero)@(nextDay ? $" · {NextDayText}" : null)</span>
+                            </button>
+                            first = false;
+                        }
+                    }
+                    else
+                    {
+                        <div class="shiny-timerange-hint">@PickStartText</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </ChildContent>
+    <Summary>@this.SummaryText</Summary>
+</RangePickerField>

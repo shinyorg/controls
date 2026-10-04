@@ -72,6 +72,7 @@ body:
         - Shiny.Controls.MotionIcons.Shared
         - Shiny.Controls.Office.Shared
         - Shiny.Controls.Office.Skia
+        - Shiny.Controls.RangePickers.Shared
         - Not sure / multiple
     validations:
       required: true

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Dependency-free and shared rather than mirrored. Which day a tap selects, whether a span
+             crosses a blocked date, which end times a start time allows and how "Mar 28 – Apr 2" is
+             written are rules that are easy to get subtly different on two hosts. They live once. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.RangePickers</RootNamespace>
+        <Description>Host-neutral engine behind the Shiny date range, time range and date/time range pickers — DateRange/TimeRange/DateTimeRange value types, range selection with min/max dates, min/max spans and blocked dates, month grids, presets (Last 7 days, This month…), time slots with duration rules and overnight ranges, and compact culture-aware range formatting. Used by the .NET MAUI and Blazor controls.</Description>
+        <PackageTags>maui blazor shiny date range time range picker calendar</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.RangePickers.Tests" />
+    </ItemGroup>
+
+</Project>

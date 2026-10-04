@@ -1,0 +1,67 @@
+.shiny-timerange {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    gap: var(--shiny-spacing-3, 12px);
+    font-family: var(--shiny-type-font-family, inherit);
+    font-size: var(--shiny-type-body-medium-size, 14px);
+}
+
+.shiny-timerange-heading {
+    margin-bottom: var(--shiny-spacing-1, 4px);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-label-small-size, 12px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.shiny-timerange-list {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    height: 260px;
+    overflow-y: auto;
+    padding: 2px;
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-small, 6px);
+    overscroll-behavior: contain;
+}
+
+.shiny-timerange-slot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--shiny-spacing-2, 8px);
+    padding: 6px 10px;
+    border: 0;
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    background: transparent;
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.shiny-timerange-slot:hover { background: var(--shiny-color-surface-container-high, #E2E6EA); }
+
+.shiny-timerange-slot.is-selected,
+.shiny-timerange-slot.is-selected:hover {
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
+}
+
+.shiny-timerange-duration {
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-body-small-size, 12px);
+}
+
+.shiny-timerange-slot.is-selected .shiny-timerange-duration { color: inherit; opacity: 0.85; }
+
+.shiny-timerange-hint {
+    padding: var(--shiny-spacing-3, 12px);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-body-small-size, 12px);
+}
