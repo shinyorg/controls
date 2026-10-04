@@ -18,6 +18,7 @@ public static class RangeFormatter
     public const string DefaultSeparator = " – ";
 
 
+    /// <summary>Formats a date range compactly ("Mar 3 – 9, 2026"), or both ends with <paramref name="format"/> when given.</summary>
     public static string Format(DateRange range, CultureInfo? culture = null, string? format = null, string separator = DefaultSeparator)
     {
         culture ??= CultureInfo.CurrentCulture;
@@ -53,6 +54,7 @@ public static class RangeFormatter
     }
 
 
+    /// <summary>Formats a time range with the culture's short time pattern, or <paramref name="format"/> when given.</summary>
     public static string Format(TimeRange range, CultureInfo? culture = null, string? format = null, string separator = DefaultSeparator)
     {
         culture ??= CultureInfo.CurrentCulture;
@@ -61,6 +63,7 @@ public static class RangeFormatter
     }
 
 
+    /// <summary>Formats a date/time range, writing the date once when both ends fall on the same day, or both ends with <paramref name="format"/> when given.</summary>
     public static string Format(DateTimeRange range, CultureInfo? culture = null, string? format = null, string separator = DefaultSeparator)
     {
         culture ??= CultureInfo.CurrentCulture;

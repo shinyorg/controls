@@ -89,8 +89,10 @@ public sealed class DateRangeConstraints
 }
 
 
+/// <summary>Why a date range fails its <see cref="DateRangeConstraints"/>.</summary>
 public enum DateRangeError
 {
+    /// <summary>The range satisfies every rule.</summary>
     None,
     /// <summary>The start or end day is disabled.</summary>
     DisabledEndpoint,

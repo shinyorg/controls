@@ -97,6 +97,7 @@ public sealed class TimeRangeConstraints
     }
 
 
+    /// <summary>Whether <paramref name="range"/> satisfies every rule.</summary>
     public bool IsValid(TimeRange range)
     {
         // Ending at 00:00 is "until midnight", which every picker allows unless MaxTime says otherwise.

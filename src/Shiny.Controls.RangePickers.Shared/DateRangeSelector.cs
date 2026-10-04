@@ -4,7 +4,9 @@ namespace Shiny.Controls.RangePickers;
 [Flags]
 public enum CalendarDayState
 {
+    /// <summary>No special state.</summary>
     None = 0,
+    /// <summary>The day is today.</summary>
     Today = 1 << 0,
     /// <summary>Belongs to the previous or next month and is only filling out the grid.</summary>
     OutsideMonth = 1 << 1,
@@ -12,7 +14,9 @@ public enum CalendarDayState
     Disabled = 1 << 2,
     /// <summary>Selectable in general, but not as the end of the range that is half picked (too short, too long, or across a blocked day).</summary>
     Unavailable = 1 << 3,
+    /// <summary>The first day of the selected range.</summary>
     RangeStart = 1 << 4,
+    /// <summary>The last day of the selected range.</summary>
     RangeEnd = 1 << 5,
     /// <summary>Strictly between the start and end.</summary>
     InRange = 1 << 6,
@@ -20,6 +24,7 @@ public enum CalendarDayState
     Preview = 1 << 7,
     /// <summary>The day the pointer is over while the end is still being chosen.</summary>
     PreviewEnd = 1 << 8,
+    /// <summary>A Saturday or Sunday.</summary>
     Weekend = 1 << 9
 }
 
@@ -52,14 +57,17 @@ public sealed class DateRangeSelector
     DateOnly? blockedFor;
     bool blockedComputed;
 
+    /// <summary>Creates a selector with the given rules, or none.</summary>
     public DateRangeSelector(DateRangeConstraints? constraints = null)
         => this.Constraints = constraints ?? new DateRangeConstraints();
 
     /// <summary>The rules. Call <see cref="InvalidateConstraints"/> after changing it in place.</summary>
     public DateRangeConstraints Constraints { get; set; }
 
+    /// <summary>The picked start day, or null when nothing is picked.</summary>
     public DateOnly? Start { get; private set; }
 
+    /// <summary>The picked end day, or null while the end is still to be chosen.</summary>
     public DateOnly? End { get; private set; }
 
     /// <summary>The day under the pointer, for the hover preview. Hosts without a pointer leave it null.</summary>
@@ -75,6 +83,7 @@ public sealed class DateRangeSelector
     public bool IsPickingEnd => this.Start is not null && this.End is null;
 
 
+    /// <summary>Drops cached rule results after <see cref="Constraints"/> was changed in place.</summary>
     public void InvalidateConstraints() => this.blockedComputed = false;
 
 
@@ -96,9 +105,11 @@ public sealed class DateRangeSelector
     }
 
 
+    /// <summary>Removes the selection.</summary>
     public void Clear() => this.SetRange(null);
 
 
+    /// <summary>Applies a tap on <paramref name="date"/>: starts a range, completes it, or is ignored.</summary>
     public DateRangeTapResult Tap(DateOnly date)
     {
         if (this.Constraints.IsDisabled(date))
@@ -148,6 +159,7 @@ public sealed class DateRangeSelector
     }
 
 
+    /// <summary>How <paramref name="date"/> should be drawn. Pass the displayed month to flag days that only pad the grid.</summary>
     public CalendarDayState StateOf(DateOnly date, int displayYear = 0, int displayMonth = 0)
     {
         var state = CalendarDayState.None;

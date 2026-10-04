@@ -6,10 +6,13 @@ namespace Shiny.Controls.RangePickers;
 /// </summary>
 public sealed class DateRangePreset(string label, Func<DateOnly, DateRange> resolve)
 {
+    /// <summary>The text shown in the preset list.</summary>
     public string Label { get; } = label;
 
+    /// <summary>The range this preset means on <paramref name="today"/>.</summary>
     public DateRange Resolve(DateOnly today) => resolve(today);
 
+    /// <summary>The <see cref="Label"/>.</summary>
     public override string ToString() => this.Label;
 }
 
@@ -20,23 +23,37 @@ public sealed class DateRangePreset(string label, Func<DateOnly, DateRange> reso
 /// </summary>
 public static class DateRangePresets
 {
+    /// <summary>Just today.</summary>
     public static DateRangePreset Today { get; } = new("Today", t => new(t, t));
+    /// <summary>Just yesterday.</summary>
     public static DateRangePreset Yesterday { get; } = new("Yesterday", t => new(t.AddDays(-1), t.AddDays(-1)));
+    /// <summary>The last 7 days, counting today.</summary>
     public static DateRangePreset Last7Days { get; } = LastDays(7);
+    /// <summary>The last 14 days, counting today.</summary>
     public static DateRangePreset Last14Days { get; } = LastDays(14);
+    /// <summary>The last 30 days, counting today.</summary>
     public static DateRangePreset Last30Days { get; } = LastDays(30);
+    /// <summary>The last 90 days, counting today.</summary>
     public static DateRangePreset Last90Days { get; } = LastDays(90);
+    /// <summary>The next 7 days, counting today.</summary>
     public static DateRangePreset Next7Days { get; } = NextDays(7);
+    /// <summary>The next 30 days, counting today.</summary>
     public static DateRangePreset Next30Days { get; } = NextDays(30);
+    /// <summary>The whole of the current month.</summary>
     public static DateRangePreset ThisMonth { get; } = new("This month", t => new(CalendarMath.StartOfMonth(t), CalendarMath.StartOfMonth(t).AddMonths(1).AddDays(-1)));
+    /// <summary>The whole of the previous month.</summary>
     public static DateRangePreset LastMonth { get; } = new("Last month", t =>
     {
         var start = CalendarMath.StartOfMonth(t).AddMonths(-1);
         return new(start, start.AddMonths(1).AddDays(-1));
     });
+    /// <summary>The 1st of the current month through today.</summary>
     public static DateRangePreset MonthToDate { get; } = new("Month to date", t => new(CalendarMath.StartOfMonth(t), t));
+    /// <summary>The whole of the current year.</summary>
     public static DateRangePreset ThisYear { get; } = new("This year", t => new(new DateOnly(t.Year, 1, 1), new DateOnly(t.Year, 12, 31)));
+    /// <summary>The whole of the previous year.</summary>
     public static DateRangePreset LastYear { get; } = new("Last year", t => new(new DateOnly(t.Year - 1, 1, 1), new DateOnly(t.Year - 1, 12, 31)));
+    /// <summary>January 1st of the current year through today.</summary>
     public static DateRangePreset YearToDate { get; } = new("Year to date", t => new(new DateOnly(t.Year, 1, 1), t));
 
     /// <summary>"Last N days", counting today.</summary>
@@ -47,6 +64,7 @@ public static class DateRangePresets
     public static DateRangePreset NextDays(int days, string? label = null)
         => new(label ?? $"Next {days} days", t => new(t, t.AddDays(days - 1)));
 
+    /// <summary>The whole of the current week, starting on <paramref name="firstDayOfWeek"/>.</summary>
     public static DateRangePreset ThisWeek(DayOfWeek firstDayOfWeek, string label = "This week")
         => new(label, t =>
         {
@@ -54,6 +72,7 @@ public static class DateRangePresets
             return new(start, start.AddDays(6));
         });
 
+    /// <summary>The whole of the previous week, starting on <paramref name="firstDayOfWeek"/>.</summary>
     public static DateRangePreset LastWeek(DayOfWeek firstDayOfWeek, string label = "Last week")
         => new(label, t =>
         {

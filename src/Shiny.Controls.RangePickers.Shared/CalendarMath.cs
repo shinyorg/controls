@@ -38,6 +38,7 @@ public static class CalendarMath
     }
 
 
+    /// <summary>The first day of the week containing <paramref name="date"/>.</summary>
     public static DateOnly StartOfWeek(DateOnly date, DayOfWeek firstDayOfWeek)
     {
         var diff = ((int)date.DayOfWeek - (int)firstDayOfWeek + 7) % 7;
@@ -45,6 +46,7 @@ public static class CalendarMath
     }
 
 
+    /// <summary>The 1st of the month containing <paramref name="date"/>.</summary>
     public static DateOnly StartOfMonth(DateOnly date) => new(date.Year, date.Month, 1);
 
 
