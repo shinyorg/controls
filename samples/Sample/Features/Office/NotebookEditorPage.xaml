@@ -10,13 +10,17 @@
         <HorizontalStackLayout Grid.Row="0" Spacing="8">
             <Button Text="Toolbar" Clicked="OnToggleToolbar" />
             <Button Text="Navigation" Clicked="OnToggleNavigation" />
+            <Button Text="Pages" Clicked="OnTogglePageList" />
             <Button Text="Theme" Clicked="OnToggleTheme" />
             <Button Text="Save" Clicked="OnSave" />
             <Label x:Name="StatusLabel" VerticalOptions="Center" FontSize="12" Opacity="0.7" />
         </HorizontalStackLayout>
 
         <Border Grid.Row="1" StrokeThickness="1">
-            <office:NotebookEditorView x:Name="Editor" />
+            <!-- The page list starts hidden on a phone, where it would take half the width from the page.
+                 The View tab's "Page list" toggle brings it back. -->
+            <office:NotebookEditorView x:Name="Editor"
+                                       ShowPageList="{OnIdiom Phone=False, Default=True}" />
         </Border>
     </Grid>
 </ContentPage>

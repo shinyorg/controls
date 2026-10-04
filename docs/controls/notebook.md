@@ -150,6 +150,20 @@ refills it. A section that cannot be opened is worse than an empty one.
 Each page carries its own **rule** — blank, lined, grid or dots — with its own spacing and colour, and
 an optional background.
 
+The page list can be hidden on its own with `ShowPageList` — two-way, and toggled from the **View**
+tab's *Page list* button — which gives the canvas the full width while keeping the section tabs. On a
+phone the list takes about half the screen from the page, so that is the place to default it off:
+
+```xml
+<office:NotebookEditorView ShowPageList="{OnIdiom Phone=False, Default=True}" />
+```
+
+```razor
+<NotebookEditorView Notebook="notebook" @bind-ShowPageList="showPageList" />
+```
+
+`ShowNavigation` remains the switch for both the section tabs and the page list.
+
 | | Blazor | MAUI |
 |---|---|---|
 | Write, draw, erase, lasso, arrange | ✅ | ✅ |

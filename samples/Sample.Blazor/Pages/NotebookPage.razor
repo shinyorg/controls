@@ -17,6 +17,7 @@
 
 <div class="toolbar">
     <label class="chk"><input type="checkbox" @bind="withChrome" /> Ribbon and navigation</label>
+    <label class="chk"><input type="checkbox" @bind="showPageList" /> Page list</label>
     <button class="btn" @onclick="ToggleTheme">@(dark ? "Follow page" : "Force dark")</button>
     <span class="status">@Status</span>
 </div>
@@ -26,6 +27,7 @@
     {
         <NotebookEditorView Notebook="notebook"
                             @bind-Tool="tool"
+                            @bind-ShowPageList="showPageList"
                             Theme="@(dark ? NotebookTheme.Dark : null)"
                             NotebookChanged="OnChanged" />
     }
@@ -48,6 +50,7 @@
 
 @code {
     NotebookDocument? notebook;
+    bool showPageList = true;
     bool withChrome = true;
     bool dark;
     NoteTool tool = NoteTool.Select;

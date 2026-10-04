@@ -41,6 +41,25 @@ one read-only.
 this.Editor.Notebook = notebook;
 ```
 
+### Chrome switches on `NotebookEditorView`
+
+| Property | Default | What it hides |
+|---|---|---|
+| `ShowToolbar` | `true` | the ribbon |
+| `ShowNavigation` | `true` | the section tabs **and** the page list |
+| `ShowPageList` | `true` | only the page list down the right — **two-way**, also toggled from the View tab's "Page list" button |
+| `ShowStatus` | `true` | the status line |
+
+On a phone the page list takes about half the width from the canvas, so default it off there:
+
+```xml
+<office:NotebookEditorView ShowPageList="{OnIdiom Phone=False, Default=True}" />
+```
+
+```razor
+<NotebookEditorView Notebook="notebook" @bind-ShowPageList="showPageList" />
+```
+
 ## The model
 
 ```

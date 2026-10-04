@@ -74,6 +74,7 @@ public class NotebookEditorView : ContentView, IDisposable
     readonly RibbonButton zoomOut;
     readonly RibbonButton undo;
     readonly RibbonButton redo;
+    readonly RibbonToggleButton pageListToggle;
     readonly ColorPickerButton textColor;
     readonly List<RibbonItem> buttons = [];
 
@@ -122,6 +123,16 @@ public class NotebookEditorView : ContentView, IDisposable
 
         this.undo = this.MakeButton(OfficeIcon.Undo, "Undo (Ctrl+Z)", () => this.editor.Controller?.Undo());
         this.redo = this.MakeButton(OfficeIcon.Redo, "Redo (Ctrl+Shift+Z)", () => this.editor.Controller?.Redo());
+
+        // Not tracked with the editing commands: hiding the page list is a view choice, so it stays
+        // live in read-only mode and with no notebook loaded.
+        this.pageListToggle = OfficeRibbonItems.Toggle(
+            WordIcons.NavigationPane,
+            "Page list",
+            () => this.ShowPageList = !this.ShowPageList,
+            "NotebookTogglePageList");
+        this.pageListToggle.Text = "Page list";
+        this.pageListToggle.IsChecked = true;
 
         this.textColor = this.CreateColorPicker(color => this.editor.Controller?.SetTextColor(color));
 
@@ -269,6 +280,19 @@ public class NotebookEditorView : ContentView, IDisposable
         true,
         propertyChanged: (b, _, _) => ((NotebookEditorView)b).RefreshNavigation());
 
+    /// <summary>
+    /// The page list down the right. Two-way, and toggled from the View tab. Turning it off gives the
+    /// canvas the full width — on a phone the list otherwise takes half the screen from the page.
+    /// The section tabs stay; <see cref="ShowNavigation"/> is the switch for both.
+    /// </summary>
+    public static readonly BindableProperty ShowPageListProperty = BindableProperty.Create(
+        nameof(ShowPageList),
+        typeof(bool),
+        typeof(NotebookEditorView),
+        true,
+        BindingMode.TwoWay,
+        propertyChanged: (b, _, _) => ((NotebookEditorView)b).RefreshNavigation());
+
     public static readonly BindableProperty ShowStatusProperty = BindableProperty.Create(
         nameof(ShowStatus),
         typeof(bool),
@@ -324,6 +348,13 @@ public class NotebookEditorView : ContentView, IDisposable
     {
         get => (bool)this.GetValue(ShowNavigationProperty);
         set => this.SetValue(ShowNavigationProperty, value);
+    }
+
+    /// <inheritdoc cref="ShowPageListProperty"/>
+    public bool ShowPageList
+    {
+        get => (bool)this.GetValue(ShowPageListProperty);
+        set => this.SetValue(ShowPageListProperty, value);
     }
 
     public bool ShowStatus
@@ -497,6 +528,10 @@ public class NotebookEditorView : ContentView, IDisposable
         view.Items.Add(new RibbonSeparator());
         view.Items.Add(this.pageRule);
         viewTab.Groups.Add(view);
+
+        var show = new RibbonGroup { Title = "Show", Priority = 90 };
+        show.Items.Add(this.pageListToggle);
+        viewTab.Groups.Add(show);
         this.ribbon.Tabs.Add(viewTab);
 
         this.RefreshBar();
@@ -723,7 +758,9 @@ public class NotebookEditorView : ContentView, IDisposable
     void RefreshNavigation()
     {
         this.sectionTabs.IsVisible = this.ShowNavigation;
-        this.pageScroller.IsVisible = this.ShowNavigation;
+        this.pageScroller.IsVisible = this.ShowNavigation && this.ShowPageList;
+        this.pageListToggle.IsChecked = this.ShowPageList;
+        this.pageListToggle.IsVisible = this.ShowNavigation;
 
         this.sectionTabs.Clear();
         this.pageList.Clear();

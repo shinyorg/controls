@@ -41,6 +41,25 @@ public class OfficeViewConstructionTests
     }
 
     [Fact]
+    public void HidingThePageListKeepsTheSectionTabs()
+    {
+        var view = new NotebookEditorView { Notebook = Shiny.Controls.Office.Notebook.NotebookDocument.Create("Test") };
+        var body = (Grid)((Grid)view.Content).Children[2];
+        var pages = (View)body.Children[1];
+        var sections = (View)((ScrollView)((Grid)view.Content).Children[1]).Content;
+
+        pages.IsVisible.ShouldBeTrue();
+
+        view.ShowPageList = false;
+        pages.IsVisible.ShouldBeFalse();
+        sections.IsVisible.ShouldBeTrue();
+
+        view.ShowPageList = true;
+        pages.IsVisible.ShouldBeTrue();
+        view.Dispose();
+    }
+
+    [Fact]
     public void ANotebookEditorCanBeBuilt()
         => new NotebookEditor().ShouldNotBeNull();
 }

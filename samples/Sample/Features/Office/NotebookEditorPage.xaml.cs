@@ -50,6 +50,8 @@ public partial class NotebookEditorPage : ContentPage
 
     void OnToggleNavigation(object? sender, EventArgs e) => this.Editor.ShowNavigation = !this.Editor.ShowNavigation;
 
+    void OnTogglePageList(object? sender, EventArgs e) => this.Editor.ShowPageList = !this.Editor.ShowPageList;
+
     void OnToggleTheme(object? sender, EventArgs e)
     {
         this.dark = !this.dark;

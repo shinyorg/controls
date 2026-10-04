@@ -252,6 +252,16 @@
                             <RibbonButton Size="RibbonItemSize.Small" Tooltip="@($"Page rule — {PageRuleName}")" Icon="@Ico(OfficeIcon.PageRule)"
                                           Disabled="Disabled" Clicked="CyclePageRule" />
                         </RibbonGroup>
+
+                        @if (ShowNavigation)
+                        {
+                            <RibbonGroup Title="Show" Priority="90">
+                                <RibbonToggleButton Size="RibbonItemSize.Small" Tooltip="Page list" Text="Page list"
+                                                    Icon="@Ico(WordIcons.NavigationPane)"
+                                                    Checked="ShowPageList"
+                                                    Clicked="_ => TogglePageList()" />
+                            </RibbonGroup>
+                        }
                     </RibbonTab>
                 </ChildContent>
             </Ribbon>
@@ -293,7 +303,7 @@
                             NotebookChanged="OnNotebookChanged" />
         </div>
 
-        @if (ShowNavigation && Controller?.Section is { } activeSection)
+        @if (ShowNavigation && ShowPageList && Controller?.Section is { } activeSection)
         {
             <div class="notebook-pages">
                 @for (var i = 0; i < activeSection.Pages.Count; i++)
@@ -340,6 +350,15 @@
 
     /// <summary>The section tabs and the page list. Off leaves the bare canvas plus its toolbar.</summary>
     [Parameter] public bool ShowNavigation { get; set; } = true;
+
+    /// <summary>
+    /// The page list down the right. Two-way, and toggled from the View tab. Turning it off gives the
+    /// canvas the full width — on a phone the list otherwise takes half the screen from the page.
+    /// The section tabs stay; <see cref="ShowNavigation"/> is the switch for both.
+    /// </summary>
+    [Parameter] public bool ShowPageList { get; set; } = true;
+
+    [Parameter] public EventCallback<bool> ShowPageListChanged { get; set; }
 
     /// <summary>A one-line hint under the canvas saying what the current gesture will do.</summary>
     [Parameter] public bool ShowStatus { get; set; } = true;
@@ -626,6 +645,12 @@
     /// page: clicking through blank, lined, grid and dots is faster than opening a list of four, and
     /// the status line names the one you have landed on.
     /// </remarks>
+    async Task TogglePageList()
+    {
+        this.ShowPageList = !this.ShowPageList;
+        await this.ShowPageListChanged.InvokeAsync(this.ShowPageList);
+    }
+
     Task CyclePageRule() => this.Run(c =>
     {
         if (c.Page is not { } page)
