@@ -19,7 +19,6 @@
                   xmlns:imgeditor="clr-namespace:Sample.Features.ImageEditor"
                   xmlns:mediapicker="clr-namespace:Sample.Features.Media"
                   xmlns:chat="clr-namespace:Sample.Features.Chat"
-                  xmlns:kitchensink="clr-namespace:Sample.Features.KitchenSink"
                   xmlns:markdown="clr-namespace:Sample.Features.Markdown"
                   xmlns:securitypin="clr-namespace:Sample.Features.SecurityPin"
                   xmlns:pwstrength="clr-namespace:Sample.Features.PasswordStrength"
@@ -304,14 +303,6 @@
                              Color="{AppThemeBinding Light=#7C3AED, Dark=#A78BFA}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate home:HomePage}" Route="home" />
-    </FlyoutItem>
-
-    <FlyoutItem Title="Kitchen Sink">
-        <FlyoutItem.FlyoutIcon>
-            <FontImageSource Glyph="&#x2699;" Size="20"
-                             Color="{AppThemeBinding Light=#7C3AED, Dark=#A78BFA}" />
-        </FlyoutItem.FlyoutIcon>
-        <ShellContent ContentTemplate="{DataTemplate kitchensink:KitchenSinkPage}" Route="kitchensinkchat" />
     </FlyoutItem>
 
     <!-- ============================================================ -->

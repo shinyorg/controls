@@ -93,15 +93,23 @@ sealed class ConfettiSimulation(Random random)
 
         for (var i = 0; i < count; i++)
         {
+            var wobble = options.Flat ? 0 : random.NextDouble() * 10;
+            var tiltAngle = ((random.NextDouble() * 0.5) + 0.25) * Math.PI;
             this.particles.Add(new ConfettiParticle
             {
                 X = x,
                 Y = y,
-                Wobble = random.NextDouble() * 10,
+                Wobble = wobble,
                 WobbleSpeed = Math.Min(0.11, (random.NextDouble() * 0.1) + 0.05),
                 Velocity = (options.StartVelocity * 0.5) + (random.NextDouble() * options.StartVelocity),
                 Angle2D = -radAngle + ((0.5 * radSpread) - (random.NextDouble() * radSpread)),
-                TiltAngle = ((random.NextDouble() * 0.5) + 0.25) * Math.PI,
+                TiltAngle = tiltAngle,
+                // Seeded with what Update computes: a tick shorter than a frame draws a particle before
+                // its first step, and a zero WobbleX/Y stretches its shape to the canvas origin.
+                TiltSin = options.Flat ? 0 : Math.Sin(tiltAngle),
+                TiltCos = options.Flat ? 0 : Math.Cos(tiltAngle),
+                WobbleX = x + (10 * options.Scalar * (options.Flat ? 1 : Math.Cos(wobble))),
+                WobbleY = y + (10 * options.Scalar * (options.Flat ? 1 : Math.Sin(wobble))),
                 Color = colors[random.Next(colors.Count)],
                 Shape = shapes[random.Next(shapes.Count)],
                 Text = emoji?[random.Next(emoji.Count)],

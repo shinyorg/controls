@@ -3,7 +3,7 @@
     Mirrors the main Sample gallery's menu, so the two do not drift. Every page that
     compiles into this head is reachable from here.
 
-    Omitted, because the csproj excludes them from this head: BarcodeGalleryPage, CameraPage, ChatPage, ChatTemplatePage, DocumentSessionPage, DualPanelPage, KeyframePage, KitchenSinkPage, MinimizedSheetPage, MinimizedSheetStandalonePage, MusicBrowsePage, MusicLibraryPage, QRCodePage, SheetPage, TopSheetPage.
+    Omitted, because the csproj excludes them from this head: BarcodeGalleryPage, CameraPage, ChatPage, ChatTemplatePage, DocumentSessionPage, DualPanelPage, KeyframePage, MinimizedSheetPage, MinimizedSheetStandalonePage, MusicBrowsePage, MusicLibraryPage, QRCodePage, SheetPage, TopSheetPage.
 
     The MenuItem section headers do not render in the flyout on this head today — they are
     kept because they document the grouping and ordering, and cost nothing if it gains
@@ -52,6 +52,8 @@
        xmlns:sigpad="clr-namespace:Sample.Features.SignaturePad;assembly=Sample.Linux"
        xmlns:skeleton="clr-namespace:Sample.Features.Skeleton;assembly=Sample.Linux"
        xmlns:slider="clr-namespace:Sample.Features.Slider;assembly=Sample.Linux"
+       xmlns:rangepickers="clr-namespace:Sample.Features.RangePickers;assembly=Sample.Linux"
+       xmlns:confetti="clr-namespace:Sample.Features.Confetti;assembly=Sample.Linux"
        xmlns:staggeredgrid="clr-namespace:Sample.Features.StaggeredGrid;assembly=Sample.Linux"
        xmlns:flex="clr-namespace:Sample.Features.Flex;assembly=Sample.Linux"
        xmlns:yoga="clr-namespace:Sample.Features.Yoga;assembly=Sample.Linux"
@@ -166,6 +168,9 @@
     <FlyoutItem Title="Range Slider">
         <ShellContent ContentTemplate="{DataTemplate slider:RangeSliderPage}" Route="rangeslider" />
     </FlyoutItem>
+    <FlyoutItem Title="Range Pickers">
+        <ShellContent ContentTemplate="{DataTemplate rangepickers:RangePickersPage}" Route="rangepickers" />
+    </FlyoutItem>
     <FlyoutItem Title="Tag Entry">
         <ShellContent ContentTemplate="{DataTemplate tags:TagEntryPage}" Route="tagentry" />
         <ShellContent ContentTemplate="{DataTemplate chips:ChipGroupPage}" Route="chipgroup" />
@@ -234,6 +239,9 @@
     </FlyoutItem>
 
     <MenuItem Text="ANIMATION" IsEnabled="False" />
+    <FlyoutItem Title="Confetti">
+        <ShellContent ContentTemplate="{DataTemplate confetti:ConfettiPage}" Route="confetti" />
+    </FlyoutItem>
 
     <FlyoutItem Title="Motion Icons">
         <ShellContent ContentTemplate="{DataTemplate motionicons:MotionIconsPage}" Route="motionicons" />

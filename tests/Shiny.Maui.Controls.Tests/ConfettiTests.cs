@@ -27,6 +27,26 @@ public class ConfettiTests
     }
 
 
+    /// <summary>
+    /// A tick shorter than a frame draws a burst before it has stepped. Its shape points have to sit
+    /// around the particle already - left at zero, a burst at the right edge drew page-wide slabs.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnUnsteppedParticleIsAlreadyDrawable(bool flat)
+    {
+        var sim = new ConfettiSimulation(new Random(5));
+        sim.Emit(new ConfettiOptions { ParticleCount = 30, Flat = flat }, 1000, 400);
+
+        sim.Particles.ShouldAllBe(p =>
+            Math.Abs(p.WobbleX - p.X) <= 10.0001 &&
+            Math.Abs(p.WobbleY - p.Y) <= 10.0001 &&
+            Math.Abs(p.TiltSin) <= 1 && Math.Abs(p.TiltCos) <= 1
+        );
+    }
+
+
     /// <summary>Angle 90 is up: with no spread every particle has to rise on its first frame.</summary>
     [Fact]
     public void NinetyDegreesLaunchesUpwards()

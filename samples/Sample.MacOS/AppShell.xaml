@@ -3,7 +3,7 @@
     Mirrors the main Sample gallery's menu, so the two do not drift. Every page that
     compiles into this head is reachable from here.
 
-    Omitted, because the csproj excludes them from this head: CameraPage, ChatPage, ChatTemplatePage, DocumentSessionPage, KitchenSinkPage.
+    Omitted, because the csproj excludes them from this head: CameraPage, ChatPage, ChatTemplatePage, DocumentSessionPage.
 
     The MenuItem section headers do not render in the flyout on this head today — they are
     kept because they document the grouping and ordering, and cost nothing if it gains
@@ -59,6 +59,8 @@
        xmlns:sigpad="clr-namespace:Sample.Features.SignaturePad;assembly=Sample.MacOS"
        xmlns:skeleton="clr-namespace:Sample.Features.Skeleton;assembly=Sample.MacOS"
        xmlns:slider="clr-namespace:Sample.Features.Slider;assembly=Sample.MacOS"
+       xmlns:rangepickers="clr-namespace:Sample.Features.RangePickers;assembly=Sample.MacOS"
+       xmlns:confetti="clr-namespace:Sample.Features.Confetti;assembly=Sample.MacOS"
        xmlns:staggeredgrid="clr-namespace:Sample.Features.StaggeredGrid;assembly=Sample.MacOS"
        xmlns:flex="clr-namespace:Sample.Features.Flex;assembly=Sample.MacOS"
        xmlns:yoga="clr-namespace:Sample.Features.Yoga;assembly=Sample.MacOS"
@@ -198,6 +200,9 @@
     <FlyoutItem Title="Range Slider">
         <ShellContent ContentTemplate="{DataTemplate slider:RangeSliderPage}" Route="rangeslider" />
     </FlyoutItem>
+    <FlyoutItem Title="Range Pickers">
+        <ShellContent ContentTemplate="{DataTemplate rangepickers:RangePickersPage}" Route="rangepickers" />
+    </FlyoutItem>
     <FlyoutItem Title="Tag Entry">
         <ShellContent ContentTemplate="{DataTemplate tags:TagEntryPage}" Route="tagentry" />
     </FlyoutItem>
@@ -268,6 +273,9 @@
     </FlyoutItem>
 
     <MenuItem Text="ANIMATION" IsEnabled="False" />
+    <FlyoutItem Title="Confetti">
+        <ShellContent ContentTemplate="{DataTemplate confetti:ConfettiPage}" Route="confetti" />
+    </FlyoutItem>
 
     <FlyoutItem Title="Keyframe">
         <ShellContent ContentTemplate="{DataTemplate keyframe:KeyframePage}" Route="keyframe" />

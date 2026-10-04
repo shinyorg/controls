@@ -3,6 +3,8 @@
     <PropertyGroup>
         <TargetFramework>$(BaseTargetFramework)</TargetFramework>
         <RootNamespace>Sample.Blazor</RootNamespace>
+        <!-- Fingerprints index.html's script/style references and fills its import map; see the note there. -->
+        <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
     </PropertyGroup>
 
     <!-- ProjectReference does not flow a package's buildTransitive targets, so the wasm-tools guard

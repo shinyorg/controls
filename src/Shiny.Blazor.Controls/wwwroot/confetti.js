@@ -121,20 +121,26 @@ function emit(o, run) {
     const count = Math.max(0, Math.floor(o.particleCount));
 
     for (let i = 0; i < count; i++) {
+        const wobble = o.flat ? 0 : Math.random() * 10;
+        const tiltAngle = (Math.random() * 0.5 + 0.25) * Math.PI;
         particles.push({
             x, y,
-            wobble: Math.random() * 10,
+            wobble,
             wobbleSpeed: Math.min(0.11, Math.random() * 0.1 + 0.05),
             velocity: o.startVelocity * 0.5 + Math.random() * o.startVelocity,
             angle2D: -radAngle + (0.5 * radSpread - Math.random() * radSpread),
-            tiltAngle: (Math.random() * 0.5 + 0.25) * Math.PI,
+            tiltAngle,
             color: o.colors[Math.floor(Math.random() * o.colors.length)],
             shape: o.shapes[Math.floor(Math.random() * o.shapes.length)],
             text: o.emoji.length ? o.emoji[Math.floor(Math.random() * o.emoji.length)] : null,
             tick: 0,
             totalTicks: Math.max(1, o.ticks),
             decay: o.decay, drift: o.drift, random: Math.random() + 2,
-            tiltSin: 0, tiltCos: 0, wobbleX: 0, wobbleY: 0,
+            // Seeded with what step() would compute: a frame shorter than FRAME_MS draws a particle
+            // before its first step, and a zero wobbleX/Y stretches its shape to the page origin.
+            tiltSin: o.flat ? 0 : Math.sin(tiltAngle), tiltCos: o.flat ? 0 : Math.cos(tiltAngle),
+            wobbleX: x + 10 * o.scalar * (o.flat ? 1 : Math.cos(wobble)),
+            wobbleY: y + 10 * o.scalar * (o.flat ? 1 : Math.sin(wobble)),
             gravity: o.gravity * 3, scalar: o.scalar, flat: o.flat, run
         });
     }

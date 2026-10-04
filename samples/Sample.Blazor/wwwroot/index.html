@@ -9,8 +9,14 @@
          pack stylesheet after this line to override, e.g. shiny-theme-ocean.css. -->
     <link id="shiny-theme" href="_content/Shiny.Blazor.Controls/css/shiny-theme.css" rel="stylesheet" />
     <link href="_content/Shiny.Blazor.Controls/css/shiny-splash.css" rel="stylesheet" />
-    <link href="css/app.css" rel="stylesheet" />
-    <link href="Sample.Blazor.styles.css" rel="stylesheet" />
+    <link href="css/app#[.{fingerprint}].css" rel="stylesheet" />
+    <link href="Sample.Blazor#[.{fingerprint}].styles.css" rel="stylesheet" />
+    <!-- GitHub Pages serves everything with max-age=600 and no way to change it, so an unversioned
+         dotnet.js kept a plain refresh on the previous build for up to ten minutes after a deploy.
+         OverrideHtmlAssetPlaceholders (Sample.Blazor.csproj) fills the #[.{fingerprint}] markers and
+         this import map at publish, pointing dotnet.js at its fingerprinted file. -->
+    <script type="importmap"></script>
+    <link rel="preload" id="webassembly" />
 </head>
 <body>
     <!-- The stock template's loading UI lived in here. It is redundant now: it sits INSIDE #app,
@@ -32,6 +38,6 @@
          data-fade="300"></div>
 
     <script src="_content/Shiny.Blazor.Controls/splash.js"></script>
-    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 </html>

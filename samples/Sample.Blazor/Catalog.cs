@@ -20,7 +20,6 @@ public static class Catalog
     public static readonly CatalogItem[] GettingStarted =
     [
         new("", "Home", "⌂", "Start here"),
-        new("kitchensink", "Kitchen Sink", "⚙", "Every control on one page"),
         new("theming", "Theming", "◐", "The design tokens every control reads"),
             new("themes", "Theme Composer", "🎨", "Design a theme live against real controls, and take the code")
     ];
