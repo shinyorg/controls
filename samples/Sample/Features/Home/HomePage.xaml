@@ -210,15 +210,18 @@
                                 AlignItems="Start"
                                 BindableLayout.ItemsSource="{Binding Results}">
                         <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="sample:CatalogHit">
+                            <DataTemplate x:DataType="sample:CatalogSearchCard">
+                                <!-- Built once per demo; a keystroke only flips IsVisible and Order -->
                                 <Border Margin="0,0,10,10"
+                                        IsVisible="{Binding IsMatch}"
+                                        FlexLayout.Order="{Binding Order}"
                                         Padding="14"
                                         WidthRequest="164"
                                         HeightRequest="140"
                                         StrokeThickness="1"
                                         Stroke="{AppThemeBinding Light=#12000000, Dark=#1AFFFFFF}"
                                         BackgroundColor="{AppThemeBinding Light=#CCFFFFFF, Dark=#AA1E1B4B}"
-                                        AutomationId="{Binding Route}">
+                                        AutomationId="{Binding Hit.Route}">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="14" />
                                     </Border.StrokeShape>
@@ -226,20 +229,20 @@
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type local:HomeViewModel}}, Path=NavigateCommand}"
-                                            CommandParameter="{Binding Route}" />
+                                            CommandParameter="{Binding Hit.Route}" />
                                     </Border.GestureRecognizers>
 
                                     <VerticalStackLayout Spacing="6">
-                                        <Label Text="{Binding Icon}"
+                                        <Label Text="{Binding Hit.Icon}"
                                                FontSize="22"
-                                               TextColor="{Binding AccentColor}" />
+                                               TextColor="{Binding Hit.AccentColor}" />
 
-                                        <Label Text="{Binding Label}"
+                                        <Label Text="{Binding Hit.Label}"
                                                FontSize="14"
                                                FontAttributes="Bold"
                                                TextColor="{AppThemeBinding Light=#1E1B4B, Dark=#E0E7FF}" />
 
-                                        <Label Text="{Binding Blurb}"
+                                        <Label Text="{Binding Hit.Blurb}"
                                                FontSize="11"
                                                MaxLines="2"
                                                LineBreakMode="TailTruncation"
@@ -247,7 +250,7 @@
 
                                         <!-- Which group it came from: the sectioned browse says that by
                                              position, a flat result list has to say it outright. -->
-                                        <Label Text="{Binding Section}"
+                                        <Label Text="{Binding Hit.Section}"
                                                FontSize="10"
                                                MaxLines="1"
                                                LineBreakMode="TailTruncation"

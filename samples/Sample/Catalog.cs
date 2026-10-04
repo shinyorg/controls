@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace Sample;
 
 /// <summary>One demo page: the Shell route, what it is called, its glyph and a one-line description.</summary>
@@ -21,6 +23,25 @@ public record CatalogSection(string Title, string Accent, CatalogItem[] Items)
 public record CatalogHit(string Route, string Label, string Icon, string Blurb, Color AccentColor, string Section);
 
 /// <summary>
+/// The home page's result card for one demo, built once and then only shown, hidden and reordered.
+/// </summary>
+/// <remarks>
+/// Rebuilding the result cards on every keystroke is what made search crawl on a phone: a single
+/// letter matches nearly everything, so each key threw away and recreated ~100 native cards.
+/// </remarks>
+public partial class CatalogSearchCard(CatalogHit hit) : ObservableObject
+{
+    public CatalogHit Hit { get; } = hit;
+
+    [ObservableProperty]
+    public partial bool IsMatch { get; set; }
+
+    /// <summary>The card's place in the ranked results, applied through <c>FlexLayout.Order</c>.</summary>
+    [ObservableProperty]
+    public partial int Order { get; set; }
+}
+
+/// <summary>
 /// What the gallery contains, mirroring <c>Sample.Blazor.Catalog</c> so both samples present the same
 /// catalogue in the same shape. The flyout in <c>AppShell.xaml</c> stays the navigation source of truth —
 /// this drives the home page's browse grid, so the routes here must match the flyout's.
@@ -32,6 +53,8 @@ public static class Catalog
         new("Layout & Collections", "#60A5FA",
         [
             new("expander", "Expander", "▾", "Animated disclosure panels and accordion lists"),
+            new("flexlayout", "Flex Layout", "▥", "CSS flexbox wrapping, alignment and grow/shrink"),
+            new("yogalayout", "Yoga Layout", "▥", "Full flexbox engine powered by Yoga"),
             new("carouselgallery", "Carousel Gallery", "◀", "Swipeable image gallery with indicators"),
             new("staggeredgrid", "Staggered Grid", "▦", "Pinterest-style masonry of variable-height items"),
             new("virtualizedgrid", "Virtualized Grid", "▣", "Windowed grid that stays smooth over huge lists"),
@@ -42,6 +65,10 @@ public static class Catalog
             new("datagridgrouping", "Grid Grouping", "▤", "Grouped rows with per-group and grand totals"),
             new("datagridformatting", "Grid Formatting", "◨", "Column presets, alignment and cell styling"),
             new("gantt", "Gantt", "▭", "Project timeline with dependencies, rollups and a critical path"),
+            new("kanban", "Kanban", "◰", "Drag cards between columns with WIP limits and swimlanes"),
+            new("diagram", "Diagram", "◇", "Hierarchies, decision trees and flowcharts on an editable surface"),
+            new("floorplan", "Floor Plan", "⊞", "Rooms, walls and furniture on a pan/zoom drawing surface"),
+            new("seatingchart", "Seating Chart", "⌗", "The same plan in view mode — tap a desk to see who sits there"),
             new("timeline", "Timeline", "⋮", "Vertical rail of markers with content beside each one"),
             new("docking", "Docking", "▨", "Visual-Studio-style tear-off tool windows"),
             new("ribbon", "Ribbon", "☷", "Office-style tabbed command bar for desktop windows")
@@ -82,6 +109,7 @@ public static class Catalog
 
         new("Input", "#34D399",
         [
+            new("rangepickers", "Range Pickers", "📅", "Date, time and date/time range pickers with presets"),
             new("textentry", "Text Entry", "✏", "Floating-label entry with validation states"),
             new("autocomplete", "AutoComplete", "≣", "Type-ahead suggestions from any source"),
             new("colorpicker", "Color Picker", "◉", "Wheel, sliders and swatches"),
@@ -126,6 +154,7 @@ public static class Catalog
             new("dialogs", "Dialogs", "❕", "Owned alert, confirm, prompt and action sheet"),
             new("toast", "Toast", "▬", "Queued toasts with progress and spinners"),
             new("progressline", "Progress Line", "▬", "Page-edge loading line, docked clear of the bars"),
+            new("confetti", "Confetti", "🎉", "Confetti bursts on any tap, or from code"),
             new("feedback", "Feedback", "◈", "Haptics and system sounds"),
             new("mediaservice", "Media Service", "⚙", "Camera capture, gallery picks and barcode/OCR/document scans from one service"),
             new("quickentry", "Quick Entry", "⌨", "Assistant-style prompt popup with a screen-edge glow")
@@ -145,6 +174,8 @@ public static class Catalog
             new("documentsession", "Scanned Documents", "▧", "AI document scanning and extraction"),
             new("shinyimage", "Shiny Image", "▥", "Placeholder, download progress and error artwork"),
             new("imageviewer", "Image Viewer", "▣", "Pinch, pan and double-tap zoom"),
+            new("zoompan", "Zoom Pan View", "⤢", "Pinch, pan and wheel zoom over any content"),
+            new("floatingtoolbar", "Floating Toolbar", "⌸", "A toolbar that floats over a control like a tooltip"),
             new("imagegallery", "Image Gallery", "▦", "Paged gallery of zoomable images"),
             new("imageeditor", "Image Editor", "✎", "Crop, rotate, draw, text, undo and export"),
             new("mediapicker", "Media Picker", "◫", "Pick or capture photos and video")
@@ -167,7 +198,8 @@ public static class Catalog
         new("Content", "#A3E635",
         [
             new("markdownview", "Markdown Viewer", "↓", "Markdig-powered renderer"),
-            new("markdowneditor", "Markdown Editor", "✍", "Toolbar editor with live preview")
+            new("markdowneditor", "Markdown Editor", "✍", "Toolbar editor with live preview"),
+            new("marquee", "Marquee", "⇆", "Endless scrolling content - horizontal, vertical or any angle")
         ]),
 
         new("Diagrams", "#FBBF24",

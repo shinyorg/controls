@@ -25,7 +25,10 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     public partial string Query { get; set; } = String.Empty;
 
-    public ObservableCollection<CatalogHit> Results { get; } = new();
+    /// <summary>One card per demo, every one of them, created on the first search and then reused.</summary>
+    public ObservableCollection<CatalogSearchCard> Results { get; } = new();
+
+    int matchCount;
 
     /// <summary>Whether the page is showing results rather than the sectioned browse.</summary>
     public bool IsSearching => !String.IsNullOrWhiteSpace(this.Query);
@@ -33,19 +36,41 @@ public partial class HomeViewModel : ObservableObject
     /// <summary>The inverse, so the sectioned browse can bind without a converter.</summary>
     public bool IsBrowsing => !this.IsSearching;
 
-    public bool HasNoResults => this.IsSearching && this.Results.Count == 0;
+    public bool HasNoResults => this.IsSearching && this.matchCount == 0;
 
-    public string ResultCount => this.Results.Count.ToString();
+    public string ResultCount => this.matchCount.ToString();
 
     partial void OnQueryChanged(string value)
     {
-        // Rebuilt in place rather than swapped for a new collection: BindableLayout re-reads an
-        // ObservableCollection's changes, and reassigning the property would rebuild every card on
-        // every keystroke.
-        this.Results.Clear();
+        // The cards are built once and then only shown, hidden and reordered. Clearing and re-adding
+        // them recreated every native card on every keystroke, and a one-letter query matches nearly
+        // all of them — that is what made typing in the search box crawl on a phone.
+        if (this.Results.Count == 0 && !String.IsNullOrWhiteSpace(value))
+        {
+            foreach (var section in Catalog.Sections)
+                foreach (var item in section.Items)
+                    this.Results.Add(new CatalogSearchCard(new CatalogHit(
+                        item.Route, item.Label, item.Icon, item.Blurb, section.AccentColor, section.Title)));
+        }
 
-        foreach (var hit in Catalog.Search(value))
-            this.Results.Add(hit);
+        var ranked = Catalog.Search(value);
+        var order = new Dictionary<string, int>(ranked.Count);
+        for (var i = 0; i < ranked.Count; i++)
+            order[ranked[i].Route] = i;
+
+        foreach (var card in this.Results)
+        {
+            if (order.TryGetValue(card.Hit.Route, out var position))
+            {
+                card.Order = position;
+                card.IsMatch = true;
+            }
+            else
+            {
+                card.IsMatch = false;
+            }
+        }
+        this.matchCount = ranked.Count;
 
         this.OnPropertyChanged(nameof(this.IsSearching));
         this.OnPropertyChanged(nameof(this.IsBrowsing));
