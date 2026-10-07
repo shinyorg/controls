@@ -309,11 +309,24 @@ public partial class TableView : ContentView
             // Detach all cells from their current parent views before clearing.
             // Android requires native views to be removed from their parent ViewGroup
             // before they can be re-added to a new one.
+            //
+            // Every cell, not only the visible ones. A cell hidden by a binding was rendered while it was
+            // visible, so it is still a child of the outgoing section, and the Clear below orphans that
+            // section - which clears the cell's inherited BindingContext with it, its bound IsVisible
+            // falls back to true, and this same render adds it to the new section while Android still
+            // has its view in the old one: "The specified child already has a parent", which crashed a
+            // settings page the first time it re-rendered on screen.
+            //
+            // And the section's BindingContext is handed straight back. A detached cell has no parent
+            // to inherit from, so without it every binding on the cell reads its default until the
+            // cell is re-attached - a hidden row reads as visible to GetVisibleCells below, and a row
+            // the render leaves out keeps no context at all until the next one.
             foreach (var section in GetAllSections())
             {
-                foreach (var cell in section.GetVisibleCells())
+                foreach (var cell in section.GetAllCells())
                 {
                     (cell.Parent as Layout)?.Remove(cell);
+                    SetInheritedBindingContext(cell, section.BindingContext);
                 }
             }
 

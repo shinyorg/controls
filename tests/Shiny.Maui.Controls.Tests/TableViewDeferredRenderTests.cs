@@ -71,6 +71,45 @@ public class TableViewDeferredRenderTests
         }
     }
 
+    /// <summary>
+    /// A cell hidden by a binding stays hidden, and out of the new section, through a re-render.
+    /// </summary>
+    /// <remarks>
+    /// It used to be skipped by the detach, left inside the outgoing section layout, and orphaned with
+    /// it - which cleared its inherited BindingContext, so its <c>IsVisible</c> fell to the default
+    /// <c>true</c> and the same render added it to the new section. On Android its view was still a
+    /// child of the old one: "The specified child already has a parent", the moment a settings page
+    /// with a hidden row re-rendered after it was on screen.
+    /// </remarks>
+    [Fact]
+    public void ABoundHiddenCellStaysOutOfTheRender()
+    {
+        var dispatcher = new QueueingDispatcher();
+        DispatcherProvider.SetCurrent(new QueueingProvider(dispatcher));
+        try
+        {
+            new Application();
+            var model = new Model();
+            var table = BuildTable(model);
+
+            var hidden = new LabelCell { Title = "Busy" };
+            hidden.SetBinding(VisualElement.IsVisibleProperty, nameof(Model.Busy));
+            table.Root.Sections[0].Cells.Add(hidden);
+            dispatcher.RunAll();
+
+            model.Feature = true;
+            dispatcher.RunAll();
+
+            hidden.IsVisible.ShouldBeFalse("its binding still says hidden");
+            hidden.Parent.ShouldBeNull("a cell the render left out must not be left inside an old section");
+            table.ScrollContent.GetVisualTreeDescendants().ShouldNotContain(hidden);
+        }
+        finally
+        {
+            TestDispatcherProvider.Install();
+        }
+    }
+
     static TableView BuildTable(Model model, int dependentSections = 1)
     {
         var table = new TableView();
@@ -114,6 +153,8 @@ public class TableViewDeferredRenderTests
                 this.OnPropertyChanged();
             }
         }
+
+        public bool Busy => false;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
