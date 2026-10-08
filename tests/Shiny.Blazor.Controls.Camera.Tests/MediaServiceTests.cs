@@ -168,6 +168,34 @@ public class MediaServiceTests
 
 
     [Fact]
+    public void SizeLimitsFoldTogetherWithTheTightestWinning()
+    {
+        var service = new MediaService(new FakeJs(), new MediaServiceOptions { MaxDimension = 2048, MaxHeight = 1200 });
+
+        service.Limits(null, null, null).ShouldBe((2048, 1200));
+        service.Limits(null, 1000, null).ShouldBe((1000, 1200));
+        service.Limits(0, 0, 0).ShouldBe((0, 0));
+        service.Limits(500, 800, 0).ShouldBe((500, 500));
+    }
+
+
+    [Fact]
+    public async Task PickHandsTheBrowserBothLimitsAndTheMetadataChoice()
+    {
+        var js = new FakeJs();
+        var service = new MediaService(js, new MediaServiceOptions { PreserveMetadata = false });
+
+        await service.PickPhotoAsync(new MediaPickOptions { MaxWidth = 1600, MaxHeight = 900, CompressionQuality = 70 });
+
+        // pick(accept, multiple, maxCount, isImage, maxWidth, maxHeight, mime, quality, preserveMetadata)
+        js.LastPickArgs.ShouldBe(["image/*", false, 1, true, 1600, 900, "image/jpeg", 70, false]);
+
+        await service.PickPhotoAsync(new MediaPickOptions { PreserveMetadata = true });
+        js.LastPickArgs![8].ShouldBe(true);
+    }
+
+
+    [Fact]
     public async Task EffectPickerStartsOnTheRequestedFilter()
     {
         var service = Started(out _);
@@ -295,6 +323,8 @@ public class MediaServiceTests
     {
         public string PermissionState { get; init; } = "granted";
 
+        public object?[]? LastPickArgs { get; set; }
+
         public ValueTask<TValue> InvokeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicProperties)] TValue>(string identifier, object?[]? args)
             => this.InvokeAsync<TValue>(identifier, CancellationToken.None, args);
 
@@ -312,8 +342,15 @@ public class MediaServiceTests
             => identifier switch
             {
                 "cameraPermissionState" => new((TValue)(object)js.PermissionState),
+                "pick" => Pick<TValue>(args),
                 _ => new(default(TValue)!)
             };
+
+        ValueTask<TValue> Pick<TValue>(object?[]? args)
+        {
+            js.LastPickArgs = args;
+            return new((TValue)(object)Array.Empty<MediaBlobInfo>());
+        }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

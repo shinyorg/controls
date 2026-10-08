@@ -50,15 +50,18 @@ export function release(id) {
 }
 
 /**
- * Draw a source (video element, ImageBitmap) onto a canvas no larger than maxDim on its long edge and
- * encode it. JPEG gets a white ground first — a transparent PNG picked from the gallery would otherwise
- * come out black, because JPEG has no alpha and the canvas default is transparent black.
+ * Draw a source (video element, ImageBitmap) onto a canvas no wider than maxWidth and no taller than
+ * maxHeight (0 = no limit; aspect kept, never upscaled) and encode it. JPEG gets a white ground first — a
+ * transparent PNG picked from the gallery would otherwise come out black, because JPEG has no alpha and the
+ * canvas default is transparent black.
  */
-export async function encode(source, sourceWidth, sourceHeight, maxDim, mime, quality, filterCss) {
+export async function encode(source, sourceWidth, sourceHeight, maxWidth, maxHeight, mime, quality, filterCss) {
     let width = sourceWidth || 1;
     let height = sourceHeight || 1;
-    if (maxDim > 0 && Math.max(width, height) > maxDim) {
-        const scale = maxDim / Math.max(width, height);
+    let scale = 1;
+    if (maxWidth > 0 && width > maxWidth) scale = Math.min(scale, maxWidth / width);
+    if (maxHeight > 0 && height > maxHeight) scale = Math.min(scale, maxHeight / height);
+    if (scale < 1) {
         width = Math.max(1, Math.round(width * scale));
         height = Math.max(1, Math.round(height * scale));
     }

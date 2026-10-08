@@ -134,6 +134,36 @@ public class PhotoCaptureOptions : MediaCameraOptions
     /// <summary>The encoding handed back on <see cref="MediaPhoto.Data"/>. Null (default) uses <see cref="MediaServiceOptions.OutputFormat"/>.</summary>
     public MediaImageFormat? OutputFormat { get; set; }
 
+    /// <summary>
+    /// Cap the width at this many pixels, downscaling (aspect kept) if needed. Null (default) uses
+    /// <see cref="MediaServiceOptions.MaxWidth"/>; 0 means no width limit. Combines with <c>MaxDimension</c>
+    /// and <c>MaxHeight</c> — the tightest limit wins. Measured on the upright picture.
+    /// </summary>
+    public int? MaxWidth { get; set; }
+
+    /// <summary>
+    /// Cap the height at this many pixels, downscaling (aspect kept) if needed. Null (default) uses
+    /// <see cref="MediaServiceOptions.MaxHeight"/>; 0 means no height limit.
+    /// </summary>
+    public int? MaxHeight { get; set; }
+
+    /// <summary>
+    /// Bake the EXIF orientation into the pixels so the result is upright everywhere, including viewers and
+    /// image pipelines that ignore EXIF. Null (default) uses <see cref="MediaServiceOptions.RotateImage"/>.
+    /// When <c>false</c> the pixels stay as the sensor stored them and the orientation tag is kept — even when
+    /// <c>PreserveMetadata</c> is off, since without it the picture would be sideways. PNG output always rotates.
+    /// </summary>
+    public bool? RotateImage { get; set; }
+
+    /// <summary>
+    /// Carry the source's metadata (EXIF capture date and camera details, GPS location, TIFF fields) into the
+    /// result. Null (default) uses <see cref="MediaServiceOptions.PreserveMetadata"/>. Turn it off before
+    /// uploading user photos anywhere public — a gallery pick can carry the location it was taken at. Apple
+    /// keeps metadata for JPEG and PNG output from any source, HEIC included; Android and Windows keep it for
+    /// JPEG output from a JPEG source.
+    /// </summary>
+    public bool? PreserveMetadata { get; set; }
+
     /// <summary>Flash behaviour for the capture. Default <see cref="CameraFlashMode.Auto"/>.</summary>
     public CameraFlashMode FlashMode { get; set; } = CameraFlashMode.Auto;
 
@@ -239,6 +269,36 @@ public class MediaPickOptions
 
     /// <summary>The encoding handed back. Null (default) uses <see cref="MediaServiceOptions.OutputFormat"/>.</summary>
     public MediaImageFormat? OutputFormat { get; set; }
+
+    /// <summary>
+    /// Cap the width at this many pixels, downscaling (aspect kept) if needed. Null (default) uses
+    /// <see cref="MediaServiceOptions.MaxWidth"/>; 0 means no width limit. Combines with <c>MaxDimension</c>
+    /// and <c>MaxHeight</c> — the tightest limit wins. Measured on the upright picture.
+    /// </summary>
+    public int? MaxWidth { get; set; }
+
+    /// <summary>
+    /// Cap the height at this many pixels, downscaling (aspect kept) if needed. Null (default) uses
+    /// <see cref="MediaServiceOptions.MaxHeight"/>; 0 means no height limit.
+    /// </summary>
+    public int? MaxHeight { get; set; }
+
+    /// <summary>
+    /// Bake the EXIF orientation into the pixels so the result is upright everywhere, including viewers and
+    /// image pipelines that ignore EXIF. Null (default) uses <see cref="MediaServiceOptions.RotateImage"/>.
+    /// When <c>false</c> the pixels stay as the sensor stored them and the orientation tag is kept — even when
+    /// <c>PreserveMetadata</c> is off, since without it the picture would be sideways. PNG output always rotates.
+    /// </summary>
+    public bool? RotateImage { get; set; }
+
+    /// <summary>
+    /// Carry the source's metadata (EXIF capture date and camera details, GPS location, TIFF fields) into the
+    /// result. Null (default) uses <see cref="MediaServiceOptions.PreserveMetadata"/>. Turn it off before
+    /// uploading user photos anywhere public — a gallery pick can carry the location it was taken at. Apple
+    /// keeps metadata for JPEG and PNG output from any source, HEIC included; Android and Windows keep it for
+    /// JPEG output from a JPEG source.
+    /// </summary>
+    public bool? PreserveMetadata { get; set; }
 }
 
 
@@ -257,6 +317,25 @@ public class MediaServiceOptions
 
     /// <summary>Default output encoding for photos. Default <see cref="MediaImageFormat.Jpeg"/>.</summary>
     public MediaImageFormat OutputFormat { get; set; } = MediaImageFormat.Jpeg;
+
+    /// <summary>Default <see cref="PhotoCaptureOptions.MaxWidth"/>. Default 0 (no width limit).</summary>
+    public int MaxWidth { get; set; }
+
+    /// <summary>Default <see cref="PhotoCaptureOptions.MaxHeight"/>. Default 0 (no height limit).</summary>
+    public int MaxHeight { get; set; }
+
+    /// <summary>
+    /// Default <see cref="PhotoCaptureOptions.RotateImage"/>. Default <c>true</c> — an upright picture is what
+    /// almost every consumer of a photo expects, and plenty of upload targets ignore EXIF orientation.
+    /// </summary>
+    public bool RotateImage { get; set; } = true;
+
+    /// <summary>
+    /// Default <see cref="PhotoCaptureOptions.PreserveMetadata"/>. Default <c>true</c>, matching MAUI's
+    /// <c>MediaPickerOptions.PreserveMetaData</c>. Set it to <c>false</c> to strip location and camera details
+    /// from every photo the service hands back.
+    /// </summary>
+    public bool PreserveMetadata { get; set; } = true;
 
     /// <summary>Applied to every modal before its per-call options — set the house style once.</summary>
     public Action<MediaCameraOptions>? ConfigureDefaults { get; set; }

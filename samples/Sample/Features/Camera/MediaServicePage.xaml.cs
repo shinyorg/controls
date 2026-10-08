@@ -111,6 +111,26 @@ public partial class MediaServicePage : ContentPage
         })
     ));
 
+    public ICommand TakeStrippedPhotoCommand => this.Run(async () => this.ShowPhoto(
+        await this.media.TakePhotoAsync(new PhotoCaptureOptions
+        {
+            Title = "800px wide, no metadata",
+            Instructions = "Upright, resized by width, EXIF and GPS stripped",
+            MaxWidth = 800,
+            PreserveMetadata = false
+        })
+    ));
+
+    public ICommand TakeUnrotatedPhotoCommand => this.Run(async () => this.ShowPhoto(
+        await this.media.TakePhotoAsync(new PhotoCaptureOptions
+        {
+            Title = "Pixels as stored",
+            Instructions = "No rotation baked in — the EXIF orientation says which way is up",
+            RotateImage = false,
+            MaxDimension = 1600
+        })
+    ));
+
     public ICommand TakePhotoNoConfirmCommand => this.Run(async () => this.ShowPhoto(
         await this.media.TakePhotoAsync(new PhotoCaptureOptions
         {

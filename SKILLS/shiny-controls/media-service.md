@@ -169,21 +169,43 @@ Shared by every modal (`MediaCameraOptions`):
 | ConfigureCamera / ConfigurePage | null | Escape hatches |
 
 `PhotoCaptureOptions` adds `Quality` (`PhotoQuality.Highest`), `CompressionQuality`, `MaxDimension`,
-`OutputFormat`, `FlashMode`, `AllowFlashToggle`, `ShowConfirmation`.
+`MaxWidth`, `MaxHeight`, `OutputFormat`, `RotateImage`, `PreserveMetadata`, `FlashMode`, `AllowFlashToggle`,
+`ShowConfirmation`. `MediaPickOptions` has the same encoding set (`CompressionQuality`, `MaxDimension`,
+`MaxWidth`, `MaxHeight`, `OutputFormat`, `RotateImage`, `PreserveMetadata`) plus `Title`.
 `VideoCaptureOptions` adds `Quality`, `IncludeAudio`, `MaxDuration`, `Bitrate`, `FrameRate`, `FilePath`,
 `Overlay`, `ShowElapsed`.
 `MediaScanOptions` adds `ScanWindow`, `ShowBoundingBox`, `FilterDuplicates`, `MaxResults`, `Timeout`,
 `ShowResultCount`, `ShowDoneButton`, `VibrateOnResult`.
 
-**`CompressionQuality`, `MaxDimension` and `OutputFormat` are nullable** on the options — leave them unset
-to inherit the `UseShinyCamera(...)` defaults. Do not set them to a literal just to "be explicit"; that
-overrides the app's house style.
+**The encoding options are nullable** (`CompressionQuality`, `MaxDimension`, `MaxWidth`, `MaxHeight`,
+`OutputFormat`, `RotateImage`, `PreserveMetadata`) — leave them unset to inherit the `UseShinyCamera(...)`
+defaults. Do not set them to a literal just to "be explicit"; that overrides the app's house style.
+
+- Size limits combine: `MaxDimension` caps the longest edge, `MaxWidth`/`MaxHeight` one axis each; the
+  tightest wins, aspect is kept, never upscaled.
+- `RotateImage` (default `true`) bakes EXIF orientation into the pixels. `false` keeps stored pixels and
+  always writes the orientation tag. PNG always rotates.
+- `PreserveMetadata` (default `true`, like MAUI's `PreserveMetaData`) keeps EXIF/GPS/TIFF. Generate
+  `PreserveMetadata = false` when the photo is uploaded or shared publicly (strips location).
+- These map 1:1 to MAUI 10 `MediaPickerOptions` (`MaximumWidth` → `MaxWidth`, `MaximumHeight` →
+  `MaxHeight`, `PreserveMetaData` → `PreserveMetadata`).
+
+```csharp
+var photo = await media.TakePhotoAsync(new PhotoCaptureOptions
+{
+    MaxWidth = 1600,
+    CompressionQuality = 80,
+    PreserveMetadata = false   // public upload: strip GPS
+});
+```
 
 ## Blazor
 
 ```csharp
 // Program.cs — the camera package is not part of AddShinyControls()
 builder.Services.AddShinyMediaService(o => { o.CompressionQuality = 85; o.MaxDimension = 2048; });
+// Blazor options: MaxWidth/MaxHeight on captures and picks; PreserveMetadata on picks (JPEG EXIF is spliced
+// across the canvas re-encode). No RotateImage — browsers always decode upright.
 ```
 
 ```razor

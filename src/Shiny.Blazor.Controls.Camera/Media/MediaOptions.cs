@@ -61,6 +61,16 @@ public class PhotoCaptureOptions : MediaCameraOptions
     public MediaImageFormat? OutputFormat { get; set; }
 
     /// <summary>
+    /// Cap the width at this many pixels, downscaling (aspect kept) if needed. Null uses
+    /// <see cref="MediaServiceOptions.MaxWidth"/>; 0 means no width limit. Combines with <c>MaxDimension</c> and
+    /// <c>MaxHeight</c> — the tightest limit wins.
+    /// </summary>
+    public int? MaxWidth { get; set; }
+
+    /// <summary>Cap the height at this many pixels. Null uses <see cref="MediaServiceOptions.MaxHeight"/>; 0 means no height limit.</summary>
+    public int? MaxHeight { get; set; }
+
+    /// <summary>
     /// Show the captured shot with retake (✕) / accept (✓) buttons before returning. Default <c>true</c> —
     /// without it a blurred shot is only discovered after the modal has gone.
     /// </summary>
@@ -133,6 +143,24 @@ public class MediaPickOptions
 
     /// <summary>The encoding handed back. Null uses <see cref="MediaServiceOptions.OutputFormat"/>.</summary>
     public MediaImageFormat? OutputFormat { get; set; }
+
+    /// <summary>
+    /// Cap the width at this many pixels, downscaling (aspect kept) if needed. Null uses
+    /// <see cref="MediaServiceOptions.MaxWidth"/>; 0 means no width limit. Combines with <c>MaxDimension</c> and
+    /// <c>MaxHeight</c> — the tightest limit wins.
+    /// </summary>
+    public int? MaxWidth { get; set; }
+
+    /// <summary>Cap the height at this many pixels. Null uses <see cref="MediaServiceOptions.MaxHeight"/>; 0 means no height limit.</summary>
+    public int? MaxHeight { get; set; }
+
+    /// <summary>
+    /// Carry a picked JPEG's EXIF metadata (capture date, camera details, GPS location) into the re-encoded
+    /// JPEG. Null uses <see cref="MediaServiceOptions.PreserveMetadata"/>. The orientation is reset to upright
+    /// because browsers always decode the picture upright. Turn it off before uploading user photos anywhere
+    /// public — a gallery pick can carry the location it was taken at.
+    /// </summary>
+    public bool? PreserveMetadata { get; set; }
 }
 
 
@@ -150,6 +178,19 @@ public class MediaServiceOptions
 
     /// <summary>Default output encoding for photos. Default <see cref="MediaImageFormat.Jpeg"/>.</summary>
     public MediaImageFormat OutputFormat { get; set; } = MediaImageFormat.Jpeg;
+
+    /// <summary>Default maximum width for photos. Default 0 (no width limit).</summary>
+    public int MaxWidth { get; set; }
+
+    /// <summary>Default maximum height for photos. Default 0 (no height limit).</summary>
+    public int MaxHeight { get; set; }
+
+    /// <summary>
+    /// Default <see cref="MediaPickOptions.PreserveMetadata"/>. Default <c>true</c>, matching MAUI's
+    /// <c>MediaPickerOptions.PreserveMetaData</c>. Camera captures have no metadata to keep — they are drawn
+    /// from the live video.
+    /// </summary>
+    public bool PreserveMetadata { get; set; } = true;
 
     /// <summary>Applied to every modal before its per-call options — set the house style once.</summary>
     public Action<MediaCameraOptions>? ConfigureDefaults { get; set; }

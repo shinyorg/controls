@@ -335,8 +335,8 @@ export async function stopRecordingStored(video) {
 
 
 // IMediaService: capture a still downscaled to maxDim and encoded as mime/quality, kept in media-store.js.
-export async function captureStored(video, filterCss, maxDim, mime, quality) {
-    const { blob, width, height } = await encode(video, video.videoWidth, video.videoHeight, maxDim, mime, quality, filterCss);
+export async function captureStored(video, filterCss, maxWidth, maxHeight, mime, quality) {
+    const { blob, width, height } = await encode(video, video.videoWidth, video.videoHeight, maxWidth, maxHeight, mime, quality, filterCss);
     return keep(blob, width, height, -1, null);
 }
 

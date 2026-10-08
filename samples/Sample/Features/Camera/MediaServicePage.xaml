@@ -26,6 +26,8 @@
                 <Button Text="Take Photo" Margin="0,0,8,8" Command="{Binding TakePhotoCommand}" />
                 <Button Text="Photo + Effects" Margin="0,0,8,8" Command="{Binding TakePhotoWithEffectsCommand}" />
                 <Button Text="Photo 60% @ 1024" Margin="0,0,8,8" Command="{Binding TakeCompressedPhotoCommand}" />
+                <Button Text="Photo 800w, no metadata" Margin="0,0,8,8" Command="{Binding TakeStrippedPhotoCommand}" />
+                <Button Text="Photo, not rotated" Margin="0,0,8,8" Command="{Binding TakeUnrotatedPhotoCommand}" />
                 <Button Text="Photo, zoom &#x2264; 4x" Margin="0,0,8,8" Command="{Binding TakeZoomCappedPhotoCommand}" />
                 <Button Text="Photo (no review)" Margin="0,0,8,8" Command="{Binding TakePhotoNoConfirmCommand}" />
                 <Button Text="Record Video" Margin="0,0,8,8" Command="{Binding RecordVideoCommand}" />

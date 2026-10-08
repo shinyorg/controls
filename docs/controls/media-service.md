@@ -131,11 +131,35 @@ megabytes and nothing good comes of holding that in memory.
 
 ### Compression
 
-`CompressionQuality` (1–100), `MaxDimension` and `OutputFormat` (`Jpeg`/`Png`) are **nullable** on the
-options, so `null` means "use the service default" and there is no way for a call site to accidentally
-override a house setting it never meant to touch. `MaxDimension` is the one that actually shrinks a file —
-a 12MP capture stays multi-megabyte at any compression rate. Nothing is re-encoded when nothing was asked
-for: a full-size JPEG capture at quality 100 is handed straight through.
+`CompressionQuality` (1–100), `MaxDimension`, `MaxWidth`, `MaxHeight`, `OutputFormat` (`Jpeg`/`Png`),
+`RotateImage` and `PreserveMetadata` are **nullable** on the options, so `null` means "use the service
+default" and there is no way for a call site to accidentally override a house setting it never meant to
+touch. The size limits are what actually shrink a file — a 12MP capture stays multi-megabyte at any
+compression rate. `MaxDimension` caps the longest edge, `MaxWidth`/`MaxHeight` cap one axis each, and they
+combine: the tightest limit wins, aspect ratio is kept, and nothing is ever upscaled. Nothing is re-encoded
+when nothing was asked for: a full-size, already-upright JPEG capture at quality 100 with metadata kept is
+handed straight through.
+
+### Rotation and metadata
+
+These mirror MAUI 10's `MediaPickerOptions` (`MaximumWidth`/`MaximumHeight`, `CompressionQuality`,
+`RotateImage`, `PreserveMetaData`) and apply to captures and gallery picks alike.
+
+- **`RotateImage`** (service default `true`) bakes the EXIF orientation into the pixels, so the photo is
+  upright everywhere, including upload targets and image pipelines that ignore EXIF. Set it to `false` to
+  keep the pixels as the sensor stored them; the orientation tag is then always written, even with metadata
+  stripped, because without it the picture would be sideways. PNG output always rotates, since almost
+  nothing honours PNG orientation metadata.
+- **`PreserveMetadata`** (service default `true`, matching MAUI) carries EXIF (capture date, camera, lens),
+  GPS and TIFF fields into the result. Orientation, pixel dimensions and the embedded thumbnail are
+  corrected rather than copied stale. Set it to `false` before uploading user photos anywhere public: a
+  gallery pick can carry the location it was taken at.
+
+Each platform does this natively. Apple uses ImageIO and keeps metadata for JPEG and PNG output from any
+source, HEIC included. Android (`BitmapFactory`) and Windows (`BitmapDecoder`) keep it for JPEG output from
+a JPEG source, by splicing the original EXIF segment into the re-encoded file. Before this, every resize
+or recompress went through `PlatformImage` and dropped all metadata. On Android, where CameraX stores
+sensor-orientation pixels plus an orientation tag, that meant a resized capture came back **sideways**.
 
 ### Photo options
 
@@ -143,8 +167,11 @@ for: a full-size JPEG capture at quality 100 is handed straight through.
 |---|---|---|
 | Quality | `PhotoQuality.Highest` | Full sensor resolution; `Session` for scan-shaped captures |
 | CompressionQuality | service default (92) | 1–100, ignored for PNG |
-| MaxDimension | service default (0) | 0 keeps the captured size |
+| MaxDimension | service default (0) | Longest edge; 0 keeps the captured size |
+| MaxWidth / MaxHeight | service default (0) | Per-axis limit; combines with `MaxDimension`, tightest wins |
 | OutputFormat | service default (Jpeg) | `Jpeg` or `Png` |
+| RotateImage | service default (`true`) | Bake EXIF orientation into the pixels |
+| PreserveMetadata | service default (`true`) | Keep EXIF/GPS/TIFF; `false` strips it |
 | FlashMode / AllowFlashToggle | `Auto` / `true` | |
 | ShowConfirmation | `true` | Review with retake ✕ / accept ✓ before returning |
 
@@ -285,6 +312,10 @@ What differs from MAUI, and why:
 - **Document pages stream one per page.** `ScanDocumentImagesAsync` waits for the last page to leave the
   frame before it captures the next, so holding one page up does not capture it over and over.
 - **No torch, zoom or flash options.** `getUserMedia` has no portable control for them.
+- **Gallery picks are always decoded upright,** because browsers apply EXIF orientation themselves, so there
+  is no `RotateImage`. `MaxWidth`/`MaxHeight` work on picks and captures. `PreserveMetadata` copies a
+  picked JPEG's EXIF/GPS into the re-encoded JPEG, with the orientation reset to upright. Camera captures
+  have no metadata to keep, since they are drawn from the live video.
 - **`MediaVideo` keeps its bytes in the browser.** It exposes `Url` (plays with no copy), `Length`,
   `Duration` and `OpenReadAsync()` (streamed in chunks), and must be disposed to free the blob. Photos are
   read into `MediaPhoto.Data` the same way, as a stream and never as one interop message, so large captures

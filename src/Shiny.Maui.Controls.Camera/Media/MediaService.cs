@@ -142,7 +142,7 @@ public class MediaService(MediaServiceOptions options) : IMediaService
             return null;
 
         return await MediaImaging
-            .ProcessAsync(photo, this.Format(opts.OutputFormat), this.Quality(opts.CompressionQuality), this.Dimension(opts.MaxDimension))
+            .ProcessAsync(photo, this.Resolve(opts.OutputFormat, opts.CompressionQuality, opts.MaxDimension, opts.MaxWidth, opts.MaxHeight, opts.RotateImage, opts.PreserveMetadata))
             .ConfigureAwait(false);
     }
 
@@ -176,7 +176,7 @@ public class MediaService(MediaServiceOptions options) : IMediaService
 
         using var stream = await picked.OpenReadAsync().ConfigureAwait(false);
         return await MediaImaging
-            .ProcessAsync(stream, this.Format(opts.OutputFormat), this.Quality(opts.CompressionQuality), this.Dimension(opts.MaxDimension))
+            .ProcessAsync(stream, this.Resolve(opts))
             .ConfigureAwait(false);
     }
 
@@ -204,7 +204,7 @@ public class MediaService(MediaServiceOptions options) : IMediaService
             ct.ThrowIfCancellationRequested();
             using var stream = await file.OpenReadAsync().ConfigureAwait(false);
             var photo = await MediaImaging
-                .ProcessAsync(stream, this.Format(opts.OutputFormat), this.Quality(opts.CompressionQuality), this.Dimension(opts.MaxDimension))
+                .ProcessAsync(stream, this.Resolve(opts))
                 .ConfigureAwait(false);
 
             if (photo is not null)
@@ -368,13 +368,35 @@ public class MediaService(MediaServiceOptions options) : IMediaService
 
     MediaPickOptions Prepare(MediaPickOptions? options) => options ?? new MediaPickOptions();
 
-    // the three encoding settings fall back to the service-wide defaults, which is what makes
-    // "our photos are 85% JPEG capped at 2048px" a one-line registration rather than a call-site habit
-    int Quality(int? value) => value ?? this.Options.CompressionQuality;
+    MediaImageRequest Resolve(MediaPickOptions opts)
+        => this.Resolve(opts.OutputFormat, opts.CompressionQuality, opts.MaxDimension, opts.MaxWidth, opts.MaxHeight, opts.RotateImage, opts.PreserveMetadata);
 
-    int Dimension(int? value) => value ?? this.Options.MaxDimension;
-
-    MediaImageFormat Format(MediaImageFormat? value) => value ?? this.Options.OutputFormat;
+    // every encoding setting falls back to the service-wide default, which is what makes "our photos are 85%
+    // JPEG capped at 2048px, location stripped" a one-line registration rather than a call-site habit
+    internal MediaImageRequest Resolve(
+        MediaImageFormat? format,
+        int? quality,
+        int? maxDimension,
+        int? maxWidth,
+        int? maxHeight,
+        bool? rotate,
+        bool? preserveMetadata
+    )
+    {
+        var (width, height) = MediaImageRequest.ResolveLimits(
+            maxDimension ?? this.Options.MaxDimension,
+            maxWidth ?? this.Options.MaxWidth,
+            maxHeight ?? this.Options.MaxHeight
+        );
+        return new MediaImageRequest(
+            format ?? this.Options.OutputFormat,
+            Math.Clamp(quality ?? this.Options.CompressionQuality, 1, 100),
+            width,
+            height,
+            rotate ?? this.Options.RotateImage,
+            preserveMetadata ?? this.Options.PreserveMetadata
+        );
+    }
 
     static MediaPickerOptions? ToPickerOptions(MediaPickOptions options)
         => String.IsNullOrWhiteSpace(options.Title) ? null : new MediaPickerOptions { Title = options.Title };

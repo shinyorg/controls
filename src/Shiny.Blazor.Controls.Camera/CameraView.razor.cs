@@ -327,16 +327,17 @@ public partial class CameraView : IAsyncDisposable
 
 
     /// <summary>
-    /// IMediaService capture: a still downscaled to <paramref name="maxDimension"/> (0 = full size) and encoded as
-    /// <paramref name="contentType"/>, kept browser-side so the bytes can be streamed rather than sent as one message.
+    /// IMediaService capture: a still downscaled to fit <paramref name="maxWidth"/> × <paramref name="maxHeight"/>
+    /// (0 = no limit on that axis) and encoded as <paramref name="contentType"/>, kept browser-side so the bytes can
+    /// be streamed rather than sent as one message.
     /// </summary>
-    internal async Task<Media.MediaBlobInfo> CaptureStoredAsync(int maxDimension, string contentType, int quality)
+    internal async Task<Media.MediaBlobInfo> CaptureStoredAsync(int maxWidth, int maxHeight, string contentType, int quality)
     {
         if (this.module == null)
             throw new InvalidOperationException("CameraView is not started");
 
         var css = BlazorCameraFilters.Resolve(this.EffectChain, this.filterIdPrefix).Css;
-        return await this.module.InvokeAsync<Media.MediaBlobInfo>("captureStored", this.videoEl, css, maxDimension, contentType, quality);
+        return await this.module.InvokeAsync<Media.MediaBlobInfo>("captureStored", this.videoEl, css, maxWidth, maxHeight, contentType, quality);
     }
 
 

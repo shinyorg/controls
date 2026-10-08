@@ -2,6 +2,7 @@
 // CameraView (camera.js); both share media-store.js, so every result is a descriptor plus a Blob kept here.
 
 import { keep, take, release as releaseBlob, encode } from './media-store.js';
+import { carryExif } from './jpeg-exif.js';
 export { listCameras } from './camera.js';
 
 export function isCameraSupported() {
@@ -47,9 +48,10 @@ export async function requestCameraPermission(includeMicrophone) {
 
 /**
  * Show the browser's file chooser and resolve with descriptors for what was picked ([] on cancel).
- * Images are decoded (EXIF orientation applied), downscaled and re-encoded; videos are kept as picked.
+ * Images are decoded (EXIF orientation applied — browsers always decode upright), downscaled and
+ * re-encoded, with the source's EXIF carried across when preserveMetadata is set; videos are kept as picked.
  */
-export function pick(accept, multiple, maxCount, isImage, maxDim, mime, quality) {
+export function pick(accept, multiple, maxCount, isImage, maxWidth, maxHeight, mime, quality, preserveMetadata) {
     return new Promise(resolve => {
         const input = document.createElement('input');
         input.type = 'file';
@@ -69,7 +71,7 @@ export function pick(accept, multiple, maxCount, isImage, maxDim, mime, quality)
             for (const file of files.slice(0, Math.max(1, maxCount || 1))) {
                 try {
                     picked.push(isImage
-                        ? await storeImage(file, maxDim, mime, quality)
+                        ? await storeImage(file, maxWidth, maxHeight, mime, quality, preserveMetadata)
                         : await storeVideo(file));
                 }
                 catch (err) {
@@ -94,10 +96,14 @@ export function pick(accept, multiple, maxCount, isImage, maxDim, mime, quality)
     });
 }
 
-async function storeImage(file, maxDim, mime, quality) {
+async function storeImage(file, maxWidth, maxHeight, mime, quality, preserveMetadata) {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     try {
-        const { blob, width, height } = await encode(bitmap, bitmap.width, bitmap.height, maxDim, mime, quality, null);
+        const encoded = await encode(bitmap, bitmap.width, bitmap.height, maxWidth, maxHeight, mime, quality, null);
+        const { width, height } = encoded;
+        const blob = preserveMetadata
+            ? await carryExif(file, encoded.blob, width, height)
+            : encoded.blob;
         return keep(blob, width, height, -1, file.name);
     }
     finally {

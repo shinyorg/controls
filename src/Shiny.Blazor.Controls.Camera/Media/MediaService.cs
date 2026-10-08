@@ -111,7 +111,7 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
         var module = await this.GetModuleAsync();
 
         // no timeout: the chooser stays open for as long as the user browses
-        var picked = await module.InvokeAsync<MediaBlobInfo[]>("pick", ct, "video/*", false, 1, false, 0, "", 0);
+        var picked = await module.InvokeAsync<MediaBlobInfo[]>("pick", ct, "video/*", false, 1, false, 0, 0, "", 0, false);
         return picked.Length > 0 ? new MediaVideo(module, picked[0]) : null;
     }
 
@@ -123,8 +123,11 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
         var module = await this.GetModuleAsync();
         var (mime, quality) = this.Encoding(options.OutputFormat, options.CompressionQuality);
 
+        var (maxWidth, maxHeight) = this.Limits(options.MaxDimension, options.MaxWidth, options.MaxHeight);
+        var preserve = options.PreserveMetadata ?? this.Options.PreserveMetadata;
+
         var picked = await module.InvokeAsync<MediaBlobInfo[]>(
-            "pick", ct, "image/*", multiple, maxCount, true, this.Dimension(options.MaxDimension), mime, quality);
+            "pick", ct, "image/*", multiple, maxCount, true, maxWidth, maxHeight, mime, quality, preserve);
 
         var photos = new List<MediaPhoto>(picked.Length);
         foreach (var info in picked)
@@ -313,7 +316,8 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
         this.RaiseChanged();
         try
         {
-            var info = await camera.CaptureStoredAsync(this.Dimension(opts.MaxDimension), mime, quality);
+            var (maxWidth, maxHeight) = this.Limits(opts.MaxDimension, opts.MaxWidth, opts.MaxHeight);
+            var info = await camera.CaptureStoredAsync(maxWidth, maxHeight, mime, quality);
             if (opts.ShowConfirmation)
             {
                 session.PendingPhoto = info;
@@ -578,7 +582,17 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
             Math.Clamp(quality ?? this.Options.CompressionQuality, 1, 100));
 
 
-    int Dimension(int? value) => Math.Max(0, value ?? this.Options.MaxDimension);
+    // MaxDimension caps both axes; MaxWidth/MaxHeight cap one each. The tightest limit on each axis wins.
+    internal (int Width, int Height) Limits(int? maxDimension, int? maxWidth, int? maxHeight)
+    {
+        var dimension = Math.Max(0, maxDimension ?? this.Options.MaxDimension);
+        return (
+            Tightest(dimension, Math.Max(0, maxWidth ?? this.Options.MaxWidth)),
+            Tightest(dimension, Math.Max(0, maxHeight ?? this.Options.MaxHeight))
+        );
+
+        static int Tightest(int a, int b) => a == 0 ? b : b == 0 ? a : Math.Min(a, b);
+    }
 
 
     Task<IJSObjectReference> GetModuleAsync()
