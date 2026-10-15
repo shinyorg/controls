@@ -43,7 +43,7 @@ Wraps a single content view and overlays a small notification badge at any of th
 | IsDot | bool | false | When true, renders a small dot (text is ignored) — for "has new" indicators |
 | DotSize | double | 10 | Dot diameter (when `IsDot` is true) |
 | MaxCount | int | 0 | When > 0 and `Text` parses as a number above this limit, displays `"{MaxCount}+"` (e.g. `99+`) |
-| IsAnimated | bool | true | When true, the badge scale/fades in and out as it appears or disappears |
+| IsAnimated | bool | true | When true, the badge scale/fades in and out as it appears or disappears; a change that arrives mid-animation wins |
 | IsPulsing | bool | false | When true, the badge continuously pulses to draw attention |
 
 **Features:**

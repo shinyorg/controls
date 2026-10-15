@@ -19,6 +19,7 @@ public partial class BadgeView : Grid, IDisposable
 
     bool isPulseRunning;
     bool currentlyVisible;
+    int visibilityRun;
 
     public BadgeView()
     {
@@ -165,13 +166,14 @@ public partial class BadgeView : Grid, IDisposable
         }
 
         this.currentlyVisible = show;
+        var run = ++this.visibilityRun;
 
         if (show)
         {
             this.badgeBorder.IsVisible = true;
             if (animate && this.IsAnimated)
             {
-                _ = this.AnimateInAsync();
+                _ = this.AnimateInAsync(run);
             }
             else
             {
@@ -187,7 +189,7 @@ public partial class BadgeView : Grid, IDisposable
             this.StopPulse();
             if (animate && this.IsAnimated)
             {
-                _ = this.AnimateOutAsync();
+                _ = this.AnimateOutAsync(run);
             }
             else
             {
@@ -198,7 +200,7 @@ public partial class BadgeView : Grid, IDisposable
         }
     }
 
-    async Task AnimateInAsync()
+    async Task AnimateInAsync(int run)
     {
         Microsoft.Maui.Controls.ViewExtensions.CancelAnimations(this.badgeBorder);
         this.badgeBorder.Scale = 0;
@@ -214,11 +216,16 @@ public partial class BadgeView : Grid, IDisposable
         {
             // View can be detached mid-animation; snap to the final state below.
         }
+
+        // A newer show or hide owns the badge now - it sets its own final state.
+        if (run != this.visibilityRun)
+            return;
+
         this.badgeBorder.Scale = 1;
         this.badgeBorder.Opacity = 1;
     }
 
-    async Task AnimateOutAsync()
+    async Task AnimateOutAsync(int run)
     {
         Microsoft.Maui.Controls.ViewExtensions.CancelAnimations(this.badgeBorder);
         try
@@ -232,6 +239,12 @@ public partial class BadgeView : Grid, IDisposable
         {
             // See note in AnimateInAsync.
         }
+
+        // Showing the badge again cancels this animation, and a cancelled animation still resumes
+        // here. Hiding the border now would leave the badge with its text but no bubble.
+        if (run != this.visibilityRun)
+            return;
+
         this.badgeBorder.Scale = 0;
         this.badgeBorder.Opacity = 0;
         this.badgeBorder.IsVisible = false;

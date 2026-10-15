@@ -63,7 +63,7 @@ When `IsDot` is true the `Text`, `MaxCount`, and `BadgePadding` are ignored, and
 </shiny:BadgeView>
 ```
 
-`IsAnimated` (default true) handles the scale-in/out when the badge appears or disappears. `IsPulsing` (default false) runs a continuous gentle scale animation while the badge is visible — leave it off for normal count badges, turn it on for important "look at me" badges.
+`IsAnimated` (default true) handles the scale-in/out when the badge appears or disappears; a show that arrives while it is still animating out wins, so a count cleared and set again in quick succession stays visible. `IsPulsing` (default false) runs a continuous gentle scale animation while the badge is visible — leave it off for normal count badges, turn it on for important "look at me" badges.
 
 ### BadgeView Properties (MAUI)
 
