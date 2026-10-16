@@ -503,6 +503,35 @@ public class ShinyButtonTests
     }
 
     /// <summary>
+    /// A bound description used to lose to the text when the text arrived first - the order a
+    /// DataTemplate applies them in when the text binding comes first. The text went in as a local
+    /// value, which outranks the binding, so the bound description never showed.
+    /// </summary>
+    [Fact]
+    public void ABoundDescription_IsNotHiddenByTextThatArrivesFirst()
+    {
+        var button = new ShinyButton();
+        button.SetBinding(ShinyButton.TextProperty, "Glyph");
+        button.SetBinding(SemanticProperties.DescriptionProperty, "Name");
+
+        button.BindingContext = new { Glyph = "☆", Name = "Add to favourites" };
+
+        SemanticProperties.GetDescription(button).ShouldBe("Add to favourites");
+    }
+
+    [Fact]
+    public void ABoundDescription_IsNotHiddenByALiteralText()
+    {
+        var button = new ShinyButton();
+        button.SetBinding(SemanticProperties.DescriptionProperty, "Name");
+        button.Text = "☆";
+
+        button.BindingContext = new { Name = "Add to favourites" };
+
+        SemanticProperties.GetDescription(button).ShouldBe("Add to favourites");
+    }
+
+    /// <summary>
     /// The state glyphs are cached to keep their animation intact across transitions, so changing
     /// which glyph to use has to drop the cache or the button keeps reporting the first outcome.
     /// </summary>

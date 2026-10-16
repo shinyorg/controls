@@ -74,3 +74,7 @@ a disabled or hovered button carries its icons with it. The button owns that pla
 the icons sit on the `Manual` trigger and the button plays them from its own tap — so a tap anywhere
 on the button animates them, not only one that lands on the glyph. Clearing `BusyMotionIcon` falls
 back to a platform `ActivityIndicator` on MAUI and a CSS spinner on Blazor.
+
+The text doubles as the accessible name: while `SemanticProperties.Description` is unset, the button
+keeps it in step with the state text. A description you set, style or bind is yours and is never
+overwritten — a binding counts from the moment it is set, even before its value arrives.

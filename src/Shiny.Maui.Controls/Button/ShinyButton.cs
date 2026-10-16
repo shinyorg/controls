@@ -337,6 +337,11 @@ public partial class ShinyButton : ContentView
     /// icon-only button's description is the caller's, and the docs tell them to set it. And it must
     /// not overwrite a description the caller set: <see cref="ownedDescription"/> records what this
     /// method last wrote, so anything else in there belongs to the caller and is left alone.</para>
+    /// <para>A bound description is the caller's from the moment the binding is set, before its value
+    /// arrives. What this method writes is a local value, and MAUI ranks a local value above a
+    /// binding, so writing it while the binding is still empty — the text binding applied first, as
+    /// in a DataTemplate — would hide every value the binding delivers afterwards. IsSet sees the
+    /// binding; MAUI's own SemanticProperties makes the same check.</para>
     /// </remarks>
     void ApplyDescription(string? text)
     {
@@ -344,7 +349,8 @@ public partial class ShinyButton : ContentView
             return;
 
         var current = SemanticProperties.GetDescription(this);
-        if (!string.IsNullOrEmpty(current) && current != this.ownedDescription)
+        var isOwn = this.ownedDescription is not null && current == this.ownedDescription;
+        if (!isOwn && this.IsSet(SemanticProperties.DescriptionProperty))
             return;
 
         SemanticProperties.SetDescription(this, text);

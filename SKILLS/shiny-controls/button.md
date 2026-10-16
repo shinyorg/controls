@@ -280,6 +280,7 @@ Blazor-side differences worth knowing:
   more than a spinner beside an unchanged label.
 - Give icon-only buttons a `SemanticProperties.Description` (MAUI) or `aria-label` (Blazor). The
   button keeps one stable `AutomationId` across state changes and moves only the description, since
-  MAUI's `AutomationId` is set-once.
+  MAUI's `AutomationId` is set-once. A description you set, style or bind is left alone — even a
+  binding whose value arrives after the text; without one, the button mirrors its state text.
 - `ReplaceLeftIcon` is the default for a reason — pick `ReplaceContent` only when the label would be
   misleading mid-flight, and pin nothing: the content keeps its layout space either way.
