@@ -19,4 +19,16 @@ sealed class FrameAnalyzerBridge(CameraViewHandler handler) : Java.Lang.Object, 
         var mirrored = handler.MaybeVirtualView?.Facing == CameraFacing.Front;
         handler.Pipeline.Process(new AndroidCameraFrame(image, mirrored), default);
     }
+
+    // The other Analyzer members are Java default methods. The generated Java wrapper still overrides them and
+    // calls into .NET, where the binding's default body has nothing left to call - binding ImageAnalysis then
+    // throws AbstractMethodError (getDefaultTargetResolution) and the preview stays black. These return what
+    // the Java defaults return.
+    public global::Android.Util.Size? DefaultTargetResolution => null;
+
+    public int TargetCoordinateSystem => ImageAnalysis.CoordinateSystemOriginal;
+
+    public void UpdateTransform(global::Android.Graphics.Matrix? matrix)
+    {
+    }
 }
