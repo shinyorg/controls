@@ -64,6 +64,9 @@ sealed class CoreAnimationMotionPlayer : INativeMotionPlayer
 
         // A view usually starts playing before its platform view has been given a frame, and MAUI's
         // SizeChanged has already fired by then, so the size it settles at has to be watched here.
+        // Not with KVO on host.Layer: the binding's observer only weakly holds the layer's managed
+        // wrapper, and once a GC collects it Dispose skips RemoveObserver and frees the observer
+        // anyway — the layer keeps a dangling observer, which iOS 15 crashes on (#60).
         this.watcher = new SizeWatcher(this, host.Bounds);
         host.AddSubview(this.watcher);
     }
