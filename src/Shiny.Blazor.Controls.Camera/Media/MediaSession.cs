@@ -82,9 +82,23 @@ public sealed class MediaSession
     /// <summary>The value the service call returns: a photo, a video, or (scans) nothing.</summary>
     internal TaskCompletionSource<object?> Result { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    internal void Finish(object? result)
+    /// <summary>Why the session finished, or <c>null</c> while it is open. The first way to finish wins.</summary>
+    internal MediaScanEndReason? EndReason { get; private set; }
+
+    internal void Finish(object? result) => this.Finish(result, MediaScanEndReason.Done);
+
+    internal void Finish(object? result, MediaScanEndReason reason)
     {
-        this.Result.TrySetResult(result);
+        // check, reason and result as one step, so two finishers racing (✕ as the timeout fires) cannot leave a
+        // reason that disagrees with the one that won; the result's continuations run asynchronously
+        lock (this.Result)
+        {
+            if (this.Result.Task.IsCompleted)
+                return;
+
+            this.EndReason = reason;
+            this.Result.TrySetResult(result);
+        }
         try { this.Ended.Cancel(); }
         catch (ObjectDisposedException) { }
     }

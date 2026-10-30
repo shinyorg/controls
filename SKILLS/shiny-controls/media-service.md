@@ -175,7 +175,12 @@ Shared by every modal (`MediaCameraOptions`):
 `VideoCaptureOptions` adds `Quality`, `IncludeAudio`, `MaxDuration`, `Bitrate`, `FrameRate`, `FilePath`,
 `Overlay`, `ShowElapsed`.
 `MediaScanOptions` adds `ScanWindow`, `ShowBoundingBox`, `FilterDuplicates`, `MaxResults`, `Timeout`,
-`ShowResultCount`, `ShowDoneButton`, `VibrateOnResult`.
+`ShowResultCount`, `ShowDoneButton`, `VibrateOnResult`, `OnEnded`.
+
+`OnEnded` (`Action<MediaScanEndReason>`, both hosts) is called once after the modal closes with why the scan
+ended: `Done` (✓), `Dismissed` (✕/back/navigated away), `MaxResults`, `Timeout`, `Cancelled` (caller's
+token), `Stopped` (caller stopped enumerating, which includes every single-result verb that found something),
+`PermissionDenied`, `CameraUnavailable`.
 
 **The encoding options are nullable** (`CompressionQuality`, `MaxDimension`, `MaxWidth`, `MaxHeight`,
 `OutputFormat`, `RotateImage`, `PreserveMetadata`) — leave them unset to inherit the `UseShinyCamera(...)`
@@ -255,6 +260,10 @@ For credit cards, licenses, receipts and other documents on Blazor, generate a r
   properties. Do not invent them.
 - Use `await foreach` for the plural verbs; use the singular verb rather than
   `ScanXsAsync().FirstOrDefaultAsync()`.
+- To tell "nothing found" from "user gave up", set `MediaScanOptions.OnEnded` and check for
+  `MediaScanEndReason.Timeout`; a null result alone cannot tell them apart.
+- `IMediaService` is safe to call from any thread (MAUI marshals the modal to the UI thread); do not wrap
+  calls in `MainThread.InvokeOnMainThreadAsync`.
 - Turn `AllowZoom` off for document and OCR scans — a zoomed frame is a cropped one.
 - Barcodes read everywhere the camera does — Apple Vision, Android ML Kit, and ZXing.Net on Windows. OCR is
   a no-op on the bare `net10.0` head (no native engine), exactly as for `CameraView`.

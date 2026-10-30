@@ -40,6 +40,42 @@ public enum MediaPermissionStatus
 
 
 /// <summary>
+/// Why a scan session ended — handed to <see cref="MediaScanOptions.OnEnded"/>. The sequence from
+/// <see cref="IMediaService.ScanAsync{T}"/> simply stops either way; this is the only place the difference
+/// between "the user gave up" and "nothing turned up" is visible.
+/// </summary>
+public enum MediaScanEndReason
+{
+    /// <summary>The user tapped the accept (✓) button.</summary>
+    Done,
+
+    /// <summary>The user closed the modal — the ✕ button, the back button, or the page being navigated away.</summary>
+    Dismissed,
+
+    /// <summary><see cref="MediaScanOptions.MaxResults"/> results were collected.</summary>
+    MaxResults,
+
+    /// <summary>Nothing was found within <see cref="MediaScanOptions.Timeout"/> of the last result (or of opening).</summary>
+    Timeout,
+
+    /// <summary>The caller's <see cref="CancellationToken"/> was cancelled.</summary>
+    Cancelled,
+
+    /// <summary>
+    /// The caller stopped enumerating. This is how every single-result <c>Scan…Async</c> ends when it finds
+    /// something — it takes the first result and disposes the sequence.
+    /// </summary>
+    Stopped,
+
+    /// <summary>Camera permission was refused, so the modal never opened.</summary>
+    PermissionDenied,
+
+    /// <summary>There was no window to present the modal on (the bare <c>net10.0</c> head, or before the app has one).</summary>
+    CameraUnavailable
+}
+
+
+/// <summary>
 /// A still image produced by <see cref="IMediaService"/> — captured through the modal camera or picked from
 /// the gallery — already re-encoded to the requested <see cref="MediaImageFormat"/>, compression rate and
 /// maximum dimension.

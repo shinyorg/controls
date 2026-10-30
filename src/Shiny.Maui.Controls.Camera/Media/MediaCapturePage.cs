@@ -343,6 +343,12 @@ class MediaCapturePage : ContentPage
     /// <summary>True when the page ended because the user dismissed it rather than producing a result.</summary>
     public bool WasCancelled { get; private set; }
 
+    /// <summary>
+    /// Why the page finished, or <c>null</c> while it is still open. The first way to finish wins: the service
+    /// popping a page the user already dismissed does not turn the dismissal into anything else.
+    /// </summary>
+    public MediaScanEndReason? EndReason { get; private set; }
+
     protected override void OnAppearing()
     {
         base.OnAppearing();
@@ -389,7 +395,7 @@ class MediaCapturePage : ContentPage
         this.StopTimer();
         _ = this.Camera.StopAsync();
         // a page that goes away without a result is a cancellation — never leave the caller awaiting forever
-        this.completion.TrySetResult(null);
+        this.Complete(null, MediaScanEndReason.Dismissed);
     }
 
     protected override bool OnBackButtonPressed()
@@ -454,7 +460,7 @@ class MediaCapturePage : ContentPage
             });
 
         if (this.scanOptions?.MaxResults is { } max && this.resultCount >= max)
-            this.Complete(null);
+            this.Complete(null, MediaScanEndReason.MaxResults);
     }
 
     /// <summary>Run <paramref name="action"/> on the UI thread, inline when already there (and in tests).</summary>
@@ -467,12 +473,28 @@ class MediaCapturePage : ContentPage
     }
 
     /// <summary>Finish with a result (or <c>null</c> for "the user is done"), which closes the modal.</summary>
-    public void Complete(object? result) => this.completion.TrySetResult(result);
+    public void Complete(object? result) => this.Complete(result, MediaScanEndReason.Done);
+
+    /// <summary>Finish with <paramref name="result"/>, recording <paramref name="reason"/> unless the page has already finished.</summary>
+    public void Complete(object? result, MediaScanEndReason reason)
+    {
+        // the check, the reason and the result are one step, so two finishers racing (the user tapping ✕ as
+        // the timeout fires) cannot leave a reason that disagrees with the one that actually won. Safe under
+        // the lock: continuations run asynchronously, so TrySetResult never runs caller code here.
+        lock (this.completion)
+        {
+            if (this.completion.Task.IsCompleted)
+                return;
+
+            this.EndReason = reason;
+            this.completion.TrySetResult(result);
+        }
+    }
 
     void Cancel()
     {
         this.WasCancelled = true;
-        this.completion.TrySetResult(null);
+        this.Complete(null, MediaScanEndReason.Dismissed);
     }
 
     async void OnShutter()

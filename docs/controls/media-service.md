@@ -225,7 +225,32 @@ spelling is never the one that silently does nothing.
 ### Scan options
 
 `ScanWindow` (normalized rect — restricts detection *and* draws the viewfinder reticle), `ShowBoundingBox`,
-`MaxResults`, `Timeout`, `ShowResultCount`, `ShowDoneButton`, `VibrateOnResult`.
+`MaxResults`, `Timeout`, `ShowResultCount`, `ShowDoneButton`, `VibrateOnResult`, `OnEnded`.
+
+
+### Why a scan ended
+
+The sequence ends the same way whether the user tapped ✓, closed the modal or the idle timeout ran out. Set
+`OnEnded` to find out which. It is called once, after the modal has closed, with a `MediaScanEndReason`:
+
+| Reason | When |
+|---|---|
+| `Done` | the user tapped ✓ |
+| `Dismissed` | the user closed the modal (✕, back, or the page was navigated away) |
+| `MaxResults` | `MaxResults` results were collected |
+| `Timeout` | nothing was found within `Timeout` |
+| `Cancelled` | the caller's `CancellationToken` was cancelled |
+| `Stopped` | the caller stopped enumerating, which is how a single-result `Scan…Async` ends when it finds something |
+| `PermissionDenied` | camera permission was refused, so the modal never opened |
+| `CameraUnavailable` | there was no window (or, on Blazor, no camera) to open it on |
+
+```csharp
+var codes = await media.ScanBarcodesAsync(options: new MediaScanOptions
+{
+    Timeout = TimeSpan.FromSeconds(20),
+    OnEnded = reason => this.NothingFound = reason == MediaScanEndReason.Timeout
+}).ToListAsync();
+```
 
 ### Scanning with your own analyzer
 
@@ -337,3 +362,5 @@ What differs from MAUI, and why:
   engine.
 - `IsCameraSupported` is false where there is no camera to present, which includes before the app has a
   window.
+- Every `IMediaService` call can be made from any thread: the modal is built, pushed and popped on the UI
+  thread whichever thread called, so a background worker or a server request handler can start a scan.

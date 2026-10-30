@@ -129,6 +129,16 @@ public class MediaScanOptions : MediaCameraOptions
 
     /// <summary>Vibrate briefly on each accepted result, where the browser supports it (Android Chrome). Default <c>true</c>.</summary>
     public bool VibrateOnResult { get; set; } = true;
+
+    /// <summary>
+    /// Called once when the session ends, with why — after the modal has closed. Null (default) for no callback.
+    /// </summary>
+    /// <remarks>
+    /// The result sequence ends the same way whether the user tapped ✓, closed the modal, or the timeout
+    /// expired; this is how a caller tells them apart. A single-result <c>Scan…Async</c> that finds something
+    /// reports <see cref="MediaScanEndReason.Stopped"/>, because it ends the session itself once it has its result.
+    /// </remarks>
+    public Action<MediaScanEndReason>? OnEnded { get; set; }
 }
 
 

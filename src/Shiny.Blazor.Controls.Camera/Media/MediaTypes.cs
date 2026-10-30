@@ -36,6 +36,41 @@ public enum MediaPermissionStatus
 
 
 /// <summary>
+/// Why a scan session ended — handed to <see cref="MediaScanOptions.OnEnded"/>. The same values as the MAUI
+/// service, so shared view-model code branches the same way on both hosts.
+/// </summary>
+public enum MediaScanEndReason
+{
+    /// <summary>The user tapped the accept (✓) button.</summary>
+    Done,
+
+    /// <summary>The user closed the modal (✕, Escape), or the last <c>MediaHost</c> drawing it went away.</summary>
+    Dismissed,
+
+    /// <summary><see cref="MediaScanOptions.MaxResults"/> results were collected.</summary>
+    MaxResults,
+
+    /// <summary>Nothing was found within <see cref="MediaScanOptions.Timeout"/> of the last result (or of opening).</summary>
+    Timeout,
+
+    /// <summary>The caller's <see cref="CancellationToken"/> was cancelled.</summary>
+    Cancelled,
+
+    /// <summary>
+    /// The caller stopped enumerating. This is how every single-result <c>Scan…Async</c> ends when it finds
+    /// something — it takes the first result and disposes the sequence.
+    /// </summary>
+    Stopped,
+
+    /// <summary>The browser has refused this site the camera, so the modal never opened.</summary>
+    PermissionDenied,
+
+    /// <summary>There is no camera (or no <c>getUserMedia</c>) here, so the modal never opened.</summary>
+    CameraUnavailable
+}
+
+
+/// <summary>
 /// A still image produced by <see cref="IMediaService"/> — captured through the modal camera or picked from
 /// the gallery — already re-encoded to the requested <see cref="MediaImageFormat"/>, compression rate and
 /// maximum dimension.

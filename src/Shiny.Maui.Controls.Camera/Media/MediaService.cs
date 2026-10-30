@@ -132,10 +132,9 @@ public class MediaService(MediaServiceOptions options) : IMediaService
     public async Task<MediaPhoto?> TakePhotoAsync(PhotoCaptureOptions? options = null, CancellationToken ct = default)
     {
         var opts = this.Prepare(options ?? new PhotoCaptureOptions());
-        var page = new MediaCapturePage(MediaCaptureMode.Photo, opts);
 
         var result = await this
-            .PresentAsync(page, () => this.RequestCameraPermissionAsync(false, ct), ct)
+            .PresentAsync(() => new MediaCapturePage(MediaCaptureMode.Photo, opts), () => this.RequestCameraPermissionAsync(false, ct), ct)
             .ConfigureAwait(true);
 
         if (result is not CameraPhoto photo)
@@ -150,10 +149,9 @@ public class MediaService(MediaServiceOptions options) : IMediaService
     public async Task<MediaVideo?> RecordVideoAsync(VideoCaptureOptions? options = null, CancellationToken ct = default)
     {
         var opts = this.Prepare(options ?? new VideoCaptureOptions());
-        var page = new MediaCapturePage(MediaCaptureMode.Video, opts);
 
         var result = await this
-            .PresentAsync(page, () => this.RequestCameraPermissionAsync(opts.IncludeAudio, ct), ct)
+            .PresentAsync(() => new MediaCapturePage(MediaCaptureMode.Video, opts), () => this.RequestCameraPermissionAsync(opts.IncludeAudio, ct), ct)
             .ConfigureAwait(true);
 
         return result is CameraVideo video
@@ -248,23 +246,39 @@ public class MediaService(MediaServiceOptions options) : IMediaService
     {
         var opts = this.Prepare(options ?? new MediaScanOptions());
 
-        if (await this.RequestCameraPermissionAsync(false, ct).ConfigureAwait(true) != MediaPermissionStatus.Granted)
+        if (await this.RequestScanPermissionAsync(ct).ConfigureAwait(true) != MediaPermissionStatus.Granted)
+        {
+            opts.OnEnded?.Invoke(MediaScanEndReason.PermissionDenied);
             yield break;
-
-        request.Analyzer.ScanWindow = opts.ScanWindow;
-        request.Analyzer.ShowBoundingBox = opts.ShowBoundingBox;
-
-        var page = new MediaCapturePage(MediaCaptureMode.Scan, opts, request.Analyzer);
+        }
 
         // unbounded so a fast analyzer never blocks the capture thread waiting on a slow consumer
         var channel = Channel.CreateUnbounded<T>(new UnboundedChannelOptions { SingleReader = true });
-        request.Subscribe(value => channel.Writer.TryWrite(value));
 
-        var nav = GetNavigation();
-        if (nav is null)
+        // The page and the modal are UI, so they are built and presented on the UI thread whichever thread is
+        // enumerating — a background worker or a server request handler would otherwise construct views off
+        // it, which MAUI does not report and which fails later, far from the cause.
+        var (page, nav) = await this.OnUiThreadAsync<(MediaCapturePage?, INavigation?)>(async () =>
+        {
+            // resolved per call, never cached: see PresentAsync
+            var navigation = this.ResolveNavigation();
+            if (navigation is null)
+                return (null, null);
+
+            request.Analyzer.ScanWindow = opts.ScanWindow;
+            request.Analyzer.ShowBoundingBox = opts.ShowBoundingBox;
+            var modal = new MediaCapturePage(MediaCaptureMode.Scan, opts, request.Analyzer);
+            request.Subscribe(value => channel.Writer.TryWrite(value));
+
+            await navigation.PushModalAsync(modal, false).ConfigureAwait(true);
+            return (modal, navigation);
+        }).ConfigureAwait(true);
+
+        if (page is null || nav is null)
+        {
+            opts.OnEnded?.Invoke(MediaScanEndReason.CameraUnavailable);
             yield break;
-
-        await nav.PushModalAsync(page, false).ConfigureAwait(true);
+        }
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (opts.Timeout is { } timeout)
@@ -272,7 +286,12 @@ public class MediaService(MediaServiceOptions options) : IMediaService
 
         // the modal closing (dismissed, done, or MaxResults reached) ends the sequence
         _ = page.Completion.ContinueWith(_ => channel.Writer.TryComplete(), TaskScheduler.Default);
-        using var registration = linked.Token.Register(() => page.Complete(null));
+        // the linked token is the caller's token or the idle timeout, and only the caller's says which
+        void EndByToken() => page.Complete(
+            null,
+            ct.IsCancellationRequested ? MediaScanEndReason.Cancelled : MediaScanEndReason.Timeout
+        );
+        using var registration = linked.Token.Register(EndByToken);
 
         var seen = opts.FilterDuplicates && request.DuplicateKey is not null ? new HashSet<string>() : null;
         try
@@ -290,7 +309,11 @@ public class MediaService(MediaServiceOptions options) : IMediaService
                 }
                 catch (OperationCanceledException)
                 {
-                    break; // timeout or caller cancellation — end the sequence, don't throw out of it
+                    // timeout or caller cancellation — end the sequence, don't throw out of it. The reason is
+                    // recorded here too: the read's own cancellation can resume this loop (and its finally)
+                    // before the registration above has run.
+                    EndByToken();
+                    break;
                 }
 
                 if (seen is not null && !seen.Add(request.DuplicateKey!(value)))
@@ -305,25 +328,37 @@ public class MediaService(MediaServiceOptions options) : IMediaService
                     linked.CancelAfter(idle);
 
                 yield return value;
+
+                // the cap closed the page while results may still be buffered; the session is over, so
+                // they are not delivered past the number the caller asked for
+                if (page.EndReason == MediaScanEndReason.MaxResults)
+                    break;
             }
         }
         finally
         {
             // covers every exit including the caller breaking out of their await foreach, which is exactly
-            // how the single-result overloads close the modal after one hit
-            page.Complete(null);
-            try
+            // how the single-result overloads close the modal after one hit. A page that already finished
+            // keeps the reason it finished for.
+            page.Complete(null, MediaScanEndReason.Stopped);
+            await this.OnUiThreadAsync(async () =>
             {
-                if (nav.ModalStack.Contains(page))
-                    await nav.PopModalAsync(false).ConfigureAwait(true);
-            }
-            finally
-            {
-                // The analyzer was created for this one session. Detach it explicitly rather than trusting the
-                // popped page's handler to be disconnected: detaching is what releases its native detector
-                // (an Android ML Kit client), and a page that is merely popped may keep its handler.
-                page.Camera.Analyzer = null;
-            }
+                try
+                {
+                    if (nav.ModalStack.Contains(page))
+                        await nav.PopModalAsync(false).ConfigureAwait(true);
+                }
+                finally
+                {
+                    // The analyzer was created for this one session. Detach it explicitly rather than trusting
+                    // the popped page's handler to be disconnected: detaching is what releases its native
+                    // detector (an Android ML Kit client), and a page that is merely popped may keep its handler.
+                    page.Camera.Analyzer = null;
+                }
+                return true;
+            }).ConfigureAwait(true);
+
+            opts.OnEnded?.Invoke(page.EndReason ?? MediaScanEndReason.Stopped);
         }
     }
 
@@ -335,29 +370,58 @@ public class MediaService(MediaServiceOptions options) : IMediaService
     /// Present the modal, gate it on <paramref name="permission"/>, and wait for it to finish. Returns the
     /// page's result, or <c>null</c> for a cancel/refusal.
     /// </summary>
-    async Task<object?> PresentAsync(MediaCapturePage page, Func<Task<MediaPermissionStatus>> permission, CancellationToken ct)
+    async Task<object?> PresentAsync(Func<MediaCapturePage> createPage, Func<Task<MediaPermissionStatus>> permission, CancellationToken ct)
     {
         if (await permission().ConfigureAwait(true) != MediaPermissionStatus.Granted)
             return null;
 
-        // resolved per call, never cached: a service that remembers the page it first saw stops working the
-        // moment the app navigates somewhere else
-        var nav = GetNavigation();
-        if (nav is null)
+        // built and pushed on the UI thread, whichever thread called — see ScanAsync
+        var (page, nav) = await this.OnUiThreadAsync<(MediaCapturePage?, INavigation?)>(async () =>
+        {
+            // resolved per call, never cached: a service that remembers the page it first saw stops working the
+            // moment the app navigates somewhere else
+            var navigation = this.ResolveNavigation();
+            if (navigation is null)
+                return (null, null);
+
+            var modal = createPage();
+            await navigation.PushModalAsync(modal, false).ConfigureAwait(true);
+            return (modal, navigation);
+        }).ConfigureAwait(true);
+
+        if (page is null || nav is null)
             return null;
 
-        await nav.PushModalAsync(page, false).ConfigureAwait(true);
-        using var registration = ct.Register(() => page.Complete(null));
+        using var registration = ct.Register(() => page.Complete(null, MediaScanEndReason.Cancelled));
         try
         {
             return await page.Completion.ConfigureAwait(true);
         }
         finally
         {
-            if (nav.ModalStack.Contains(page))
-                await nav.PopModalAsync(false).ConfigureAwait(true);
+            await this.OnUiThreadAsync(async () =>
+            {
+                if (nav.ModalStack.Contains(page))
+                    await nav.PopModalAsync(false).ConfigureAwait(true);
+                return true;
+            }).ConfigureAwait(true);
         }
     }
+
+    // The three things a scan session needs from the platform, as seams so the session itself — reasons,
+    // cap, timeout, teardown — can be exercised without a device. Not extension points: an app that wants a
+    // different IMediaService registers its own.
+
+    /// <summary>The permission a scan asks for. Camera only — a scan never records audio.</summary>
+    internal virtual Task<MediaPermissionStatus> RequestScanPermissionAsync(CancellationToken ct)
+        => this.RequestCameraPermissionAsync(false, ct);
+
+    /// <summary>Where modals are pushed, or <c>null</c> when there is no window to push them on.</summary>
+    internal virtual INavigation? ResolveNavigation() => GetNavigation();
+
+    /// <summary>Run <paramref name="work"/> on the UI thread — inline when already on it.</summary>
+    internal virtual Task<TResult> OnUiThreadAsync<TResult>(Func<Task<TResult>> work)
+        => MainThread.InvokeOnMainThreadAsync(work);
 
     /// <summary>Fold the service-wide defaults into a per-call options object.</summary>
     TOptions Prepare<TOptions>(TOptions options) where TOptions : MediaCameraOptions

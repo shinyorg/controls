@@ -152,8 +152,12 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(request);
         var opts = this.Prepare(options ?? new MediaScanOptions());
-        if (!await this.CanOpenCameraAsync(ct))
+        var state = await this.CameraPermissionStateAsync(ct);
+        if (state is "denied" or "unsupported")
+        {
+            opts.OnEnded?.Invoke(state == "denied" ? MediaScanEndReason.PermissionDenied : MediaScanEndReason.CameraUnavailable);
             yield break;
+        }
 
         request.Analyzer.ScanWindow = opts.ScanWindow;
         request.Analyzer.ShowBoundingBox = opts.ShowBoundingBox;
@@ -170,13 +174,19 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
         {
             var camera = await WaitAsync(session.CameraReady.Task, sessionCts.Token);
             if (camera is null)
+            {
+                EndByToken();
                 yield break;
+            }
 
             while (!sessionCts.IsCancellationRequested)
             {
                 var batch = await this.NextBatchAsync(request, session, camera, opts, sessionCts.Token);
                 if (batch is null)
+                {
+                    EndByToken();
                     yield break;   // timed out, closed or cancelled
+                }
 
                 foreach (var value in batch)
                 {
@@ -194,16 +204,29 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
                     yield return value;
 
                     if (opts.MaxResults is { } max && yielded >= max)
+                    {
+                        session.Finish(null, MediaScanEndReason.MaxResults);
                         yield break;
+                    }
                 }
             }
         }
         finally
         {
             // every exit — including the caller breaking out of their await foreach, which is how the
-            // single-result overloads close the modal after one hit
+            // single-result overloads close the modal after one hit. A session that already finished keeps
+            // the reason it finished for.
+            session.Finish(null, MediaScanEndReason.Stopped);
             this.Close(session);
+            opts.OnEnded?.Invoke(session.EndReason ?? MediaScanEndReason.Stopped);
         }
+
+        // A pull came back empty-handed: the user ending the session already recorded why, so what is left is
+        // the caller's token or, failing that, the idle timeout.
+        void EndByToken() => session.Finish(
+            null,
+            ct.IsCancellationRequested ? MediaScanEndReason.Cancelled : MediaScanEndReason.Timeout
+        );
     }
 
 
@@ -251,7 +274,7 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
     internal void DetachHost()
     {
         if (Interlocked.Decrement(ref this.hostCount) == 0 && this.ActiveSession is { } session)
-            session.Finish(null);   // the only surface drawing the modal is gone — nothing can finish it now
+            session.Finish(null, MediaScanEndReason.Dismissed);   // the only surface drawing the modal is gone — nothing can finish it now
     }
 
 
@@ -277,11 +300,11 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
 
 
     /// <summary>The user closed the modal (✕, Escape) — the call returns null / the scan ends.</summary>
-    internal void Cancel(MediaSession session) => session.Finish(null);
+    internal void Cancel(MediaSession session) => session.Finish(null, MediaScanEndReason.Dismissed);
 
 
     /// <summary>✓ on a scan: end the session with what has been collected.</summary>
-    internal void Done(MediaSession session) => session.Finish(null);
+    internal void Done(MediaSession session) => session.Finish(null, MediaScanEndReason.Done);
 
 
     internal void Flip(MediaSession session)
@@ -554,10 +577,12 @@ public sealed class MediaService : IMediaService, IAsyncDisposable
     /// remember a grant, prompt twice.
     /// </summary>
     async Task<bool> CanOpenCameraAsync(CancellationToken ct)
+        => await this.CameraPermissionStateAsync(ct) is not ("denied" or "unsupported");
+
+    async Task<string> CameraPermissionStateAsync(CancellationToken ct)
     {
         var module = await this.GetModuleAsync();
-        var state = await module.InvokeAsync<string>("cameraPermissionState", ct);
-        return state is not ("denied" or "unsupported");
+        return await module.InvokeAsync<string>("cameraPermissionState", ct);
     }
 
 

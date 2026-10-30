@@ -252,6 +252,18 @@ public class MediaScanOptions : MediaCameraOptions
 
     /// <summary>Fire a short haptic tick on each accepted result. Default <c>true</c>.</summary>
     public bool VibrateOnResult { get; set; } = true;
+
+    /// <summary>
+    /// Called once when the session ends, with why — after the modal has closed, on the context that was
+    /// enumerating the results. Null (default) for no callback.
+    /// </summary>
+    /// <remarks>
+    /// The result sequence ends the same way whether the user tapped ✓, closed the modal, or the timeout
+    /// expired; this is how a caller tells them apart — to say "nothing found" only when the scan genuinely
+    /// timed out, for instance. A single-result <c>Scan…Async</c> that finds something reports
+    /// <see cref="MediaScanEndReason.Stopped"/>, because it ends the session itself once it has its result.
+    /// </remarks>
+    public Action<MediaScanEndReason>? OnEnded { get; set; }
 }
 
 

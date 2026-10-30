@@ -256,6 +256,94 @@ public class MediaServiceTests
     }
 
 
+    [Theory]
+    [InlineData(true, MediaScanEndReason.Done)]
+    [InlineData(false, MediaScanEndReason.Dismissed)]
+    public async Task EndingFromTheModalReportsWhichButton(bool done, MediaScanEndReason expected)
+    {
+        var service = Started(out _);
+        var ended = new List<MediaScanEndReason>();
+
+        var scan = Task.Run(async () => await service.ScanAsync(Request(new Queue<string[]>()), new MediaScanOptions { OnEnded = ended.Add }).ToListAsync());
+        var session = await WaitForSessionAsync(service);
+        service.OnCameraStarted(session, new CameraView());
+
+        if (done)
+            service.Done(session);
+        else
+            service.Cancel(session);
+
+        await scan.WaitAsync(TimeSpan.FromSeconds(5));
+        ended.ShouldBe([expected]);
+    }
+
+
+    [Fact]
+    public async Task OnEndedReportsTheCapTheTimeoutAndTheCaller()
+    {
+        var capped = new List<MediaScanEndReason>();
+        await Collect(Started(out _), Request(new Queue<string[]>([["a", "b", "c"]])), new MediaScanOptions { MaxResults = 2, OnEnded = capped.Add });
+        capped.ShouldBe([MediaScanEndReason.MaxResults]);
+
+        var idle = new List<MediaScanEndReason>();
+        await Collect(Started(out _), Request(new Queue<string[]>()), new MediaScanOptions { Timeout = TimeSpan.FromMilliseconds(50), OnEnded = idle.Add });
+        idle.ShouldBe([MediaScanEndReason.Timeout]);
+
+        var stopped = new List<MediaScanEndReason>();
+        var service = Started(out _);
+        var first = Task.Run(() => service.ScanAsync(Request(new Queue<string[]>([["a"]])), new MediaScanOptions { OnEnded = stopped.Add }).FirstOrDefaultAsync().AsTask());
+        service.OnCameraStarted(await WaitForSessionAsync(service), new CameraView());
+        (await first.WaitAsync(TimeSpan.FromSeconds(5))).ShouldBe("a");
+        stopped.ShouldBe([MediaScanEndReason.Stopped]);
+    }
+
+
+    [Fact]
+    public async Task CallerCancellationReportsCancelled()
+    {
+        var service = Started(out _);
+        var ended = new List<MediaScanEndReason>();
+        using var cts = new CancellationTokenSource();
+
+        var scan = Task.Run(async () => await service.ScanAsync(Request(new Queue<string[]>()), new MediaScanOptions { OnEnded = ended.Add }, cts.Token).ToListAsync());
+        service.OnCameraStarted(await WaitForSessionAsync(service), new CameraView());
+        cts.Cancel();
+
+        await scan.WaitAsync(TimeSpan.FromSeconds(5));
+        ended.ShouldBe([MediaScanEndReason.Cancelled]);
+    }
+
+
+    [Fact]
+    public async Task LosingTheLastHostReportsDismissed()
+    {
+        var service = Started(out _);
+        var ended = new List<MediaScanEndReason>();
+
+        var scan = Task.Run(async () => await service.ScanAsync(Request(new Queue<string[]>()), new MediaScanOptions { OnEnded = ended.Add }).ToListAsync());
+        await WaitForSessionAsync(service);
+        service.DetachHost();
+
+        await scan.WaitAsync(TimeSpan.FromSeconds(5));
+        ended.ShouldBe([MediaScanEndReason.Dismissed]);
+    }
+
+
+    [Theory]
+    [InlineData("denied", MediaScanEndReason.PermissionDenied)]
+    [InlineData("unsupported", MediaScanEndReason.CameraUnavailable)]
+    public async Task ABlockedCameraReportsWhy(string state, MediaScanEndReason expected)
+    {
+        var service = new MediaService(new FakeJs { PermissionState = state });
+        service.AttachHost();
+        var ended = new List<MediaScanEndReason>();
+
+        (await service.ScanAsync(Request(new Queue<string[]>([["a"]])), new MediaScanOptions { OnEnded = ended.Add }).ToListAsync()).ShouldBeEmpty();
+
+        ended.ShouldBe([expected]);
+    }
+
+
     // --- helpers ---------------------------------------------------------------------------------------
 
     static MediaService Started(out FakeJs js)
