@@ -1,5 +1,6 @@
 #if IOS || MACCATALYST || MACOS
 using CoreAnimation;
+using CoreFoundation;
 using CoreGraphics;
 using Foundation;
 using Microsoft.Maui.Graphics.Platform;
@@ -42,9 +43,10 @@ sealed class CoreAnimationMotionPlayer : INativeMotionPlayer
     double iterations;
     CALayer? stage;
     Clock? clock;
-    IDisposable? boundsObserver;
+    SizeWatcher? watcher;
     bool paused;
     bool disposed;
+    bool relayoutQueued;
 
     CoreAnimationMotionPlayer(PlatformView host, NativeMotionRequest request)
     {
@@ -62,7 +64,8 @@ sealed class CoreAnimationMotionPlayer : INativeMotionPlayer
 
         // A view usually starts playing before its platform view has been given a frame, and MAUI's
         // SizeChanged has already fired by then, so the size it settles at has to be watched here.
-        this.boundsObserver = host.Layer!.AddObserver("bounds", NSKeyValueObservingOptions.New, _ => this.Relayout());
+        this.watcher = new SizeWatcher(this, host.Bounds);
+        host.AddSubview(this.watcher);
     }
 
     /// <summary>Creates a player for a loaded view, or null to leave the play on the managed ticker.</summary>
@@ -122,6 +125,20 @@ sealed class CoreAnimationMotionPlayer : INativeMotionPlayer
 
     public void Relayout()
     {
+        if (this.disposed || this.relayoutQueued)
+            return;
+
+        // Never rebuild layers inside the layout pass that reported the change.
+        this.relayoutQueued = true;
+        DispatchQueue.MainQueue.DispatchAsync(() =>
+        {
+            this.relayoutQueued = false;
+            this.RelayoutNow();
+        });
+    }
+
+    void RelayoutNow()
+    {
         // Layout passes report the same bounds over and over; only a real change is worth a rebuild.
         if (this.disposed || this.stage is not { } current || current.Bounds.Size == this.host.Bounds.Size)
             return;
@@ -136,11 +153,21 @@ sealed class CoreAnimationMotionPlayer : INativeMotionPlayer
             return;
 
         this.disposed = true;
-        this.boundsObserver?.Dispose();
-        this.boundsObserver = null;
         this.clock = null;
+
+        this.watcher?.RemoveFromSuperview();
+        this.watcher?.Dispose();
+        this.watcher = null;
+
+        // Take the animations off before the layers, so no stop callback is left pending on them.
+        this.root?.RemoveAnimation(AnimationKey);
+        foreach (var (layer, _) in this.parts)
+            layer.RemoveAnimation(AnimationKey);
+
         this.stage?.RemoveFromSuperLayer();
         this.stage = null;
+        this.root = null;
+        this.parts.Clear();
     }
 
     double LocalTime()
@@ -458,9 +485,55 @@ sealed class CoreAnimationMotionPlayer : INativeMotionPlayer
 
         public override void AnimationStopped(CAAnimation anim, bool finished)
         {
-            if (finished && this.owner.TryGetTarget(out var player))
-                player.OnClockStopped(this);
+            if (!finished || !this.owner.TryGetTarget(out var player))
+                return;
+
+            // Not from inside Core Animation's own stop callback.
+            DispatchQueue.MainQueue.DispatchAsync(() => player.OnClockStopped(this));
         }
     }
+
+#if MACOS
+    sealed class SizeWatcher : AppKit.NSView
+    {
+        readonly WeakReference<CoreAnimationMotionPlayer> owner;
+
+        public SizeWatcher(CoreAnimationMotionPlayer owner, CGRect frame) : base(frame)
+        {
+            this.owner = new(owner);
+            this.AutoresizingMask = AppKit.NSViewResizingMask.WidthSizable | AppKit.NSViewResizingMask.HeightSizable;
+        }
+
+        public override AppKit.NSView? HitTest(CGPoint aPoint) => null;
+
+        public override void Layout()
+        {
+            base.Layout();
+
+            if (this.owner.TryGetTarget(out var player))
+                player.Relayout();
+        }
+    }
+#else
+    sealed class SizeWatcher : UIKit.UIView
+    {
+        readonly WeakReference<CoreAnimationMotionPlayer> owner;
+
+        public SizeWatcher(CoreAnimationMotionPlayer owner, CGRect frame) : base(frame)
+        {
+            this.owner = new(owner);
+            this.UserInteractionEnabled = false;
+            this.AutoresizingMask = UIKit.UIViewAutoresizing.FlexibleDimensions;
+        }
+
+        public override void LayoutSubviews()
+        {
+            base.LayoutSubviews();
+
+            if (this.owner.TryGetTarget(out var player))
+                player.Relayout();
+        }
+    }
+#endif
 }
 #endif
