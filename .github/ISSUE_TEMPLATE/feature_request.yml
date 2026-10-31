@@ -30,7 +30,7 @@ body:
       description: Which package would this affect? (or propose a new one)
       options:
         - Core (Shiny.Maui.Controls / Shiny.Blazor.Controls)
-        - Barcodes (*.Controls.Barcodes)
+        - Barcodes (*.Controls.Barcodes / Shiny.Controls.Barcodes.Shared)
         - Camera (*.Controls.Camera)
         - Camera AI (*.Controls.Camera.Ai)
         - Camera analyzers (Shiny.Maui.Controls.Camera.Barcode / .Documents / .Face / .Motion / .Ocr)
@@ -40,6 +40,7 @@ body:
         - Foldables — MAUI only (Shiny.Maui.Controls.Foldables)
         - Gamepad (*.Controls.Gamepad / Shiny.Controls.Gamepad.Shared)
         - Gantt (core packages / Shiny.Controls.Gantt.Shared)
+        - Gauge — speedometer / tachometer dial (core packages / Shiny.Controls.Gauge.Shared)
         - Keyboard Shortcuts (core packages / Shiny.Controls.Keyboard.Shared)
         - Keyframe — MAUI only (Shiny.Maui.Controls.Keyframe / .Keyframe.Export)
         - Markdown (*.Controls.Markdown)

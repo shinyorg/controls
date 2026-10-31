@@ -25,6 +25,9 @@
         <!-- The range picker engine: selection rules, month grids, presets, time slots and range
              formatting, shared verbatim with the MAUI package. -->
         <ProjectReference Include="..\Shiny.Controls.RangePickers.Shared\Shiny.Controls.RangePickers.Shared.csproj" />
+        <!-- The gauge engine: scale mapping, ticks and fit-to-box layout for the SVG, and the needle
+             physics that gauge.js mirrors in the browser. -->
+        <ProjectReference Include="..\Shiny.Controls.Gauge.Shared\Shiny.Controls.Gauge.Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup>

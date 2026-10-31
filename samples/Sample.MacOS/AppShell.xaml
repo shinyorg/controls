@@ -54,6 +54,7 @@
        xmlns:pickers="clr-namespace:Sample.Features.Pickers;assembly=Sample.MacOS"
        xmlns:pills="clr-namespace:Sample.Features.Pills;assembly=Sample.MacOS"
        xmlns:progressbar="clr-namespace:Sample.Features.ProgressBar;assembly=Sample.MacOS"
+       xmlns:gauges="clr-namespace:Sample.Features.Gauges;assembly=Sample.MacOS"
        xmlns:quickentry="clr-namespace:Sample.Features.QuickEntry;assembly=Sample.MacOS"
        xmlns:notch="clr-namespace:Sample.Features.Notch;assembly=Sample.MacOS"
        xmlns:scheduler="clr-namespace:Sample.Features.Scheduler;assembly=Sample.MacOS"
@@ -281,6 +282,9 @@
     </FlyoutItem>
     <FlyoutItem Title="Progress Bar">
         <ShellContent ContentTemplate="{DataTemplate progressbar:ProgressBarPage}" Route="progressbar" />
+    </FlyoutItem>
+    <FlyoutItem Title="Gauge">
+        <ShellContent ContentTemplate="{DataTemplate gauges:GaugePage}" Route="gauge" />
     </FlyoutItem>
     <FlyoutItem Title="Skeleton">
         <ShellContent ContentTemplate="{DataTemplate skeleton:SkeletonPage}" Route="skeleton" />

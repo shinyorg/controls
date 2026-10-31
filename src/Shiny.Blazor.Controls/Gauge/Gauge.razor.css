@@ -1,0 +1,110 @@
+/* Every colour is a --shiny-gauge-* custom property with the theme token as its fallback, and none
+   of them is declared on the root - so an app stylesheet can set one anywhere up the tree and win.
+   The parameters write them inline only when set. */
+
+.shiny-gauge {
+    display: block;
+    width: 220px;
+    max-width: 100%;
+    /* No border, no background: the gauge sits on whatever card hosts it without drawing a second edge. */
+}
+
+.shiny-gauge-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    font-family: inherit;
+}
+
+.shiny-gauge-face {
+    fill: transparent;
+}
+
+.shiny-gauge-track,
+.shiny-gauge-value-arc,
+.shiny-gauge-range {
+    fill: none;
+}
+
+.shiny-gauge-track {
+    stroke: var(--shiny-gauge-track, var(--shiny-color-surface-container-highest, #D7DCE1));
+    stroke-linecap: round;
+}
+
+.shiny-gauge-value-arc {
+    stroke: var(--shiny-gauge-arc, var(--shiny-color-primary, #0055D9));
+    stroke-linecap: round;
+}
+
+.shiny-gauge-range {
+    stroke-linecap: butt;
+}
+
+.shiny-gauge-tick {
+    stroke: var(--shiny-gauge-tick, var(--shiny-color-on-surface-variant, #3B475B));
+    stroke-width: 0.9;
+}
+
+.shiny-gauge-tick--major {
+    stroke-width: 1.8;
+}
+
+.shiny-gauge-label {
+    fill: var(--shiny-gauge-tick, var(--shiny-color-on-surface-variant, #3B475B));
+    font-size: 11px;
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.shiny-gauge-readout,
+.shiny-gauge-units,
+.shiny-gauge-title {
+    fill: var(--shiny-gauge-text, var(--shiny-color-on-surface, #161C23));
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.shiny-gauge-readout {
+    font-size: 24px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.shiny-gauge-units {
+    font-size: 9px;
+}
+
+.shiny-gauge-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.shiny-gauge-peak {
+    stroke: var(--shiny-gauge-peak, var(--shiny-color-tertiary, #6A4CAD));
+    stroke-width: 2.5;
+    stroke-linecap: round;
+}
+
+.shiny-gauge-needle {
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.25));
+}
+
+.shiny-gauge-needle-body {
+    fill: var(--shiny-gauge-needle, var(--shiny-color-primary, #0055D9));
+}
+
+.shiny-gauge-needle-line {
+    stroke: var(--shiny-gauge-needle, var(--shiny-color-primary, #0055D9));
+    stroke-width: 2.2;
+    stroke-linecap: round;
+}
+
+.shiny-gauge-hub {
+    fill: var(--shiny-gauge-hub, var(--shiny-color-on-surface, #161C23));
+}
+
+.shiny-gauge-hub-dot {
+    fill: var(--shiny-gauge-needle, var(--shiny-color-primary, #0055D9));
+}

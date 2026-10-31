@@ -1,0 +1,127 @@
+@namespace Shiny.Blazor.Controls
+@using Shiny.Controls.Gauge
+@implements IAsyncDisposable
+
+@* Everything here is drawn round a pivot at (0,0) on a dial of radius 100; the viewBox is fitted to
+   what is actually drawn, so a semicircle gauge is a wide, short SVG and fills a wide, short box.
+
+   The needle's rotation, the value arc's dash, its stroke and the readout's text are rendered from
+   `frozen`, which is set once. After the first interactive render gauge.js owns those four, and
+   because Blazor diffs against its own last render rather than the DOM, it never writes them again -
+   a re-render can not snap a swinging needle back to where the server thinks it is.
+
+   Each SVG <text> sits in a <g>: as the first tag of a Razor code block, <text> is Razor's own
+   transition tag and cannot carry attributes. *@
+<div class="@RootClass"
+     style="@(RootStyle.Length > 0 ? RootStyle : null)"
+     role="meter"
+     aria-valuemin="@F(Scale.Minimum)"
+     aria-valuemax="@F(Scale.Maximum)"
+     aria-valuenow="@F(Scale.Clamp(Value))"
+     aria-valuetext="@ValueText"
+     aria-label="@Title"
+     @ref="rootRef"
+     @attributes="Splatted">
+
+    <svg class="shiny-gauge-svg" viewBox="@ViewBox" focusable="false" aria-hidden="true">
+        @if (!String.IsNullOrWhiteSpace(FaceColor))
+        {
+            <circle class="shiny-gauge-face" cx="0" cy="0" r="100" style="fill: @FaceColor" />
+        }
+
+        @if (TrackThickness > 0)
+        {
+            <path class="shiny-gauge-track" d="@TrackPath" stroke-width="@F(TrackThickness)" />
+
+            @if (ShowValueArc)
+            {
+                <path class="shiny-gauge-value-arc"
+                      d="@TrackPath"
+                      pathLength="1000"
+                      stroke-width="@F(TrackThickness)"
+                      stroke-dasharray="@F(Scale.FractionOf(frozen) * 1000) 1000"
+                      style="@FrozenArcStyle" />
+            }
+        }
+
+        @if (Ranges is { Count: > 0 } && RangeThickness > 0)
+        {
+            @foreach (var range in Ranges)
+            {
+                var start = Scale.Clamp(Math.Min(range.Start, range.End));
+                var end = Scale.Clamp(Math.Max(range.Start, range.End));
+                if (end > start)
+                {
+                    <path class="shiny-gauge-range"
+                          d="@Arc(RangeRadius, Scale.AngleOf(start), Scale.AngleOf(end))"
+                          stroke-width="@F(RangeThickness)"
+                          style="stroke: @range.Color" />
+                }
+            }
+        }
+
+        @if (ShowTicks)
+        {
+            @foreach (var tick in Ticks)
+            {
+                var angle = Scale.AngleOf(tick.Value);
+                var outer = Point(TickRadius, angle);
+                var inner = Point(TickRadius - (tick.IsMajor ? MajorTickLength : MinorTickLength), angle);
+                <line class="@(tick.IsMajor ? "shiny-gauge-tick shiny-gauge-tick--major" : "shiny-gauge-tick")"
+                      x1="@F(outer.X)" y1="@F(outer.Y)" x2="@F(inner.X)" y2="@F(inner.Y)" />
+            }
+        }
+
+        @if (ShowTickLabels)
+        {
+            @foreach (var tick in Ticks)
+            {
+                if (tick.IsMajor)
+                {
+                    var at = Point(LabelRadius, Scale.AngleOf(tick.Value));
+                    <g><text class="shiny-gauge-label" x="@F(at.X)" y="@F(at.Y)">@FormatTickLabel(tick.Value)</text></g>
+                }
+            }
+        }
+
+        @if (ShowPeak)
+        {
+            var peakAngle = Scale.AngleOf(Scale.Clamp(peak));
+            var p1 = Point(100, peakAngle);
+            var p2 = Point(100 - Math.Max(TrackThickness, 6) - Gap, peakAngle);
+            <line class="shiny-gauge-peak" x1="@F(p1.X)" y1="@F(p1.Y)" x2="@F(p2.X)" y2="@F(p2.Y)" />
+        }
+
+        @if (ShowReadout)
+        {
+            var anchor = Point(100 * GaugeLayout.ReadoutDistance, ReadoutAngle);
+            <g><text class="shiny-gauge-readout" x="@F(anchor.X)" y="@F(anchor.Y)">@FormatReadout(frozen)</text></g>
+            @if (!String.IsNullOrWhiteSpace(Units))
+            {
+                <g><text class="shiny-gauge-units" x="@F(anchor.X)" y="@F(anchor.Y + 24 * 0.62 + 4.5)">@Units</text></g>
+            }
+        }
+
+        @if (!String.IsNullOrWhiteSpace(Title))
+        {
+            var titleAt = Point(36, ReadoutAngle + 180);
+            <g><text class="shiny-gauge-title" x="@F(titleAt.X)" y="@F(titleAt.Y)">@Title</text></g>
+        }
+
+        @if (NeedleStyle != GaugeNeedleStyle.None)
+        {
+            <g class="shiny-gauge-needle" transform="rotate(@F(Scale.AngleOf(Scale.Clamp(frozen))))">
+                @if (NeedleStyle == GaugeNeedleStyle.Line)
+                {
+                    <line class="shiny-gauge-needle-line" x1="0" y1="14" x2="0" y2="@F(-NeedleReach)" />
+                }
+                else
+                {
+                    <polygon class="shiny-gauge-needle-body" points="@NeedlePolygon" />
+                }
+            </g>
+            <circle class="shiny-gauge-hub" cx="0" cy="0" r="7" />
+            <circle class="shiny-gauge-hub-dot" cx="0" cy="0" r="3" />
+        }
+    </svg>
+</div>

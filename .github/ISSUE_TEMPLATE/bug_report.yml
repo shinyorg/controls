@@ -62,11 +62,13 @@ body:
         - Shiny.Blazor.Controls.Themes.Ocean
         - Shiny.Blazor.Controls.Themes.Terminal
         # --- Shared / internal ---
+        - Shiny.Controls.Barcodes.Shared
         - Shiny.Controls.Camera.Shared
         - Shiny.Controls.Diagram.Shared
         - Shiny.Controls.FloorPlan.Shared
         - Shiny.Controls.Gamepad.Shared
         - Shiny.Controls.Gantt.Shared
+        - Shiny.Controls.Gauge.Shared
         - Shiny.Controls.Keyboard.Shared
         - Shiny.Controls.Keyframe.Shared
         - Shiny.Controls.MediaElement.Shared

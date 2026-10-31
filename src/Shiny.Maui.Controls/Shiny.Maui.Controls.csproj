@@ -39,6 +39,10 @@
 		<!-- The range picker engine: selection rules, month grids, presets, time slots and range
 		     formatting. Shared verbatim with the Blazor package so a range picks the same on both hosts. -->
 		<ProjectReference Include="..\Shiny.Controls.RangePickers.Shared\Shiny.Controls.RangePickers.Shared.csproj" />
+		<!-- The gauge engine: scale mapping, ticks, fit-to-box layout and the needle physics. Shared
+		     verbatim with the Blazor package (whose gauge.js mirrors the physics) so a needle swings,
+		     overshoots and settles the same way on both hosts. -->
+		<ProjectReference Include="..\Shiny.Controls.Gauge.Shared\Shiny.Controls.Gauge.Shared.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

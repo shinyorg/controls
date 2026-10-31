@@ -60,6 +60,7 @@
                   xmlns:osk="clr-namespace:Sample.Features.OnScreenKeyboard"
                   xmlns:kbshortcuts="clr-namespace:Sample.Features.KeyboardShortcuts"
                   xmlns:progressbar="clr-namespace:Sample.Features.ProgressBar"
+                  xmlns:gauges="clr-namespace:Sample.Features.Gauges"
                   xmlns:progressline="clr-namespace:Sample.Features.ProgressLine"
                   xmlns:notch="clr-namespace:Sample.Features.Notch"
                   xmlns:marquee="clr-namespace:Sample.Features.Marquee"
@@ -970,6 +971,14 @@
                              Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate progressbar:ProgressBarPage}" Route="progressbar" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Gauge">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25D4;" Size="20"
+                             Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate gauges:GaugePage}" Route="gauge" />
     </FlyoutItem>
 
     <FlyoutItem Title="Progress Line">

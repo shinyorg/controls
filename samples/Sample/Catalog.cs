@@ -149,6 +149,7 @@ public static class Catalog
             new("notch", "Notch", "▬", "Dynamic Island style surface that morphs to fit any content"),
             new("avatar", "Avatar & Group", "◉", "Picture, initials or silhouette, presence dot, and overlapping groups"),
             new("progressbar", "Progress Bar", "▤", "Determinate and indeterminate progress"),
+            new("gauge", "Gauge", "◔", "Speedometer / tachometer dial whose needle springs to each value"),
             new("skeleton", "Skeleton", "☰", "Shimmering placeholders while content loads")
         ]),
 

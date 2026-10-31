@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Dependency-free and shared rather than mirrored. Where a value lands on the dial, which
+             ticks get a label and how the needle swings, overshoots and settles are rules that are
+             easy to get subtly different on two hosts. They live once. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.Gauge</RootNamespace>
+        <Description>Host-neutral engine behind the Shiny gauge controls — value-to-angle scale mapping for any start angle and sweep, nice-number tick generation, a fit-to-box layout that sizes semicircle and three-quarter dials to the space they are given, and the spring/ease needle physics (momentum carried through retargets, overshoot, stop pegs and the startup sweep) that make a speedometer or tachometer needle move like a real one. Used by the .NET MAUI and Blazor controls.</Description>
+        <PackageTags>maui blazor shiny gauge speedometer tachometer dial meter needle</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.Gauge.Tests" />
+    </ItemGroup>
+
+</Project>

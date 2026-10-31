@@ -1,0 +1,297 @@
+@page "/gauge"
+@using Shiny.Controls.Gauge
+@implements IDisposable
+
+<PageTitle>Gauge</PageTitle>
+
+<h1>Gauge</h1>
+
+<p>
+    A dial gauge whose needle moves like a real instrument's: it accelerates, carries its momentum
+    through a change of reading, overshoots a little, settles, and bounces off the pegs at either end.
+</p>
+
+<section class="demo-section">
+    <h2>Dashboard</h2>
+    <p>
+        The car below reports ten readings a second, like a real vehicle feed. The springs carry their
+        momentum between readings, so the tachometer climbs, drops on each gear change and climbs again
+        instead of stepping. Both gauges do the ignition sweep when they first appear.
+    </p>
+
+    @* The dark panel is a background only - the gauges draw no border of their own, so nothing doubles up. *@
+    <div class="gauge-dash">
+        <Gauge Value="@speed"
+               Maximum="240"
+               MajorTickInterval="20"
+               MinorTicksPerMajor="1"
+               Units="km/h"
+               SweepOnLoad="true"
+               ShowPeak="true"
+               ShowValueArc="false"
+               TrackThickness="3"
+               TrackColor="#475569"
+               TickColor="#CBD5E1"
+               TextColor="white"
+               NeedleColor="#F97316"
+               HubColor="#1E293B"
+               PeakColor="#38BDF8"
+               Size="200px" />
+
+        <Gauge Value="@rpm"
+               Maximum="8"
+               MajorTickInterval="1"
+               Title="RPM"
+               Units="x1000 r/min"
+               ReadoutDecimals="1"
+               SweepOnLoad="true"
+               SpringDamping="0.55"
+               TrackThickness="6"
+               TrackColor="#334155"
+               ValueArcColor="#38BDF8"
+               TickColor="#CBD5E1"
+               TextColor="white"
+               NeedleColor="#F97316"
+               HubColor="#1E293B"
+               Ranges="tachRanges"
+               Size="200px" />
+
+        <div class="gauge-gear">
+            <span>GEAR</span>
+            <strong>@GearText</strong>
+        </div>
+    </div>
+
+    <div class="demo-row">
+        <button class="demo-button" @onclick="ToggleDrive">@(driving ? "Stop driving" : "Start driving")</button>
+        <button class="demo-button"
+                @onpointerdown="() => throttleDown = true"
+                @onpointerup="() => throttleDown = false"
+                @onpointerleave="() => throttleDown = false">
+            Hold to floor it
+        </button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Semicircle gauges</h2>
+    <p><code>StartAngle="-90"</code> with <code>SweepAngle="180"</code>. The SVG is fitted to what is drawn, so a half disc is a wide, short gauge.</p>
+    <div class="gauge-row">
+        <Gauge Value="@fuel"
+               StartAngle="-90" SweepAngle="180"
+               Title="FUEL" Units="%"
+               MajorTickInterval="25" MinorTicksPerMajor="1"
+               Ranges="fuelRanges"
+               Size="200px" />
+
+        <Gauge Value="@temperature"
+               Minimum="60" Maximum="130"
+               StartAngle="-90" SweepAngle="180"
+               Title="TEMP" Units="°C"
+               MajorTickInterval="10" MinorTicksPerMajor="1"
+               Animation="GaugeAnimation.Ease"
+               Ranges="tempRanges"
+               Size="200px" />
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Ring gauge (no needle)</h2>
+    <p><code>NeedleStyle="GaugeNeedleStyle.None"</code> with the ticks off. Ranges with <code>RangeThickness="0"</code> draw no bands but still colour the arc as the value crosses them.</p>
+    <Gauge Value="@cpu"
+           StartAngle="-150" SweepAngle="300"
+           NeedleStyle="GaugeNeedleStyle.None"
+           ShowTicks="false" ShowTickLabels="false"
+           TrackThickness="16"
+           RangeThickness="0"
+           Title="CPU" Units="%"
+           Animation="GaugeAnimation.Ease"
+           Ranges="cpuRanges"
+           Size="180px" />
+</section>
+
+<section class="demo-section">
+    <h2>Playground</h2>
+    <Gauge @ref="playGauge"
+           Value="@playValue"
+           Animation="@animation"
+           AnimationDuration="@TimeSpan.FromMilliseconds(durationMs)"
+           SpringDamping="@damping"
+           NeedleStyle="@needleStyle"
+           ShowPeak="true"
+           FaceColor="color-mix(in srgb, currentColor 6%, transparent)"
+           OnNeedleSettled="() => settledCount++" />
+
+    <p>Value: <strong>@playValue.ToString("0")</strong> &middot; settled @settledCount times</p>
+    <input type="range" min="0" max="100" step="1" value="@playValue" @oninput="e => playValue = double.Parse(e.Value!.ToString()!)" style="width: 100%; max-width: 420px;" />
+
+    <p>Spring damping: <strong>@damping.ToString("0.00")</strong> (1 = no overshoot)</p>
+    <input type="range" min="0.1" max="1.5" step="0.05" value="@damping" @oninput="e => damping = double.Parse(e.Value!.ToString()!, System.Globalization.CultureInfo.InvariantCulture)" style="width: 100%; max-width: 420px;" />
+
+    <p>Duration / period: <strong>@durationMs.ToString("0") ms</strong></p>
+    <input type="range" min="0" max="2500" step="50" value="@durationMs" @oninput="e => durationMs = double.Parse(e.Value!.ToString()!)" style="width: 100%; max-width: 420px;" />
+
+    <div class="demo-row">
+        <button class="demo-button" @onclick="() => animation = GaugeAnimation.Spring">Spring</button>
+        <button class="demo-button" @onclick="() => animation = GaugeAnimation.Ease">Ease</button>
+        <button class="demo-button" @onclick="() => animation = GaugeAnimation.None">None</button>
+        <button class="demo-button" @onclick="() => needleStyle = GaugeNeedleStyle.Tapered">Tapered</button>
+        <button class="demo-button" @onclick="() => needleStyle = GaugeNeedleStyle.Line">Line</button>
+        <button class="demo-button" @onclick="() => needleStyle = GaugeNeedleStyle.None">No needle</button>
+        <button class="demo-button" @onclick="RandomValues">Random</button>
+        <button class="demo-button" @onclick="() => playGauge!.SweepAsync()">Sweep</button>
+        <button class="demo-button" @onclick="() => playGauge!.ResetPeak()">Reset peak</button>
+    </div>
+</section>
+
+<style>
+    .gauge-dash {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 16px;
+        background: #0F172A;
+        color: white;
+        max-width: 480px;
+    }
+
+    .gauge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .gauge-gear {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        flex-basis: 100%;
+        justify-content: center;
+    }
+
+    .gauge-gear span {
+        color: #94A3B8;
+    }
+
+    .gauge-gear strong {
+        font-size: 22px;
+    }
+</style>
+
+@code {
+    // A crude five-speed car: enough to make a tachometer climb, shift and fall the way a real one does.
+    static readonly double[] GearRatios = [0, 3.6, 2.1, 1.4, 1.0, 0.8];
+    const double IdleRpm = 0.8;
+    const double RedlineRpm = 6.6;
+
+    static readonly IReadOnlyList<GaugeRange> tachRanges = [new(5.5, 6.5, "#F59E0B"), new(6.5, 8, "#EF4444")];
+    static readonly IReadOnlyList<GaugeRange> fuelRanges = [new(0, 15, "#EF4444")];
+    static readonly IReadOnlyList<GaugeRange> tempRanges = [new(60, 75, "#38BDF8"), new(75, 105, "#22C55E"), new(105, 130, "#EF4444")];
+    static readonly IReadOnlyList<GaugeRange> cpuRanges = [new(0, 60, "#22C55E"), new(60, 85, "#F59E0B"), new(85, 100, "#EF4444")];
+
+    CancellationTokenSource? drive;
+    bool driving;
+    bool throttleDown;
+    int gear = 1;
+    double rpm = IdleRpm;
+    double speed;
+    double fuel = 72;
+    double temperature = 88;
+    double cpu = 35;
+
+    Gauge? playGauge;
+    double playValue = 40;
+    double damping = 0.65;
+    double durationMs = 800;
+    int settledCount;
+    GaugeAnimation animation = GaugeAnimation.Spring;
+    GaugeNeedleStyle needleStyle = GaugeNeedleStyle.Tapered;
+
+    string GearText => speed < 1 && !throttleDown ? "N" : gear.ToString();
+
+    protected override void OnInitialized()
+    {
+        if (RendererInfo.IsInteractive)
+            Start();
+    }
+
+    void ToggleDrive()
+    {
+        if (driving)
+            Stop();
+        else
+            Start();
+    }
+
+    void RandomValues()
+    {
+        playValue = Random.Shared.Next(0, 101);
+        cpu = Random.Shared.Next(5, 100);
+    }
+
+    void Start()
+    {
+        if (driving)
+            return;
+
+        driving = true;
+        drive = new CancellationTokenSource();
+        _ = DriveLoop(drive.Token);
+    }
+
+    void Stop()
+    {
+        drive?.Cancel();
+        drive = null;
+        driving = false;
+        throttleDown = false;
+    }
+
+    /// <summary>Ten readings a second, the way a real vehicle feed arrives.</summary>
+    async Task DriveLoop(CancellationToken ct)
+    {
+        var autoThrottle = 0;
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                // With nobody holding the pedal, the demo drives itself: floor it, lift, repeat.
+                autoThrottle = (autoThrottle + 1) % 120;
+                var throttle = throttleDown || autoThrottle < 70;
+
+                var ratio = GearRatios[gear];
+                // Low gears rev quickly, tall ones slowly.
+                var next = throttle ? rpm + 0.12 * ratio : rpm - 0.25;
+
+                if (throttle && next >= RedlineRpm && gear < GearRatios.Length - 1)
+                {
+                    // Shift up: the needle drops sharply, then climbs again in the next gear.
+                    gear++;
+                    next *= GearRatios[gear] / ratio;
+                }
+                else if (!throttle && next < 2.2 && gear > 1)
+                {
+                    gear--;
+                    next *= GearRatios[gear] / ratio;
+                }
+
+                rpm = Math.Clamp(next, IdleRpm, 7.8);
+                var target = (rpm - IdleRpm) / GearRatios[gear] * 26;
+                speed = Math.Max(0, speed + (target - speed) * 0.2);
+                fuel = Math.Max(0, fuel - (throttle ? 0.05 : 0.01));
+                temperature = Math.Clamp(temperature + (throttle ? 0.15 : -0.1), 85, 118);
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void Dispose() => Stop();
+}
