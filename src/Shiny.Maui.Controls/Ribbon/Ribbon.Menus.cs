@@ -15,8 +15,15 @@ public partial class Ribbon
     /// two would clear each other's children. A <c>Grid</c> rather than an <c>AbsoluteLayout</c> for the
     /// reason quick entry uses one — an auto-sized, proportionally-positioned absolute child comes back
     /// unmeasured on some heads and paints nothing.
+    ///
+    /// Edge-to-edge: the card's margin is its anchor's position in the overlay root, and a Grid's
+    /// default <see cref="SafeAreaRegions.Container"/> shifted it by the status bar a second time, so
+    /// on a page that reaches under it the dropdown opened a status bar's height below its button.
     /// </remarks>
-    internal sealed class RibbonMenuLayer : Grid, PageOverlay.IOverlayLayer;
+    internal sealed class RibbonMenuLayer : Grid, PageOverlay.IOverlayLayer
+    {
+        public RibbonMenuLayer() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
 
 
     BoxView? menuBackdrop;

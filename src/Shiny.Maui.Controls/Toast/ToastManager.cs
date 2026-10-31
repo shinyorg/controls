@@ -168,26 +168,14 @@ sealed class ToastManager
             AbsoluteLayout.SetLayoutFlags(toastView,
                 Microsoft.Maui.Layouts.AbsoluteLayoutFlags.WidthProportional | Microsoft.Maui.Layouts.AbsoluteLayoutFlags.YProportional);
 
-            // Safe area padding for fill mode
-            var safeBottom = GetBottomSafeAreaInset();
-            var safeTop = GetTopSafeAreaInset();
-            if (config.Position == ToastPosition.Bottom && safeBottom > 0)
-                toastView.Margin = new Thickness(0, 0, 0, safeBottom);
-            else if (config.Position == ToastPosition.Top && safeTop > 0)
-                toastView.Margin = new Thickness(0, safeTop, 0, 0);
+            // No safe-area margin of its own: the toast layer keeps a layout's default safe-area inset,
+            // which already holds it clear of the status bar and home indicator.
         }
         else
         {
-            // Pill mode: centered horizontally with offset from edges
-            var safeBottom = GetBottomSafeAreaInset();
-            var safeTop = GetTopSafeAreaInset();
-
-            var bottomMargin = config.Position == ToastPosition.Bottom
-                ? offset.Bottom + safeBottom
-                : offset.Bottom;
-            var topMargin = config.Position == ToastPosition.Top
-                ? offset.Top + safeTop
-                : offset.Top;
+            // Pill mode: centered horizontally with offset from edges (the layer supplies the safe area)
+            var bottomMargin = offset.Bottom;
+            var topMargin = offset.Top;
 
             AbsoluteLayout.SetLayoutBounds(toastView, config.Position == ToastPosition.Bottom
                 ? new Rect(0.5, 1, -1, -1)
@@ -253,49 +241,21 @@ sealed class ToastManager
         foreach (var toast in activeToasts)
         {
             var current = toast.Margin;
-            var safeBottom = GetBottomSafeAreaInset();
-            var safeTop = GetTopSafeAreaInset();
             var baseOffset = 12d; // default offset
 
             var fold = this.foldInsets.TryGetValue(toast, out var box) ? box.Value : default;
 
             if (position == ToastPosition.Bottom)
             {
-                toast.Margin = new Thickness(current.Left, current.Top, current.Right, baseOffset + safeBottom + offset + fold.Bottom);
+                toast.Margin = new Thickness(current.Left, current.Top, current.Right, baseOffset + offset + fold.Bottom);
             }
             else
             {
-                toast.Margin = new Thickness(current.Left, baseOffset + safeTop + offset + fold.Top, current.Right, current.Bottom);
+                toast.Margin = new Thickness(current.Left, baseOffset + offset + fold.Top, current.Right, current.Bottom);
             }
 
             offset += (toast.Height > 0 ? toast.Height : 50) + 8;
         }
-    }
-
-    static double GetBottomSafeAreaInset()
-    {
-#if IOS || MACCATALYST
-        var window = UIKit.UIApplication.SharedApplication.ConnectedScenes
-            .OfType<UIKit.UIWindowScene>()
-            .SelectMany(s => s.Windows)
-            .FirstOrDefault();
-        return window?.SafeAreaInsets.Bottom ?? 0;
-#else
-        return 0;
-#endif
-    }
-
-    static double GetTopSafeAreaInset()
-    {
-#if IOS || MACCATALYST
-        var window = UIKit.UIApplication.SharedApplication.ConnectedScenes
-            .OfType<UIKit.UIWindowScene>()
-            .SelectMany(s => s.Windows)
-            .FirstOrDefault();
-        return window?.SafeAreaInsets.Top ?? 0;
-#else
-        return 0;
-#endif
     }
 
     sealed class ToastHandle : IDisposable

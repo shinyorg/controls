@@ -74,6 +74,12 @@ await ToastService.SuccessAsync("File saved");
 - `MultiLine` — wraps text to multiple lines
 - `Marquee` — scrolling ticker animation (configure speed via `MarqueeSpeedPixelsPerSecond`)
 
+## Safe area
+
+On MAUI, toasts keep clear of the status bar, notch and home indicator on every platform. The toast
+layer applies the page's safe area, and `Offset` is measured from inside it. iOS used to add the
+window's inset a second time, so a `Top` toast sat about a notch's height lower than it does on Android.
+
 ## Foldables
 
 With a fold posture source registered, toasts sit in the larger segment of a book. In tabletop posture, `Bottom` toasts go below the fold and `Top` toasts above it. Blazor `ToastHost` does the book case in CSS, using the first segment. See [Foldables](foldables.md).

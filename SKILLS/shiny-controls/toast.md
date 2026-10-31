@@ -186,7 +186,7 @@ await toaster.ShowAsync("Very long message that scrolls continuously", cfg =>
 - **Auto-dismiss**: Toast disappears after `Duration`. Set `Duration = TimeSpan.Zero` for manual-only dismiss.
 - **Manual dismiss**: `ShowAsync` returns `IDisposable`. Call `Dispose()` to dismiss programmatically.
 - **Tap dismiss**: When `DismissOnTap = true`, tapping the toast dismisses it. `TapCommand`/`TapCallback` fires before dismiss.
-- **Safe area**: Bottom toasts respect iOS safe area (home indicator). Fill mode handles safe area padding automatically.
+- **Safe area**: On MAUI, toasts stay clear of the status bar, notch and home indicator on every platform (the toast layer applies the safe area once; `Offset` is measured inside it). Fill mode handles it too. Don't add your own safe-area margin.
 - **Feedback**: Fires via `IFeedbackService` on show (MAUI, configurable via `UseFeedback`).
 - **Accessibility**: `SemanticScreenReader.Announce()` on show (MAUI). `role="alert"` + `aria-live="polite"` (Blazor).
 - **Progress bar**: Optional thin bar that drains linearly over the duration.

@@ -434,7 +434,9 @@ properties, and both flip with light/dark. `AccentColor`, `HeaderBackgroundColor
 
 - **Dropdowns** are drawn above the page rather than inside the bar, which is what stops a menu being
   clipped by a body only three rows tall. On Blazor that is the browser's top layer via the popover
-  API, with Escape and a click-away both closing the panel. On MAUI it is the shared page overlay.
+  API, with Escape and a click-away both closing the panel. On MAUI it is the shared page overlay,
+  in a layer that ignores the safe area so a dropdown opens directly under its button on an
+  edge-to-edge page.
 - **macOS AppKit (`net10.0-macos`)** gives no native view to a child added after the page has been laid
   out. The ribbon is built for that: every tab's body is created up front and switched with
   `IsVisible`, so tab switching, collapsing and group folding all work. Adding a tab, group or item

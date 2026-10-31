@@ -41,7 +41,15 @@ static class PageOverlay
     /// for a bare <see cref="AbsoluteLayout"/> would match any other control's layer that happened to
     /// be added first, and two controls would end up sharing (and clearing) each other's children.
     /// </summary>
-    internal sealed class TooltipLayer : AbsoluteLayout, IOverlayLayer;
+    /// <remarks>
+    /// Edge-to-edge, like every layer that places things at a target's position in the root: a
+    /// layout's default <see cref="SafeAreaRegions.Container"/> shifted the bubble by the status bar
+    /// a second time, so on a page that reaches under it the tail pointed below its anchor.
+    /// </remarks>
+    internal sealed class TooltipLayer : AbsoluteLayout, IOverlayLayer
+    {
+        public TooltipLayer() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
 
     /// <remarks>
     /// Edge-to-edge for the same reason as <see cref="ShinyOverlayRoot"/>: the spotlight is placed at
@@ -54,11 +62,20 @@ static class PageOverlay
         public WalkthroughLayer() => this.SafeAreaEdges = SafeAreaEdges.None;
     }
 
-    internal sealed class FloatingToolbarLayer : AbsoluteLayout, IOverlayLayer;
+    /// <remarks>Edge-to-edge for the same reason as <see cref="TooltipLayer"/>: the bar is placed at
+    /// its anchor's position in the root.</remarks>
+    internal sealed class FloatingToolbarLayer : AbsoluteLayout, IOverlayLayer
+    {
+        public FloatingToolbarLayer() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
 
     /// <summary>The dropdowns a floating toolbar opens. Its own layer so a menu draws over the bar
     /// that opened it rather than under it, whatever order the two were added in.</summary>
-    internal sealed class FloatingToolbarMenuLayer : AbsoluteLayout, IOverlayLayer;
+    /// <remarks>Edge-to-edge for the same reason as <see cref="TooltipLayer"/>.</remarks>
+    internal sealed class FloatingToolbarMenuLayer : AbsoluteLayout, IOverlayLayer
+    {
+        public FloatingToolbarMenuLayer() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
 
     /// <summary>
     /// Grid-based, unlike the layers above. An <see cref="AbsoluteLayout"/> child sized with
@@ -138,6 +155,12 @@ static class PageOverlay
     internal sealed class ImageViewerLayer : Grid, IOverlayLayer;
 
     /// <summary>Where <c>ToastManager</c> shows toasts. Resolved per toast so it follows navigation.</summary>
+    /// <remarks>
+    /// Deliberately left at a layout's default <see cref="SafeAreaRegions.Container"/>, unlike the
+    /// layers that place things at a target's position: a toast docks to an edge, and this inset is
+    /// what keeps it clear of the status bar and home indicator on every platform. The manager used
+    /// to add the iOS window's inset on top of it, which put iOS toasts a notch's height too far in.
+    /// </remarks>
     internal sealed class ToastLayer : AbsoluteLayout, IOverlayLayer;
 
     /// <summary>

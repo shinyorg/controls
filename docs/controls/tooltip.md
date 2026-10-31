@@ -44,6 +44,10 @@ edge to keep pointing at the target it was clamped away from, pulled in from the
 a straight edge. So `Placement="Left"` on a control hard against the left edge gives you a bubble on the
 right, deliberately.
 
+On MAUI the bubble is placed at its anchor's position in the page's overlay root and drawn in an
+edge-to-edge layer, so it lines up with the anchor on pages that reach under the status bar (Android's
+default since .NET 10) as well as on ones that don't.
+
 Triggers are `Manual` / `Tap` / `LongPress` / `Hover` / `Focus` on MAUI, and `Manual` / `Hover` / `Click` /
 `Focus` / `HoverOrFocus` (the default) / `LongPress` on Blazor — `HoverOrFocus` being the accessible one,
 since a hover-only tooltip is unreachable by keyboard.

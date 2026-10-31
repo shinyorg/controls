@@ -40,6 +40,9 @@ public class ThemeTokenCoverageTests(ITestOutputHelper output)
         ["ConfettiCanvas.cs"] = "emoji particles are drawn with a fixed ink (colour emoji ignore it); everything else is the particle's own colour",
         ["ScreenGlowOptions.cs"] = "the glow palette is the effect itself - a Siri-style rainbow wash whose colours are its identity, not chrome that should follow a theme pack",
         ["NotchView.Properties.cs"] = "SurfaceColor defaults to black on every theme because the look being imitated is the hardware notch - a hole in the screen - and it is documented as such",
+        ["Gauge.Properties.cs"] = "fallbacks only - Gauge's constructor binds every Theme* property to a ShinyThemeKeys token; they are what draws before a theme merges",
+        ["GaugeRange.cs"] = "a band's colour is the caller's data (a redline, a warning zone); Blazor's GaugeRange requires one, and Red is only what a band left uncoloured draws",
+        ["GaugeDrawable.cs"] = "the needle's drop shadow is a fixed translucent black, like any elevation shadow; every other colour comes from Gauge's themed Effective* properties",
 
         // Decorative effects. Their default palettes are the effect, the same way Confetti's and
         // ScreenGlow's are: an aurora or a beam in the theme's primary would just be more chrome.

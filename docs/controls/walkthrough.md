@@ -85,6 +85,10 @@ On MAUI a `Stop()` that lands while the tour is still starting (before the first
 `Stopped`, so nothing is remembered and an auto-start will show it again. A `Start()` made while a run is
 still tearing down (spotlight shrinking, dim fading) is queued and runs once the old run is gone.
 
+On MAUI the spotlight is measured against the page's overlay root, which reaches under the status bar, so
+the layer it draws in reaches under it too. It used to keep a layout's default safe-area inset, which on
+an edge-to-edge Android page put every spotlight a status bar's height below its target.
+
 `AllowTargetInteraction` is implemented by fencing the backdrop with four transparent panels *around* the
 cut-out rather than one full-screen catcher — hit testing has no notion of a hole, so the hole has to be a
 gap between panels.

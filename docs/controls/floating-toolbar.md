@@ -86,6 +86,7 @@ On MAUI the type is `ShinyToolbarItem`, not `ToolbarItem`: MAUI already has a `T
 ## Platform notes
 
 - The bar draws in the page's overlay layer (MAUI) or the browser's top layer (Blazor), so no `overflow: hidden` ancestor clips it and no `z-index` outranks it.
+- On MAUI the bar and its menus are placed at their anchor's position in the overlay root, in layers that ignore the safe area, so they line up with the anchor on an edge-to-edge page instead of sitting a status bar's height below it.
 - MAUI's layer sits **below** the tooltip layer on purpose: the bar's own buttons carry tooltips, and a tip rendering under the bar it names is worse than no tip.
 - `Hover` needs a pointer. On a phone it never fires; use `LongPress` or `Tap` there.
 
