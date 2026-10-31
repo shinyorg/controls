@@ -136,5 +136,7 @@ public class ServiceLifetimeTests
         public Task<IDisposable> WarningAsync(string text, Action<ToastConfig>? configure = null) => throw new NotSupportedException();
         public Task<IDisposable> DangerAsync(string text, Action<ToastConfig>? configure = null) => throw new NotSupportedException();
         public Task<IDisposable> CriticalAsync(string text, Action<ToastConfig>? configure = null) => throw new NotSupportedException();
+        public Task<SnackbarResult> SnackbarAsync(string text, string? actionText = null, Action<SnackbarConfig>? configure = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ILoadingSnackbar> LoadingSnackbarAsync(string text, Action<SnackbarConfig>? configure = null) => throw new NotSupportedException();
     }
 }

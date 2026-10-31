@@ -110,6 +110,23 @@
 </section>
 
 <!-- ============================================================ -->
+<!--  SNACKBARS -->
+<!-- ============================================================ -->
+<section class="demo-section">
+    <h2>Snackbars</h2>
+    <p>Rectangular, multi-line, one at a time. The action button and the body are separate targets, and the call returns why it closed.</p>
+    <p><strong>@snackbarStatus</strong></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button @onclick="UndoSnackbar">Undo</button>
+        <button @onclick="MultilineSnackbar">Multi-line</button>
+        <button @onclick="BodyActionSnackbar">Body + Action</button>
+        <button @onclick="MarqueeSnackbar">Marquee</button>
+        <button @onclick="CountdownSnackbar">Countdown</button>
+        <button @onclick="LoadingSnackbar">Loading</button>
+    </div>
+</section>
+
+<!-- ============================================================ -->
 <!--  THEMED TYPES -->
 <!-- ============================================================ -->
 <section class="demo-section">
@@ -132,6 +149,76 @@
 </section>
 
 @code {
+    string snackbarStatus = "Pick a snackbar";
+
+    async Task UndoSnackbar()
+    {
+        snackbarStatus = "Snackbar showing...";
+        var result = await ToastService.SnackbarAsync("Message deleted", "Undo");
+        snackbarStatus = result == SnackbarResult.ActionInvoked
+            ? "Undo pressed - message restored"
+            : $"Snackbar closed: {result}";
+    }
+
+    async Task MultilineSnackbar()
+    {
+        var result = await ToastService.SnackbarAsync(
+            "Your changes were saved, but two attachments could not be uploaded because the connection dropped. They will be retried when you are back online.",
+            "Retry");
+        snackbarStatus = $"Multi-line snackbar closed: {result}";
+    }
+
+    async Task BodyActionSnackbar()
+    {
+        var result = await ToastService.SnackbarAsync("New reply from Sam - click to open", "Mark read", cfg =>
+        {
+            cfg.TapCallback = () => snackbarStatus = "Body clicked - opening the reply";
+            cfg.ActionCallback = () => snackbarStatus = "Marked as read";
+        });
+        if (result == SnackbarResult.TimedOut)
+            snackbarStatus = "Snackbar timed out";
+    }
+
+    async Task MarqueeSnackbar()
+    {
+        var result = await ToastService.SnackbarAsync(toastText, "OK", cfg => cfg.TextOverflow = ToastTextOverflow.Marquee);
+        snackbarStatus = $"Marquee snackbar closed: {result}";
+    }
+
+    async Task CountdownSnackbar()
+    {
+        var result = await ToastService.SnackbarAsync("Draft discarded", "Undo", cfg => cfg.ShowProgressBar = true);
+        snackbarStatus = $"Countdown snackbar closed: {result}";
+    }
+
+    async Task LoadingSnackbar()
+    {
+        using var cancel = new CancellationTokenSource();
+        using var loading = await ToastService.LoadingSnackbarAsync("Preparing upload...", cfg =>
+        {
+            cfg.ActionText = "Cancel";
+            cfg.ActionCallback = cancel.Cancel;
+        });
+        snackbarStatus = "Loading snackbar showing";
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(1500, cancel.Token);
+            for (var i = 0; i <= 20; i++)
+            {
+                loading.Text = $"Uploading photos... {i * 5}%";
+                loading.Progress = i / 20.0;
+                await Task.Delay(150, cancel.Token);
+            }
+            snackbarStatus = "Upload finished";
+        }
+        catch (OperationCanceledException)
+        {
+            snackbarStatus = "Upload cancelled";
+        }
+    }
+
     string toastText = "This is a really long toast message that is meant to demonstrate what happens when the text content exceeds the available width of the toast container";
     string statusMessage = "Configure and tap Show Toast";
     IDisposable? manualToast;

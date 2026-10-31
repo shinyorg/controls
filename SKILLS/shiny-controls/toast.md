@@ -153,6 +153,71 @@ await ToastService.CriticalAsync("System error");
 | `MarqueeSpeedPixelsPerSecond` | `double` | `40` | Scroll speed for marquee mode (pixels per second) |
 | `AnnounceToScreenReader` | `bool` / — | `true` | Announce via SemanticScreenReader (MAUI) |
 
+## Snackbars
+
+A snackbar is a toast with an action. It goes through the same service and the same queue, and every `ToastConfig` setting still applies. `SnackbarConfig` derives from `ToastConfig` and changes the defaults: `DisplayMode = Snackbar` (rectangular, 4px corners, full width on a phone, capped at 600 and centred on a wider screen), `TextOverflow = MultiLine`, `QueueMode = Replace` and `PauseOnHover = true`.
+
+```csharp
+// MAUI - IToaster
+var result = await toaster.SnackbarAsync("Message deleted", "Undo");
+if (result == SnackbarResult.ActionInvoked)
+    Restore();
+
+// Body tap and action button are separate targets
+await toaster.SnackbarAsync("New reply from Sam", "Mark read", cfg =>
+{
+    cfg.TapCommand = OpenReplyCommand;     // tapping the message
+    cfg.ActionCommand = MarkReadCommand;   // tapping the button - never fires TapCommand
+});
+
+// Loading: a line along the top edge, open until you dispose the handle
+using var loading = await toaster.LoadingSnackbarAsync("Uploading...", cfg =>
+{
+    cfg.ActionText = "Cancel";
+    cfg.ActionCommand = new Command(cts.Cancel);
+});
+loading.Progress = 0.4;              // null (default) = indeterminate
+loading.Text = "Uploading... 40%";   // updates in place
+```
+
+```razor
+@inject IToastService ToastService
+
+var result = await ToastService.SnackbarAsync("Message deleted", "Undo");
+
+await ToastService.SnackbarAsync("New reply", "Mark read", cfg =>
+{
+    cfg.TapCallback = OpenReply;
+    cfg.ActionCallback = MarkRead;
+});
+
+using var loading = await ToastService.LoadingSnackbarAsync("Uploading...");
+loading.Progress = 0.4;
+```
+
+**`SnackbarAsync(text, actionText?, configure?, cancellationToken)`** returns `Task<SnackbarResult>`, which completes when the snackbar closes:
+
+| Result | When |
+|---|---|
+| `ActionInvoked` | The action button was pressed |
+| `TimedOut` | The duration ran out |
+| `Dismissed` | Body tap (`DismissOnTap`), or the token was cancelled (a queued snackbar is dropped without showing) |
+| `Replaced` | A newer toast took its place (`QueueMode.Replace`, or a full stack) |
+
+**`LoadingSnackbarAsync(text, configure?)`** returns `ILoadingSnackbar` (`Text`, `Progress`, `Closed`, `Dispose`) once it is on screen. It has `Duration = Zero` and `DismissOnTap = false`, so it stays until you dispose it or the user presses its action.
+
+| SnackbarConfig | Type | Default | Description |
+|---|---|---|---|
+| ActionText | string? | null | Button label. Null = no button. Passing `actionText` makes the default duration 8s instead of 4s; `configure` can still change it |
+| ActionCommand (MAUI) / ActionCallback (Blazor) | ICommand? / Action? | null | Runs when the button is pressed, before it closes |
+| ActionTextColor | Color? / string? | inverse-primary token | Button label colour |
+| IsLoading | bool | false | Top-edge progress line. Set for you by `LoadingSnackbarAsync` |
+| Progress | double? | null | 0-1 for the loading line. Null = indeterminate |
+
+New on `ToastConfig`, so plain toasts can use them too: `ToastDisplayMode.Snackbar`, `ToastQueueMode.Replace` (dismiss the queued toast that is showing and jump the queue), and `PauseOnHover` (holds the countdown and its progress bar while the pointer is over it or, on Blazor, focus is inside it; on MAUI desktop only, since a pointer recognizer on a phone takes real taps). Marquee, spinner, icon and colours work on a snackbar as they do on a toast. With `ShowProgressBar`, a snackbar's countdown bar runs along the top edge rather than the bottom.
+
+Accessibility: the screen-reader announcement includes the action ("Message deleted. Undo"). The button is a real `Button` / `<button>` at least 40 tall and 48 wide. A snackbar with an action defaults to 8 seconds, and you can set `Duration = TimeSpan.Zero` to keep an important action up until the user responds.
+
 ## Text Overflow
 
 Controls how long text is displayed when it exceeds the toast width:

@@ -42,6 +42,8 @@ public class CustomServiceRegistrationTests
         public Task<IDisposable> WarningAsync(string text, Action<ToastConfig>? configure = null) => Done();
         public Task<IDisposable> DangerAsync(string text, Action<ToastConfig>? configure = null) => Done();
         public Task<IDisposable> CriticalAsync(string text, Action<ToastConfig>? configure = null) => Done();
+        public Task<SnackbarResult> SnackbarAsync(string text, string? actionText = null, Action<SnackbarConfig>? configure = null, CancellationToken cancellationToken = default) => Task.FromResult(SnackbarResult.Dismissed);
+        public Task<ILoadingSnackbar> LoadingSnackbarAsync(string text, Action<SnackbarConfig>? configure = null) => throw new NotSupportedException();
 
         static Task<IDisposable> Done() => Task.FromResult<IDisposable>(new Disposable());
 

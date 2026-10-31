@@ -42,11 +42,19 @@ sealed class ToastView : ContentView
     readonly Border border;
     readonly Label label;
     readonly Microsoft.Maui.Controls.ProgressBar? progressBar;
+    readonly ProgressBar? loadingBar;
+    readonly Button? actionButton;
     readonly ActivityIndicator? spinner;
     readonly Image? icon;
     CancellationTokenSource? autoDismissCts;
-    Action? onDismissed;
+    Action<SnackbarResult>? onDismissed;
     bool isDismissing;
+
+    // The countdown, kept as "time left" so a hover can stop it and pick it up again.
+    TimeSpan remaining;
+    DateTime armedAt;
+    bool timerArmed;
+    bool paused;
 
     public ToastView(ToastConfig config)
     {
@@ -172,9 +180,97 @@ sealed class ToastView : ContentView
             Grid.SetColumn(spinner, col++);
         }
 
+        var snackbar = config as SnackbarConfig;
+        var isSnackbar = config.DisplayMode == ToastDisplayMode.Snackbar;
+        var isPill = config.DisplayMode == ToastDisplayMode.Pill;
+
+        // The action sits beside the content rather than inside it, so the body's tap target never
+        // covers the button: tapping the message is the body action, tapping the button is the action.
+        View body = contentLayout;
+        if (!String.IsNullOrEmpty(snackbar?.ActionText))
+        {
+            actionButton = new Button
+            {
+                Text = snackbar.ActionText,
+                Background = Brush.Transparent,
+                BackgroundColor = Colors.Transparent,
+                BorderWidth = 0,
+                CornerRadius = 4,
+                Padding = new Thickness(12, 0),
+                MinimumHeightRequest = 40,
+                MinimumWidthRequest = 48,
+                FontAttributes = FontAttributes.Bold,
+                VerticalOptions = LayoutOptions.Center
+            }.WithFontSize(ShinyThemeKeys.Type.LabelLargeSize);
+
+            if (snackbar.ActionTextColor is { } actionColor)
+                actionButton.TextColor = actionColor;
+            else
+                actionButton.SetDynamicResource(Button.TextColorProperty, ShinyThemeKeys.Color.InversePrimary);
+
+            // Clicked, not a gesture recognizer: a Button ignores those.
+            actionButton.Clicked += OnActionClicked;
+
+            var withAction = new Grid
+            {
+                ColumnSpacing = 8,
+                ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }
+            };
+            withAction.Children.Add(contentLayout);
+            withAction.Children.Add(actionButton);
+            Grid.SetColumn(actionButton, 1);
+            body = withAction;
+        }
+
+        // Snackbar padding: 48 tall on one line, and the button's own padding stands in on the right.
+        var padding = isSnackbar
+            ? (actionButton is null ? new Thickness(16, 14) : new Thickness(16, 4, 8, 4))
+            : new Thickness(16, 10);
+
+        if (snackbar?.IsLoading == true)
+        {
+            loadingBar = new ProgressBar
+            {
+                ShowText = false,
+                Minimum = 0,
+                Maximum = 1,
+                Value = snackbar.Progress ?? 0,
+                IsIndeterminate = snackbar.Progress is null,
+                TrackHeight = 3,
+                CornerRadius = 0,
+                TrackColor = Colors.Transparent,
+                InputTransparent = true,
+                VerticalOptions = LayoutOptions.Start,
+                HorizontalOptions = LayoutOptions.Fill
+            };
+            loadingBar.SetDynamicResource(ProgressBar.BarColorProperty, ShinyThemeKeys.Color.InversePrimary);
+        }
+
         // Main container
         View innerContent;
-        if (config.ShowProgressBar && config.Duration > TimeSpan.Zero)
+        if (loadingBar is not null || (isSnackbar && config.ShowProgressBar && config.Duration > TimeSpan.Zero))
+        {
+            // A line along the top edge runs edge to edge, so the padding moves off the border and
+            // onto the body under it.
+            View topLine = (View?)loadingBar ?? (progressBar = new Microsoft.Maui.Controls.ProgressBar
+            {
+                Progress = 1.0,
+                ProgressColor = ProgressBarColor,
+                HeightRequest = 2,
+                VerticalOptions = LayoutOptions.Start
+            });
+
+            body.Margin = padding;
+            padding = new Thickness(0);
+
+            // One cell: the line lies over the top padding instead of pushing the content down.
+            var grid = new Grid();
+            grid.Children.Add(body);
+            grid.Children.Add(topLine);
+
+            innerContent = grid;
+        }
+        else if (config.ShowProgressBar && config.Duration > TimeSpan.Zero)
         {
             progressBar = new Microsoft.Maui.Controls.ProgressBar
             {
@@ -193,8 +289,8 @@ sealed class ToastView : ContentView
                     new RowDefinition(GridLength.Auto)
                 }
             };
-            grid.Children.Add(contentLayout);
-            Grid.SetRow(contentLayout, 0);
+            grid.Children.Add(body);
+            Grid.SetRow(body, 0);
             grid.Children.Add(progressBar);
             Grid.SetRow(progressBar, 1);
 
@@ -202,28 +298,29 @@ sealed class ToastView : ContentView
         }
         else
         {
-            innerContent = contentLayout;
+            innerContent = body;
         }
 
-        // Border (pill or fill)
-        var isPill = config.DisplayMode == ToastDisplayMode.Pill;
+        // Border (pill, fill or snackbar). A snackbar fills the width up to 600, and a fill-aligned view
+        // with a maximum width is centred in the space it would have filled.
         border = new Border
         {
             Content = innerContent,
             BackgroundColor = bgColor,
-            Padding = new Thickness(16, 10),
+            Padding = padding,
             StrokeThickness = config.BorderThickness,
             Stroke = config.BorderColor ?? (config.BorderThickness > 0 && fallbackBorder is { } fb ? fb : Colors.Transparent),
             HorizontalOptions = isPill ? LayoutOptions.Center : LayoutOptions.Fill,
-            MaximumWidthRequest = isPill ? 400 : double.PositiveInfinity,
+            MaximumWidthRequest = isPill ? 400 : isSnackbar ? 600 : double.PositiveInfinity,
+            MinimumHeightRequest = isSnackbar ? 48 : -1,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle
             {
-                CornerRadius = isPill ? config.CornerRadius : 0
+                CornerRadius = isPill || isSnackbar ? config.CornerRadius : 0
             },
         };
 
-        // A pill floats above the page, an edge-anchored bar does not.
-        if (isPill)
+        // A pill or a snackbar floats above the page, an edge-anchored bar does not.
+        if (isPill || isSnackbar)
             border.SetDynamicResource(VisualElement.ShadowProperty, ShinyThemeKeys.Elevation.Level2);
 
         // Follow the theme for any color the consumer did not set explicitly. The untyped border
@@ -237,12 +334,22 @@ sealed class ToastView : ContentView
         if (config.BorderColor is null && config.BorderThickness > 0 && fallbackBorder is not null)
             this.SetDynamicResource(ThemeBorderColorProperty, tokens.Border);
 
-        // Tap gesture
+        // Tap gesture. With an action button it goes on the content beside the button, not the border
+        // around both.
         if (config.DismissOnTap || config.TapCommand is not null)
         {
             var tap = new TapGestureRecognizer();
             tap.Tapped += OnTapped;
-            border.GestureRecognizers.Add(tap);
+            (actionButton is null ? (View)border : contentLayout).GestureRecognizers.Add(tap);
+        }
+
+        // Hover only exists on desktop, and a pointer recognizer on a phone eats real taps.
+        if (config.PauseOnHover && DeviceInfo.Idiom == DeviceIdiom.Desktop)
+        {
+            var pointer = new PointerGestureRecognizer();
+            pointer.PointerEntered += (_, _) => PauseCountdown();
+            pointer.PointerExited += (_, _) => ResumeCountdown();
+            border.GestureRecognizers.Add(pointer);
         }
 
         Content = border;
@@ -256,6 +363,8 @@ sealed class ToastView : ContentView
         {
             AutomationIds.Set(border, config.AutomationId);
             AutomationIds.Set(label, config.AutomationId + ToastConfig.TextAutomationIdSuffix);
+            if (actionButton is not null)
+                AutomationIds.Set(actionButton, config.AutomationId + SnackbarConfig.ActionAutomationIdSuffix);
         }
     }
 
@@ -283,8 +392,31 @@ sealed class ToastView : ContentView
     internal Border Chrome => border;
     internal Label TextLabel => label;
     internal ActivityIndicator? Spinner => spinner;
+    internal Button? ActionButton => actionButton;
+    internal ProgressBar? LoadingBar => loadingBar;
+    internal bool IsCountdownPaused => paused;
 
-    public void SetOnDismissed(Action callback) => onDismissed = callback;
+    /// <summary>Why it is closing, set the moment it starts to slide out.</summary>
+    internal SnackbarResult? ClosingReason { get; private set; }
+
+    public void SetOnDismissed(Action<SnackbarResult> callback) => onDismissed = callback;
+
+    internal void UpdateText(string text)
+    {
+        label.Text = text;
+        AutomationProperties.SetName(this, text);
+    }
+
+    internal void UpdateProgress(double? progress)
+    {
+        if (loadingBar is null)
+            return;
+
+        loadingBar.IsIndeterminate = progress is null;
+        loadingBar.Value = progress ?? 0;
+    }
+
+    string Announcement => actionButton is null ? config.Text : $"{config.Text}. {actionButton.Text}";
 
     public async Task AnimateInAsync()
     {
@@ -298,11 +430,15 @@ sealed class ToastView : ContentView
             this.FadeToAsync(1, 250, Easing.CubicOut)
         );
 
+        // Replaced while it was still sliding in: nothing left to start.
+        if (isDismissing)
+            return;
+
         if (config.AnnounceToScreenReader)
         {
             try
             {
-                SemanticScreenReader.Announce(config.Text);
+                SemanticScreenReader.Announce(Announcement);
             }
             catch
             {
@@ -315,13 +451,15 @@ sealed class ToastView : ContentView
         StartMarquee();
     }
 
-    public async Task AnimateOutAsync()
+    public async Task AnimateOutAsync(SnackbarResult reason = SnackbarResult.Dismissed)
     {
         if (isDismissing)
             return;
         isDismissing = true;
+        ClosingReason = reason;
 
         autoDismissCts?.Cancel();
+        timerArmed = false;
 
         var translateY = config.Position == ToastPosition.Bottom ? 80 : -80;
 
@@ -331,7 +469,7 @@ sealed class ToastView : ContentView
         );
 
         IsVisible = false;
-        onDismissed?.Invoke();
+        onDismissed?.Invoke(reason);
     }
 
     public async Task AnimatePositionAsync(double newY)
@@ -341,10 +479,22 @@ sealed class ToastView : ContentView
 
     void OnTapped(object? sender, TappedEventArgs e)
     {
+        if (isDismissing)
+            return;
+
         config.TapCommand?.Execute(null);
 
         if (config.DismissOnTap)
-            _ = AnimateOutAsync();
+            _ = AnimateOutAsync(SnackbarResult.Dismissed);
+    }
+
+    void OnActionClicked(object? sender, EventArgs e)
+    {
+        if (isDismissing)
+            return;
+
+        (config as SnackbarConfig)?.ActionCommand?.Execute(null);
+        _ = AnimateOutAsync(SnackbarResult.ActionInvoked);
     }
 
     void StartAutoDismiss()
@@ -352,19 +502,67 @@ sealed class ToastView : ContentView
         if (config.Duration <= TimeSpan.Zero)
             return;
 
+        ArmCountdown(config.Duration);
+    }
+
+    void ArmCountdown(TimeSpan duration)
+    {
+        autoDismissCts?.Cancel();
         autoDismissCts = new CancellationTokenSource();
         var token = autoDismissCts.Token;
 
-        Dispatcher.DispatchDelayed(config.Duration, () =>
+        remaining = duration;
+        timerArmed = true;
+        if (paused)
+            return;
+
+        armedAt = DateTime.UtcNow;
+        Dispatcher.DispatchDelayed(duration, () =>
         {
             if (!token.IsCancellationRequested)
-                _ = AnimateOutAsync();
+                _ = AnimateOutAsync(SnackbarResult.TimedOut);
         });
+    }
+
+    internal void PauseCountdown()
+    {
+        if (paused || isDismissing)
+            return;
+
+        paused = true;
+        if (!timerArmed)
+            return;
+
+        autoDismissCts?.Cancel();
+        remaining -= DateTime.UtcNow - armedAt;
+        if (remaining < TimeSpan.Zero)
+            remaining = TimeSpan.Zero;
+
+        this.AbortAnimation("ProgressCountdown");
+    }
+
+    internal void ResumeCountdown()
+    {
+        if (!paused)
+            return;
+
+        paused = false;
+        if (!timerArmed || isDismissing)
+            return;
+
+        ArmCountdown(remaining);
+
+        if (progressBar is not null && remaining > TimeSpan.Zero)
+        {
+            var animation = new Animation(v => progressBar.Progress = v, progressBar.Progress, 0.0);
+            animation.Commit(this, "ProgressCountdown", length: (uint)remaining.TotalMilliseconds, easing: Easing.Linear);
+        }
     }
 
     void StartProgressBar()
     {
-        if (progressBar is null || config.Duration <= TimeSpan.Zero)
+        // Hovered the moment it appeared: ResumeCountdown starts the bar from where it stands.
+        if (progressBar is null || config.Duration <= TimeSpan.Zero || paused)
             return;
 
         var animation = new Animation(v => progressBar.Progress = v, 1.0, 0.0);
@@ -406,17 +604,8 @@ sealed class ToastView : ContentView
             // When MarqueeLoops > 0, override auto-dismiss to match scroll time
             if (loops > 0)
             {
-                autoDismissCts?.Cancel();
-
                 var totalMs = onePassMs * (uint)loops;
-                autoDismissCts = new CancellationTokenSource();
-                var token = autoDismissCts.Token;
-
-                Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(totalMs), () =>
-                {
-                    if (!token.IsCancellationRequested)
-                        _ = AnimateOutAsync();
-                });
+                ArmCountdown(TimeSpan.FromMilliseconds(totalMs));
 
                 // Re-run progress bar against marquee total time
                 if (progressBar is not null)

@@ -109,6 +109,81 @@ public partial class ToastViewModel(IToaster toaster) : ObservableObject
         StatusMessage = "Manual toast dismissed";
     }
 
+    // --- Snackbars ---
+
+    [RelayCommand]
+    async Task UndoSnackbar()
+    {
+        StatusMessage = "Snackbar showing...";
+        var result = await toaster.SnackbarAsync("Message deleted", "Undo", cfg => cfg.AutomationId = "UndoSnackbar");
+        StatusMessage = result == SnackbarResult.ActionInvoked
+            ? "Undo pressed - message restored"
+            : $"Snackbar closed: {result}";
+    }
+
+    [RelayCommand]
+    async Task MultilineSnackbar()
+    {
+        var result = await toaster.SnackbarAsync(
+            "Your changes were saved, but two attachments could not be uploaded because the connection dropped. They will be retried when you are back online.",
+            "Retry");
+        StatusMessage = $"Multi-line snackbar closed: {result}";
+    }
+
+    [RelayCommand]
+    async Task BodyActionSnackbar()
+    {
+        var result = await toaster.SnackbarAsync("New reply from Sam - tap to open", "Mark read", cfg =>
+        {
+            cfg.TapCommand = new Command(() => StatusMessage = "Body tapped - opening the reply");
+            cfg.ActionCommand = new Command(() => StatusMessage = "Marked as read");
+        });
+        if (result == SnackbarResult.TimedOut)
+            StatusMessage = "Snackbar timed out";
+    }
+
+    [RelayCommand]
+    async Task MarqueeSnackbar()
+    {
+        var result = await toaster.SnackbarAsync(ToastText, "OK", cfg => cfg.TextOverflow = ToastTextOverflow.Marquee);
+        StatusMessage = $"Marquee snackbar closed: {result}";
+    }
+
+    [RelayCommand]
+    async Task CountdownSnackbar()
+    {
+        var result = await toaster.SnackbarAsync("Draft discarded", "Undo", cfg => cfg.ShowProgressBar = true);
+        StatusMessage = $"Countdown snackbar closed: {result}";
+    }
+
+    [RelayCommand]
+    async Task LoadingSnackbar()
+    {
+        using var cancel = new CancellationTokenSource();
+        using var loading = await toaster.LoadingSnackbarAsync("Preparing upload...", cfg =>
+        {
+            cfg.ActionText = "Cancel";
+            cfg.ActionCommand = new Command(cancel.Cancel);
+        });
+        StatusMessage = "Loading snackbar showing";
+
+        try
+        {
+            await Task.Delay(1500, cancel.Token);
+            for (var i = 0; i <= 20; i++)
+            {
+                loading.Text = $"Uploading photos... {i * 5}%";
+                loading.Progress = i / 20.0;
+                await Task.Delay(150, cancel.Token);
+            }
+            StatusMessage = "Upload finished";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Upload cancelled";
+        }
+    }
+
     [RelayCommand]
     async Task StyledToast()
     {

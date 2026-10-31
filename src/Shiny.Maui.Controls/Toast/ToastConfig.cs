@@ -38,7 +38,15 @@ public class ToastConfig
     /// Default is 1. Set to 0 to use Duration instead (marquee loops indefinitely).
     /// </summary>
     public int MarqueeLoops { get; set; } = 1;
+    /// <summary>Runs when the body is tapped. On a snackbar this never fires from the action button.</summary>
     public ICommand? TapCommand { get; set; }
+
+    /// <summary>
+    /// Holds the auto-dismiss countdown (and its progress bar) while a pointer is over the toast, so
+    /// nobody loses a message while reaching for it. Desktop only: a touch screen has no hover.
+    /// Off by default for a toast, on for a snackbar.
+    /// </summary>
+    public bool PauseOnHover { get; set; }
     public bool AnnounceToScreenReader { get; set; } = true;
 
     /// <summary>

@@ -128,6 +128,29 @@
             </HorizontalStackLayout>
 
             <!-- ============================================================ -->
+            <!--  SNACKBARS -->
+            <!-- ============================================================ -->
+            <BoxView HeightRequest="1" Color="LightGray" />
+            <Label Text="Snackbars" FontAttributes="Bold" FontSize="16" />
+            <Label Text="Rectangular, multi-line, one at a time. The action button and the body are separate targets, and the call returns why it closed."
+                   FontSize="13"
+                   TextColor="Gray" />
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" Direction="Row">
+                <Button Text="Undo" AutomationId="UndoSnackbarButton"
+                        Command="{Binding UndoSnackbarCommand}" Margin="0,0,8,8" />
+                <Button Text="Multi-line" AutomationId="MultilineSnackbarButton"
+                        Command="{Binding MultilineSnackbarCommand}" Margin="0,0,8,8" />
+                <Button Text="Body + Action" AutomationId="BodyActionSnackbarButton"
+                        Command="{Binding BodyActionSnackbarCommand}" Margin="0,0,8,8" />
+                <Button Text="Marquee" AutomationId="MarqueeSnackbarButton"
+                        Command="{Binding MarqueeSnackbarCommand}" Margin="0,0,8,8" />
+                <Button Text="Countdown" AutomationId="CountdownSnackbarButton"
+                        Command="{Binding CountdownSnackbarCommand}" Margin="0,0,8,8" />
+                <Button Text="Loading" AutomationId="LoadingSnackbarButton"
+                        Command="{Binding LoadingSnackbarCommand}" Margin="0,0,8,8" />
+            </FlexLayout>
+
+            <!-- ============================================================ -->
             <!--  THEMED TYPES -->
             <!-- ============================================================ -->
             <BoxView HeightRequest="1" Color="LightGray" />

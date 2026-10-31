@@ -8,20 +8,56 @@
     {
         var index = toastIndex++;
         var isBottom = entry.Config.Position == ToastPosition.Bottom;
-        var isPill = entry.Config.DisplayMode == ToastDisplayMode.Pill;
         var isDismissing = entry.IsDismissing;
+        var snackbar = entry.Config as SnackbarConfig;
+        var isSnackbar = entry.Config.DisplayMode == ToastDisplayMode.Snackbar;
+        var hasAction = !string.IsNullOrEmpty(snackbar?.ActionText);
 
         var positionClass = isBottom ? "shiny-toast-bottom" : "shiny-toast-top";
-        var modeClass = isPill ? "shiny-toast-pill" : "shiny-toast-fill";
+        var modeClass = entry.Config.DisplayMode switch
+        {
+            ToastDisplayMode.Pill => "shiny-toast-pill",
+            ToastDisplayMode.Snackbar => "shiny-toast-snackbar",
+            _ => "shiny-toast-fill"
+        };
         var animClass = isDismissing ? "shiny-toast-exit" : "shiny-toast-enter";
         var marqueeClass = entry.Config.TextOverflow == ToastTextOverflow.Marquee ? "shiny-toast-has-marquee" : "";
         var clickable = entry.Config.DismissOnTap || entry.Config.TapCallback is not null;
+        var clickClass = clickable ? "" : "shiny-toast-static";
+        var actionClass = hasAction ? "shiny-toast-with-action" : "";
+        var pausedClass = entry.IsPaused ? "shiny-toast-paused" : "";
 
-        <div class="shiny-toast @positionClass @modeClass @animClass @marqueeClass"
+        <div class="shiny-toast @positionClass @modeClass @animClass @marqueeClass @clickClass @actionClass @pausedClass"
              style="@GetStyle(entry, index)"
              @onclick="() => OnClick(entry)"
+             @onmouseenter="() => ToastService.Pause(entry)"
+             @onmouseleave="() => ToastService.Resume(entry)"
+             @onfocusin="() => ToastService.Pause(entry)"
+             @onfocusout="() => ToastService.Resume(entry)"
              role="alert"
              aria-live="polite">
+            @if (snackbar?.IsLoading == true)
+            {
+                var determinate = snackbar.Progress is not null;
+                <div class="shiny-toast-loading @(determinate ? "" : "shiny-toast-loading-indeterminate")"
+                     role="progressbar"
+                     aria-valuemin="0"
+                     aria-valuemax="100"
+                     aria-valuenow="@(determinate ? Math.Round(snackbar.Progress!.Value * 100).ToString(System.Globalization.CultureInfo.InvariantCulture) : null)">
+                    <div class="shiny-toast-loading-fill"
+                         style="@(determinate ? $"width:{(snackbar.Progress!.Value * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)}%;" : null)"></div>
+                </div>
+            }
+            else if (isSnackbar && entry.Config.ShowProgressBar)
+            {
+                var topDuration = GetProgressDuration(entry.Config);
+                if (topDuration > 0)
+                {
+                    <div class="shiny-toast-progress shiny-toast-progress-top"
+                         style="animation-duration: @(topDuration)ms;">
+                    </div>
+                }
+            }
             <div class="shiny-toast-content">
                 @if (entry.Config.Spinner == ToastSpinnerPosition.Left)
                 {
@@ -55,8 +91,18 @@
                 {
                     <div class="shiny-toast-spinner"></div>
                 }
+                @if (hasAction)
+                {
+                    <button type="button"
+                            class="shiny-toast-action"
+                            style="@(snackbar!.ActionTextColor is { } actionColor ? $"color:{actionColor};" : null)"
+                            @onclick="() => ToastService.HandleAction(entry)"
+                            @onclick:stopPropagation="true">
+                        @snackbar.ActionText
+                    </button>
+                }
             </div>
-            @if (entry.Config.ShowProgressBar)
+            @if (entry.Config.ShowProgressBar && !isSnackbar)
             {
                 var progressDuration = GetProgressDuration(entry.Config);
                 if (progressDuration > 0)
@@ -73,7 +119,7 @@
 @code {
     protected override void OnInitialized()
     {
-        ToastService.OnChanged += StateHasChanged;
+        ToastService.OnChanged += OnServiceChanged;
     }
 
     string GetStyle(ToastEntry entry, int index)
@@ -88,8 +134,12 @@
         if (!string.IsNullOrEmpty(config.BorderColor))
             sb.Append("border:").Append(config.BorderThickness > 0 ? config.BorderThickness : 1)
               .Append("px solid ").Append(config.BorderColor).Append(';');
-        if (config.DisplayMode == ToastDisplayMode.Pill)
+        if (config.DisplayMode is ToastDisplayMode.Pill or ToastDisplayMode.Snackbar)
             sb.Append("border-radius:").Append(config.CornerRadius).Append("px;");
+
+        // A snackbar is held off both side edges by the offset, then capped and centred by its CSS.
+        if (config.DisplayMode == ToastDisplayMode.Snackbar)
+            sb.Append("left:").Append(config.Offset).Append("px;right:").Append(config.Offset).Append("px;");
 
         // Stack offset
         if (config.QueueMode == ToastQueueMode.Stack && index > 0)
@@ -100,7 +150,7 @@
             else
                 sb.Append("margin-top:").Append(config.Offset + offset).Append("px;");
         }
-        else if (config.DisplayMode == ToastDisplayMode.Pill)
+        else if (config.DisplayMode is ToastDisplayMode.Pill or ToastDisplayMode.Snackbar)
         {
             if (config.Position == ToastPosition.Bottom)
                 sb.Append("margin-bottom:").Append(config.Offset).Append("px;");
@@ -119,6 +169,10 @@
         return config.Duration.TotalMilliseconds;
     }
 
+    // Timers raise this from the thread pool; on Blazor Server StateHasChanged must run on the
+    // circuit's dispatcher.
+    void OnServiceChanged() => _ = InvokeAsync(StateHasChanged);
+
     void OnClick(ToastEntry entry)
     {
         ToastService.HandleTap(entry);
@@ -126,6 +180,6 @@
 
     public void Dispose()
     {
-        ToastService.OnChanged -= StateHasChanged;
+        ToastService.OnChanged -= OnServiceChanged;
     }
 }

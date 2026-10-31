@@ -25,5 +25,13 @@ public class ToastConfig
     /// Default is 1. Set to 0 to use Duration instead (marquee loops indefinitely).
     /// </summary>
     public int MarqueeLoops { get; set; } = 1;
+    /// <summary>Runs when the body is clicked. On a snackbar this never fires from the action button.</summary>
     public Action? TapCallback { get; set; }
+
+    /// <summary>
+    /// Holds the auto-dismiss countdown (and its progress bar) while the pointer is over the toast or
+    /// focus is inside it, so nobody loses a message while reaching for it. Off by default for a
+    /// toast, on for a snackbar.
+    /// </summary>
+    public bool PauseOnHover { get; set; }
 }

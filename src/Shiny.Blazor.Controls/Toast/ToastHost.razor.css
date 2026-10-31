@@ -65,6 +65,85 @@
     width: 100%;
 }
 
+/* Snackbar: held off both edges (inline left/right from the offset), capped at 600px and centred. */
+.shiny-toast-snackbar {
+    max-width: 600px;
+    margin-inline: auto;
+    min-height: 48px;
+    justify-content: center;
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    padding: calc(14px * var(--shiny-density-scale, 1)) var(--shiny-spacing-4, 16px);
+}
+
+.shiny-toast-snackbar.shiny-toast-with-action {
+    padding: calc(4px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px)
+             calc(4px * var(--shiny-density-scale, 1)) var(--shiny-spacing-4, 16px);
+}
+
+.shiny-toast-static {
+    cursor: default;
+}
+
+/* Action button: its own target beside the message. */
+.shiny-toast-action {
+    flex-shrink: 0;
+    align-self: center;
+    background: transparent;
+    border: 0;
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    color: var(--shiny-color-inverse-primary, #6C9BED);
+    font: inherit;
+    font-size: var(--shiny-type-label-large-size, 14px);
+    font-weight: 600;
+    min-height: 40px;
+    min-width: 48px;
+    padding: 0 var(--shiny-spacing-3, 12px);
+    cursor: pointer;
+}
+
+.shiny-toast-action:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.shiny-toast-action:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
+}
+
+/* Loading line along the top edge. */
+.shiny-toast-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.shiny-toast-loading-fill {
+    height: 100%;
+    width: 0;
+    background-color: var(--shiny-color-inverse-primary, #6C9BED);
+    transition: width 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.shiny-toast-loading-indeterminate .shiny-toast-loading-fill {
+    width: 40%;
+    animation: shiny-toast-loading-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes shiny-toast-loading-slide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-toast-loading-indeterminate .shiny-toast-loading-fill {
+        animation-duration: 3s;
+    }
+}
+
 /* Animations */
 .shiny-toast-enter.shiny-toast-bottom {
     animation: shiny-toast-slide-up 0.25s cubic-bezier(0.33, 1, 0.68, 1) forwards;
@@ -103,19 +182,23 @@
 }
 
 /* Fill mode animations (no translateX needed) */
-.shiny-toast-fill.shiny-toast-enter.shiny-toast-bottom {
+.shiny-toast-fill.shiny-toast-enter.shiny-toast-bottom,
+.shiny-toast-snackbar.shiny-toast-enter.shiny-toast-bottom {
     animation: shiny-toast-fill-slide-up 0.25s cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
 
-.shiny-toast-fill.shiny-toast-enter.shiny-toast-top {
+.shiny-toast-fill.shiny-toast-enter.shiny-toast-top,
+.shiny-toast-snackbar.shiny-toast-enter.shiny-toast-top {
     animation: shiny-toast-fill-slide-down 0.25s cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
 
-.shiny-toast-fill.shiny-toast-exit.shiny-toast-bottom {
+.shiny-toast-fill.shiny-toast-exit.shiny-toast-bottom,
+.shiny-toast-snackbar.shiny-toast-exit.shiny-toast-bottom {
     animation: shiny-toast-fill-slide-down-out 0.2s cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
 
-.shiny-toast-fill.shiny-toast-exit.shiny-toast-top {
+.shiny-toast-fill.shiny-toast-exit.shiny-toast-top,
+.shiny-toast-snackbar.shiny-toast-exit.shiny-toast-top {
     animation: shiny-toast-fill-slide-up-out 0.2s cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
 
@@ -207,6 +290,18 @@
     margin-bottom: -10px;
     transform-origin: left;
     animation: shiny-toast-progress-drain linear forwards;
+}
+
+.shiny-toast-progress-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+}
+
+.shiny-toast-paused .shiny-toast-progress {
+    animation-play-state: paused;
 }
 
 @keyframes shiny-toast-progress-drain {

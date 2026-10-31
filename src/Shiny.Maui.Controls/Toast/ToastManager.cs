@@ -9,17 +9,29 @@ sealed class ToastManager
     // Weak on the window: a closed desktop window must not be kept alive by the manager table.
     static readonly ConditionalWeakTable<Window, ToastManager> Instances = new();
 
-    readonly Queue<(ToastConfig Config, TaskCompletionSource<IDisposable> Tcs)> queue = new();
+    // A linked list rather than a queue: a Replace toast jumps to the front, and a cancelled one
+    // leaves from the middle.
+    readonly LinkedList<ToastRequest> queue = new();
     readonly List<ToastView> activeToasts = new();
+    ToastRequest? currentQueued;
     bool isProcessingQueue;
+    IDispatcher? dispatcher;
 
     public static Task<IDisposable> ShowAsync(ToastConfig config)
+        => Show(config).Shown.Task;
+
+    /// <summary>Queues <paramref name="config"/> and returns its request, which says when it shows and why it closed.</summary>
+    public static ToastRequest Show(ToastConfig config)
     {
         var window = Application.Current?.Windows.FirstOrDefault()
             ?? throw new InvalidOperationException("No active window found. Toast requires an active MAUI window.");
 
         var manager = Instances.GetValue(window, static _ => new ToastManager());
-        return manager.ShowToastAsync(config);
+        manager.dispatcher ??= window.Dispatcher;
+
+        var request = new ToastRequest(config, manager);
+        manager.Enqueue(request);
+        return request;
     }
 
     /// <summary>
@@ -57,21 +69,49 @@ sealed class ToastManager
             $"Cannot find a ContentPage to host Toast. Current page type: {page.GetType().Name}")
     };
 
-    Task<IDisposable> ShowToastAsync(ToastConfig config)
+    void Enqueue(ToastRequest request)
     {
-        var tcs = new TaskCompletionSource<IDisposable>();
-
-        if (config.QueueMode == ToastQueueMode.Stack)
+        switch (request.Config.QueueMode)
         {
-            _ = ShowStackedToastAsync(config, tcs);
+            case ToastQueueMode.Stack:
+                _ = ShowStackedToastAsync(request);
+                return;
+
+            case ToastQueueMode.Replace:
+                queue.AddFirst(request);
+                if (currentQueued?.View is { } showing)
+                    showing.Dispatcher.Dispatch(() => _ = showing.AnimateOutAsync(SnackbarResult.Replaced));
+                break;
+
+            default:
+                queue.AddLast(request);
+                break;
         }
+
+        _ = ProcessQueueAsync();
+    }
+
+    /// <summary>Closes <paramref name="request"/> wherever it is: on screen it animates out, still queued it just leaves.</summary>
+    internal void Dismiss(ToastRequest request, SnackbarResult reason)
+    {
+        void Run()
+        {
+            if (request.View is { } view)
+            {
+                _ = view.AnimateOutAsync(reason);
+            }
+            else if (queue.Remove(request))
+            {
+                request.Shown.TrySetResult(new ToastHandle(static () => { }));
+                request.Closed.TrySetResult(reason);
+            }
+        }
+
+        // A cancellation token can fire on any thread; the queue is only touched on the UI thread.
+        if (dispatcher is { IsDispatchRequired: true } d)
+            d.Dispatch(Run);
         else
-        {
-            queue.Enqueue((config, tcs));
-            _ = ProcessQueueAsync();
-        }
-
-        return tcs.Task;
+            Run();
     }
 
     async Task ProcessQueueAsync()
@@ -82,10 +122,10 @@ sealed class ToastManager
         isProcessingQueue = true;
         try
         {
-            while (queue.Count > 0)
+            while (queue.First is { } next)
             {
-                var (config, tcs) = queue.Dequeue();
-                await ShowSingleToastAsync(config, tcs);
+                queue.RemoveFirst();
+                await ShowSingleToastAsync(next.Value);
             }
         }
         finally
@@ -94,73 +134,71 @@ sealed class ToastManager
         }
     }
 
-    async Task ShowSingleToastAsync(ToastConfig config, TaskCompletionSource<IDisposable> tcs)
+    async Task ShowSingleToastAsync(ToastRequest request)
     {
-        var dismissed = new TaskCompletionSource();
-        var toastView = CreateToastView(config, dismissed);
+        var dismissed = new TaskCompletionSource<SnackbarResult>();
+        var toastView = CreateToastView(request, dismissed);
 
-        AddToOverlay(toastView, config);
+        currentQueued = request;
+        AddToOverlay(toastView, request.Config);
         activeToasts.Add(toastView);
 
-        var handle = new ToastHandle(() =>
-        {
-            if (toastView.IsVisible)
-                toastView.Dispatcher.Dispatch(() => _ = toastView.AnimateOutAsync());
-        });
-
-        tcs.SetResult(handle);
+        request.Shown.TrySetResult(CreateHandle(request));
         await toastView.AnimateInAsync();
 
         // Wait for this toast to be dismissed before showing next in queue
-        await dismissed.Task;
+        var reason = await dismissed.Task;
         activeToasts.Remove(toastView);
         RemoveFromOverlay(toastView);
+        currentQueued = null;
+        request.Closed.TrySetResult(reason);
     }
 
-    async Task ShowStackedToastAsync(ToastConfig config, TaskCompletionSource<IDisposable> tcs)
+    async Task ShowStackedToastAsync(ToastRequest request)
     {
         // Evict oldest if at max
         while (activeToasts.Count >= MaxStackCount)
         {
             var oldest = activeToasts[0];
-            await oldest.AnimateOutAsync();
+            await oldest.AnimateOutAsync(SnackbarResult.Replaced);
         }
 
-        var dismissed = new TaskCompletionSource();
-        var toastView = CreateToastView(config, dismissed);
+        var dismissed = new TaskCompletionSource<SnackbarResult>();
+        var toastView = CreateToastView(request, dismissed);
 
-        AddToOverlay(toastView, config);
+        AddToOverlay(toastView, request.Config);
         activeToasts.Add(toastView);
 
-        var handle = new ToastHandle(() =>
-        {
-            if (toastView.IsVisible)
-                toastView.Dispatcher.Dispatch(() => _ = toastView.AnimateOutAsync());
-        });
-
-        tcs.SetResult(handle);
+        request.Shown.TrySetResult(CreateHandle(request));
         await toastView.AnimateInAsync();
 
         // Wait for dismiss, then reflow
-        await dismissed.Task;
+        var reason = await dismissed.Task;
         activeToasts.Remove(toastView);
         RemoveFromOverlay(toastView);
-        ReflowStackedToasts(config.Position);
+        ReflowStackedToasts(request.Config.Position);
+        request.Closed.TrySetResult(reason);
     }
 
-    ToastView CreateToastView(ToastConfig config, TaskCompletionSource dismissed)
+    IDisposable CreateHandle(ToastRequest request)
+        => new ToastHandle(() => Dismiss(request, SnackbarResult.Dismissed));
+
+    static ToastView CreateToastView(ToastRequest request, TaskCompletionSource<SnackbarResult> dismissed)
     {
-        var toastView = new ToastView(config);
-        toastView.SetOnDismissed(() => dismissed.TrySetResult());
+        var toastView = new ToastView(request.Config);
+        toastView.SetOnDismissed(reason => dismissed.TrySetResult(reason));
+        request.View = toastView;
         return toastView;
     }
 
     void AddToOverlay(ToastView toastView, ToastConfig config)
     {
+        // A snackbar takes the full width like a fill bar, then its own maximum width centres it.
         var isFill = config.DisplayMode == ToastDisplayMode.FillHorizontal;
+        var isSnackbar = config.DisplayMode == ToastDisplayMode.Snackbar;
         var offset = config.Offset;
 
-        if (isFill)
+        if (isFill || isSnackbar)
         {
             AbsoluteLayout.SetLayoutBounds(toastView, config.Position == ToastPosition.Bottom
                 ? new Rect(0, 1, 1, -1)
@@ -170,6 +208,8 @@ sealed class ToastManager
 
             // No safe-area margin of its own: the toast layer keeps a layout's default safe-area inset,
             // which already holds it clear of the status bar and home indicator.
+            if (isSnackbar)
+                toastView.Margin = offset;
         }
         else
         {
@@ -258,7 +298,7 @@ sealed class ToastManager
         }
     }
 
-    sealed class ToastHandle : IDisposable
+    internal sealed class ToastHandle : IDisposable
     {
         Action? dismissAction;
 
@@ -273,4 +313,15 @@ sealed class ToastManager
             action?.Invoke();
         }
     }
+}
+
+/// <summary>One toast's trip through the manager: when it showed, which view drew it, and why it closed.</summary>
+sealed class ToastRequest(ToastConfig config, ToastManager owner)
+{
+    public ToastConfig Config { get; } = config;
+    public TaskCompletionSource<IDisposable> Shown { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<SnackbarResult> Closed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public ToastView? View { get; set; }
+
+    public void Dismiss(SnackbarResult reason) => owner.Dismiss(this, reason);
 }
