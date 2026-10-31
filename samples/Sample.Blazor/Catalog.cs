@@ -162,6 +162,7 @@ public static class Catalog
             new("markdown-editor", "Markdown Editor", "✍", "Toolbar editor with live preview"),
             new("mermaid", "Mermaid", "⬓", "Flowcharts and diagrams, with an interactive editor"),
             new("marquee", "Marquee", "⇆", "Endless scrolling content - horizontal, vertical or any angle"),
+            new("scratch-card", "Scratch Card", "✦", "Scratch a cover view away to reveal the view underneath"),
             new("border-animations", "Border Animations", "▢", "Border beam and shine border - animated card outlines"),
             new("animated-backgrounds", "Animated Backgrounds", "✺", "Aurora, particles, snow, rain, meteors, spotlight dots and more behind any content")
         ]),

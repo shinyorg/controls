@@ -65,6 +65,7 @@
                   xmlns:notch="clr-namespace:Sample.Features.Notch"
                   xmlns:marquee="clr-namespace:Sample.Features.Marquee"
                   xmlns:borderanimations="clr-namespace:Sample.Features.BorderAnimations"
+                  xmlns:scratchcard="clr-namespace:Sample.Features.ScratchCard"
                   xmlns:animatedbackgrounds="clr-namespace:Sample.Features.AnimatedBackgrounds"
                   xmlns:confetti="clr-namespace:Sample.Features.Confetti"
                   xmlns:rangepickers="clr-namespace:Sample.Features.RangePickers"
@@ -1011,6 +1012,14 @@
                              Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate marquee:MarqueePage}" Route="marquee" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Scratch Card">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2726;" Size="20"
+                             Color="{AppThemeBinding Light=#7C3AED, Dark=#A78BFA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate scratchcard:ScratchCardPage}" Route="scratchcard" />
     </FlyoutItem>
 
     <FlyoutItem Title="Border Animations">

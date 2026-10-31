@@ -208,6 +208,7 @@ public static class Catalog
             new("markdownview", "Markdown Viewer", "↓", "Markdig-powered renderer"),
             new("markdowneditor", "Markdown Editor", "✍", "Toolbar editor with live preview"),
             new("marquee", "Marquee", "⇆", "Endless scrolling content - horizontal, vertical or any angle"),
+            new("scratchcard", "Scratch Card", "✦", "Scratch a cover view away to reveal the view underneath"),
             new("borderanimations", "Border Animations", "▢", "Border beam and shine border - animated card outlines"),
             new("animatedbackgrounds", "Animated Backgrounds", "✺", "Aurora, particles, snow, rain, meteors, spotlight dots and more behind any content")
         ]),

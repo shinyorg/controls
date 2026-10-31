@@ -1,0 +1,96 @@
+@page "/scratch-card"
+@using Shiny.Blazor.Controls
+
+<PageTitle>Scratch Card</PageTitle>
+
+<h1>Scratch Card</h1>
+
+<p>
+    A cover sits over hidden content and is scratched away under the pointer. Both layers are live markup -
+    the cover can be an image, a gradient or anything else.
+</p>
+
+<section class="demo-section">
+    <h2>View on view</h2>
+    <p>
+        The cover is a gradient with some text. The Claim button can't be clicked through a hole - only once the
+        threshold (55% here) is reached, when the rest of the cover clears by itself.
+    </p>
+
+    <ScratchCard @ref="prizeCard"
+                 @bind-IsRevealed="revealed"
+                 ThresholdPercent="55"
+                 OnScratchProgress="p => progress = p"
+                 Style="width:min(100%, 360px); height:180px; border-radius:16px">
+        <Cover>
+            <div style="display:grid; place-items:center; width:100%; height:100%; background:linear-gradient(135deg, #7C3AED, #DB2777); color:white; text-align:center">
+                <div>
+                    <div style="font-size:24px; font-weight:700">★ SCRATCH ★</div>
+                    <div style="opacity:.85">to reveal your prize</div>
+                </div>
+            </div>
+        </Cover>
+        <ChildContent>
+            <div style="display:grid; place-items:center; align-content:center; gap:8px; background:#FEF3C7; color:#92400E">
+                <strong style="font-size:22px">You won 500 points!</strong>
+                <button class="btn btn-primary" @onclick="() => claimed = true">Claim</button>
+            </div>
+        </ChildContent>
+    </ScratchCard>
+
+    <p class="state" style="margin-top:12px">
+        @(revealed ? (claimed ? "Claimed!" : "Revealed!") : $"Scratched: {progress:0}%")
+    </p>
+    <div style="display:flex; gap:8px">
+        <button class="btn btn-secondary" @onclick="() => prizeCard!.Reveal()">Reveal</button>
+        <button class="btn btn-secondary" @onclick="Reset">Reset</button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Image cover, threshold event only</h2>
+    <p>
+        An image as the cover with <code>StrokeWidth="72"</code>. <code>AutoReveal="false"</code>, so
+        <code>OnThresholdReached</code> fires at 40% and scratching stops there - the rest of the cover stays painted.
+    </p>
+
+    <ScratchCard StrokeWidth="72"
+                 ThresholdPercent="40"
+                 AutoReveal="false"
+                 OnThresholdReached="p => imageThreshold = p"
+                 Style="width:min(100%, 360px); height:200px; border-radius:16px">
+        <Cover>
+            <img src="images/sample_photo1.jpg" alt="" style="width:100%; height:100%; object-fit:cover" />
+        </Cover>
+        <ChildContent>
+            <div style="display:grid; place-items:center; background:#0F172A; color:white; font-size:20px">Hello from underneath 👋</div>
+        </ChildContent>
+    </ScratchCard>
+
+    <p class="state" style="margin-top:12px">
+        @(imageThreshold is { } hit ? $"OnThresholdReached fired at {hit:0}%" : "Scratch 40% to hit the threshold")
+    </p>
+</section>
+
+<section class="demo-section">
+    <h2>Default foil</h2>
+    <p>No <code>Cover</code> draws a plain silver foil.</p>
+
+    <ScratchCard Style="width:min(100%, 360px); height:120px; border-radius:12px">
+        <div style="display:grid; place-items:center; background:#DCFCE7; color:#166534; font-size:20px; font-weight:700">CODE: SHINY-2026</div>
+    </ScratchCard>
+</section>
+
+@code {
+    ScratchCard? prizeCard;
+    bool revealed;
+    bool claimed;
+    double progress;
+    double? imageThreshold;
+
+    async Task Reset()
+    {
+        claimed = false;
+        await prizeCard!.Reset();
+    }
+}

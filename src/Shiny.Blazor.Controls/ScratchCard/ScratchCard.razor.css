@@ -1,0 +1,67 @@
+.shiny-scratch-card {
+    position: relative;
+    display: grid;
+    overflow: hidden;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.shiny-scratch-card__content,
+.shiny-scratch-card__cover {
+    grid-area: 1 / 1;
+    min-width: 0;
+    min-height: 0;
+}
+
+.shiny-scratch-card__content {
+    display: grid;
+}
+
+/*
+    The script writes mask-image onto the cover as strokes land; the size is fixed here so the mask always
+    stretches over the whole cover whatever resolution the canvas behind it is.
+*/
+.shiny-scratch-card__cover {
+    display: grid;
+    position: relative;
+    z-index: 1;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: opacity var(--shiny-scratch-card-reveal-duration, 300ms) ease-out;
+}
+
+/* Strokes land on the cover itself; nothing inside it (an image especially) may start a native drag. */
+.shiny-scratch-card__cover ::deep * {
+    pointer-events: none;
+    -webkit-user-drag: none;
+}
+
+.shiny-scratch-card__cover.is-scratchable {
+    cursor: crosshair;
+    touch-action: none;
+}
+
+/* Past the threshold the cover never catches the pointer again, even when AutoReveal leaves it painted. */
+.is-unlocked > .shiny-scratch-card__cover {
+    pointer-events: none;
+    cursor: auto;
+}
+
+.is-revealed > .shiny-scratch-card__cover {
+    opacity: 0;
+}
+
+.shiny-scratch-card__foil {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    min-height: 120px;
+    background: linear-gradient(135deg, #D7DBE0 0%, #AEB4BC 45%, #E9ECEF 55%, #9EA5AE 100%);
+    color: #4B5563;
+    font-weight: 700;
+}

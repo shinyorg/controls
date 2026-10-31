@@ -371,6 +371,7 @@ colour, and why appearance properties default to `-1` rather than a real value.
 | **[Barcodes & QR Codes](docs/controls/barcodes.md)** | Pure-managed 1D/2D barcode and QR rendering across 13 symbologies |
 | **[Keyframe Animation](docs/controls/keyframe.md)** | Declarative XAML timelines that seek, reverse and export deterministically (MAUI) |
 | **[Marquee](docs/controls/marquee.md)** | Endless scrolling content — horizontal, vertical or any angle, with faded edges and pause on hover |
+| **[Scratch Card](docs/controls/scratch-card.md)** | Scratch a cover view (image, gradient, anything) away to reveal the view underneath, with a threshold event and auto-reveal |
 | **[Border Animations](docs/controls/border-animations.md)** | BorderBeam and ShineBorder — Magic UI-style animated card outlines, a travelling beam or a drifting multi-colour shine |
 | **[AnimatedBackground](docs/controls/animated-background.md)** | A container that draws an animated effect behind its content — aurora, particles, snow, rain, meteors, dot spotlight, grain, stars, fireflies, bubbles, waves, Matrix rain |
 | **[Motion Icons](docs/controls/motion-icons.md)** | 111 animated icons driven by a timer, hover, tap, appearance or a command |

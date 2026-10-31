@@ -66,6 +66,7 @@
        xmlns:rangepickers="clr-namespace:Sample.Features.RangePickers;assembly=Sample.MacOS"
        xmlns:confetti="clr-namespace:Sample.Features.Confetti;assembly=Sample.MacOS"
        xmlns:borderanimations="clr-namespace:Sample.Features.BorderAnimations;assembly=Sample.MacOS"
+       xmlns:scratchcard="clr-namespace:Sample.Features.ScratchCard;assembly=Sample.MacOS"
        xmlns:animatedbackgrounds="clr-namespace:Sample.Features.AnimatedBackgrounds;assembly=Sample.MacOS"
        xmlns:staggeredgrid="clr-namespace:Sample.Features.StaggeredGrid;assembly=Sample.MacOS"
        xmlns:flex="clr-namespace:Sample.Features.Flex;assembly=Sample.MacOS"
@@ -293,6 +294,9 @@
     <MenuItem Text="ANIMATION" IsEnabled="False" />
     <FlyoutItem Title="Confetti">
         <ShellContent ContentTemplate="{DataTemplate confetti:ConfettiPage}" Route="confetti" />
+    </FlyoutItem>
+    <FlyoutItem Title="Scratch Card">
+        <ShellContent ContentTemplate="{DataTemplate scratchcard:ScratchCardPage}" Route="scratchcard" />
     </FlyoutItem>
     <FlyoutItem Title="Border Animations">
         <ShellContent ContentTemplate="{DataTemplate borderanimations:BorderAnimationsPage}" Route="borderanimations" />

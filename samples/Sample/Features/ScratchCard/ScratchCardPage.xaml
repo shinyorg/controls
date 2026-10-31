@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shiny="http://shiny.net/maui/controls"
+    xmlns:local="clr-namespace:Sample.Features.ScratchCard"
+    x:Class="Sample.Features.ScratchCard.ScratchCardPage"
+    x:DataType="local:ScratchCardPage"
+    Title="Scratch Card"
+    AutomationId="ScratchCardPage">
+
+    <ScrollView Padding="16">
+        <VerticalStackLayout Spacing="20">
+
+            <Label Text="View on view" FontSize="18" FontAttributes="Bold" />
+            <Label Text="The cover is any view - here a gradient with a label. Scratch it away to find the content underneath. The Claim button can't be pressed until the threshold (55%) is reached; then the rest clears by itself."
+                   FontSize="13" />
+
+            <Border StrokeShape="RoundRectangle 16" StrokeThickness="0" HeightRequest="180">
+                <shiny:ScratchCard x:Name="PrizeCard"
+                                   AutomationId="PrizeCard"
+                                   ThresholdPercent="55"
+                                   ScratchProgressChanged="OnProgress"
+                                   Revealed="OnRevealed">
+                    <shiny:ScratchCard.Cover>
+                        <Grid>
+                            <Grid.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#7C3AED" Offset="0" />
+                                    <GradientStop Color="#DB2777" Offset="1" />
+                                </LinearGradientBrush>
+                            </Grid.Background>
+                            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="4">
+                                <Label Text="★ SCRATCH ★" TextColor="White" FontSize="24" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                                <Label Text="to reveal your prize" TextColor="White" Opacity="0.85" HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </shiny:ScratchCard.Cover>
+
+                    <Grid BackgroundColor="#FEF3C7">
+                        <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                            <Label Text="You won 500 points!" TextColor="#92400E" FontSize="22" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                            <Button Text="Claim" Clicked="OnClaim" HorizontalOptions="Center" AutomationId="ClaimButton" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </shiny:ScratchCard>
+            </Border>
+
+            <Label x:Name="ProgressLabel" Text="Scratched: 0%" FontSize="13" />
+
+            <HorizontalStackLayout Spacing="10">
+                <Button Text="Reveal" Clicked="OnReveal" AutomationId="RevealButton" />
+                <Button Text="Reset" Clicked="OnReset" AutomationId="ResetButton" />
+            </HorizontalStackLayout>
+
+            <BoxView HeightRequest="1" Color="#33888888" />
+
+            <Label Text="Image cover, threshold event only" FontSize="18" FontAttributes="Bold" />
+            <Label Text="An Image as the cover with StrokeWidth=&quot;72&quot;. AutoReveal is off, so ThresholdReached fires at 40% and scratching stops there - the rest of the cover stays painted."
+                   FontSize="13" />
+
+            <Border StrokeShape="RoundRectangle 16" StrokeThickness="0" HeightRequest="200">
+                <shiny:ScratchCard AutomationId="ImageCard"
+                                   StrokeWidth="72"
+                                   ThresholdPercent="40"
+                                   AutoReveal="False"
+                                   ThresholdReached="OnImageThreshold">
+                    <shiny:ScratchCard.Cover>
+                        <Image Source="dotnet_bot.png" Aspect="AspectFill" BackgroundColor="#512BD4" />
+                    </shiny:ScratchCard.Cover>
+
+                    <Grid BackgroundColor="#0F172A">
+                        <Label Text="Hello from underneath 👋" TextColor="White" FontSize="20"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
+                </shiny:ScratchCard>
+            </Border>
+
+            <Label x:Name="ImageThresholdLabel" Text="Scratch 40% to hit the threshold" FontSize="13" />
+
+            <BoxView HeightRequest="1" Color="#33888888" />
+
+            <Label Text="Default foil" FontSize="18" FontAttributes="Bold" />
+            <Label Text="No Cover set draws a plain silver foil." FontSize="13" />
+
+            <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" HeightRequest="120">
+                <shiny:ScratchCard AutomationId="FoilCard">
+                    <Grid BackgroundColor="#DCFCE7">
+                        <Label Text="CODE: SHINY-2026" TextColor="#166534" FontSize="20" FontAttributes="Bold"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
+                </shiny:ScratchCard>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -107,6 +107,25 @@ public class TouchGestureTests : BlazorTest
 
 
     [Test]
+    public async Task Scratch_Card_Scratches_Under_A_Finger_Without_Scrolling_The_Page()
+    {
+        await Open("scratch-card");
+        var section = Section("View on view");
+        var card = section.Locator(".shiny-scratch-card");
+        var status = section.Locator("p.state");
+        var box = await TouchInput.BoxOf(card);
+        var scrollBefore = await ContentScrollTop();
+
+        // a vertical stroke - exactly the gesture the page would otherwise take as a scroll
+        await Touch.DragAsync(box.X + box.Width / 2, box.Y + 10, box.X + box.Width / 2, box.Y + box.Height - 10);
+
+        await Expect(status).Not.ToHaveTextAsync("Scratched: 0%");
+        await Assert.That(await ContentScrollTop()).IsEqualTo(scrollBefore);
+        await AssertNoConsoleErrors();
+    }
+
+
+    [Test]
     public async Task Carousel_Swipes_Sideways_And_Lets_The_Page_Scroll()
     {
         await Open("carousel-advanced");

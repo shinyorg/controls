@@ -1,0 +1,29 @@
+@namespace Shiny.Blazor.Controls
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@*
+    Two stacked layers in one grid cell. The script owns the cover's inline style (its CSS mask, drawn from
+    a canvas as the user scratches), which is why the cover never carries a style attribute of its own -
+    a re-render would wipe the mask.
+*@
+
+<div class="shiny-scratch-card @(this.revealed ? "is-revealed" : null) @(this.IsUnlocked ? "is-unlocked" : null) @Class" style="@this.RootStyle" @ref="root">
+    @* inert until the threshold: no click, tap or keyboard focus reaches what has not been earned *@
+    <div class="shiny-scratch-card__content" inert="@(!this.IsUnlocked)">@ChildContent</div>
+    @if (!this.coverGone)
+    {
+        <div class="shiny-scratch-card__cover @(this.CanScratch ? "is-scratchable" : null)"
+             aria-label="Scratch to reveal"
+             role="img">
+            @if (Cover is not null)
+            {
+                @Cover
+            }
+            else
+            {
+                <div class="shiny-scratch-card__foil"><span>Scratch here</span></div>
+            }
+        </div>
+    }
+</div>
