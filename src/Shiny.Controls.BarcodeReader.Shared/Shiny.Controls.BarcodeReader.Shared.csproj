@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Dependency-free so every host (and the tests and benchmark) runs the same reader. The camera
+             packages hand it a luminance plane; it never sees a native buffer. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.BarcodeReader</RootNamespace>
+        <Description>Host-neutral long-range barcode reading engine behind the Shiny CameraView long-range analyzer — a structure-tensor locator that finds barcode texture in a luminance plane, oriented multi-scanline sampling with sub-pixel edges, blur-tolerant edge-to-similar-edge decoders for EAN-13/UPC-A/EAN-8/UPC-E/Code 128/Code 39/ITF with cross-scanline voting and digit fusion, a frame-to-frame tracker, crop planning for native 2D decoders and an auto-zoom controller.</Description>
+        <PackageTags>maui blazor shiny camera barcode scanner ean upc code128 code39 itf long-range</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.BarcodeReader.Tests" />
+        <InternalsVisibleTo Include="Shiny.Controls.BarcodeReader.Benchmark" />
+    </ItemGroup>
+
+</Project>
