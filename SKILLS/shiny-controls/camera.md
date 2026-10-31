@@ -440,6 +440,46 @@ In code it's an `IList<BarcodeFormat>?`: `new BarcodeAnalyzer { Formats = [Barco
 before the analyzer starts scanning (constructor / XAML); on Android the scanner client is built on the first
 frame, so mutating `Formats` mid-session has no effect until the analyzer is re-created.
 
+### Long-range barcode scanning (`Mode="LongRange"`, MAUI)
+
+For codes far from the camera, small in frame, rotated or slightly soft (shelf labels across an aisle, pallet
+tags on a high rack), set `BarcodeAnalyzer.Mode` to `LongRange`. It is the same analyzer in the same package,
+with the same results (`OnDetected`, `BarcodesDetected`, `BarcodesDetectedCommand`, `Formats`, `ScanWindow`).
+**MAUI only.** Never emit `Mode` on the Blazor `BarcodeAnalyzer`.
+
+```xml
+<cam:CameraView IsPinchToZoomEnabled="True">
+    <cam:BarcodeAnalyzer Mode="LongRange"
+                         AutoZoom="True"
+                         Formats="Ean13,UpcA,Code128"
+                         OnDetected="{Binding OnBarcodes}" />
+</cam:CameraView>
+```
+
+Rules for generated code:
+
+- `Mode` (bindable, `Standard` default | `LongRange`). Keep `Standard` for codes held up close to the lens:
+  it runs the native scanner on every frame, while `LongRange` runs the full-frame native pass only every
+  `FullFrameInterval` (3) frames.
+- Don't add `AnalysisResolution="FullHd"` for it: `LongRange` raises an untouched `Default` to `FullHd`
+  itself (Android otherwise analyzes at 640x480) and leaves an explicitly chosen value alone.
+- `AutoZoom` (bindable bool, default `false`, `LongRange` only) drives `CameraView.Zoom` and stands down if
+  anything else moves the zoom, so it coexists with `IsPinchToZoomEnabled` and a zoom slider. `MaxAutoZoom`
+  (default 4) caps it relative to the user's zoom.
+- Narrow `Formats` when the use case allows. A 1D-only list (`Ean13,UpcA,Code128`) skips the native 2D crop
+  pass.
+- `LongRange`-only tuning: `FullFrameInterval` (3; 0 = never), `MaxNativeCropsPerFrame` (2),
+  `UncheckedConfirmations` (2; Code 39 / short ITF), `ShowCandidates` (true; amber boxes on codes found but
+  not read), `CandidateColor`.
+- `IMediaService`: pass `new BarcodeScanOptions { Mode = BarcodeScanMode.LongRange, AutoZoom = true }` as the
+  `options` of `ScanBarcodeAsync` / `ScanBarcodesAsync`. `BarcodeScanOptions` derives from
+  `MediaScanOptions`, so every modal option still applies.
+- A custom analyzer can hand a cropped region to Vision / ML Kit with
+  `BarcodeScanner.ScanLuminanceAsync(byte[] luminance, int width, int height, ct)`. Boxes come back
+  normalized to that image.
+- The engine (`Shiny.Controls.BarcodeReader.Shared`: `BarcodeReaderEngine.Scan(new LumaImage(span, w, h))`,
+  `BarcodeTracker`, `AutoZoomController`) is dependency-free and works on any 8-bit luminance plane.
+
 ### Controlling the overlay per analyzer
 
 - `IsEnabled` (bool, default `true`) — run the analyzer or not (see *Enabling / disabling analyzers* above).

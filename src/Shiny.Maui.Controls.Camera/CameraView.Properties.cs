@@ -310,6 +310,14 @@ public partial class CameraView
         nameof(Orientation), typeof(CameraOrientation), typeof(CameraView), CameraOrientation.Device);
 
     /// <summary>
+    /// The size of the frames handed to the <see cref="Analyzer"/>. Default <see cref="Camera.AnalysisResolution.Default"/>.
+    /// Android only — see <see cref="Camera.AnalysisResolution"/>. Changing it while running rebinds the camera,
+    /// and is ignored while recording.
+    /// </summary>
+    public static readonly BindableProperty AnalysisResolutionProperty = BindableProperty.Create(
+        nameof(AnalysisResolution), typeof(AnalysisResolution), typeof(CameraView), AnalysisResolution.Default);
+
+    /// <summary>
     /// The pixel format the capture pipeline is asked for. Defaults to
     /// <see cref="CameraCaptureFormat.Bgra32"/>, which is what every release before this one delivered.
     /// </summary>
@@ -477,6 +485,13 @@ public partial class CameraView
             var quality = this.PhotoJpegQuality;
             return double.IsNaN(quality) ? 0.9f : (float)Math.Clamp(quality, 0d, 1d);
         }
+    }
+
+    /// <inheritdoc cref="AnalysisResolutionProperty"/>
+    public AnalysisResolution AnalysisResolution
+    {
+        get => (AnalysisResolution)this.GetValue(AnalysisResolutionProperty);
+        set => this.SetValue(AnalysisResolutionProperty, value);
     }
 
     /// <inheritdoc cref="VideoQualityProperty"/>

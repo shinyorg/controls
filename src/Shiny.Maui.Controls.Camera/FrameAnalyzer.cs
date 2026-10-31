@@ -143,6 +143,31 @@ public abstract class FrameAnalyzer : BindableObject, IFrameAnalyzer
     protected virtual void OnDetached() { }
 
     /// <summary>
+    /// The <see cref="Shiny.Maui.Controls.Camera.CameraView"/> this analyzer is assigned to, or null. For analyzers
+    /// that steer the camera itself — the barcode analyzer's long-range mode drives
+    /// <see cref="Shiny.Maui.Controls.Camera.CameraView.Zoom"/>. Read and write its
+    /// properties on the UI thread (<see cref="Raise"/>).
+    /// </summary>
+    protected internal Shiny.Maui.Controls.Camera.CameraView? Host
+    {
+        get => this.host;
+        internal set
+        {
+            if (ReferenceEquals(this.host, value))
+                return;
+            this.host = value;
+            this.OnHostChanged();
+        }
+    }
+    Shiny.Maui.Controls.Camera.CameraView? host;
+
+    /// <summary>
+    /// <see cref="Host"/> changed — the analyzer was assigned to a <see cref="Shiny.Maui.Controls.Camera.CameraView"/>
+    /// or removed from one. Runs on the thread that assigned it (normally the UI thread). Default no-op.
+    /// </summary>
+    protected virtual void OnHostChanged() { }
+
+    /// <summary>
     /// Set by the camera pipeline so <see cref="Raise"/>/<see cref="Emit"/> post to the UI thread. Pass
     /// <c>null</c> to detach (then they run inline on the analysis thread).
     /// </summary>

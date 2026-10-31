@@ -34,6 +34,7 @@ body:
         - Camera (*.Controls.Camera)
         - Camera AI (*.Controls.Camera.Ai)
         - Camera analyzers (Shiny.Maui.Controls.Camera.Barcode / .Documents / .Face / .Motion / .Ocr)
+        - Barcode reader engine — long-range scanning (Shiny.Controls.BarcodeReader.Shared)
         - Desktop — MAUI only (Shiny.Maui.Controls.Desktop)
         - Diagram (*.Controls.Diagram / Shiny.Controls.Diagram.Shared)
         - Floor Plan (*.Controls.FloorPlan / Shiny.Controls.FloorPlan.Shared)

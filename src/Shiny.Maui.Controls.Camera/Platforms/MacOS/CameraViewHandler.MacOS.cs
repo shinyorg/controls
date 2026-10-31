@@ -383,6 +383,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
 
     // Same session-level reconfiguration as iOS, and refused mid-recording for the same reason — the
     // preset renegotiates the active format underneath whatever is writing the file.
+    // Analysis sees the session's own frames here, sized by VideoQuality; nothing separate to size.
+    static partial void MapAnalysisResolution(CameraViewHandler handler, CameraView view) { }
+
     static partial void MapVideoQuality(CameraViewHandler handler, CameraView view)
         => handler.OnSessionQueue(handler.ApplyVideoSettings, "The capture settings could not be applied");
 

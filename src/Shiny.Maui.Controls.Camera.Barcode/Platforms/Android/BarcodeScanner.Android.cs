@@ -122,6 +122,42 @@ public partial class BarcodeScanner
         }
     }
 
+    public async partial Task<List<DetectedBarcode>> ScanLuminanceAsync(byte[] luminance, int width, int height, CancellationToken ct)
+    {
+        if (width <= 0 || height <= 0 || luminance.Length < width * height)
+            return [];
+
+        var pixels = new int[width * height];
+        for (var i = 0; i < pixels.Length; i++)
+        {
+            int v = luminance[i];
+            pixels[i] = unchecked((int)0xFF000000) | (v << 16) | (v << 8) | v;
+        }
+        var bitmap = Android.Graphics.Bitmap.CreateBitmap(pixels, width, height, Android.Graphics.Bitmap.Config.Argb8888!);
+        try
+        {
+            var result = await GmsTaskAwaiter.AwaitAsync(this.GetClient().Process(InputImage.FromBitmap(bitmap, 0))).ConfigureAwait(false);
+            var list = new List<DetectedBarcode>();
+            if (result is not JavaList items)
+                return list;
+
+            foreach (var item in items)
+            {
+                if (item is not MlBarcode bc || bc.BoundingBox is not { } r)
+                    continue;
+                var value = bc.RawValue ?? bc.DisplayValue;
+                if (String.IsNullOrEmpty(value))
+                    continue;
+                list.Add(new DetectedBarcode(value, Map(bc.Format), new RectF((float)r.Left / width, (float)r.Top / height, (float)r.Width() / width, (float)r.Height() / height)));
+            }
+            return list;
+        }
+        finally
+        {
+            bitmap?.Recycle();
+        }
+    }
+
     // Build a grayscale bitmap of just the scan window from the sensor Y plane. `roi` returns the window in
     // MLKit's upright (un-mirrored) space for mapping results back. False = scan the whole frame instead.
     static bool TryCropToWindow(CameraFrame frame, int rotation, RectF window, out Android.Graphics.Bitmap? crop, out RectF roi)

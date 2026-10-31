@@ -68,6 +68,7 @@ public partial class CameraViewHandler
             [nameof(CameraView.AnalyzerSeesEffects)] = MapEffects,
             [nameof(CameraView.Effects)] = MapEffects,
             [nameof(CameraView.PhotoQuality)] = MapPhotoQuality,
+            [nameof(CameraView.AnalysisResolution)] = MapAnalysisResolution,
             [nameof(CameraView.VideoQuality)] = MapVideoQuality,
             [nameof(CameraView.VideoBitrate)] = MapVideoQuality,
             [nameof(CameraView.VideoFrameRate)] = MapVideoQuality,
@@ -115,6 +116,9 @@ public partial class CameraViewHandler
     // has to rebind its use cases. PhotoJpegQuality is deliberately absent from the mapper for the same
     // reason — every platform reads it at capture time.
     static partial void MapPhotoQuality(CameraViewHandler handler, CameraView view);
+
+    // Android only: CameraX sizes ImageAnalysis at bind time. Elsewhere analysis sees the session's frames.
+    static partial void MapAnalysisResolution(CameraViewHandler handler, CameraView view);
 
     // Implemented on Android and Apple only; macOS and Windows have no rotating display behind the capture
     // device, so the partial is elided there rather than being a no-op body on each.

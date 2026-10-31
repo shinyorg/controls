@@ -1083,6 +1083,14 @@
         <ShellContent ContentTemplate="{DataTemplate camera:CameraPage}" Route="camera" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Long-Range Barcodes">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2551;" Size="20"
+                             Color="{AppThemeBinding Light=#9333EA, Dark=#C084FC}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate camera:LongRangeBarcodePage}" Route="longrangebarcode" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Media Element">
         <FlyoutItem.FlyoutIcon>
             <FontImageSource Glyph="&#x25B6;" Size="20"

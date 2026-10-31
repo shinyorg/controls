@@ -27,6 +27,7 @@
     <Project Path="src/Shiny.Controls.Gantt.Shared/Shiny.Controls.Gantt.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Keyboard.Shared/Shiny.Controls.Keyboard.Shared.csproj" />
     <Project Path="src/Shiny.Controls.RangePickers.Shared/Shiny.Controls.RangePickers.Shared.csproj" />
+    <Project Path="src/Shiny.Controls.BarcodeReader.Shared/Shiny.Controls.BarcodeReader.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Gauge.Shared/Shiny.Controls.Gauge.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Diagram.Shared/Shiny.Controls.Diagram.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Gamepad.Shared/Shiny.Controls.Gamepad.Shared.csproj" />
@@ -87,6 +88,8 @@
     <Project Path="tests/Shiny.Controls.Gantt.Tests/Shiny.Controls.Gantt.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Keyboard.Tests/Shiny.Controls.Keyboard.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.RangePickers.Tests/Shiny.Controls.RangePickers.Tests.csproj" />
+    <Project Path="tests/Shiny.Controls.BarcodeReader.Benchmark/Shiny.Controls.BarcodeReader.Benchmark.csproj" />
+    <Project Path="tests/Shiny.Controls.BarcodeReader.Tests/Shiny.Controls.BarcodeReader.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Gauge.Tests/Shiny.Controls.Gauge.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Diagram.Tests/Shiny.Controls.Diagram.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Gamepad.Tests/Shiny.Controls.Gamepad.Tests.csproj" />

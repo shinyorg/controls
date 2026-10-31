@@ -175,6 +175,7 @@ public static class Catalog
         [
             new("musiclibrary", "Bottom Tabs", "▤", "Tabbed media browser over the shell\u0027s bottom tabs"),
             new("camera", "Camera", "◉", "Preview, capture and pluggable frame analysis"),
+            new("longrangebarcode", "Long-Range Barcodes", "║", "Reads codes across a room, with auto-zoom on ones too small to read"),
             new("livevideo", "Live Video", "◎", "Camera frames encoded to JPEG or H.264 and drawn back, like a video call"),
             new("mediaelement", "Media Element", "▶", "Audio and video with a themed transport bar"),
             new("videotext", "Video Text", "Ⓣ", "A looping video playing inside the letters"),

@@ -472,6 +472,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICamera
 
     // Nothing to do: the MediaEncodingProfile is built per recording, so the new value is picked up by the
     // next StartVideoRecordingAsync without touching the running session.
+    // Analysis sees the session's own frames here, sized by VideoQuality; nothing separate to size.
+    static partial void MapAnalysisResolution(CameraViewHandler handler, CameraView view) { }
+
     static partial void MapVideoQuality(CameraViewHandler handler, CameraView view) { }
 
     // MediaCapture is asked for a photo resolution per capture rather than at configuration time, so

@@ -42,6 +42,16 @@ public partial class BarcodeScanner
         return Task.Run(() => Decode(lum, w, h, rotation, mirrored, window, formats), ct);
     }
 
+    public partial Task<List<DetectedBarcode>> ScanLuminanceAsync(byte[] luminance, int width, int height, CancellationToken ct)
+    {
+        if (width <= 0 || height <= 0 || luminance.Length < width * height)
+            return Task.FromResult(new List<DetectedBarcode>());
+
+        // an unrotated, unmirrored image with no window is exactly what Decode takes
+        var formats = ToZxFormats(this.Formats);
+        return Task.Run(() => Decode(luminance, width, height, 0, false, null, formats), ct);
+    }
+
     static List<DetectedBarcode> Decode(byte[] lum, int w, int h, int rotation, bool mirrored, RectF? window, ZxFormat[] formats)
     {
         // ZXing has no region-of-interest either, but PlanarYUVLuminanceSource crops the Y plane in place, so the

@@ -72,6 +72,40 @@ public partial class BarcodeScanner
         return tcs.Task;
     }
 
+    public partial Task<List<DetectedBarcode>> ScanLuminanceAsync(byte[] luminance, int width, int height, CancellationToken ct)
+    {
+        if (width <= 0 || height <= 0 || luminance.Length < width * height)
+            return Task.FromResult(new List<DetectedBarcode>());
+
+        var list = new List<DetectedBarcode>();
+        using var provider = new CoreGraphics.CGDataProvider(luminance, 0, width * height);
+        using var gray = CoreGraphics.CGColorSpace.CreateDeviceGray();
+        using var cg = new CoreGraphics.CGImage(width, height, 8, 8, width, gray, CoreGraphics.CGBitmapFlags.None, provider, null, false, CoreGraphics.CGColorRenderingIntent.Default);
+
+        var request = new VNDetectBarcodesRequest((req, err) =>
+        {
+            if (err != null || req.GetResults<VNBarcodeObservation>() is not { } results)
+                return;
+            foreach (var obs in results)
+            {
+                var payload = obs.PayloadStringValue;
+                if (String.IsNullOrEmpty(payload))
+                    continue;
+                var bb = obs.BoundingBox; // normalized, origin bottom-left
+                list.Add(new DetectedBarcode(payload, Map(obs.Symbology), new RectF((float)bb.X, (float)(1 - bb.Y - bb.Height), (float)bb.Width, (float)bb.Height)));
+            }
+        });
+
+        var symbologies = ToSymbologies(this.Formats);
+        if (symbologies != null)
+            request.Symbologies = symbologies;
+
+        // Perform is synchronous: the completion handler has run by the time it returns
+        using var handler = new VNImageRequestHandler(cg, new NSDictionary());
+        handler.Perform([request], out _);
+        return Task.FromResult(list);
+    }
+
     static BarcodeFormat Map(VNBarcodeSymbology symbology) => symbology switch
     {
         VNBarcodeSymbology.QR => BarcodeFormat.QrCode,

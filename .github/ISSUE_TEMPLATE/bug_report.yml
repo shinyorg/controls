@@ -63,6 +63,7 @@ body:
         - Shiny.Blazor.Controls.Themes.Terminal
         # --- Shared / internal ---
         - Shiny.Controls.Barcodes.Shared
+        - Shiny.Controls.BarcodeReader.Shared
         - Shiny.Controls.Camera.Shared
         - Shiny.Controls.Diagram.Shared
         - Shiny.Controls.FloorPlan.Shared

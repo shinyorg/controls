@@ -26,4 +26,9 @@
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Camera.Face\Shiny.Maui.Controls.Camera.Face.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Camera.Barcode\Shiny.Maui.Controls.Camera.Barcode.csproj"/>
     </ItemGroup>
+
+    <ItemGroup>
+        <!-- renders codes the way a distant camera sees them -->
+        <Compile Include="..\Shiny.Controls.BarcodeReader.Tests\SyntheticBarcode.cs" Link="SyntheticBarcode.cs"/>
+    </ItemGroup>
 </Project>

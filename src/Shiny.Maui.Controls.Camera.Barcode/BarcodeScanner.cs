@@ -27,6 +27,18 @@ public partial class BarcodeScanner
     public partial Task<List<DetectedBarcode>> ScanAsync(CameraFrame frame, CancellationToken ct);
 
     /// <summary>
+    /// Scan an 8-bit greyscale image (<paramref name="width"/> x <paramref name="height"/>, rows packed) with the
+    /// same engine. Boxes come back normalized to that image, as it lies — no rotation or mirroring is applied.
+    /// <see cref="ScanWindow"/> is ignored; crop before calling.
+    /// </summary>
+    /// <remarks>
+    /// For handing a decoder one region at a size it can read. The native engines shrink a whole frame before
+    /// they look at it, so a code a long way off arrives with its modules thinner than a pixel; cut out and
+    /// enlarged first, the same code reads. The long-range analyzer feeds its candidates through here.
+    /// </remarks>
+    public partial Task<List<DetectedBarcode>> ScanLuminanceAsync(byte[] luminance, int width, int height, CancellationToken ct);
+
+    /// <summary>
     /// Release the native scanner client — on Android, closes the ML Kit <c>BarcodeScanner</c>, which holds
     /// native detector memory until closed. The scanner stays usable: the next <see cref="ScanAsync"/> creates
     /// a fresh client. A no-op elsewhere (Apple Vision requests are per scan; ZXing readers are per scan).

@@ -9,13 +9,15 @@
         <IsAotCompatible>true</IsAotCompatible>
         <SingleProject>true</SingleProject>
         <RootNamespace>Shiny.Maui.Controls.Camera.Barcode</RootNamespace>
-        <Description>Barcode/QR analyzer for the Shiny CameraView. Reads codes with the native scanner — Apple Vision (iOS/macOS) and Android MLKit, with the managed ZXing.Net decoder on Windows and bare net10.0.</Description>
+        <Description>Barcode/QR analyzer for the Shiny CameraView. Reads codes with the native scanner — Apple Vision (iOS/macOS) and Android MLKit, with the managed ZXing.Net decoder on Windows and bare net10.0 — and has a LongRange mode for codes across a room: it locates codes first, reads 1D codes with a blur-tolerant managed decoder, hands 2D codes to the native scanner as enlarged crops, tracks codes across frames and can zoom in on codes too small to read.</Description>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Controls.Camera.Shared\Shiny.Controls.Camera.Shared.csproj" />
         <ProjectReference Include="..\Shiny.Maui.Controls.Camera\Shiny.Maui.Controls.Camera.csproj" />
+        <!-- the managed locator / 1D decoder / tracker behind BarcodeScanMode.LongRange; dependency-free -->
+        <ProjectReference Include="..\Shiny.Controls.BarcodeReader.Shared\Shiny.Controls.BarcodeReader.Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android'">

@@ -21,7 +21,7 @@ public static class MediaServiceBarcodeExtensions
     /// </summary>
     /// <param name="media">The media service.</param>
     /// <param name="formats">Restrict to specific symbologies. Null (default) reads everything the native scanner supports.</param>
-    /// <param name="options">Modal appearance and scan behaviour. Null uses the defaults.</param>
+    /// <param name="options">Modal appearance and scan behaviour. Null uses the defaults. Pass a <see cref="BarcodeScanOptions"/> for <see cref="BarcodeScanMode.LongRange"/> and auto-zoom.</param>
     /// <param name="ct">Cancels the scan and closes the modal.</param>
     public static Task<DetectedBarcode?> ScanBarcodeAsync(
         this IMediaService media,
@@ -42,7 +42,7 @@ public static class MediaServiceBarcodeExtensions
     /// Overrides <see cref="MediaScanOptions.FilterDuplicates"/> when both are supplied.
     /// </param>
     /// <param name="formats">Restrict to specific symbologies. Null (default) reads everything the native scanner supports.</param>
-    /// <param name="options">Modal appearance and scan behaviour. Null uses the defaults.</param>
+    /// <param name="options">Modal appearance and scan behaviour. Null uses the defaults. Pass a <see cref="BarcodeScanOptions"/> for <see cref="BarcodeScanMode.LongRange"/> and auto-zoom.</param>
     /// <param name="ct">Cancels the scan and closes the modal.</param>
     /// <example>
     /// <code>
@@ -61,6 +61,11 @@ public static class MediaServiceBarcodeExtensions
         var analyzer = new BarcodeAnalyzer();
         if (formats is not null)
             analyzer.Formats = formats.ToList();
+        if (options is BarcodeScanOptions barcode)
+        {
+            analyzer.Mode = barcode.Mode;
+            analyzer.AutoZoom = barcode.AutoZoom;
+        }
 
         return media.ScanAsync(
             new MediaScanRequest<DetectedBarcode>

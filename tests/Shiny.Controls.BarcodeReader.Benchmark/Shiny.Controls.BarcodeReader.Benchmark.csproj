@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Read rate and frame time of the long-range engine against ZXing.Net on the same images:
+             a synthetic distance/blur/angle sweep, and optionally a folder of real photos.
+             Run: dotnet run -c Release, optionally with an images folder argument (see Program.cs). -->
+        <OutputType>Exe</OutputType>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsPackable>false</IsPackable>
+        <Nullable>enable</Nullable>
+        <!-- SyntheticBarcode is linked from the tests and documented there -->
+        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ZXing.Net"/>
+        <PackageReference Include="SkiaSharp"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\Shiny.Controls.BarcodeReader.Tests\SyntheticBarcode.cs" Link="SyntheticBarcode.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Shiny.Controls.BarcodeReader.Shared\Shiny.Controls.BarcodeReader.Shared.csproj"/>
+    </ItemGroup>
+
+</Project>

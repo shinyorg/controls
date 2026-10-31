@@ -37,6 +37,11 @@ public partial class CameraView : View
     static void OnAnalyzerChanged(BindableObject bindable, object oldValue, object newValue)
     {
         var view = (CameraView)bindable;
+        if (oldValue is FrameAnalyzer previous && ReferenceEquals(previous.Host, view))
+            previous.Host = null;
+        if (newValue is FrameAnalyzer next)
+            next.Host = view;
+
         // a declared/assigned analyzer inherits this view's BindingContext so its Commands bind
         if (newValue is BindableObject bo)
             SetInheritedBindingContext(bo, view.BindingContext);

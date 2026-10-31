@@ -303,6 +303,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
     // The preset sizes the whole session — preview, data output and movie output alike — so this is a session
     // reconfiguration, not a recording setting. Refused mid-recording: changing the preset renegotiates the
     // active format underneath a running AVAssetWriter or movie output, which corrupts the file being written.
+    // Analysis sees the session's own frames here, sized by VideoQuality; nothing separate to size.
+    static partial void MapAnalysisResolution(CameraViewHandler handler, CameraView view) { }
+
     static partial void MapVideoQuality(CameraViewHandler handler, CameraView view)
         => handler.OnSessionQueue(handler.ApplyVideoSettings, "The capture settings could not be applied");
 

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cam="http://shiny.net/maui/camera"
+             x:Class="Sample.Features.Camera.LongRangeBarcodePage"
+             Title="Long-Range Barcodes"
+             AutomationId="LongRangeBarcodePage">
+
+    <!-- The camera owns the space it is given (a * row, no ScrollView around it). LongRange raises the camera's
+         analysis frames to 1080p on Android by itself (CameraX otherwise analyzes at 640x480). -->
+    <Grid RowDefinitions="*,Auto" RowSpacing="8" Padding="8">
+
+        <cam:CameraView x:Name="Camera"
+                        Grid.Row="0"
+                        IsPinchToZoomEnabled="True"
+                        AutomationId="LongRangeCamera">
+            <cam:BarcodeAnalyzer x:Name="Analyzer"
+                                 Mode="LongRange"
+                                 AutoZoom="{Binding Source={x:Reference AutoZoomSwitch}, Path=IsToggled}"
+                                 MaxAutoZoom="4" />
+        </cam:CameraView>
+
+        <VerticalStackLayout Grid.Row="1" Spacing="6">
+            <HorizontalStackLayout Spacing="8">
+                <Switch x:Name="AutoZoomSwitch" IsToggled="True" AutomationId="AutoZoomSwitch" VerticalOptions="Center" />
+                <Label Text="Auto-zoom on codes too small to read" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+            <Label x:Name="ZoomLabel" FontSize="13" Text="Zoom 1.0x" AutomationId="ZoomLabel" />
+            <Label x:Name="Results" FontSize="15" FontAttributes="Bold"
+                   Text="Point at a barcode — try one across the room" AutomationId="LongRangeResults" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

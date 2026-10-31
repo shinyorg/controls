@@ -483,6 +483,14 @@ public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLa
     }
 
 
+    // The analysis size is baked into ImageAnalysis at bind time, so a change means a rebind, refused
+    // mid-recording like MapVideoQuality.
+    static partial void MapAnalysisResolution(CameraViewHandler handler, CameraView view)
+    {
+        if (handler.cameraProvider != null && handler.activeRecording == null)
+            handler.BindUseCases();
+    }
+
     // Capture mode and the resolution selector are baked into ImageCapture at bind time, so a change means
     // a rebind - the same bargain as MapVideoQuality above, and refused mid-recording for the same reason.
     // PhotoJpegQuality rides along on the same rebind rather than getting a mapper of its own.
@@ -573,10 +581,30 @@ public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLa
         if (analyzing)
         {
             this.analysisExecutor ??= Java.Util.Concurrent.Executors.NewSingleThreadExecutor();
-            this.imageAnalysis = new ImageAnalysis.Builder()
+            var analysisBuilder = new ImageAnalysis.Builder()
                 .SetBackpressureStrategy(ImageAnalysis.StrategyKeepOnlyLatest!)!
-                .SetTargetRotation(rotation)!
-                .Build();
+                .SetTargetRotation(rotation)!;
+
+            // Left alone CameraX analyzes at 640x480, which is too coarse for anything read at a distance.
+            // Ask for the closest size at or above the target and let it fall back below when the device has none.
+            var analysisSize = this.VirtualView.AnalysisResolution switch
+            {
+                AnalysisResolution.Hd => new Android.Util.Size(1280, 720),
+                AnalysisResolution.FullHd => new Android.Util.Size(1920, 1080),
+                _ => null
+            };
+            if (analysisSize != null)
+            {
+                analysisBuilder = analysisBuilder.SetResolutionSelector(
+                    new AndroidX.Camera.Core.ResolutionSelector.ResolutionSelector.Builder()
+                        .SetResolutionStrategy(new AndroidX.Camera.Core.ResolutionSelector.ResolutionStrategy(
+                            analysisSize,
+                            AndroidX.Camera.Core.ResolutionSelector.ResolutionStrategy.FallbackRuleClosestHigherThenLower))!
+                        .Build()!
+                )!;
+            }
+
+            this.imageAnalysis = analysisBuilder.Build();
             this.imageAnalysis.SetAnalyzer(this.analysisExecutor!, new FrameAnalyzerBridge(this));
             useCases.Add(this.imageAnalysis);
         }
