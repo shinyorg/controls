@@ -336,4 +336,12 @@ public class WalkthroughTests
         (await second).ShouldBe(WalkthroughEndReason.Stopped);
         walkthrough.IsRunning.ShouldBeFalse();
     }
+
+    /// <summary>
+    /// The spotlight is placed in root coordinates. A layer that also inset by the safe area (a
+    /// layout's default) moved every spotlight down by the status bar on Android.
+    /// </summary>
+    [Fact]
+    public void TheWalkthroughLayerDoesNotApplyTheSafeAreaAgain()
+        => new Infrastructure.PageOverlay.WalkthroughLayer().SafeAreaEdges.ShouldBe(SafeAreaEdges.None);
 }

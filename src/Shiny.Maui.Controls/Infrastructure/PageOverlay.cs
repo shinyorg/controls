@@ -43,7 +43,16 @@ static class PageOverlay
     /// </summary>
     internal sealed class TooltipLayer : AbsoluteLayout, IOverlayLayer;
 
-    internal sealed class WalkthroughLayer : AbsoluteLayout, IOverlayLayer;
+    /// <remarks>
+    /// Edge-to-edge for the same reason as <see cref="ShinyOverlayRoot"/>: the spotlight is placed at
+    /// the target's position in the root, and a layout's default <see cref="SafeAreaRegions.Container"/>
+    /// shifted everything in the layer by the status bar a second time, so on Android every spotlight
+    /// sat a status bar's height below its target.
+    /// </remarks>
+    internal sealed class WalkthroughLayer : AbsoluteLayout, IOverlayLayer
+    {
+        public WalkthroughLayer() => this.SafeAreaEdges = SafeAreaEdges.None;
+    }
 
     internal sealed class FloatingToolbarLayer : AbsoluteLayout, IOverlayLayer;
 
