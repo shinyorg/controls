@@ -50,7 +50,7 @@ public class ScanViewModel(IMediaService media) { … }
 |---|---|---|
 | `IsCameraSupported` | `bool` | False on bare `net10.0` and before the app has a window |
 | `Options` | `MediaServiceOptions` | Live; changing it affects later calls |
-| `RequestCameraPermissionAsync(includeMicrophone = false)` | `MediaPermissionStatus` | Weakest of the requested permissions |
+| `RequestCameraPermissionAsync(includeMicrophone = false)` | `MediaPermissionStatus` | Weakest of the requested permissions; on macOS (AppKit) asked of AVFoundation |
 | `RequestGalleryPermissionAsync(forWrite = false)` | `MediaPermissionStatus` | `forWrite` asks for add-to-library, not read |
 | `OpenSettingsAsync()` | `Task` | The way back from a refusal |
 | `GetAvailableCamerasAsync()` | `IReadOnlyList<CameraInfo>` | Feed an `Id` to `MediaCameraOptions.CameraId` |

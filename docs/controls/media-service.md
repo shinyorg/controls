@@ -108,6 +108,8 @@ no `PermanentlyDenied`: whether a second request re-prompts is not knowable the 
 so a value claiming to mean it would be right on one head and a guess on the other. Treat `Denied` as "offer
 them `OpenSettingsAsync`", which is correct either way.
 
+On the macOS (AppKit) head the camera and microphone are asked of AVFoundation directly, because that head's Essentials does not implement those two permissions; the first request shows the system prompt as on iOS.
+
 Every method that presents UI requests what it needs first and returns `null` on refusal or cancellation —
 a cancelled camera is an ordinary outcome, not an exceptional one, so nothing here throws for it.
 

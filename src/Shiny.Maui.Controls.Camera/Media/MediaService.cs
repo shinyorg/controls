@@ -34,14 +34,27 @@ public class MediaService(MediaServiceOptions options) : IMediaService
     /// <inheritdoc/>
     public async Task<MediaPermissionStatus> RequestCameraPermissionAsync(bool includeMicrophone = false, CancellationToken ct = default)
     {
-        var camera = await RequestAsync<Permissions.Camera>().ConfigureAwait(false);
+        var camera = await RequestCameraAsync().ConfigureAwait(false);
         if (!includeMicrophone || camera != MediaPermissionStatus.Granted)
             return camera;
 
         // the weakest of the two: "granted" has to mean every permission the call needs, or a caller that
         // checks it still gets a silent movie
-        return await RequestAsync<Permissions.Microphone>().ConfigureAwait(false);
+        return await RequestMicrophoneAsync().ConfigureAwait(false);
     }
+
+#if MACOS
+    // the AppKit head's Essentials does not implement these two; see MacMediaPermissions
+    static Task<MediaPermissionStatus> RequestCameraAsync()
+        => MainThread.InvokeOnMainThreadAsync(() => MacMediaPermissions.RequestAsync(AVFoundation.AVAuthorizationMediaType.Video));
+
+    static Task<MediaPermissionStatus> RequestMicrophoneAsync()
+        => MainThread.InvokeOnMainThreadAsync(() => MacMediaPermissions.RequestAsync(AVFoundation.AVAuthorizationMediaType.Audio));
+#else
+    static Task<MediaPermissionStatus> RequestCameraAsync() => RequestAsync<Permissions.Camera>();
+
+    static Task<MediaPermissionStatus> RequestMicrophoneAsync() => RequestAsync<Permissions.Microphone>();
+#endif
 
     /// <inheritdoc/>
     public Task<MediaPermissionStatus> RequestGalleryPermissionAsync(bool forWrite = false, CancellationToken ct = default)
