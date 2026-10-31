@@ -67,6 +67,9 @@ public partial class ShinyButton : ContentView, ITapTarget
     bool isLoaded;
     string? ownedDescription;
 
+    // What the inner grid was last built for - see UpdateContentLayout.
+    (ButtonContentLayout Layout, bool Left, bool Right, bool Text, double Spacing)? builtLayout;
+
     // Held in fields so Unloaded can detach them - see TrackCommandFlag.
     INotifyPropertyChanged? flagNotifier;
     PropertyChangedEventHandler? flagHandler;
@@ -211,6 +214,16 @@ public partial class ShinyButton : ContentView, ITapTarget
         var hasLeft = this.leftHost.IsVisible;
         var hasRight = this.rightHost.IsVisible || this.busyHost.IsVisible;
         var hasText = this.textLabel.IsVisible;
+
+        // ApplyState runs on every Loaded, and a recycled list row is loaded again each time it scrolls
+        // back in. Tearing the grid down and re-adding the same hosts re-parents them, which makes MAUI
+        // walk the theme resources into each one again - most of the cost of binding a row. Nothing
+        // below depends on anything but these five values, so the same five mean the same grid.
+        var layout = (this.ContentLayout, hasLeft, hasRight, hasText, this.IconSpacing);
+        if (this.builtLayout == layout)
+            return;
+
+        this.builtLayout = layout;
 
         this.innerGrid.Children.Clear();
         this.innerGrid.RowDefinitions.Clear();

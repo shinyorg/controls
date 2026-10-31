@@ -622,6 +622,41 @@ public class ShinyButtonTests
 
 
     /// <summary>
+    /// ApplyState runs on every Loaded, so a recycled list row went through it each time it scrolled
+    /// back in - and every pass cleared the grid and added the same hosts again. A pass that changes
+    /// nothing about the arrangement now leaves the grid alone.
+    /// </summary>
+    [Fact]
+    public void ReapplyingTheSameState_LeavesTheGridAlone()
+    {
+        var button = new ShinyButton { Text = "Open", LeftIcon = "a.png" };
+        var (_, _, inner) = Parts(button);
+        var removed = 0;
+        inner.ChildRemoved += (_, _) => removed++;
+
+        // Each of these runs ApplyState without changing what is shown where.
+        button.BusyMode = ButtonBusyMode.ReplaceContent;
+        button.LeftIcon = "b.png";
+
+        removed.ShouldBe(0);
+        inner.Children.OfType<ContentView>().Count().ShouldBe(3);
+        LeftHost(button).Content.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void LosingTheText_StillRebuildsTheSpacing()
+    {
+        var button = new ShinyButton { Text = "Open", LeftIcon = "a.png" };
+        var (_, _, inner) = Parts(button);
+        inner.ColumnSpacing.ShouldBeGreaterThan(0);
+
+        button.Text = null;
+
+        inner.ColumnSpacing.ShouldBe(0);
+    }
+
+
+    /// <summary>
     /// Border.Stroke is a Brush and the theme tokens are Colors, so SetDynamicResource on
     /// StrokeProperty silently dropped the resource - an Outlined button had a stroke thickness and a
     /// null stroke, i.e. no visible border at all. The token is now bound on a SolidColorBrush.
