@@ -43,6 +43,7 @@ public static class MauiProgram
             });
 
         builder.Services.AddSingleton<global::Sample.AppSettings>();
+        builder.Services.AddSingleton<global::Shiny.Maui.Controls.Scheduler.ISchedulerEventProvider, global::Sample.Features.Scheduler.SampleSchedulerProvider>();
 
 #if DEBUG
         builder.Logging.SetMinimumLevel(LogLevel.Debug);
