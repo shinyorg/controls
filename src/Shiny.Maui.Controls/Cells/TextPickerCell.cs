@@ -168,6 +168,14 @@ public class TextPickerCell : CellBase
         return valueLabel;
     }
 
+    /// <summary>
+    /// On the AppKit head the picker is an NSPopUpButton spread over the cell, and Picker.Focus() only makes
+    /// it first responder - it never opens the menu. A click that reaches the button does, so the cell keeps
+    /// no recognizer there and the click goes straight to it. (The library has no -macos TFM; the AppKit head
+    /// runs the net10.0 build, hence the runtime check. Mac Catalyst reports IsMacCatalyst, not IsMacOS.)
+    /// </summary>
+    protected override bool NativeControlTakesClicks => OperatingSystem.IsMacOS();
+
     protected override void OnCellTapped(object? sender, TappedEventArgs e)
     {
         base.OnCellTapped(sender, e);

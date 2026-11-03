@@ -52,6 +52,8 @@ showing them. Don't put the same view instance in two sections or anywhere else 
 
 A cell with `IsSelectable="False"` ignores taps on the row and has no tap recognizer on it at all, so the control inside it (a `SwitchCell`'s switch, a slider or button in a `CustomCell`) gets every click. Use it for rows where only that control should respond.
 
+On the macOS (AppKit) head a `TextPickerCell` has no tap recognizer either: its picker is an `NSPopUpButton` laid over the whole row, and a click goes straight to it and opens the menu. The cell's `Tapped` event doesn't fire there.
+
 `PickerCell` and `TextPickerCell` show a property of complex items through `DisplayMember` (and `SubDisplayMember` on `PickerCell`). Those are read by reflection, so in a full-trim or NativeAOT app leave them unset and override the item's `ToString()` instead.
 
 **EntryCell input features** — `EntryCell` shares `TextEntry`'s input behaviour without any of its chrome (no tools, no floating label, no hint — the cell already has those):

@@ -101,6 +101,55 @@ static class MacMouse
         }
     }
 
+    /// <summary>
+    /// Whether the process has a menu open on screen - an NSPopUpButton's or a context menu - i.e. a
+    /// window at the pop-up menu level. Read from the window server, so it holds while AppKit's menu
+    /// tracking loop has the app's main thread.
+    /// </summary>
+    public static bool HasOpenMenu(int pid)
+    {
+        var pidKey = CFStringCreateWithCString(IntPtr.Zero, "kCGWindowOwnerPID", Utf8);
+        var layerKey = CFStringCreateWithCString(IntPtr.Zero, "kCGWindowLayer", Utf8);
+        var windows = CGWindowListCopyWindowInfo(OnScreenOnly | ExcludeDesktopElements, 0);
+        try
+        {
+            for (long i = 0, count = CFArrayGetCount(windows); i < count; i++)
+            {
+                var window = CFArrayGetValueAtIndex(windows, i);
+                if (Number(window, pidKey) == pid && Number(window, layerKey) == PopUpMenuWindowLevel)
+                    return true;
+            }
+            return false;
+        }
+        finally
+        {
+            CFRelease(windows);
+            CFRelease(pidKey);
+            CFRelease(layerKey);
+        }
+    }
+
+    /// <summary>Presses and releases a key (a virtual key code, e.g. <see cref="KeyDownArrow"/>) in the frontmost app.</summary>
+    public static async Task Press(ushort keyCode)
+    {
+        foreach (var down in new[] { true, false })
+        {
+            var evt = CGEventCreateKeyboardEvent(IntPtr.Zero, keyCode, down);
+            CGEventPost(HidEventTap, evt);
+            CFRelease(evt);
+            await Task.Delay(60);
+        }
+    }
+
+    public const ushort KeyReturn = 36;
+    public const ushort KeyEscape = 53;
+    public const ushort KeyDownArrow = 125;
+
+    // kCGPopUpMenuWindowLevel
+    const long PopUpMenuWindowLevel = 101;
+
+    [DllImport(CoreGraphics)] static extern IntPtr CGEventCreateKeyboardEvent(IntPtr source, ushort keyCode, bool keyDown);
+
     static long? Number(IntPtr dict, IntPtr key)
     {
         var value = CFDictionaryGetValue(dict, key);

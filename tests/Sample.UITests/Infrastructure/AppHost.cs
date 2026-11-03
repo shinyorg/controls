@@ -598,6 +598,10 @@ public sealed class MacOSAppHost : DesktopAppHost
         var titleBar = frame.Height - contentHeight;
         await MacMouse.Click(frame.X + x, frame.Y + titleBar + y);
     }
+
+    /// <summary>Whether the app has a menu (a picker's pop-up, a context menu) open on screen.</summary>
+    public bool HasOpenMenu()
+        => MacMouse.HasOpenMenu(ProcessId ?? throw new InvalidOperationException("Sample.MacOS is not running."));
 }
 
 

@@ -715,12 +715,20 @@ public abstract class CellBase : ContentView
     /// </summary>
     void UpdateTapGesture()
     {
+        var wanted = IsSelectable && !NativeControlTakesClicks;
         var attached = GestureRecognizers.Contains(tapGesture);
-        if (IsSelectable && !attached)
+        if (wanted && !attached)
             GestureRecognizers.Add(tapGesture);
-        else if (!IsSelectable && attached)
+        else if (!wanted && attached)
             GestureRecognizers.Remove(tapGesture);
     }
+
+    /// <summary>
+    /// True when a native control laid over the whole cell opens itself on a click, so the cell must not
+    /// carry a tap recognizer that would take the click first (see <see cref="UpdateTapGesture"/>). Read
+    /// from the base constructor, so an override must not depend on the subclass's fields.
+    /// </summary>
+    protected virtual bool NativeControlTakesClicks => false;
 
     protected virtual void OnCellTapped(object? sender, TappedEventArgs e)
     {

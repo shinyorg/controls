@@ -223,7 +223,8 @@ Opens native dropdown/spinner picker on tap. Bind by index (`SelectedIndex`) or 
 two-way) — a `SelectedItem` set from code/binding is reflected in the cell's value label and picker selection
 (it stays in sync even when `ItemsSource` is populated asynchronously). Use `DisplayMember` to show a property
 of complex items. `DisplayMember`/`SubDisplayMember` (here and on `PickerCell`) are read by reflection, so for a
-full-trim/NativeAOT app leave them unset and override the item's `ToString()` instead.
+full-trim/NativeAOT app leave them unset and override the item's `ToString()` instead. On the macOS (AppKit) head
+the click goes straight to the native `NSPopUpButton` over the row (the cell's `Tapped` event doesn't fire there).
 
 ```xml
 <!-- by value, with a display member -->

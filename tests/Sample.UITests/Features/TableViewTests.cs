@@ -178,6 +178,46 @@ public class TableViewTests : UITest
     }
 
 
+    [Test, OnlyOn(UIPlatform.MacOS)] // drives the AppKit pop-up menu through the window server
+    public async Task Real_Click_Opens_The_Text_Picker_And_Picks_An_Item()
+    {
+        // The regression (many times over): clicking a TextPickerCell on the AppKit head did nothing. The
+        // cell's click recognizer took the click, then called Picker.Focus(), which on AppKit only makes
+        // the NSPopUpButton first responder - it never opens the menu. The SetProperty test above passes
+        // regardless, so this one clicks for real and watches for the menu window itself.
+        // A skip here is how it kept coming back: without the Accessibility permission this fails.
+        if (!MacMouse.CanPost)
+            Assert.Fail("Give the test runner (Terminal / IDE) the Accessibility permission - this test must click for real.");
+
+        var mac = (MacOSAppHost)App.Host;
+        await Open("picker", "PickerDemoPage");
+        await Driver.SetProperty("SelectedIndex", "0", automationId: "FavoriteColorCell");
+        await Driver.WaitUntilTextExists("Red", timeoutSeconds: 10);
+
+        try
+        {
+            await TouchTap("FavoriteColorCell");
+            await Driver.WaitUntil(() => Task.FromResult(mac.HasOpenMenu()), "the picker's menu to open", timeoutSeconds: 5);
+
+            // the menu opens with the current item (Red) under the pointer: two down is Blue
+            await MacMouse.Press(MacMouse.KeyDownArrow);
+            await MacMouse.Press(MacMouse.KeyDownArrow);
+            await MacMouse.Press(MacMouse.KeyReturn);
+
+            await Driver.WaitUntil(() => Task.FromResult(!mac.HasOpenMenu()), "the menu to close", timeoutSeconds: 5);
+            await Driver.WaitForProperty("FavoriteColorCell", "SelectedIndex", "2", timeoutSeconds: 5);
+            await Driver.WaitUntilTextExists("Blue", timeoutSeconds: 5);
+            await AssertNoAppErrors();
+        }
+        finally
+        {
+            if (mac.HasOpenMenu())
+                await MacMouse.Press(MacMouse.KeyEscape);
+            await Driver.SetProperty("SelectedIndex", "0", automationId: "FavoriteColorCell");
+        }
+    }
+
+
     [Test]
     public async Task Number_Picker_Cell_Reflects_Its_Binding()
     {
