@@ -301,6 +301,37 @@ public class TableSection : BindableObject
 
     void OnCellsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (e.OldItems is not null)
+            foreach (CellBase cell in e.OldItems)
+                if (cell.OwnerSection == this)
+                    cell.OwnerSection = null;
+
+        // Reset (Clear) carries no old items; whatever is left is what the section owns.
+        foreach (var cell in cells)
+            cell.OwnerSection = this;
+
+        RaiseSectionChanged();
+    }
+
+    /// <summary>
+    /// A cell of this section was shown or hidden. Only visible cells are rendered (so separators sit
+    /// between the rows that draw), which meant a cell hidden when the table rendered never appeared
+    /// when its IsVisible later turned true - a "Sign out" row that came and went with the signed-in
+    /// state stayed missing until something else re-rendered.
+    /// </summary>
+    /// <remarks>
+    /// Re-renders (coalesced, after the write) only for a cell that turns visible and isn't in the table
+    /// yet. A rendered cell hides and shows itself, as it always did: a full re-render re-attaches every
+    /// cell, which would take focus - and on iOS/Android the keyboard - from an EntryCell being typed in
+    /// whenever a row near it (a validation message, say) came and went.
+    /// </remarks>
+    internal void OnCellVisibilityChanged(CellBase cell)
+    {
+        // Rendering detaches and re-attaches cells; a bound IsVisible can flicker while it does.
+        if (ParentTableView is not { IsRendering: false } table)
+            return;
+        if (!cell.IsVisible || !IsVisible || table.IsRendered(cell))
+            return;
         RaiseSectionChanged();
     }
 
@@ -358,6 +389,7 @@ public class TableSection : BindableObject
             if (template.CreateContent() is CellBase cell)
             {
                 cell.BindingContext = item;
+                cell.OwnerSection = this;
                 generatedCells.Add(cell);
             }
         }

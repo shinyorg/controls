@@ -40,6 +40,14 @@ public class CellTapGestureTests
     {
         var cell = Create(type);
 
+        // On the AppKit head a TextPickerCell's click goes straight to its NSPopUpButton (see
+        // NativeControlTakesClicks); a recognizer there would take it, and the menu never opened.
+        if (type == typeof(TextPickerCell) && OperatingSystem.IsMacOS())
+        {
+            cell.GestureRecognizers.ShouldBeEmpty();
+            return;
+        }
+
         var tap = cell.GestureRecognizers.ShouldHaveSingleItem().ShouldBeOfType<TapGestureRecognizer>();
         tap.NumberOfTapsRequired.ShouldBe(1);
     }

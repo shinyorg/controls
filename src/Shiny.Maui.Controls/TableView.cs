@@ -298,6 +298,17 @@ public partial class TableView : ContentView
 
     internal double ScrollOffsetY => scrollView.ScrollY;
 
+    internal bool IsRendering => isRendering;
+
+    /// <summary>Whether the last render put this cell in the table (hidden or not since).</summary>
+    internal bool IsRendered(CellBase cell)
+    {
+        foreach (var (_, cells) in renderedSections)
+            if (cells.Contains(cell))
+                return true;
+        return false;
+    }
+
     internal double ViewportHeight => scrollView.Height;
 
     internal double ContentHeight => rootLayout.Height;

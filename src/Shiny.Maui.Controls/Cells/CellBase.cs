@@ -385,6 +385,9 @@ public abstract class CellBase : ContentView
     internal TvTableView? ParentTableView { get; set; }
     internal TvTableSection? ParentSection { get; set; }
 
+    /// <summary>The section this cell belongs to, set when it is added - unlike <see cref="ParentSection"/>, before it has ever rendered.</summary>
+    internal TvTableSection? OwnerSection { get; set; }
+
 
 
     /// <summary>Gap between the icon/accessory and the title block. See <see cref="BuildLayout"/>.</summary>
@@ -703,6 +706,8 @@ public abstract class CellBase : ContentView
         base.OnPropertyChanged(propertyName);
         if (propertyName == nameof(IsEnabled))
             Opacity = IsEnabled ? 1.0 : 0.4;
+        else if (propertyName == nameof(IsVisible))
+            OwnerSection?.OnCellVisibilityChanged(this);
     }
 
 

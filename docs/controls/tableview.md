@@ -50,6 +50,8 @@ showing them. Don't put the same view instance in two sections or anywhere else 
 | SimpleCheckCell | Checkmark indicator |
 | CustomCell | Custom view content with drag-reorder support |
 
+Bind a cell's `IsVisible` to show and hide rows. A cell hidden when the table first renders appears as soon as its `IsVisible` turns true. Each change re-renders the table once, so separators stay between the rows that are showing.
+
 A cell with `IsSelectable="False"` ignores taps on the row and has no tap recognizer on it at all, so the control inside it (a `SwitchCell`'s switch, a slider or button in a `CustomCell`) gets every click. Use it for rows where only that control should respond.
 
 On the macOS (AppKit) head a `TextPickerCell` has no tap recognizer either: its picker is an `NSPopUpButton` laid over the whole row, and a click goes straight to it and opens the menu. The cell's `Tapped` event doesn't fire there.

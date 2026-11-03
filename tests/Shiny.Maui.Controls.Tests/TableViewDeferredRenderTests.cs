@@ -111,6 +111,97 @@ public class TableViewDeferredRenderTests
     }
 
     /// <summary>
+    /// A cell hidden when the table first renders appears once its IsVisible turns true, and goes again
+    /// when it turns false - in one re-render each time.
+    /// </summary>
+    /// <remarks>
+    /// Only visible cells are rendered, and nothing re-rendered when one cell's visibility changed, so a
+    /// row bound to state that starts false (GitHub's "Signed in as", "Sign out", a sign-in code) never
+    /// showed until something unrelated re-rendered the table.
+    /// </remarks>
+    [Fact]
+    public void ACellHiddenAtFirstRenderAppearsWhenShown()
+    {
+        var dispatcher = new QueueingDispatcher();
+        DispatcherProvider.SetCurrent(new QueueingProvider(dispatcher));
+        try
+        {
+            new Application();
+            var model = new Model();
+            var table = BuildTable(model);
+            var row = new LabelCell { Title = "Signed in as" };
+            row.SetBinding(VisualElement.IsVisibleProperty, nameof(Model.SignedIn));
+            table.Root.Sections[0].Cells.Add(row);
+            dispatcher.RunAll();
+            table.ScrollContent.GetVisualTreeDescendants().ShouldNotContain(row);
+
+            var renders = 0;
+            table.ModelChanged += (_, _) => renders++;
+
+            model.SignedIn = true;
+            dispatcher.RunAll();
+            table.ScrollContent.GetVisualTreeDescendants().ShouldContain(row);
+            renders.ShouldBe(1);
+
+            // Rendered now, so it hides and shows itself: no re-render, which would re-attach every
+            // cell and take focus (and the keyboard) from an EntryCell being typed in.
+            var entry = new Shiny.Maui.Controls.Cells.EntryCell { Title = "Typing here" };
+            table.Root.Sections[0].Cells.Add(entry);
+            dispatcher.RunAll();
+            renders = 0;
+
+            model.SignedIn = false;
+            dispatcher.RunAll();
+            row.IsVisible.ShouldBeFalse();
+            model.SignedIn = true;
+            dispatcher.RunAll();
+            row.IsVisible.ShouldBeTrue();
+            table.ScrollContent.GetVisualTreeDescendants().ShouldContain(row);
+            renders.ShouldBe(0, "a rendered cell's show/hide must not rebuild the table");
+        }
+        finally
+        {
+            TestDispatcherProvider.Install();
+        }
+    }
+
+    /// <summary>The same for a cell generated from a section's ItemsSource.</summary>
+    [Fact]
+    public void AGeneratedCellHiddenAtFirstRenderAppearsWhenShown()
+    {
+        var dispatcher = new QueueingDispatcher();
+        DispatcherProvider.SetCurrent(new QueueingProvider(dispatcher));
+        try
+        {
+            new Application();
+            var item = new Model();
+            var section = new TvTableSection("Items")
+            {
+                ItemTemplate = new DataTemplate(() =>
+                {
+                    var cell = new LabelCell { Title = "Item" };
+                    cell.SetBinding(VisualElement.IsVisibleProperty, nameof(Model.SignedIn));
+                    return cell;
+                }),
+                ItemsSource = new[] { item }
+            };
+            var table = new TableView();
+            table.Root.Sections.Add(section);
+            dispatcher.RunAll();
+            var generated = section.GetAllCells().Single();
+            table.ScrollContent.GetVisualTreeDescendants().ShouldNotContain(generated);
+
+            item.SignedIn = true;
+            dispatcher.RunAll();
+            table.ScrollContent.GetVisualTreeDescendants().ShouldContain(generated);
+        }
+        finally
+        {
+            TestDispatcherProvider.Install();
+        }
+    }
+
+    /// <summary>
     /// Filling a section's collection one item at a time builds each cell once - it used to rebuild every
     /// cell per add, n(n+1)/2 cells for n items.
     /// </summary>
@@ -230,6 +321,18 @@ public class TableViewDeferredRenderTests
         }
 
         public bool Busy => false;
+
+        public bool SignedIn
+        {
+            get;
+            set
+            {
+                if (field == value)
+                    return;
+                field = value;
+                this.OnPropertyChanged();
+            }
+        }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 

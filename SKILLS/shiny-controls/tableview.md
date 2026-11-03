@@ -386,9 +386,10 @@ it to a feature flag or a mode switch is the intended use, **including to a `Swi
 table** (a Features switch that reveals that feature's settings section). The re-render is dispatched to
 just after the change and coalesced, so no workaround — such as pinning cell BindingContexts — is needed.
 
-> Note the difference from a **cell's** `IsVisible`, which a section reads when it renders and never
-> again. A cell whose visibility is set after the section is built may never appear; a section's can
-> change whenever you like.
+A **cell's** `IsVisible` is live too: a cell hidden when the table first renders appears when it turns
+true (e.g. a "Sign out" row bound to a signed-in flag), and each change re-renders the table once, the
+same coalesced way, so separators stay between the rows that show.
+
 | `TemplateStartIndex` | `int` | `0` |
 
 ## Dynamic Cells with ItemTemplate
