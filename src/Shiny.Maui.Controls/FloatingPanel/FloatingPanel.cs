@@ -33,6 +33,7 @@ public partial class FloatingPanel : ContentView
     readonly PanGestureRecognizer panGesture;
 
     double panStartHeight;
+    double panTotalY;
     bool isAnimating;
     int currentDetentIndex;
     int detentIndexBeforeKeyboard = -1;
@@ -95,7 +96,7 @@ public partial class FloatingPanel : ContentView
 
         // Pan gesture on handle only
         panGesture = new PanGestureRecognizer();
-        panGesture.PanUpdated += OnPanUpdated;
+        panGesture.PanUpdated += (_, e) => OnPan(e.StatusType, e.TotalY);
         dragHandleContainer.GestureRecognizers.Add(panGesture);
 
         // Content host inside scroll view
@@ -532,16 +533,20 @@ public partial class FloatingPanel : ContentView
 
     #region Pan Gesture (Handle Only)
 
-    void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
+    /// <summary>Drives the handle's pan without a platform gesture - what the tests use.</summary>
+    internal void Drag(GestureStatus status, double totalY) => OnPan(status, totalY);
+
+    void OnPan(GestureStatus status, double totalY)
     {
         if (isAnimating || IsLocked || !IsOpen) return;
 
         var available = GetAvailableHeight();
 
-        switch (e.StatusType)
+        switch (status)
         {
             case GestureStatus.Started:
                 panStartHeight = HeightRequest > 0 ? HeightRequest : Height;
+                panTotalY = 0;
                 this.AbortAnimation("OpenPanel");
                 this.AbortAnimation("ClosePanel");
                 this.AbortAnimation("SnapPanel");
@@ -550,7 +555,8 @@ public partial class FloatingPanel : ContentView
             case GestureStatus.Running:
                 // For bottom panel: dragging up (negative TotalY) = increase height
                 // For top panel: dragging down (positive TotalY) = increase height
-                var delta = IsBottom ? -e.TotalY : e.TotalY;
+                panTotalY = totalY;
+                var delta = IsBottom ? -totalY : totalY;
                 var newHeight = panStartHeight + delta;
 
                 var sortedDetents = GetSortedDetents();
@@ -562,8 +568,17 @@ public partial class FloatingPanel : ContentView
                 break;
 
             case GestureStatus.Completed:
+                // MAUI reports the end of a pan with TotalX/TotalY = 0 on every platform, so the
+                // distance has to come from the last Running update - with e.TotalY a swipe down
+                // never counted as one and the panel always snapped back instead of closing.
+                SnapToNearestDetent(panTotalY);
+                panTotalY = 0;
+                break;
+
             case GestureStatus.Canceled:
-                SnapToNearestDetent(e.TotalY);
+                // The system took the touch away: settle, but never dismiss on it.
+                SnapToNearestDetent(0);
+                panTotalY = 0;
                 break;
         }
     }
