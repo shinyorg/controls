@@ -123,10 +123,15 @@ public class TextPickerCell : CellBase
             HorizontalOptions = LayoutOptions.End
         };
 
+        // The picker lies over the whole cell at 1% opacity so it still takes the tap, but it still
+        // draws its text there - a faint copy of the value behind the title, easy to see on a dark
+        // theme. Transparent text keeps it tappable without that.
         hiddenPicker = new Picker
         {
             Opacity = 0.01,
-            Title = PickerTitle
+            Title = PickerTitle,
+            TextColor = Colors.Transparent,
+            TitleColor = Colors.Transparent
         };
         hiddenPicker.SelectedIndexChanged += (s, e) =>
         {

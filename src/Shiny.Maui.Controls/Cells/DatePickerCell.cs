@@ -111,7 +111,10 @@ public class DatePickerCell : CellBase
         hiddenPicker = new DatePicker
         {
             MinimumDate = MinimumDate,
-            MaximumDate = MaximumDate
+            MaximumDate = MaximumDate,
+            // On Android it lies over the whole cell at 1% opacity to take the tap; transparent text
+            // keeps it from drawing a faint copy of the date behind the title.
+            TextColor = Colors.Transparent
         };
 
         if (!Date.HasValue)
