@@ -539,9 +539,9 @@ public class ShinyButtonTests
     public void ChangingTheErrorIcon_RebuildsTheGlyph()
     {
         var button = new ShinyButton { Text = "Save", StateRevertDelay = TimeSpan.Zero };
-        var host = LeftHost(button);
 
         button.State = ButtonState.Error;
+        var host = LeftHost(button);
         var first = host.Content;
         first.ShouldNotBeNull();
 
@@ -615,8 +615,8 @@ public class ShinyButtonTests
 
         var (_, _, inner) = Parts(button);
         inner.ColumnDefinitions.Count.ShouldBe(4);
-        // The hosts are back in the grid rather than orphaned in the icon stack.
-        inner.Children.OfType<ContentView>().Count().ShouldBe(3);
+        // The icon's host is back in the grid rather than orphaned in the icon stack.
+        inner.Children.OfType<ContentView>().Single().Content.ShouldNotBeNull();
         inner.Children.OfType<HorizontalStackLayout>().ShouldBeEmpty();
     }
 
@@ -639,8 +639,46 @@ public class ShinyButtonTests
         button.LeftIcon = "b.png";
 
         removed.ShouldBe(0);
-        inner.Children.OfType<ContentView>().Count().ShouldBe(3);
+        inner.Children.OfType<ContentView>().Count().ShouldBe(1);
         LeftHost(button).Content.ShouldNotBeNull();
+    }
+
+    /// <summary>
+    /// A hidden view still gets a handler and a native view, so the empty slots stay out of the tree:
+    /// a plain text button in a list row would otherwise build three empty hosts and the busy overlay
+    /// for every row.
+    /// </summary>
+    [Fact]
+    public void TextOnlyButton_CarriesNoEmptySlots()
+    {
+        var button = new ShinyButton { Text = "Open" };
+        var (_, root, inner) = Parts(button);
+
+        inner.Children.Count.ShouldBe(1);
+        inner.Children[0].ShouldBeOfType<Label>();
+        root.Children.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void EmptySlots_JoinTheTreeWhenTheyShowSomething()
+    {
+        var button = new ShinyButton { Text = "Open", BusyMode = ButtonBusyMode.KeepContent, StateRevertDelay = TimeSpan.Zero };
+        var (_, root, inner) = Parts(button);
+
+        button.State = ButtonState.Busy;
+        inner.Children.OfType<ContentView>().Single().Content.ShouldNotBeNull();
+
+        button.State = ButtonState.Normal;
+        inner.Children.OfType<ContentView>().ShouldBeEmpty();
+
+        button.BusyMode = ButtonBusyMode.ReplaceContent;
+        button.State = ButtonState.Busy;
+        var overlay = root.Children.OfType<ContentView>().Single();
+        overlay.IsVisible.ShouldBeTrue();
+        overlay.Content.ShouldNotBeNull();
+
+        button.State = ButtonState.Normal;
+        overlay.IsVisible.ShouldBeFalse();
     }
 
     [Fact]
