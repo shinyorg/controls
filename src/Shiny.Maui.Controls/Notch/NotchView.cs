@@ -215,10 +215,13 @@ public partial class NotchView : Grid
     protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
     {
         // The width the parent offers is the cap for content that would otherwise run off the edge.
+        // The constraint still includes our own margin (MAUI takes it off later, in ComputeDesiredSize), so
+        // take it off here too, or a notch with a side margin is as wide as the parent and runs over it.
         // Only a real change is worth a remeasure: during a morph the parent asks on every frame.
-        if (this.FollowsOfferedWidth && !Double.IsInfinity(widthConstraint) && widthConstraint > 0 && Math.Abs(widthConstraint - this.availableWidth) > 0.5)
+        var offered = widthConstraint - this.Margin.HorizontalThickness;
+        if (this.FollowsOfferedWidth && !Double.IsInfinity(offered) && offered > 0 && Math.Abs(offered - this.availableWidth) > 0.5)
         {
-            this.availableWidth = widthConstraint;
+            this.availableWidth = offered;
             this.ScheduleRefresh();
         }
         return base.MeasureOverride(widthConstraint, heightConstraint);
