@@ -2,7 +2,7 @@
 
 [← All Shiny Controls](../../README.md)
 
-A service-first toast notification system — inject `IToaster` (registered by `UseShinyControls()`) and call from code. No XAML or OverlayHost required. The overlay auto-attaches to the current page on first use.
+A service-first toast notification system — inject `IToaster` (registered by `UseShinyControls()`) and call from code. No XAML or OverlayHost required. The overlay auto-attaches to the current page. On MAUI every `ContentPage` gets the wrapper it draws into as the page is handed its native view, so the first toast on a page that is already showing does not move the page's content (which used to rebuild its native views, reset bound lists and, on Android, shift the page for a frame).
 
 ```csharp
 using Shiny.Maui.Controls.Toast;

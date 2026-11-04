@@ -1,3 +1,5 @@
+using Microsoft.Maui.Handlers;
+
 namespace Shiny.Maui.Controls.Infrastructure;
 
 /// <summary>
@@ -249,6 +251,40 @@ static class PageOverlay
     {
         var page = FindPage(anchor);
         return page is null ? null : GetOrCreateRoot(page);
+    }
+
+
+    static int wrapsBeforeRender;
+
+    /// <summary>
+    /// Installs the overlay root on every <see cref="ContentPage"/> as its handler maps the page's
+    /// content - the one point where the move is free. Registered once by <c>UseShinyControls</c>.
+    /// </summary>
+    /// <remarks>
+    /// Installing the root later re-parents content that is already on screen: every native view
+    /// under it is detached and attached again, the content's inherited binding context drops to
+    /// null and back (a list empties and refills), and on Android the moved views draw one frame
+    /// without their window insets. A control that knows it will need the root - a walkthrough, an
+    /// autocomplete - installs it at load, but a toast, a dialog or confetti can turn up on any page
+    /// at any time, so the first one on a page paid for all of that. At this point the page's own
+    /// container exists and its content has no native views yet, so the root costs nothing more than
+    /// one grid. Content set later goes through the same mapping and is wrapped the same way.
+    /// </remarks>
+    internal static void WrapBeforeRender()
+    {
+        if (Interlocked.Exchange(ref wrapsBeforeRender, 1) == 1)
+            return;
+
+        PageHandler.Mapper.ModifyMapping<IContentView, IPageHandler>(nameof(IContentView.Content), static (handler, view, previous) =>
+        {
+            if (view is ContentPage { Content: View and not ShinyOverlayRoot } page && object.ReferenceEquals(page.Handler, handler))
+            {
+                // Setting the page's content re-enters this mapping with the root, and that pass maps it.
+                GetOrCreateRoot(page);
+                return;
+            }
+            previous?.Invoke(handler, view);
+        });
     }
 
 

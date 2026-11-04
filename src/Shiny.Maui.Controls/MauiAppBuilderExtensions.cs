@@ -90,6 +90,10 @@ public static class ControlsMauiAppBuilderExtensions
         // any page realizes its visual tree.
         ShinyThemeManager.HookHandlers();
 
+        // Every page gets its overlay root before it renders, so the first toast, dialog or tooltip
+        // on a page finds it in place instead of moving the page's content - see PageOverlay.
+        PageOverlay.WrapBeforeRender();
+
 #if ANDROID || IOS || MACCATALYST || WINDOWS
         builder.ConfigureMauiHandlers(handlers =>
         {
