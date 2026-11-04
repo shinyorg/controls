@@ -72,7 +72,7 @@ static unsafe class NotchWindowPlatform
             Gtk4Interop.WidgetSetVisible(window, 0);
         });
 
-    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, double durationMs)
+    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, bool coverMenuBar, double durationMs)
         => QuickEntryPlatform.BeginInvokeOnMainThread(() =>
         {
             var window = QuickEntryPlatform.GetNativeHandleForGlow(platformWindow);

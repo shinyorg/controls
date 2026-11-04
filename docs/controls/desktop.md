@@ -194,7 +194,7 @@ var registration = hotKeys.Register("Ctrl+Shift+K", () => DoSomething());
 
 Puts a [`NotchView`](notch.md) at the **top-centre of the screen**, in a borderless window above every other app, and morphs the window to fit whatever content you give it. Works on **macOS (AppKit), Windows and Linux (GTK4)**.
 
-On a **MacBook** it lives in the **camera notch**, above the menu bar. The empty notch is exactly the size of the hardware cut-out (read from `NSScreen.AuxiliaryTopLeftArea`/`AuxiliaryTopRightArea`), so it disappears into it. Give it content and it grows down out of the notch, with the content padded below the camera housing. **Everywhere else** — a Mac display without a notch (or `UseHardwareNotch = false`), every Windows and Linux screen — it floats as an island centred at the top of the screen, `TopMargin` below the menu bar, a top-docked taskbar or a top panel. Set `TopMargin = 0` and `Shape = NotchShape.Notch` for a notch that hangs from the top edge instead.
+It lives on the **primary display** (the one chosen as main in Displays settings), moving when displays are plugged in or removed. On a **MacBook** whose built-in display is primary, it lives in the **camera notch**, above the menu bar. The empty notch is exactly the size of the hardware cut-out (read from `NSScreen.AuxiliaryTopLeftArea`/`AuxiliaryTopRightArea`), so it disappears into it. Give it content and it grows down out of the notch, with the content padded below the camera housing. **Everywhere else** — a Mac display without a notch (or `UseHardwareNotch = false`), every Windows and Linux screen — it floats as an island centred at the top of the screen, `TopMargin` below the menu bar, a top-docked taskbar or a top panel. Set `TopMargin = 0` and `Shape = NotchShape.Notch` for a notch that hangs from the top edge instead — on a Mac add `CoverMenuBar = true` so that edge is the screen's own top, over the menu bar, rather than the bottom of the menu bar.
 
 ```csharp
 #if !ANDROID && !IOS && !MACCATALYST
@@ -236,6 +236,7 @@ notch.PointerExited += (_, _) => ShowPeek();
 |---|---|---|
 | `UseHardwareNotch` | true | Hug the camera notch when the screen has one (macOS) |
 | `TopMargin` | 8 | Gap between the top of the usable screen area and the floating island |
+| `CoverMenuBar` | false | macOS without a notch: measure `TopMargin` from the screen's top edge, so the island sits over the menu bar |
 | `MaxWidth` / `MaxHeight` | 640 / 480 | Caps, in points |
 | `MorphDuration` | 300 | Window reshape time, ms. `0` snaps |
 | `JoinAllSpaces` | true | Every Space and over full-screen apps (macOS); every workspace (Linux X11); ignored on Windows |

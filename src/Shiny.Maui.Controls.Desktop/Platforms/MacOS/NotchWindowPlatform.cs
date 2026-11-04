@@ -23,8 +23,8 @@ static class NotchWindowPlatform
     public static bool IsTransparent => true;
 
     /// <summary>
-    /// The notch on the screen that has one (the built-in display), measured from the menu-bar areas
-    /// either side of it. Falls back to <see cref="NotchGeometry.None"/> on displays without a notch
+    /// The notch on the primary display, if it has one (the built-in display, undocked), measured from the
+    /// menu-bar areas either side of it. Falls back to <see cref="NotchGeometry.None"/> when it has none
     /// and on macOS before 12, which predates the API.
     /// </summary>
     public static NotchGeometry GetGeometry() => MacMainThread.Invoke(() =>
@@ -150,14 +150,14 @@ static class NotchWindowPlatform
 
     static readonly CAMediaTimingFunction MorphTiming = CAMediaTimingFunction.FromControlPoints(1f / 3f, 1.3f, 2f / 3f, 1f);
 
-    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, double durationMs)
+    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, bool coverMenuBar, double durationMs)
     {
         if (platformWindow is not NSWindow window)
             return;
 
         MacMainThread.Invoke(() =>
         {
-            var frame = FrameFor(width, height, hugNotch, topMargin);
+            var frame = FrameFor(width, height, hugNotch, topMargin, coverMenuBar);
             Frozen.TryGetValue(window.Handle, out var frozen);
             if (durationMs <= 0 || !window.IsVisible)
             {
@@ -356,31 +356,40 @@ static class NotchWindowPlatform
 
     /// <summary>
     /// Top-centre of the notch screen. Hugging the notch, the top edge is the screen's own top edge —
-    /// over the menu bar, inside the cut-out; otherwise it sits just below the menu bar. AppKit's origin
-    /// is bottom-left, so the y is the top minus the height.
+    /// over the menu bar, inside the cut-out; otherwise it sits <paramref name="topMargin"/> below the
+    /// menu bar, or below the screen's top edge (over the menu bar) with <paramref name="coverMenuBar"/>.
+    /// AppKit's origin is bottom-left, so the y is the top minus the height.
     /// </summary>
-    static CGRect FrameFor(double width, double height, bool hugNotch, double topMargin)
+    static CGRect FrameFor(double width, double height, bool hugNotch, double topMargin, bool coverMenuBar)
     {
-        var screen = (hugNotch ? NotchScreen() : null) ?? NSScreen.MainScreen ?? NSScreen.Screens[0];
+        var screen = (hugNotch ? NotchScreen() : null) ?? PrimaryScreen();
         var w = (nfloat)width;
         var h = (nfloat)height;
         var x = screen.Frame.X + ((screen.Frame.Width - w) / 2);
         var top = hugNotch
             ? screen.Frame.Y + screen.Frame.Height
-            : screen.VisibleFrame.Y + screen.VisibleFrame.Height - (nfloat)topMargin;
+            : coverMenuBar
+                ? screen.Frame.Y + screen.Frame.Height - (nfloat)topMargin
+                : screen.VisibleFrame.Y + screen.VisibleFrame.Height - (nfloat)topMargin;
         return new CGRect(Math.Round(x), Math.Round(top - h), w, h);
     }
 
+    /// <summary>
+    /// The primary display - the one chosen as main in Displays settings (Screens[0], whose origin is
+    /// 0,0) - which is where the notch always lives. Not <see cref="NSScreen.MainScreen"/>: that is the
+    /// screen with the key window, so with two monitors the notch would follow whichever one was clicked
+    /// in last. Docked with the lid shut, this is the main monitor; undocked, the built-in display.
+    /// </summary>
+    static NSScreen PrimaryScreen() => NSScreen.Screens.FirstOrDefault() ?? NSScreen.MainScreen!;
+
+    /// <summary>
+    /// The primary display, if it has a camera notch. A notched built-in display that isn't primary (the
+    /// lid open beside a main monitor) is passed over, so the notch stays on the main display.
+    /// </summary>
     static NSScreen? NotchScreen()
     {
-        if (OperatingSystem.IsMacOSVersionAtLeast(12))
-        {
-            foreach (var screen in NSScreen.Screens)
-            {
-                if (screen.SafeAreaInsets.Top > 0)
-                    return screen;
-            }
-        }
+        if (OperatingSystem.IsMacOSVersionAtLeast(12) && NSScreen.Screens.FirstOrDefault() is { } primary && primary.SafeAreaInsets.Top > 0)
+            return primary;
         return null;
     }
 }

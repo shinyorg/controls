@@ -91,7 +91,7 @@ static class NotchWindowPlatform
         Win32.ShowWindow(hwnd, Win32.SW_HIDE);
     }
 
-    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, double durationMs)
+    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, bool coverMenuBar, double durationMs)
     {
         if (platformWindow is not WinUIWindow window)
             return;

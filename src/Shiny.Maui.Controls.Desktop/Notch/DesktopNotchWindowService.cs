@@ -322,6 +322,7 @@ sealed class DesktopNotchWindowService : INotchWindowService, IDisposable
             CornersFor(size, this.notch?.CornerRadius ?? -1, this.notch?.Shape ?? NotchShape.Island),
             this.geometry.HasNotch,
             this.options.TopMargin,
+            this.options.CoverMenuBar,
             durationMs
         );
     }

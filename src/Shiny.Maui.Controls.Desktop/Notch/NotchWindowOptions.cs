@@ -19,6 +19,15 @@ public sealed class NotchWindowOptions
     /// </summary>
     public double TopMargin { get; set; } = 8;
 
+    /// <summary>
+    /// macOS, on a display without a notch (or with <see cref="UseHardwareNotch"/> off): measure
+    /// <see cref="TopMargin"/> from the screen's top edge rather than from the bottom of the menu bar,
+    /// so the island sits over the menu bar the way the hardware notch does. With a 0 margin and
+    /// <see cref="NotchShape.Notch"/>, an external monitor gets a notch flush with its top edge.
+    /// Ignored on Windows and Linux.
+    /// </summary>
+    public bool CoverMenuBar { get; set; }
+
     /// <summary>The widest the notch grows, in points.</summary>
     public double MaxWidth { get; set; } = 640;
 
