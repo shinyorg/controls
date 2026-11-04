@@ -45,7 +45,7 @@ public partial class ShinyButton
         // The button carries the accessible name; a nested node would make a screen reader announce
         // the label twice.
         AutomationProperties.SetIsInAccessibleTree(icon, false);
-        return icon;
+        return Infrastructure.InternalChrome.Insulate(icon);
     }
 
     void TintMotionIcon(View? view, Color? explicitColor)

@@ -156,6 +156,12 @@ Every explicit colour property (`ButtonBackgroundColor`, `TextColor`, `BorderCol
 short-circuits its token. **Leave them unset unless you mean to pin the colour** — an explicit colour
 survives every theme swap.
 
+For per-state colours (MAUI), put the `VisualStateManager` groups on a `Style TargetType="shiny:ShinyButton"`
+and set the button's own properties (`TextColor`, `ButtonBackgroundColor`, …) in each state. Never try to
+restyle the inner `Label`/`Border`: the button insulates every part it builds from implicit primitive
+styles (`InternalChrome.Insulate`), so app-wide `Label`/`Border` visual states do not reach them. Disabled
+is expressed once as `DisabledOpacity`.
+
 ## Properties (MAUI)
 
 **Text** — `Text`, `TextColor?`, `FontSize` (15), `FontFamily?`, `FontAttributes`,

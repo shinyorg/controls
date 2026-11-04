@@ -59,6 +59,14 @@ This is that assembly, done once and at parity on both hosts.
 <shiny:ShinyButton Text="Brand"  ButtonBackgroundColor="#E91E63" TextColor="White" />
 ```
 
+On MAUI, per-state colours belong on the `ShinyButton` itself. A `VisualStateManager` group in a
+`Style TargetType="shiny:ShinyButton"` can set `TextColor`, `ButtonBackgroundColor`, `BorderColor` and
+`IconColor` per state (`Normal`, `Disabled`, `PointerOver`), and the button carries them to its parts.
+The label, border, icon images and busy spinner the button builds are insulated from the app's
+implicit `Label`/`Border`/`Image`/`ActivityIndicator` styles, so the template's gray `Disabled` label
+colour no longer overrides the button's `TextColor`. Disabled is shown once, as `DisabledOpacity` on
+the whole surface. Views you pass through `LeftIconView`/`RightIconView` are yours and keep your styles.
+
 Blazor mirrors the parameters one-for-one. There is no `ICommand` on the web, so the command-state
 integration is MAUI-only; its equivalent is that `Clicked` is awaited — an `async` handler holds the
 button busy for as long as it runs, and a synchronous one never flickers. A handler that throws puts the button into `Error` (`ShowErrorOnFault`) and the exception is still rethrown — the button reflects a fault, it does not swallow it. An exception escaping a Blazor event handler raises the error UI on WebAssembly and ends the circuit on Blazor Server, so catch failures in the handler and set `State="ButtonState.Error"` (bound with `@bind-State`) yourself.

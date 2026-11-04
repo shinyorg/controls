@@ -57,4 +57,28 @@ public static class InternalChrome
         VisualStateManager.SetVisualStateGroups(view, [common]);
         return view;
     }
+
+
+    /// <summary>
+    /// Gives <paramref name="view"/> an empty CommonStates group: the same insulation as
+    /// <see cref="Neutralize{T}"/>, but with no Disabled dim of its own. For a part whose owner already
+    /// expresses Disabled itself (ShinyButton dims its whole surface), where a second dim would compound.
+    /// </summary>
+    /// <remarks>
+    /// The case that found it: the template's implicit <c>Label</c> style sets a Gray
+    /// <c>TextColor</c> in its Disabled state, and a visual-state setter beats a local value, so a
+    /// disabled ShinyButton's label ignored its own <c>TextColor</c> (issue #65).
+    /// </remarks>
+    public static T Insulate<T>(this T view)
+        where T : VisualElement
+    {
+        var common = new VisualStateGroup { Name = "CommonStates" };
+
+        common.States.Add(new VisualState { Name = "Normal" });
+        common.States.Add(new VisualState { Name = "PointerOver" });
+        common.States.Add(new VisualState { Name = "Disabled" });
+
+        VisualStateManager.SetVisualStateGroups(view, [common]);
+        return view;
+    }
 }

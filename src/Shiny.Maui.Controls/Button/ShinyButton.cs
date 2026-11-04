@@ -84,7 +84,7 @@ public partial class ShinyButton : ContentView, ITapTarget
             VerticalOptions = LayoutOptions.Center,
             HorizontalOptions = LayoutOptions.Center,
             IsVisible = false
-        };
+        }.Insulate();
 
         this.leftHost = NewSlot();
         this.rightHost = NewSlot();
@@ -143,7 +143,14 @@ public partial class ShinyButton : ContentView, ITapTarget
             Content = this.rootGrid,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill
-        };
+        }.Insulate();
+
+        // Every part the button builds itself is insulated from the app's implicit styles for that
+        // primitive type. The parts inherit the button's disabled state, so they enter their own
+        // Disabled visual state, and a visual-state setter beats the colours the button writes locally:
+        // the MAUI template's Label style turned a disabled button's TextColor gray (issue #65). The
+        // button expresses Disabled itself (DisabledOpacity on the border), so the parts get no dim of
+        // their own. Views a consumer supplies through the *IconView properties are left alone.
 
         // The gesture goes on the button itself, not on the inner Border. The two look equivalent -
         // the Border fills the ContentView, so the hit area is identical - but a recognizer on a child
@@ -396,7 +403,7 @@ public partial class ShinyButton : ContentView, ITapTarget
                 HeightRequest = this.IconSize,
                 HorizontalOptions = LayoutOptions.Center,
                 VerticalOptions = LayoutOptions.Center
-            };
+            }.Insulate();
         }
 
         return null;
@@ -463,7 +470,7 @@ public partial class ShinyButton : ContentView, ITapTarget
                 HeightRequest = this.IconSize,
                 HorizontalOptions = LayoutOptions.Center,
                 VerticalOptions = LayoutOptions.Center
-            };
+            }.Insulate();
         }
 
         SizeIcon(this.busyIndicator, this.IconSize);

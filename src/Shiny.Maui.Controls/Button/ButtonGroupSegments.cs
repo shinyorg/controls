@@ -39,7 +39,7 @@ public class ButtonGroupText : ContentView, IView
             HorizontalTextAlignment = TextAlignment.Center,
             VerticalTextAlignment = TextAlignment.Center,
             LineBreakMode = LineBreakMode.NoWrap
-        }.WithFontSize(ShinyThemeKeys.Type.LabelLargeSize);
+        }.WithFontSize(ShinyThemeKeys.Type.LabelLargeSize).Insulate();
         this.label.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
 
         this.rootGrid = new Grid();
@@ -51,7 +51,7 @@ public class ButtonGroupText : ContentView, IView
             Content = this.rootGrid,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill
-        }.WithStrokeThickness(ShinyThemeKeys.Border.Thin);
+        }.WithStrokeThickness(ShinyThemeKeys.Border.Thin).Insulate();
 
         this.border.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerLow);
         ThemeBrush.Apply(this.border, Border.StrokeProperty, ShinyThemeKeys.Brush.Outline);
