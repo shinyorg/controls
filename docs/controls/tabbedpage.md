@@ -121,6 +121,22 @@ The bar comes in two styles. `BarStyle` is `Docked` by default — welded to the
 
 `BarBackgroundOpacity` (`1` by default) makes the bar translucent. It fades the **background only** — icons, labels, badges and the indicator stay fully opaque, because a bar whose tabs fade with it is unreadable long before the background gets interesting. The alpha goes on the colour rather than on a view (opacity multiplies down the tree, so a child cannot undo it), multiplies into any alpha the colour already had, and follows a theme swap. Pair it with `ContentBehindTabBar`, or `BarStyle="Floating"` which implies it — without content running underneath there is nothing behind it to see. For real glass rather than a translucent fill, see `BarMaterial` below.
 
+### Hiding the bar
+
+`TabBarIsVisible` (page) / `IsBarVisible` (bar) **animates**: the bar slides off the bottom edge and back, and while it is gone the content takes its space. A docked bar hands its row over before it starts moving and takes it back only after it has finished, so the content never visibly jumps. `TabBarHideAnimation` / `HideAnimation` picks `Slide` (default), `Fade` or `None`; `TabBarHideDuration` / `HideAnimationDuration` is `250` ms. A hidden bar ignores taps and closes any open menu.
+
+```xml
+<shiny:ShinyTabbedPage TabBarIsVisible="{Binding ShowTabs}" TabBarHideAnimation="Slide">
+```
+
+To hide it while the user scrolls, set `shiny:ShinyTabs.HideOnScroll="True"` on a `ScrollView` or a `CollectionView`/`ItemsView` in a tab. The bar slides away after `HideOnScrollThreshold` (24) units of downward scrolling and comes back after the same distance upward, at the top of the list, or on a tab change. It works under a `ShinyTabbedPage` and under Shell with `ShinyTabBarBehavior`. It drives a separate internal flag and never writes `IsBarVisible`, so a bar you hid on purpose is never re-shown by a scroll, and a binding on the property is never overwritten.
+
+```xml
+<CollectionView ItemsSource="{Binding Items}" shiny:ShinyTabs.HideOnScroll="True" />
+```
+
+`IsVisible` still removes the bar instantly, with no animation.
+
 ### Liquid Glass (iOS 26)
 
 `BarMaterial` swaps the painted background for real Apple glass — a `UIGlassEffect` behind the bar, not a blur approximation:

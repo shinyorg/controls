@@ -27,6 +27,17 @@ public partial class TabsDemoPage : ShinyTabbedPage
             this.viewModel.Status = $"Ran \"{e.Action.Text}\" from the centre menu.";
     }
 
+    void OnHideBar(object? sender, EventArgs e) => this.TabBarIsVisible = false;
+
+    void OnShowBar(object? sender, EventArgs e) => this.TabBarIsVisible = true;
+
+    void OnHideSlide(object? sender, EventArgs e) => this.TabBarHideAnimation = TabBarHideAnimation.Slide;
+
+    void OnHideFade(object? sender, EventArgs e) => this.TabBarHideAnimation = TabBarHideAnimation.Fade;
+
+    void OnHideOnScrollToggled(object? sender, ToggledEventArgs e)
+        => ShinyTabs.SetHideOnScroll(this.HomeScroller, e.Value);
+
     void OnBarDocked(object? sender, EventArgs e) => this.BarStyle = TabBarStyle.Docked;
 
     void OnBarFloating(object? sender, EventArgs e) => this.BarStyle = TabBarStyle.Floating;

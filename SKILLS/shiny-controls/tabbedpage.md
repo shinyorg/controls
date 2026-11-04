@@ -128,11 +128,30 @@ Content: `Tabs`, `Transition`, `TransitionDuration`, `TransitionEasing`, `CacheT
 `SyncTitleWithTab` (default true — the page's `Title` follows the selected tab), `ContentHost` (the
 `StateView` underneath, for anything not passed through).
 
-Bar: `TabBarIsVisible`, `ContentBehindTabBar` (full-bleed under a translucent bar — leave room at the
+Bar: `TabBarIsVisible` (animated — see "Hiding the bar"), `TabBarHideAnimation` (`Slide`/`Fade`/`None`),
+`TabBarHideDuration` (ms, 250), `ContentBehindTabBar` (full-bleed under a translucent bar — leave room at the
 bottom of your own content), `CenterButton`, `IndicatorStyle`, `LabelMode`, `LabelPosition`, `TabTemplate`, `SelectedColor`,
 `UnselectedColor`, `IndicatorColor`, `BarHeight`, `BarBackgroundColor`, `BarCornerRadius`,
 `BarMargin`, `BarStyle`, `BarMaterial`, `BarGlassTint`, `HasShadow`, `IconSize`, `AnimateIcons`, and
 `TabBar` itself for everything else.
+
+### Hiding the bar
+
+`TabBarIsVisible` (page) / `ShinyTabBar.IsBarVisible` animate — a slide off the bottom by default —
+and the content takes the bar's space while it is gone. Use these, not `IsVisible` (instant, no
+animation). For scroll-driven hiding, put `shiny:ShinyTabs.HideOnScroll="True"` on the tab's
+scroller; it never writes `IsBarVisible`, so don't try to bind both to the same flag to "sync" them.
+
+```xml
+<shiny:ShinyTabbedPage TabBarIsVisible="{Binding ShowTabs}" TabBarHideAnimation="Slide" TabBarHideDuration="250">
+    <shiny:ShinyTabItem Title="Feed" Icon="home">
+        <CollectionView ItemsSource="{Binding Items}" shiny:ShinyTabs.HideOnScroll="True" />
+    </shiny:ShinyTabItem>
+</shiny:ShinyTabbedPage>
+```
+
+Under Shell (`ShinyTabBarBehavior`) the same attached property works; animate a manual hide with
+`Bar.IsBarVisible`.
 
 ## ShinyTabItem
 
@@ -346,6 +365,8 @@ Set on a page, a content view, or a `ShellContent`/`Tab`.
 | `Actions` | The centre menu's rows. Needs the `TabActionCollection` wrapper in XAML. |
 | `MenuContent` / `MenuContentTemplate` | Custom centre-menu content. |
 | `IsTabBarVisible` | Hides the whole bar while that page is showing. |
+| `HideOnScroll` | On a `ScrollView`/`CollectionView`/`ItemsView`: slide the bar away while scrolling down, back on scroll up / top / tab change. |
+| `HideOnScrollThreshold` | Units of travel in one direction before it hides or shows. Default 24. |
 
 **Where to put a badge.** On the `ShinyTabItem` or the `ShellContent` when the count must show on a
 tab the user has never opened — there is no page to ask yet. On the page when the page computes it.

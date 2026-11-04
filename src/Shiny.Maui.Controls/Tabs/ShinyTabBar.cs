@@ -430,6 +430,10 @@ public partial class ShinyTabBar : Grid
         // overflow menu, GoTo, or a binding on SelectedIndex.
         this.IsMenuOpen = false;
 
+        // A bar the user scrolled away comes back with the new tab: that tab's content has not been
+        // scrolled, and a screen nobody has touched yet starts with its chrome showing.
+        this.ResetScrollHidden();
+
         this.ApplyAllCellStates(animateIndicator: true);
 
         // The new tab may declare a menu, or none. Here as well as on PageContext because a bar with

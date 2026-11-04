@@ -51,7 +51,31 @@ public partial class ShinyTabbedPage
     /// <summary>Backing store for <see cref="TabBarIsVisible"/>.</summary>
     public static readonly BindableProperty TabBarIsVisibleProperty = BindableProperty.Create(
         nameof(TabBarIsVisible), typeof(bool), typeof(ShinyTabbedPage), true,
-        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.IsVisible = (bool)n));
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.IsBarVisible = (bool)n));
+
+    /// <summary>Backing store for <see cref="TabBarHideAnimation"/>.</summary>
+    public static readonly BindableProperty TabBarHideAnimationProperty = BindableProperty.Create(
+        nameof(TabBarHideAnimation), typeof(TabBarHideAnimation), typeof(ShinyTabbedPage), Controls.TabBarHideAnimation.Slide,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.HideAnimation = (TabBarHideAnimation)n));
+
+    /// <summary>Backing store for <see cref="TabBarHideDuration"/>.</summary>
+    public static readonly BindableProperty TabBarHideDurationProperty = BindableProperty.Create(
+        nameof(TabBarHideDuration), typeof(uint), typeof(ShinyTabbedPage), 250u,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ShinyTabbedPage>(b, page => page.tabBar.HideAnimationDuration = (uint)n));
+
+    /// <inheritdoc cref="ShinyTabBar.HideAnimation"/>
+    public TabBarHideAnimation TabBarHideAnimation
+    {
+        get => (TabBarHideAnimation)this.GetValue(TabBarHideAnimationProperty);
+        set => this.SetValue(TabBarHideAnimationProperty, value);
+    }
+
+    /// <inheritdoc cref="ShinyTabBar.HideAnimationDuration"/>
+    public uint TabBarHideDuration
+    {
+        get => (uint)this.GetValue(TabBarHideDurationProperty);
+        set => this.SetValue(TabBarHideDurationProperty, value);
+    }
 
     /// <summary>Backing store for <see cref="ContentBehindTabBar"/>.</summary>
     public static readonly BindableProperty ContentBehindTabBarProperty = BindableProperty.Create(
@@ -282,7 +306,12 @@ public partial class ShinyTabbedPage
         set => this.SetValue(CacheTabContentProperty, value);
     }
 
-    /// <summary>Hides the whole bar. The content keeps its row unless <see cref="ContentBehindTabBar"/> is on.</summary>
+    /// <summary>
+    /// Shows or hides the whole bar, animated with <see cref="TabBarHideAnimation"/> (a slide off the
+    /// bottom by default). The content takes over the bar's space while it is hidden. Bind it to a
+    /// view model flag, or set <see cref="ShinyTabs.HideOnScrollProperty"/> on a scroller to hide the
+    /// bar while the user scrolls down.
+    /// </summary>
     public bool TabBarIsVisible
     {
         get => (bool)this.GetValue(TabBarIsVisibleProperty);

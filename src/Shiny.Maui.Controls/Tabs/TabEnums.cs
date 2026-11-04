@@ -180,3 +180,17 @@ public enum TabBarMaterial
     /// </summary>
     GlassClear
 }
+
+
+/// <summary>How a <see cref="ShinyTabBar"/> leaves the screen and comes back when <see cref="ShinyTabBar.IsBarVisible"/> changes.</summary>
+public enum TabBarHideAnimation
+{
+    /// <summary>Slides off the bottom edge and back up. The default.</summary>
+    Slide,
+
+    /// <summary>Fades out in place and back in.</summary>
+    Fade,
+
+    /// <summary>Disappears and reappears with no animation.</summary>
+    None
+}

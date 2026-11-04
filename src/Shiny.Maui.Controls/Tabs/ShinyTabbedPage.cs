@@ -123,13 +123,15 @@ public partial class ShinyTabbedPage : ContentPage, ShinyTabBar.ITabMenuHost
     /// separate opt-in - it is what floating means. A bar that ended up on glass is the same
     /// argument: glass with nothing behind it is an expensive way to draw a grey rectangle. Both are
     /// OR-ed with <see cref="ContentBehindTabBar"/> rather than driving it, because a plain docked
-    /// bar can want the same thing (a translucent one over a photo, say).
+    /// bar can want the same thing (a translucent one over a photo, say). A bar that is hidden, or
+    /// part-way through hiding or showing, gives its row up as well — see <see cref="ShinyTabBar.OccupiesRow"/>.
     /// </remarks>
     internal void ApplyBarPlacement()
     {
         var behind = this.ContentBehindTabBar
             || this.tabBar.BarStyle == TabBarStyle.Floating
-            || this.tabBar.GlassActive;
+            || this.tabBar.GlassActive
+            || !this.tabBar.OccupiesRow;
         Grid.SetRowSpan(this.contentHost, behind ? 2 : 1);
     }
 

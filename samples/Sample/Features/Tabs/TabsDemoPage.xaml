@@ -48,7 +48,7 @@
 
     <!-- Tab 1 — inline content, built with the markup. -->
     <shiny:ShinyTabItem Title="Home" Icon="home" Route="home">
-        <ScrollView>
+        <ScrollView x:Name="HomeScroller" shiny:ShinyTabs.HideOnScroll="True">
             <VerticalStackLayout Padding="24" Spacing="14">
                 <Label Text="An improved TabbedPage" FontSize="22" FontAttributes="Bold" />
                 <Label FontSize="14" TextColor="Gray"
@@ -76,6 +76,20 @@
                     <Button Text="Docked" Clicked="OnBarDocked" AutomationId="BarDocked" />
                     <Button Text="Floating" Clicked="OnBarFloating" AutomationId="BarFloating" />
                 </HorizontalStackLayout>
+
+                <Label Text="Hide the bar" FontAttributes="Bold" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Hide" Clicked="OnHideBar" AutomationId="BarHide" />
+                    <Button Text="Show" Clicked="OnShowBar" AutomationId="BarShow" />
+                    <Button Text="Slide" Clicked="OnHideSlide" AutomationId="BarHideSlide" />
+                    <Button Text="Fade" Clicked="OnHideFade" AutomationId="BarHideFade" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="8">
+                    <Switch x:Name="HideOnScrollSwitch" IsToggled="True" Toggled="OnHideOnScrollToggled" AutomationId="BarHideOnScroll" VerticalOptions="Center" />
+                    <Label Text="Hide while scrolling down" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label FontSize="12" TextColor="Gray"
+                       Text="TabBarIsVisible slides the bar away and back, and the content takes its space while it is gone. shiny:ShinyTabs.HideOnScroll on this page's ScrollView hides it as you scroll down and brings it back as you scroll up, reach the top, or change tabs. It never overrides a bar you hid on purpose." />
 
                 <Label Text="Bar transparency" FontAttributes="Bold" />
                 <HorizontalStackLayout Spacing="8">

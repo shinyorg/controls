@@ -14,7 +14,7 @@ namespace Shiny.Maui.Controls;
 /// are readable only once it has been realized — so a badge that must show on a tab the user has
 /// never opened belongs on the shell content, and one the page computes belongs on the page.</para>
 /// </remarks>
-public static class ShinyTabs
+public static partial class ShinyTabs
 {
     /// <summary>
     /// Badge text for the tab showing this element. An empty string draws a dot; null draws nothing.
