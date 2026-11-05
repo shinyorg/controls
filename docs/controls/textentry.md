@@ -110,6 +110,14 @@ iOS uses the real `UIResponder.InputAccessoryView`, so it rides the keyboard ani
 
 The same bar also serves multi-line inputs — it is what puts the markdown editor's formatting toolbar on the keyboard (see [Markdown Controls](markdown.md)). `KeyboardAccessoryView.BarContent` replaces the item row with a layout of your own (a horizontal scroller, say, when there are more items than fit); `KeyboardAccessoryItem`s inside it are wired to the focused field exactly like the ones in `Items`.
 
+### Native chrome and Android Material 3 (MAUI)
+
+TextEntry draws its own border, fill and floating label, so the native text field inside it is stripped of all of its own chrome. The same applies to every Shiny control built on that internal field: `TagEntry`, `AutoCompleteEntry`, `EntryCell`, the quick entry prompt and the multi-line borderless editors.
+
+- **Android with `<UseMaterial3>true</UseMaterial3>`**: MAUI swaps `Entry` and `Editor` onto Material 3 handlers (a `TextInputLayout` with a filled box, underline and its own floating hint). Shiny's internal fields stay on the classic handlers whatever the app opts into, so the box never appears and `Variant` behaves the same as on every other platform. Your own `Entry`s and `Editor`s still get Material 3.
+- **Windows**: the hover, focus and disabled states have no underline or fill either, not just the resting state. This is done by overriding the TextBox's theme resources on the field, so the template and any TextBox styling in your app are left alone.
+- **macOS (AppKit)**: the bezel, background and focus ring are removed by the `Shiny.Maui.Controls.Desktop` add-on, which is the package that supports the AppKit head.
+
 ### Automation ids (MAUI)
 
 Set `AutomationId` on the control and its parts are named after it, for UI tests (Appium, UI Automation, DevFlow). Without an id, the parts get none.

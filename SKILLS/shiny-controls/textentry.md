@@ -276,6 +276,10 @@ When `Mask` is set:
 </shiny:TextEntry>
 ```
 
+### Native chrome (Material 3, Windows, macOS)
+
+Never strip platform chrome off TextEntry yourself (no handler mappers, `Style` swaps or `OnHandlerChanged` tweaks). The internal field is already borderless on every head. On Android with `<UseMaterial3>true</UseMaterial3>` it stays on MAUI's classic `EntryHandler`/`EditorHandler`, so no `TextInputLayout` box or native floating hint shows, and `Variant` is never changed for you. On Windows the hover/focus/disabled underline and fill are removed via theme-resource overrides. On macOS AppKit, reference `Shiny.Maui.Controls.Desktop`, which polishes the `NSTextField`. The same applies to TagEntry, AutoCompleteEntry, EntryCell and the quick entry prompt.
+
 ## Blazor
 
 **Namespace**: `Shiny.Blazor.Controls`

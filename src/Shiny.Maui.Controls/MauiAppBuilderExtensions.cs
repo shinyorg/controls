@@ -127,6 +127,22 @@ public static class ControlsMauiAppBuilderExtensions
             .OnKeyUp((activity, keyCode, e) => AndroidKeySource.OnKey(activity, keyCode, e, isUp: true))));
 #endif
 
+#if ANDROID
+        // Material 3 (<UseMaterial3>true</UseMaterial3>) maps Entry and Editor to EntryHandler2 and
+        // EditorHandler2: separate, *internal* handlers whose platform view is a TextInputLayout with
+        // its own filled box, underline and floating hint. Their mappers are not EntryHandler.Mapper /
+        // EditorHandler.Mapper, so none of the mappings below ran - the box came back inside TextEntry,
+        // TagEntry, AutoCompleteEntry and every EntryCell, the autofill opt-out silently stopped
+        // working, and the native floating hint fought TextEntry's own placeholder. These two are
+        // internal parts of controls that draw their own chrome, so they keep the classic handlers
+        // whatever the app opted into. An exact-type registration wins over MAUI's Entry/Editor one.
+        builder.ConfigureMauiHandlers(handlers =>
+        {
+            handlers.AddHandler<BorderlessEntry, EntryHandler>();
+            handlers.AddHandler<BorderlessEditor, EditorHandler>();
+        });
+#endif
+
         EntryHandler.Mapper.AppendToMapping("ShinyBorderless", (handler, view) =>
         {
             if (view is not BorderlessEntry)
@@ -142,6 +158,7 @@ public static class ControlsMauiAppBuilderExtensions
             handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
             handler.PlatformView.Background = null;
             handler.PlatformView.Padding = new Microsoft.UI.Xaml.Thickness(0);
+            StripWindowsInteractionChrome(handler.PlatformView);
 #endif
         });
 
@@ -185,11 +202,44 @@ public static class ControlsMauiAppBuilderExtensions
             handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
             handler.PlatformView.Background = null;
             handler.PlatformView.Padding = new Microsoft.UI.Xaml.Thickness(0);
+            StripWindowsInteractionChrome(handler.PlatformView);
 #endif
         });
 
         return builder;
     }
+
+#if WINDOWS
+    // The local BorderThickness/Background above only cover the resting state. The TextBox template's
+    // PointerOver, Focused and Disabled visual states set the border element's thickness, brush and
+    // fill from theme resources, which beat the template-bound local values - so a borderless entry
+    // grew the accent underline and a filled box the moment it was hovered or focused. Overriding
+    // those resources on the control itself is WinUI's own "lightweight styling" route, and unlike
+    // replacing the Style it leaves the template (and anything the app styles on TextBox) intact.
+    static void StripWindowsInteractionChrome(Microsoft.UI.Xaml.Controls.TextBox textBox)
+    {
+        var clear = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        var none = new Microsoft.UI.Xaml.Thickness(0);
+        var resources = textBox.Resources;
+
+        resources["TextControlBorderThemeThickness"] = none;
+        resources["TextControlBorderThemeThicknessFocused"] = none;
+
+        foreach (var key in WindowsChromeBrushKeys)
+            resources[key] = clear;
+    }
+
+    static readonly string[] WindowsChromeBrushKeys =
+    [
+        "TextControlBackgroundPointerOver",
+        "TextControlBackgroundFocused",
+        "TextControlBackgroundDisabled",
+        "TextControlBorderBrush",
+        "TextControlBorderBrushPointerOver",
+        "TextControlBorderBrushFocused",
+        "TextControlBorderBrushDisabled"
+    ];
+#endif
 
     static void ApplyAutoComplete(IEntryHandler handler, BorderlessEntry entry)
     {
