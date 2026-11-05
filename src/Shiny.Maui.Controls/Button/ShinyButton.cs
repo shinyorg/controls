@@ -67,8 +67,17 @@ public partial class ShinyButton : ContentView, ITapTarget
     bool isLoaded;
     string? ownedDescription;
 
+    // The parts the tests need to find. Reaching them by position in the grid broke as soon as empty
+    // parts stopped being added: with no left icon, the first ContentView is the right slot.
+    internal ContentView LeftSlot => this.leftHost;
+    internal ContentView RightSlot => this.rightHost;
+    internal ContentView BusySlot => this.busyHost;
+    internal ContentView BusyOverlay => this.busyOverlay;
+    internal Label TextLabel => this.textLabel;
+    internal HorizontalStackLayout IconRow => this.iconStack;
+
     // What the inner grid was last built for - see UpdateContentLayout.
-    (ButtonContentLayout Layout, bool Left, bool Right, bool Text, double Spacing)? builtLayout;
+    (ButtonContentLayout Layout, bool Left, bool Right, bool Busy, bool Text, double Spacing)? builtLayout;
 
     // Held in fields so Unloaded can detach them - see TrackCommandFlag.
     INotifyPropertyChanged? flagNotifier;
@@ -120,8 +129,8 @@ public partial class ShinyButton : ContentView, ITapTarget
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill
         };
+        // The busy overlay joins the tree the first time it is shown - see ShowBusyOverlay.
         this.rootGrid.Add(this.innerGrid);
-        this.rootGrid.Add(this.busyOverlay);
 
 
         // The theme's shadow brush rather than Brush.Black so the shadow colour follows the theme - a
@@ -219,14 +228,16 @@ public partial class ShinyButton : ContentView, ITapTarget
     void UpdateContentLayout()
     {
         var hasLeft = this.leftHost.IsVisible;
-        var hasRight = this.rightHost.IsVisible || this.busyHost.IsVisible;
+        var hasRightIcon = this.rightHost.IsVisible;
+        var hasBusy = this.busyHost.IsVisible;
+        var hasRight = hasRightIcon || hasBusy;
         var hasText = this.textLabel.IsVisible;
 
         // ApplyState runs on every Loaded, and a recycled list row is loaded again each time it scrolls
         // back in. Tearing the grid down and re-adding the same hosts re-parents them, which makes MAUI
         // walk the theme resources into each one again - most of the cost of binding a row. Nothing
-        // below depends on anything but these five values, so the same five mean the same grid.
-        var layout = (this.ContentLayout, hasLeft, hasRight, hasText, this.IconSpacing);
+        // below depends on anything but these values, so the same values mean the same grid.
+        var layout = (this.ContentLayout, hasLeft, hasRightIcon, hasBusy, hasText, this.IconSpacing);
         if (this.builtLayout == layout)
             return;
 
@@ -240,16 +251,27 @@ public partial class ShinyButton : ContentView, ITapTarget
         // the grid and the icon row when ContentLayout changes.
         this.iconStack.Children.Clear();
 
+        // Only the slots that show something are added. A hidden view still gets a handler and a native
+        // view of its own, and a plain text button would otherwise carry three empty slot hosts (plus the
+        // icon row in the stacked layouts) into every row of a list - more than half of the native views
+        // the button is made of. The label follows the same rule, so an icon-only button carries no
+        // empty label either. An empty Auto column measures zero either way, so the arrangement is
+        // the same; a slot that gets content later comes in through the rebuild its visibility triggers.
+
         if (this.ContentLayout is ButtonContentLayout.Sides)
         {
             for (var i = 0; i < 4; i++)
                 this.innerGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             this.innerGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            this.innerGrid.Add(this.leftHost, 0, 0);
-            this.innerGrid.Add(this.textLabel, 1, 0);
-            this.innerGrid.Add(this.rightHost, 2, 0);
-            this.innerGrid.Add(this.busyHost, 3, 0);
+            if (hasLeft)
+                this.innerGrid.Add(this.leftHost, 0, 0);
+            if (hasText)
+                this.innerGrid.Add(this.textLabel, 1, 0);
+            if (hasRightIcon)
+                this.innerGrid.Add(this.rightHost, 2, 0);
+            if (hasBusy)
+                this.innerGrid.Add(this.busyHost, 3, 0);
 
             this.innerGrid.ColumnSpacing = hasText && (hasLeft || hasRight) ? this.IconSpacing : 0;
             this.innerGrid.RowSpacing = 0;
@@ -271,14 +293,19 @@ public partial class ShinyButton : ContentView, ITapTarget
             var iconRow = this.ContentLayout is ButtonContentLayout.Top ? 0 : 1;
             var textRow = iconRow == 0 ? 1 : 0;
 
-            this.iconStack.Children.Add(this.leftHost);
-            this.iconStack.Children.Add(this.rightHost);
-            this.iconStack.Children.Add(this.busyHost);
+            if (hasLeft)
+                this.iconStack.Children.Add(this.leftHost);
+            if (hasRightIcon)
+                this.iconStack.Children.Add(this.rightHost);
+            if (hasBusy)
+                this.iconStack.Children.Add(this.busyHost);
             this.iconStack.Spacing = hasLeft && hasRight ? this.IconSpacing : 0;
             this.iconStack.IsVisible = hasLeft || hasRight;
 
-            this.innerGrid.Add(this.iconStack, 0, iconRow);
-            this.innerGrid.Add(this.textLabel, 0, textRow);
+            if (hasLeft || hasRight)
+                this.innerGrid.Add(this.iconStack, 0, iconRow);
+            if (hasText)
+                this.innerGrid.Add(this.textLabel, 0, textRow);
 
             this.innerGrid.ColumnSpacing = 0;
             this.innerGrid.RowSpacing = hasText && (hasLeft || hasRight) ? this.IconSpacing / 2 : 0;
@@ -573,8 +600,7 @@ public partial class ShinyButton : ContentView, ITapTarget
                     // Opacity rather than IsVisible: the content keeps its layout space, so the
                     // button holds the width it had before it went busy without any width pinning.
                     this.innerGrid.Opacity = 0;
-                    this.busyOverlay.Content = indicator;
-                    this.busyOverlay.IsVisible = true;
+                    this.ShowBusyOverlay(indicator);
                     break;
 
                 case ButtonBusyMode.KeepContent:
@@ -602,6 +628,18 @@ public partial class ShinyButton : ContentView, ITapTarget
         this.rightHost.IsVisible = this.rightHost.Content is not null;
 
         this.UpdateContentLayout();
+    }
+
+
+    void ShowBusyOverlay(View indicator)
+    {
+        // Added on first use rather than in the constructor, for the same reason the slot hosts are
+        // only added when they show something. Once in, it stays: it is hidden again by IsVisible.
+        if (this.busyOverlay.Parent is null)
+            this.rootGrid.Add(this.busyOverlay);
+
+        this.busyOverlay.Content = indicator;
+        this.busyOverlay.IsVisible = true;
     }
 
 
