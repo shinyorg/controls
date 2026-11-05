@@ -1,6 +1,7 @@
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Shiny.Maui.Controls.Dialogs;
+using Shiny.Maui.Controls.Infrastructure;
 using Shouldly;
 using Xunit;
 
@@ -106,6 +107,46 @@ public class DialogServiceThreadingTests : IDisposable
         var answer = Task.Run(() => dialogs.Alert("Heads up", "There is nowhere to show this."));
 
         await Should.ThrowAsync<InvalidOperationException>(answer.WaitAsync(Patience));
+    }
+
+
+    /// <summary>
+    /// The dialog layer is one of the page's overlay layers. It used to be a grid of the manager's
+    /// own that it wrapped the page in, found only as the page's direct content - so on a page that
+    /// arrived already wrapped, every dialog nested another wrapper and moved the whole page again.
+    /// </summary>
+    [Fact]
+    public async Task DialogsOnAPageWrappedBeforeRenderShareOneLayer()
+    {
+        View content = null!;
+        await this.ui.InvokeAsync(() =>
+        {
+            PageOverlay.WrapBeforeRender();
+            content = this.page.Content!;
+            // A page handler that runs PageHandler.Mapper, carrying the frozen animation manager the
+            // dialog's entrance animation needs.
+            var handler = new StubPageHandler();
+            handler.SetMauiContext(this.animations.Context);
+            this.page.Handler = handler;
+        });
+        var dialogs = Dialogs();
+
+        for (var i = 0; i < 2; i++)
+        {
+            var answer = Task.Run(() => dialogs.Confirm("Delete item?", "This cannot be undone."));
+            var dialog = await this.WaitForDialog();
+            await this.ui.InvokeAsync(() => Context(dialog).CancelCommand.Execute(null));
+            await this.Settle(answer);
+        }
+
+        await this.ui.InvokeAsync(() =>
+        {
+            var root = this.page.Content.ShouldBeOfType<PageOverlay.ShinyOverlayRoot>();
+            root.Children.OfType<PageOverlay.DialogLayer>().Count().ShouldBe(1);
+            root.Children.OfType<PageOverlay.ShinyOverlayRoot>().ShouldBeEmpty();
+            PageOverlay.ContentOf(root).ShouldBeSameAs(content);
+        });
+        this.ui.Unhandled.ShouldBeEmpty();
     }
 
 

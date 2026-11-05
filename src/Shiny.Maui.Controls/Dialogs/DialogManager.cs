@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Maui.Layouts;
+using Shiny.Maui.Controls.Infrastructure;
 
 namespace Shiny.Maui.Controls.Dialogs;
 
@@ -26,7 +27,7 @@ sealed class DialogManager
     /// after navigation land on the visible page instead of the one that happened to be
     /// current when the first dialog was shown.
     /// </summary>
-    static DialogOverlay GetOrCreateOverlay()
+    static AbsoluteLayout GetOrCreateOverlay()
     {
         var window = Application.Current?.Windows.FirstOrDefault()
             ?? throw new InvalidOperationException("No active window found. Dialogs require an active MAUI window.");
@@ -35,34 +36,8 @@ sealed class DialogManager
             ?? throw new InvalidOperationException("Window has no Page. Dialogs require an active page.");
 
         var targetPage = GetLeafPage(page);
-
-        if (targetPage.Content is Grid host &&
-            host.Children.OfType<DialogOverlay>().FirstOrDefault() is { } existing)
-        {
-            return existing;
-        }
-
-        var overlay = new DialogOverlay
-        {
-            InputTransparent = true,
-            CascadeInputTransparent = false,
-            ZIndex = 10_000
-        };
-
-        var grid = new Grid();
-        if (targetPage.Content is View existingContent)
-        {
-            targetPage.Content = null;
-            grid.Children.Add(existingContent);
-        }
-        grid.Children.Add(overlay);
-        targetPage.Content = grid;
-
-        return overlay;
+        return PageOverlay.GetOrCreateLayer<PageOverlay.DialogLayer>(PageOverlay.GetOrCreateRoot(targetPage), PageOverlay.Layers.Dialog);
     }
-
-    /// <summary>Marker type so an already-attached dialog overlay can be found again.</summary>
-    sealed class DialogOverlay : AbsoluteLayout;
 
     static ContentPage GetLeafPage(Page page) => page switch
     {

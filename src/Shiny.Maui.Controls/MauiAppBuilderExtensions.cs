@@ -90,6 +90,11 @@ public static class ControlsMauiAppBuilderExtensions
         // any page realizes its visual tree.
         ShinyThemeManager.HookHandlers();
 
+        // Every page gets its overlay root before it renders, so the first toast, dialog or confetti
+        // burst on a page finds it in place instead of moving the page's content - see PageOverlay.
+        if (cfg.InstallPageOverlayBeforeRender)
+            PageOverlay.WrapBeforeRender();
+
 #if ANDROID || IOS || MACCATALYST || WINDOWS
         builder.ConfigureMauiHandlers(handlers =>
         {
@@ -252,6 +257,20 @@ public static class ControlsMauiAppBuilderExtensions
 
 public class ShinyControlConfiguration(IServiceCollection services)
 {
+    /// <summary>
+    /// Wrap every <see cref="ContentPage"/>'s content in the overlay root that toasts, dialogs,
+    /// confetti and the other in-page overlays draw into, as the page's handler connects. On by default.
+    /// </summary>
+    /// <remarks>
+    /// Without it, the first overlay on a page installs the root then, which moves the page's content
+    /// while it is on screen: its native views are detached and laid out again and its bindings see a
+    /// null context and back, so bound lists reload - a visible hitch on the first toast. The cost of
+    /// leaving it on is that a rendered page's <c>Content</c> is that root (a <see cref="Grid"/>), not
+    /// the view it was given. Turn it off if your code reads <c>page.Content</c> back and expects its
+    /// own view; the overlays still work, they just install the root lazily as before.
+    /// </remarks>
+    public bool InstallPageOverlayBeforeRender { get; set; } = true;
+
     internal DialogOptions DialogOptions { get; } = new();
 
     internal ImageOptions ImageOptions { get; } = new();

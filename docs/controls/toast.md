@@ -2,7 +2,7 @@
 
 [← All Shiny Controls](../../README.md)
 
-A service-first toast notification system — inject `IToaster` (registered by `UseShinyControls()`) and call from code. No XAML or OverlayHost required. The overlay auto-attaches to the current page on first use.
+A service-first toast notification system — inject `IToaster` (registered by `UseShinyControls()`) and call from code. No XAML or OverlayHost required. The overlay auto-attaches to the current page. On MAUI, `UseShinyControls()` gives every `ContentPage` the overlay root it draws into while the page's handler connects, before anything is rendered, so the first toast on a page that is already showing does not move the page's content (which used to detach and re-lay-out its native views and make bound lists reload). See [Page overlay root](#page-overlay-root-maui) below.
 
 ```csharp
 using Shiny.Maui.Controls.Toast;
@@ -163,3 +163,18 @@ await toaster.ShowAsync("Saved", c => c.AutomationId = "SavedToast");
 | Text label | `<id>_Text` |
 
 Unset (the default), the toast carries no ids.
+
+## Page overlay root (MAUI)
+
+Toasts, dialogs, confetti and the other in-page overlays draw into one wrapper `Grid` around the page's content. `UseShinyControls()` installs it on each `ContentPage` while the page's handler connects, so it is already in place when the first overlay shows. Two consequences:
+
+- A rendered page's `Content` is that wrapper, not the view it was given. Code that reads `page.Content` back and casts it to its own type should turn this off.
+- Content assigned to a page *after* it has rendered is left as it is; the first overlay on that page wraps it then, as before.
+
+To turn it off (overlays still work, they install the wrapper the first time they show):
+
+```csharp
+builder.UseShinyControls(cfg => cfg.InstallPageOverlayBeforeRender = false);
+```
+
+The AppKit (`net10.0-macos`) and GTK heads ship their own page handlers, so there the wrapper is always installed lazily.

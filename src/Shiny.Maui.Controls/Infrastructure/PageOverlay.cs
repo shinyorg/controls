@@ -1,3 +1,6 @@
+using System.Runtime.CompilerServices;
+using Microsoft.Maui.Handlers;
+
 namespace Shiny.Maui.Controls.Infrastructure;
 
 /// <summary>
@@ -163,6 +166,15 @@ static class PageOverlay
     /// </remarks>
     internal sealed class ToastLayer : AbsoluteLayout, IOverlayLayer;
 
+    /// <summary>Where <c>DialogManager</c> shows dialogs. Resolved per dialog so it follows navigation.</summary>
+    /// <remarks>
+    /// Left at a layout's default <see cref="SafeAreaRegions.Container"/>: the manager used to wrap the
+    /// page in a plain <see cref="Grid"/> of its own, which carried that same default, so the dialog
+    /// sits where it always did. Being a layer of the shared root is what changed - the private grid
+    /// nested a second wrapper inside the root on every show once pages arrived already wrapped.
+    /// </remarks>
+    internal sealed class DialogLayer : AbsoluteLayout, IOverlayLayer;
+
     /// <summary>
     /// Z-order for the layers, so the intent is stated once rather than guessed at each call site.
     /// A tooltip sits above page content, a walkthrough dims everything including tooltips, and a
@@ -249,6 +261,73 @@ static class PageOverlay
     {
         var page = FindPage(anchor);
         return page is null ? null : GetOrCreateRoot(page);
+    }
+
+
+    static int wrapsBeforeRender;
+
+    /// <summary>The handler that last mapped each page's content - see <see cref="IsConnectPass"/>.</summary>
+    static readonly ConditionalWeakTable<ContentPage, IPageHandler> contentMappedBy = new();
+
+    /// <summary>
+    /// Installs the overlay root on every <see cref="ContentPage"/> as its handler connects - the one
+    /// point where the move is free. Registered once by <c>UseShinyControls</c>, unless the app turns
+    /// it off with <see cref="ShinyControlConfiguration.InstallPageOverlayBeforeRender"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Installing the root later re-parents content that is already on screen: the native views
+    /// under it are detached and attached again and laid out from scratch, and the content's
+    /// inherited binding context drops to null and back, so every bound list empties and refills. A
+    /// control that knows it will need the root - a walkthrough, an autocomplete - installs it at
+    /// load, but a toast, a dialog or confetti can turn up on any page at any time, so the first one
+    /// on a page paid for all of that, on the UI thread, at the moment it should have been animating
+    /// in. While the handler connects, the page's own container exists and its content has no native
+    /// views yet, so the root costs one grid.
+    /// </para>
+    /// <para>
+    /// Only the connect pass wraps. Content assigned to a page that already has a handler is mapped
+    /// from inside that assignment, and MAUI defers a write to a property it is still setting, so
+    /// re-parenting from there landed the content in the root with no parent at all - cut off from
+    /// the page for resource lookups, <c>Navigation</c> and anything else that walks up the tree.
+    /// That content is left as it is and gets its root the old, lazy way, which costs exactly what
+    /// it always did.
+    /// </para>
+    /// </remarks>
+    internal static void WrapBeforeRender()
+    {
+        if (Interlocked.Exchange(ref wrapsBeforeRender, 1) == 1)
+            return;
+
+        PageHandler.Mapper.ModifyMapping<IContentView, IPageHandler>(nameof(IContentView.Content), static (handler, view, previous) =>
+        {
+            if (view is ContentPage page &&
+                object.ReferenceEquals(page.Handler, handler) &&
+                IsConnectPass(page, handler) &&
+                page.Content is View and not ShinyOverlayRoot)
+            {
+                // Setting the page's content re-enters this mapping twice (null, then the root), and
+                // neither is the connect pass any more, so the second one maps the root as usual.
+                GetOrCreateRoot(page);
+                return;
+            }
+            previous?.Invoke(handler, view);
+        });
+    }
+
+
+    /// <summary>
+    /// True the first time <paramref name="handler"/> maps <paramref name="page"/>'s content - the pass
+    /// <c>SetVirtualView</c> runs while connecting, which maps every property before any of them can
+    /// change. Every later mapping by the same handler comes from a property change.
+    /// </summary>
+    static bool IsConnectPass(ContentPage page, IPageHandler handler)
+    {
+        if (contentMappedBy.TryGetValue(page, out var last) && object.ReferenceEquals(last, handler))
+            return false;
+
+        contentMappedBy.AddOrUpdate(page, handler);
+        return true;
     }
 
 
