@@ -33,11 +33,10 @@ public class ShinyButtonTests
         return (border, root, inner);
     }
 
-    static ContentView LeftHost(ShinyButton button)
-    {
-        var (_, _, inner) = Parts(button);
-        return inner.Children.OfType<ContentView>().First();
-    }
+    static ContentView LeftHost(ShinyButton button) => button.LeftSlot;
+
+    // Empty parts are left out of the tree, so "is it shown" is "is it in the tree".
+    static bool InTree(View part) => part.Parent is not null;
 
 
     /// <summary>
@@ -428,7 +427,7 @@ public class ShinyButtonTests
             StateRevertDelay = TimeSpan.Zero
         };
 
-        var label = Parts(button).Inner.Children.OfType<Label>().Single();
+        var label = button.TextLabel;
         label.Text.ShouldBe("Save");
 
         button.State = ButtonState.Busy;
@@ -601,9 +600,10 @@ public class ShinyButtonTests
         inner.ColumnDefinitions.Count.ShouldBe(1);
         inner.RowDefinitions.Count.ShouldBe(2);
 
-        var stack = inner.Children.OfType<HorizontalStackLayout>().Single();
+        var stack = button.IconRow;
+        stack.Parent.ShouldBe(inner);
         stack.HorizontalOptions.ShouldBe(LayoutOptions.Center);
-        Grid.GetColumnSpan(Parts(button).Inner.Children.OfType<Label>().Single()).ShouldBe(1);
+        Grid.GetColumnSpan(button.TextLabel).ShouldBe(1);
     }
 
     [Fact]
@@ -616,8 +616,11 @@ public class ShinyButtonTests
         var (_, _, inner) = Parts(button);
         inner.ColumnDefinitions.Count.ShouldBe(4);
         // The icon's host is back in the grid rather than orphaned in the icon stack.
-        inner.Children.OfType<ContentView>().Single().Content.ShouldNotBeNull();
-        inner.Children.OfType<HorizontalStackLayout>().ShouldBeEmpty();
+        button.LeftSlot.Parent.ShouldBe(inner);
+        button.LeftSlot.Content.ShouldNotBeNull();
+        InTree(button.IconRow).ShouldBeFalse();
+        InTree(button.RightSlot).ShouldBeFalse();
+        InTree(button.BusySlot).ShouldBeFalse();
     }
 
 
@@ -639,8 +642,8 @@ public class ShinyButtonTests
         button.LeftIcon = "b.png";
 
         removed.ShouldBe(0);
-        inner.Children.OfType<ContentView>().Count().ShouldBe(1);
-        LeftHost(button).Content.ShouldNotBeNull();
+        button.LeftSlot.Parent.ShouldBe(inner);
+        button.LeftSlot.Content.ShouldNotBeNull();
     }
 
     /// <summary>
@@ -654,9 +657,57 @@ public class ShinyButtonTests
         var button = new ShinyButton { Text = "Open" };
         var (_, root, inner) = Parts(button);
 
-        inner.Children.Count.ShouldBe(1);
-        inner.Children[0].ShouldBeOfType<Label>();
-        root.Children.Count.ShouldBe(1);
+        inner.Children.ShouldBe(new IView[] { button.TextLabel });
+        root.Children.ShouldBe(new IView[] { inner });
+    }
+
+    [Fact]
+    public void IconOnlyButton_CarriesNoEmptyLabel()
+    {
+        var button = new ShinyButton { LeftIcon = "a.png" };
+        var (_, _, inner) = Parts(button);
+
+        inner.Children.ShouldBe(new IView[] { button.LeftSlot });
+        InTree(button.TextLabel).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(ButtonContentLayout.Sides)]
+    [InlineData(ButtonContentLayout.Top)]
+    public void TheLabel_JoinsAndLeavesWithItsText(ButtonContentLayout layout)
+    {
+        var button = new ShinyButton { LeftIcon = "a.png", ContentLayout = layout };
+
+        button.Text = "Open";
+        InTree(button.TextLabel).ShouldBeTrue();
+        button.TextLabel.Text.ShouldBe("Open");
+
+        button.Text = null;
+        InTree(button.TextLabel).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void AnIconOnlyButton_ShowsItsBusyText()
+    {
+        var button = new ShinyButton { LeftIcon = "a.png", BusyText = "Saving...", StateRevertDelay = TimeSpan.Zero };
+
+        button.State = ButtonState.Busy;
+        InTree(button.TextLabel).ShouldBeTrue();
+        button.TextLabel.Text.ShouldBe("Saving...");
+
+        button.State = ButtonState.Normal;
+        InTree(button.TextLabel).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ARightIconAlone_IsNotMistakenForTheLeftSlot()
+    {
+        var button = new ShinyButton { Text = "Next", RightIcon = "next.png" };
+        var (_, _, inner) = Parts(button);
+
+        button.RightSlot.Parent.ShouldBe(inner);
+        Grid.GetColumn(button.RightSlot).ShouldBe(2);
+        InTree(button.LeftSlot).ShouldBeFalse();
     }
 
     [Fact]
@@ -666,14 +717,17 @@ public class ShinyButtonTests
         var (_, root, inner) = Parts(button);
 
         button.State = ButtonState.Busy;
-        inner.Children.OfType<ContentView>().Single().Content.ShouldNotBeNull();
+        button.BusySlot.Parent.ShouldBe(inner);
+        button.BusySlot.Content.ShouldNotBeNull();
 
         button.State = ButtonState.Normal;
-        inner.Children.OfType<ContentView>().ShouldBeEmpty();
+        InTree(button.BusySlot).ShouldBeFalse();
+        InTree(button.BusyOverlay).ShouldBeFalse();
 
         button.BusyMode = ButtonBusyMode.ReplaceContent;
         button.State = ButtonState.Busy;
-        var overlay = root.Children.OfType<ContentView>().Single();
+        var overlay = button.BusyOverlay;
+        overlay.Parent.ShouldBe(root);
         overlay.IsVisible.ShouldBeTrue();
         overlay.Content.ShouldNotBeNull();
 

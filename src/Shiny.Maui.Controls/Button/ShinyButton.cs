@@ -67,6 +67,15 @@ public partial class ShinyButton : ContentView, ITapTarget
     bool isLoaded;
     string? ownedDescription;
 
+    // The parts the tests need to find. Reaching them by position in the grid broke as soon as empty
+    // parts stopped being added: with no left icon, the first ContentView is the right slot.
+    internal ContentView LeftSlot => this.leftHost;
+    internal ContentView RightSlot => this.rightHost;
+    internal ContentView BusySlot => this.busyHost;
+    internal ContentView BusyOverlay => this.busyOverlay;
+    internal Label TextLabel => this.textLabel;
+    internal HorizontalStackLayout IconRow => this.iconStack;
+
     // What the inner grid was last built for - see UpdateContentLayout.
     (ButtonContentLayout Layout, bool Left, bool Right, bool Busy, bool Text, double Spacing)? builtLayout;
 
@@ -245,7 +254,8 @@ public partial class ShinyButton : ContentView, ITapTarget
         // Only the slots that show something are added. A hidden view still gets a handler and a native
         // view of its own, and a plain text button would otherwise carry three empty slot hosts (plus the
         // icon row in the stacked layouts) into every row of a list - more than half of the native views
-        // the button is made of. An empty Auto column measures zero either way, so the arrangement is
+        // the button is made of. The label follows the same rule, so an icon-only button carries no
+        // empty label either. An empty Auto column measures zero either way, so the arrangement is
         // the same; a slot that gets content later comes in through the rebuild its visibility triggers.
 
         if (this.ContentLayout is ButtonContentLayout.Sides)
@@ -256,7 +266,8 @@ public partial class ShinyButton : ContentView, ITapTarget
 
             if (hasLeft)
                 this.innerGrid.Add(this.leftHost, 0, 0);
-            this.innerGrid.Add(this.textLabel, 1, 0);
+            if (hasText)
+                this.innerGrid.Add(this.textLabel, 1, 0);
             if (hasRightIcon)
                 this.innerGrid.Add(this.rightHost, 2, 0);
             if (hasBusy)
@@ -293,7 +304,8 @@ public partial class ShinyButton : ContentView, ITapTarget
 
             if (hasLeft || hasRight)
                 this.innerGrid.Add(this.iconStack, 0, iconRow);
-            this.innerGrid.Add(this.textLabel, 0, textRow);
+            if (hasText)
+                this.innerGrid.Add(this.textLabel, 0, textRow);
 
             this.innerGrid.ColumnSpacing = 0;
             this.innerGrid.RowSpacing = hasText && (hasLeft || hasRight) ? this.IconSpacing / 2 : 0;
