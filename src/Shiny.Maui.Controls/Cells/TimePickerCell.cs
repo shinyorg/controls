@@ -99,7 +99,10 @@ public class TimePickerCell : CellBase
             HorizontalOptions = LayoutOptions.End
         };
 
-        hiddenPicker = new TimePicker();
+        // On Android the picker lies over the whole cell at 1% opacity so it takes the tap, but it
+        // still draws its text there - a faint copy of the time behind the title, easy to see on a
+        // dark theme. Transparent text keeps it tappable without that.
+        hiddenPicker = new TimePicker { TextColor = Colors.Transparent };
         SyncUse24Hour();
 
         hiddenPicker.PropertyChanged += (s, e) =>

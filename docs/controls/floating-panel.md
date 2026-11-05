@@ -55,6 +55,8 @@ A floating panel overlay system for MAUI. Panels slide in from the bottom or top
 | AnimationDuration | double | Animation speed (ms) |
 | ExpandOnInputFocus | bool | Auto-expand when input focused |
 | IsLocked | bool | Prevents drag dismiss; code-only control |
+
+Dragging the handle moves the panel between detents. A swipe of more than 50 toward the panel's edge (down for a bottom panel, up for a top one) that ends below the lowest detent closes it, unless `IsLocked` is set. A pan the system cancels always settles back to a detent.
 | FitContent | bool | Auto-computes detent from content size |
 | IsContentScrollEnabled | bool | Wraps content in a ScrollView (default true). Set **false** when content scrolls itself (a `TableView`/`CollectionView`) — nested scroll-views collapse the inner one to near-zero height. Works with `ShowHeaderWhenClosed`: closed, only the header is on screen either way. With it on, a `CollectionView` also loses virtualization. Pattern: `IsContentScrollEnabled="False"` plus a `Grid RowDefinitions="Auto,*,Auto"` with the list in the `*` row, so the header and footer stay put and only the list scrolls |
 | UseFeedback | bool | Feedback on open, close, and detent snap (default: true) |

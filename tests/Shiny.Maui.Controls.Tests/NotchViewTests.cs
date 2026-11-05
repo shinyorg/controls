@@ -280,6 +280,23 @@ public class NotchViewTests
     }
 
 
+    [Fact]
+    public void OfferedWidthCapLeavesOutTheMargin()
+    {
+        // The width a parent offers includes the notch's own margin, and the surface has to fit inside it.
+        var notch = new NotchView
+        {
+            Margin = new Thickness(16, 0),
+            ContentPadding = new Thickness(0),
+            Content = new WrappingProbe()
+        };
+
+        ((IView)notch).Measure(400, double.PositiveInfinity);
+
+        notch.NotchSize.ShouldBe(new Size(368, WrappingProbe.HeightAt(368)));
+    }
+
+
     /// <summary>
     /// Behaves like a stack with wrapping text in it: it sizes from the constraint it is offered and
     /// ignores its own width request, as a layout does when it measures its children. (A real Label and

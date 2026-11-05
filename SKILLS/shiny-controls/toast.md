@@ -46,7 +46,7 @@ public class MyViewModel(IToaster toaster)
 }
 ```
 
-No `OverlayHost` or base class required. The toast overlay auto-attaches to the current page.
+No `OverlayHost` or base class required. The toast overlay auto-attaches to the current page. On MAUI, `UseShinyControls()` wraps every `ContentPage`'s content in the overlay root (a `Grid`) while the page's handler connects, so the first toast never re-parents a page that is already on screen. Consequence for generated code: never cast `page.Content` back to the page's own view type after the page has rendered — keep a field/`x:Name` reference instead. Content assigned to an already-rendered page is left unwrapped until the first overlay. Opt out with `UseShinyControls(cfg => cfg.InstallPageOverlayBeforeRender = false)` (overlays then wrap lazily, on first show).
 
 ## Themed Methods (MAUI)
 

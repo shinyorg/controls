@@ -8,7 +8,7 @@ A service-first dialog system that emulates the classic `alert`, `confirm`, `pro
 
 ### MAUI
 
-Registered automatically by `UseShinyControls()`. The overlay auto-attaches to whichever page is current **at the time of each call** — no XAML or OverlayHost required, and dialogs keep working after navigating between pages.
+Registered automatically by `UseShinyControls()`. The overlay auto-attaches to whichever page is current **at the time of each call** — no XAML or OverlayHost required, and dialogs keep working after navigating between pages. Dialogs share the page's overlay root with toasts (installed before render by `UseShinyControls()`; see toast.md for the `page.Content` consequence and the `InstallPageOverlayBeforeRender` opt-out).
 
 ```csharp
 builder.UseMauiApp<App>().UseShinyControls();
