@@ -31,7 +31,13 @@ public class PickerCellOverlayTests
         var picker = FindPicker<Picker>(cell);
         picker.Opacity.ShouldBeGreaterThan(0); // still takes the tap
         picker.TextColor.ShouldBe(Colors.Transparent);
-        picker.TitleColor.ShouldBe(Colors.Transparent);
+
+        // On the AppKit head TitleColor paints the PickerTitle heading inside the open dropdown, so it
+        // is left alone there. (The test host is the net10.0 build too, so on a Mac this runs that branch.)
+        if (OperatingSystem.IsMacOS())
+            picker.TitleColor.ShouldBeNull();
+        else
+            picker.TitleColor.ShouldBe(Colors.Transparent);
     }
 
     [Fact]

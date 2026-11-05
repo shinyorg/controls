@@ -52,7 +52,7 @@ Notch.Content = null; // back to the minimum size
 | Stroke / StrokeThickness | Color? / string, double | none | Optional outline |
 | ContentPadding | Thickness / string | 14,8 / "8px 14px" | Space between the edge and the content |
 | MinNotchWidth / MinNotchHeight | double | 120 / 36 | The smallest size, and the size with no content |
-| MaxNotchWidth / MaxNotchHeight | double / double? | unbounded | Caps. The parent's width also caps the notch; wider content wraps, taller content is clipped |
+| MaxNotchWidth / MaxNotchHeight | double / double? | unbounded | Caps. The parent's width, less the notch's own `Margin`, also caps the notch; wider content wraps, taller content is clipped |
 | CornerRadius | double | -1 | `-1` is automatic: a full pill while short, capped at 28 as it grows tall. Always clamped to half the height |
 | MorphDuration | uint / int | 420 | Milliseconds per resize. `0` snaps |
 | MorphEasing | Easing? / — | soft spring | MAUI only. Blazor uses a matching `cubic-bezier` |

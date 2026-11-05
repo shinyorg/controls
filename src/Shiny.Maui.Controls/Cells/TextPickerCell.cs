@@ -130,9 +130,15 @@ public class TextPickerCell : CellBase
         {
             Opacity = 0.01,
             Title = PickerTitle,
-            TextColor = Colors.Transparent,
-            TitleColor = Colors.Transparent
+            TextColor = Colors.Transparent
         };
+
+        // The title is the hidden picker's placeholder on Android, iOS and Windows, so it gets the same
+        // treatment. Not on the AppKit head: there TitleColor colours the PickerTitle heading at the top
+        // of the open NSPopUpButton menu, and a transparent one leaves a blank row in the dropdown. (No
+        // -macos TFM; the AppKit head runs the net10.0 build, hence the runtime check.)
+        if (!OperatingSystem.IsMacOS())
+            hiddenPicker.TitleColor = Colors.Transparent;
         hiddenPicker.SelectedIndexChanged += (s, e) =>
         {
             // Ignore events we raised ourselves while programmatically re-syncing the picker

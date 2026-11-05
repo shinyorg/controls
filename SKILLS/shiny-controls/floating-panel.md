@@ -4,7 +4,7 @@ A floating panel overlay system for .NET MAUI. Panels slide in from the bottom o
 
 **Architecture:**
 - **OverlayHost**: A transparent `Grid` layer with `InputTransparent=true, CascadeInputTransparent=false` — touches pass through to content underneath, but panels and backdrop still receive input on their visible areas. Manages a shared backdrop for all overlay clients (`FloatingPanel`, `Overlay`, `LoadingOverlay`).
-- **FloatingPanel**: A `ContentView` that lives inside an `OverlayHost`. Animates height (not translation) so the panel only occupies the space it needs. Pan gesture is restricted to the drag handle only — no scroll conflicts with content.
+- **FloatingPanel**: A `ContentView` that lives inside an `OverlayHost`. Animates height (not translation) so the panel only occupies the space it needs. Pan gesture is restricted to the drag handle only — no scroll conflicts with content. A swipe on the handle toward the panel's edge (>50, ending below the lowest detent) closes it unless `IsLocked`; don't generate a custom swipe-to-dismiss gesture for this.
 - **Overlay / LoadingOverlay**: Full-screen overlay controls that also live inside an `OverlayHost`. See the overlay skill for details.
 - **ShinyContentPage**: A `ContentPage` with a built-in `OverlayHost`. Set page content via `PageContent` and add panels/overlays via `Panels`.
 

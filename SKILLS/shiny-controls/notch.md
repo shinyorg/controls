@@ -41,7 +41,7 @@ Notch.Content = null;                   // shrinks to MinNotchWidth x MinNotchHe
 Notch.NotchSizeChanged += (_, e) => Debug.WriteLine($"{e.OldSize} -> {e.NewSize}");
 ```
 
-Properties: `Content`, `Shape` (Island/Notch), `SurfaceColor` (Black), `Stroke`, `StrokeThickness`, `ContentPadding` (14,8), `MinNotchWidth` (120), `MinNotchHeight` (36), `MaxNotchWidth`/`MaxNotchHeight` (∞, and the parent's width also caps it), `CornerRadius` (-1 = auto pill capped at 28), `MorphDuration` (420ms), `MorphEasing` (null = soft spring), `HasShadow` (true), `Command`, `CommandParameter`, read-only `NotchSize`. Events: `Tapped`, `NotchSizeChanged` (when a morph starts), `MorphCompleted`.
+Properties: `Content`, `Shape` (Island/Notch), `SurfaceColor` (Black), `Stroke`, `StrokeThickness`, `ContentPadding` (14,8), `MinNotchWidth` (120), `MinNotchHeight` (36), `MaxNotchWidth`/`MaxNotchHeight` (∞, and the parent's width less the notch's own `Margin` also caps it), `CornerRadius` (-1 = auto pill capped at 28), `MorphDuration` (420ms), `MorphEasing` (null = soft spring), `HasShadow` (true), `Command`, `CommandParameter`, read-only `NotchSize`. Events: `Tapped`, `NotchSizeChanged` (when a morph starts), `MorphCompleted`.
 
 ## Blazor
 
