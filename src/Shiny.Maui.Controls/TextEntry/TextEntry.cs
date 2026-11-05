@@ -226,6 +226,15 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
     const string HintColorToken = ShinyThemeKeys.Color.OnSurfaceVariant;
     const string ToolAddonColorToken = ShinyThemeKeys.Color.SurfaceContainerHigh;
 
+    protected override void OnHandlerChanged()
+    {
+        base.OnHandlerChanged();
+
+        PlatformConfiguration();
+    }
+
+    partial void PlatformConfiguration();
+
     // Applies an explicit color when set, otherwise binds the theme token, to the border stroke
     // (a Brush, so it takes the token's brush twin) and the tool separators.
     void ApplyStroke(Color? explicitColor, string token)
