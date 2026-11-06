@@ -25,11 +25,8 @@ public partial class TextEntry
                 te.entry.Text = (string)n;
                 te.suppressTextChanged = false;
 
-                // If text was set programmatically and is non-empty, ensure placeholder is up
-                if (!string.IsNullOrEmpty((string)n) && !te.isPlaceholderUp)
-                    te.AnimatePlaceholder(true);
-                else if (string.IsNullOrEmpty((string)n) && !te.entry.IsFocused && te.isPlaceholderUp)
-                    te.AnimatePlaceholder(false);
+                // The write above was suppressed, so OnEntryTextChanged never saw it.
+                te.SyncPlaceholderToText();
             }
 
             te.InternalTextChanged?.Invoke(te, EventArgs.Empty);

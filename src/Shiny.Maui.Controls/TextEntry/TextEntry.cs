@@ -461,6 +461,10 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
 
         suppressTextChanged = false;
 
+        // Typed text has to float the label on its own. Focus used to do it, but a host that never
+        // reports focus (the macOS AppKit head, shinyorg/controls#72) left the text drawn over the label.
+        SyncPlaceholderToText();
+
         InternalTextChanged?.Invoke(this, EventArgs.Empty);
         TextChanged?.Invoke(this, new TextChangedEventArgs(e.OldTextValue, Text));
         if (TextChangedCommand?.CanExecute(Text) == true)
@@ -769,11 +773,30 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
         entry.Text = formatted;
         suppressTextChanged = false;
 
-        if (!string.IsNullOrEmpty(formatted) && !isPlaceholderUp)
+        SyncPlaceholderToText();
+    }
+
+    /// <summary>
+    /// Floats the label when the field holds text and lowers it when the field is empty and unfocused.
+    /// </summary>
+    /// <remarks>
+    /// The single owner of the text-driven half of the float. It has three callers because text reaches
+    /// the entry three ways and none of them sees the others: typing goes through
+    /// <see cref="OnEntryTextChanged"/>, while a programmatic <see cref="Text"/> and a re-mask write
+    /// <c>entry.Text</c> under <see cref="suppressTextChanged"/>, which makes that handler return early.
+    /// </remarks>
+    void SyncPlaceholderToText()
+    {
+        var hasText = !string.IsNullOrEmpty(entry.Text);
+        if (hasText && !isPlaceholderUp)
             AnimatePlaceholder(true);
-        else if (string.IsNullOrEmpty(formatted) && !entry.IsFocused && isPlaceholderUp)
+        else if (!hasText && !entry.IsFocused && isPlaceholderUp)
             AnimatePlaceholder(false);
     }
+
+    // Test seams.
+    internal bool IsPlaceholderUp => isPlaceholderUp;
+    internal Entry InnerEntry => entry;
 
     // ---- Input assistance -----------------------------------------------------------------
 

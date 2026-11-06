@@ -4,7 +4,7 @@
 
 A text entry control with a Material 3 floating label, customizable border, left/right tool slots, hint text for validation errors, character count display, input masking, an autofill/autocorrect opt-out, and — on iOS and Android — a bar docked to the top of the soft keyboard.
 
-`Variant="Floating"` is the **M3 outlined notch**: the label rides up onto the top border stroke and sits in a gap cut out of the outline, so it never overlaps the text being typed. Tools are **inline** by default — a tinted glyph on the field with no grey block and no separator; `ToolStyle="Addon"` brings back the Bootstrap input-group look.
+`Variant="Floating"` is the **M3 outlined notch**: the label rides up onto the top border stroke and sits in a gap cut out of the outline, so it never overlaps the text being typed. The label floats when the field gains focus and whenever it holds text, whether typed or set from code, so it stays up on a host that doesn't report focus. Tools are **inline** by default — a tinted glyph on the field with no grey block and no separator; `ToolStyle="Addon"` brings back the Bootstrap input-group look.
 
 ```xml
 <shiny:TextEntry Placeholder="Email"
