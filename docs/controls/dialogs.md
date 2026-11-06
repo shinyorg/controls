@@ -40,7 +40,7 @@ var choice = await Dialogs.ActionSheet("Photo", ["Take Photo", "Choose from Libr
 | `Prompt(title, message, placeholder, okText, cancelText, initialValue?, maxLength?, keyboard?/inputType?, configure?)` | `Task<PromptResult>` | confirm + cancel + text field |
 | `ActionSheet(title, options, cancelText, destructive?, configure?)` | `Task<string?>` | one button per option + cancel (returns the chosen option, or `null` if cancelled) |
 
-`Prompt` forwards `initialValue`, `maxLength`, and the keyboard directly (MAUI takes a `Keyboard`; Blazor takes an HTML `inputType` string). Pass `cancelText: null` to `Prompt` or `ActionSheet` to **hide the cancel button** entirely (the ActionSheet otherwise always renders one).
+`Prompt` forwards `initialValue`, `maxLength`, and the keyboard directly (MAUI takes a `Keyboard`; Blazor takes an HTML `inputType` string). Pass `cancelText: null` to `Prompt` or `ActionSheet` to **hide the cancel button** entirely (the ActionSheet otherwise always renders one). On MAUI the prompt's text field takes focus when the dialog finishes animating in, with the initial value selected, so typing replaces it and Return confirms - including on the desktop heads, where focus used to stay in whatever field was focused before.
 
 **Animations** — every call takes an optional `configure` delegate to set the entry/exit animation and styling. `DialogAnimation` values: `None`, `Fade`, `SlideTop`, `SlideBottom`, `SlideLeft`, `SlideRight`, `Zoom`, `Pop` (default).
 

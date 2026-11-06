@@ -67,7 +67,7 @@ Checkmark toggle (no native checkbox, just a checkmark character).
 | `AccentColor` | `Color?` | `null` |
 
 ### RadioCell
-Radio button selection. Use `RadioCell.SelectedValue` attached property on the section.
+Radio button selection. Use `RadioCell.SelectedValue` attached property on the section. A value that is already set (or bound) when the section renders checks the matching cell - no code-behind needed to re-apply it after the page appears (that was a 2.4.0 bug, fixed in 2.5.0).
 
 ```xml
 <shiny:TableSection Title="Theme" shiny:RadioCell.SelectedValue="{Binding SelectedTheme, Mode=TwoWay}">

@@ -156,6 +156,7 @@ sealed class DialogView : ContentView
                 entry.Completed += (_, _) => this.OnConfirm();
                 AutomationIds.Set(entry, AutomationIds.For(this, DialogConfig.EntryAutomationIdSuffix));
                 stack.Add(entry);
+                this.promptEntry = entry;
             }
 
             var buttons = new HorizontalStackLayout
@@ -281,6 +282,23 @@ sealed class DialogView : ContentView
     {
         this.Outcome = new DialogOutcome(true, option);
         _ = this.AnimateOutAsync();
+    }
+
+    Entry? promptEntry;
+
+    /// <summary>
+    /// Puts the caret in the prompt's text field with its initial value selected, so typing replaces it
+    /// and Return confirms. Without this, focus stays wherever it was before the dialog opened - on the
+    /// desktop heads that is usually another text field, which then swallows the typing and the Return.
+    /// </summary>
+    public void FocusInput()
+    {
+        if (this.promptEntry is not { } entry)
+            return;
+
+        entry.Focus();
+        entry.CursorPosition = 0;
+        entry.SelectionLength = entry.Text?.Length ?? 0;
     }
 
     public async Task AnimateInAsync()

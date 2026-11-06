@@ -35,6 +35,9 @@ static class SectionRenderer
             cell.ParentSection = section;
             cell.ApplyCascadedStyles();
 
+            // a radio group's value can arrive before its cells exist - pick it up now
+            (cell as Shiny.Maui.Controls.Cells.RadioCell)?.SyncFromGroup();
+
             if (section.UseDragSort)
             {
                 sectionLayout.Children.Add(new DragSortRow(parentTableView, section, cell));

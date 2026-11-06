@@ -280,6 +280,15 @@ which you set yourself to cover the grid while its own data loads.
 </shiny:DataGrid>
 ```
 
+## Live collections
+
+- **Live collections**: an `ItemsSource` that raises `INotifyCollectionChanged` is followed, but a burst of
+  changes (a loop of `Add`s, search results streaming in) is coalesced into **one** row rebuild on the next
+  UI-loop turn, and a rebuild hands the rows to the list as a single `Reset`. Before 2.5.0 every `Add`
+  rebuilt every row and re-added them one by one, which is quadratic and stalled the AppKit head (whose
+  CollectionView reloads on each change) for seconds with a few thousand items. Rows therefore appear one
+  dispatcher turn after the change, not synchronously inside it.
+
 ## Dark mode
 
 The grid's own chrome is token-driven and needs nothing set. One MAUI-specific fix worth knowing

@@ -37,7 +37,7 @@ showing them. Don't put the same view instance in two sections or anywhere else 
 | SwitchCell | Toggle switch |
 | EntryCell | Text input field — with TextEntry's input masking, keyboard accessory bar (iOS/Android) and autocomplete opt-out |
 | CheckboxCell | Checkbox with accent color |
-| RadioCell | Radio button with section-level grouping |
+| RadioCell | Radio button with section-level grouping (the group's `SelectedValue` is checked even when it is bound before the cells render) |
 | CommandCell | Tappable row with optional arrow indicator |
 | ButtonCell | Command-bound button |
 | LabelCell | Read-only text display |

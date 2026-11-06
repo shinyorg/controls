@@ -103,6 +103,7 @@ sealed class DialogManager
         try
         {
             await view.AnimateInAsync();
+            view.FocusInput();
             await dismissed.Task;
         }
         finally

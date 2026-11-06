@@ -397,6 +397,12 @@ Rules that matter:
 
 ## Behavior notes & platform nuances
 
+- **Live collections**: an `ItemsSource` that raises `INotifyCollectionChanged` is followed, but a burst of
+  changes (a loop of `Add`s, search results streaming in) is coalesced into **one** row rebuild on the next
+  UI-loop turn, and a rebuild hands the rows to the list as a single `Reset`. Before 2.5.0 every `Add`
+  rebuilt every row and re-added them one by one, which is quadratic and stalled the AppKit head (whose
+  CollectionView reloads on each change) for seconds with a few thousand items. Rows therefore appear one
+  dispatcher turn after the change, not synchronously inside it.
 - **Sorting**: click/tap a header to cycle asc → desc → none. In `Multiple` mode each header adds to the
   sort with an order badge.
 - **Filtering**: `Menu` shows a per-column filter popup (type-aware operators); `Row` shows inline

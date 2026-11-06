@@ -93,6 +93,27 @@ public class RadioCell : CellBase
             SetSelectedValue(ParentTableView, Value);
     }
 
+    /// <summary>
+    /// Checks this cell if its group already holds its value. The group's <c>SelectedValue</c> usually
+    /// arrives (from a binding) before the section has rendered its cells, and the change handler below
+    /// only reaches cells that already exist - so the renderer calls this as it attaches each cell.
+    /// A section-level value wins over a table-level one, as it does when the user taps.
+    /// </summary>
+    internal void SyncFromGroup()
+    {
+        object? groupValue = null;
+        if (this.ParentSection is { } section && section.IsSet(SelectedValueProperty))
+            groupValue = GetSelectedValue(section);
+        else if (this.ParentTableView is { } table && table.IsSet(SelectedValueProperty))
+            groupValue = GetSelectedValue(table);
+        else
+            return;
+
+        var shouldCheck = Equals(this.Value, groupValue);
+        if (this.radioButton.IsChecked != shouldCheck)
+            this.radioButton.IsChecked = shouldCheck;
+    }
+
     static void OnSelectedValueChanged(BindableObject bindable, object oldValue, object newValue)
     {
         if (bindable is TvTableSection section)

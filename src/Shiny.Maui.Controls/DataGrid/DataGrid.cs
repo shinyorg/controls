@@ -23,7 +23,7 @@ public partial class DataGrid : ContentView
     CollectionView collection;
     readonly Grid loadingOverlay;
     readonly List<DataGridRow> dataRows = new();
-    readonly ObservableCollection<object> displayItems = new();
+    readonly BatchingObservableCollection<object> displayItems = new();
     readonly SelectionBackgroundConverter selectionConverter = new();
     readonly SelectionBackgroundConverter frozenBackgroundConverter = new() { Opaque = true };
     readonly Border footerWrapper;
@@ -175,16 +175,58 @@ public partial class DataGrid : ContentView
         this.RebuildRows();
     }
 
+    bool rebuildQueued;
+
     void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         this.autoWidthsDirty = true;
-        if (MainThread.IsMainThread)
+
+        // A burst of changes (a loop of Add calls, results streaming in) becomes one rebuild on the
+        // next turn of the UI loop instead of one full rebuild per item - which was quadratic.
+        var dispatcher = this.Dispatcher;
+        if (dispatcher is null)
+        {
+            if (MainThread.IsMainThread)
+                this.RebuildRows();
+            else
+                MainThread.BeginInvokeOnMainThread(this.RebuildRows);
+            return;
+        }
+
+        if (this.rebuildQueued)
+            return;
+
+        this.rebuildQueued = true;
+        dispatcher.Dispatch(() =>
+        {
+            this.rebuildQueued = false;
             this.RebuildRows();
-        else
-            MainThread.BeginInvokeOnMainThread(this.RebuildRows);
+        });
     }
 
     void RebuildRows()
+    {
+        // One Reset for the whole rewrite instead of a change per row (see BatchingObservableCollection).
+        using (this.displayItems.Batch())
+            this.RebuildRowItems();
+
+        // Before the template and structure below read the widths. A change means the header and
+        // filter row were built against the old ones - rebuild them so every row agrees.
+        if (this.RefreshAutoWidths())
+        {
+            this.UpdateScrollContentWidth();
+            this.RebuildHeader();
+        }
+
+        // Re-create the item template so density/striping changes take effect, and swap the whole
+        // CollectionView out when the row *shape* changed - see EnsureRowStructure.
+        this.collection.ItemTemplate = this.BuildItemTemplateSelector();
+        this.EnsureRowStructure();
+        this.RebuildFooter();
+        this.UpdatePager();
+    }
+
+    void RebuildRowItems()
     {
         this.InvalidateImplicitSummaryRow();
         foreach (var row in this.dataRows)
@@ -222,21 +264,6 @@ public partial class DataGrid : ContentView
 
         if (!this.Grouped)
             this.StampBlock(0);
-
-        // Before the template and structure below read the widths. A change means the header and
-        // filter row were built against the old ones - rebuild them so every row agrees.
-        if (this.RefreshAutoWidths())
-        {
-            this.UpdateScrollContentWidth();
-            this.RebuildHeader();
-        }
-
-        // Re-create the item template so density/striping changes take effect, and swap the whole
-        // CollectionView out when the row *shape* changed - see EnsureRowStructure.
-        this.collection.ItemTemplate = this.BuildItemTemplateSelector();
-        this.EnsureRowStructure();
-        this.RebuildFooter();
-        this.UpdatePager();
     }
 
     /// <summary>

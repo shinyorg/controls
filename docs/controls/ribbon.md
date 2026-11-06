@@ -437,11 +437,11 @@ properties, and both flip with light/dark. `AccentColor`, `HeaderBackgroundColor
   API, with Escape and a click-away both closing the panel. On MAUI it is the shared page overlay,
   in a layer that ignores the safe area so a dropdown opens directly under its button on an
   edge-to-edge page.
-- **macOS AppKit (`net10.0-macos`)** gives no native view to a child added after the page has been laid
-  out. The ribbon is built for that: every tab's body is created up front and switched with
-  `IsVisible`, so tab switching, collapsing and group folding all work. Adding a tab, group or item
-  *after* the fact does rebuild, and the dropdown panels are added on demand — those are the two paths
-  that head cannot follow. Every other desktop target is unaffected.
+- **macOS AppKit (`net10.0-macos`)**: every tab's body is created up front and switched with
+  `IsVisible`, so tab switching, collapsing and group folding all work. Each body sits in a horizontal
+  scroller that sizes itself to its groups, because that head's `ScrollView` handler reports no height of
+  its own - before 2.5.0 a horizontal `ScrollView` measured 0 tall there and the ribbon showed its tab
+  strip with an empty body. Every other target is unaffected.
 - **Collapsed group buttons** fall back to the first item's icon on MAUI; on Blazor set `CollapsedIcon`
   explicitly, since a group's items are components it cannot read an icon out of.
 - **Key tips** (the Alt-key letter badges) are not implemented on either host.

@@ -182,7 +182,7 @@ public partial class Ribbon
                         groupHost.Children.Add(this.BuildGroupDivider());
                 }
 
-                var panel = new ScrollView
+                var panel = new RibbonScroller
                 {
                     Orientation = ScrollOrientation.Horizontal,
                     HorizontalScrollBarVisibility = ScrollBarVisibility.Never,

@@ -300,10 +300,10 @@ everything else stays on the tokens. See styling.md.
 - Dropdowns are drawn above the page (Blazor: the browser's top layer via the popover API, with Escape
   and click-away closing; MAUI: the shared page overlay), so a body only three rows tall never clips a
   menu.
-- **macOS AppKit (`net10.0-macos`)** gives no native view to a child added after layout. The ribbon
-  builds every tab's body up front and switches with `IsVisible`, so tabs, collapsing and group folding
-  all work there. Adding a tab/group/item *after* the fact rebuilds, and dropdown panels are added on
-  demand — those two paths are the limit on that head.
+- **macOS AppKit (`net10.0-macos`)**: the ribbon works there (tabs, collapsing, group folding). Each tab
+  body is a horizontal scroller that measures its own content height, because that head's `ScrollView`
+  handler reports 0 for a horizontal ScrollView - fixed in 2.5.0; on 2.4.0 the body drew empty. Don't
+  tell users to replace the ribbon with a hand-built bar on macOS.
 - Key tips (Alt-key letter badges) are not implemented on either host.
 
 ### Collapsing
