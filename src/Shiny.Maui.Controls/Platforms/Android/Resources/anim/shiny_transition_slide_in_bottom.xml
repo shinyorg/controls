@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Always a <set>: Shell's fragment only listens for the end of a set's first animation, so a bare
+     animation never reports finishing and the navigation never completes. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:interpolator/fast_out_slow_in" android:shareInterpolator="true">
+    <translate android:duration="300" android:fromYDelta="100%" android:toYDelta="0" />
+</set>

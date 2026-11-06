@@ -1,0 +1,29 @@
+@page "/pagetransitions/hero/{Name}"
+@inject IJSRuntime JS
+
+<PageTitle>@Name</PageTitle>
+
+<div class="hero-header" style="background:@Color" data-shiny-hero="@($"card-{Name}")">@Name</div>
+
+<Entrance Animation="PageEntranceAnimation.FadeUp" class="hero-rows">
+    @for (var i = 1; i <= 5; i++)
+    {
+        <div class="hero-row">@Name detail row @i</div>
+    }
+    <button type="button" class="hero-back" data-testid="back" @onclick="BackAsync">Back</button>
+</Entrance>
+
+<style>
+    .hero-header { height: 240px; border-radius: 16px; color: #fff; font-size: 40px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .hero-rows { display: grid; gap: 12px; margin-top: 16px; }
+    .hero-row { height: 56px; border-radius: 12px; padding: 0 16px; display: flex; align-items: center; background: color-mix(in srgb, currentColor 8%, transparent); }
+    .hero-back { justify-self: start; padding: 6px 14px; border-radius: 999px; border: 0; cursor: pointer; }
+</style>
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+
+    string Color => PageTransitionsPage.HeroCards.FirstOrDefault(c => c.Name == this.Name).Color ?? "#334155";
+
+    Task BackAsync() => this.JS.InvokeVoidAsync("history.back").AsTask();
+}

@@ -9,6 +9,7 @@
                   xmlns:foldables="clr-namespace:Sample.Features.Foldables"
                   xmlns:tabs="clr-namespace:Sample.Features.Tabs"
                   xmlns:navpage="clr-namespace:Sample.Features.Navigation"
+                  xmlns:transitions="clr-namespace:Sample.Features.Transitions"
                   xmlns:pills="clr-namespace:Sample.Features.Pills"
                   xmlns:tv="clr-namespace:Sample.Features.TableView"
                   xmlns:scheduler="clr-namespace:Sample.Features.Scheduler"
@@ -627,6 +628,14 @@
                              Color="{AppThemeBinding Light=#0891B2, Dark=#22D3EE}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate navpage:NavigationDemoPage}" Route="navigationpage" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Page Transitions">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x21C4;" Size="20"
+                             Color="{AppThemeBinding Light=#0891B2, Dark=#22D3EE}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate transitions:PageTransitionsPage}" Route="pagetransitions" />
     </FlyoutItem>
 
     <FlyoutItem Title="Floating Panel">

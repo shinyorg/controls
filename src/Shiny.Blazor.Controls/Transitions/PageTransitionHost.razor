@@ -1,0 +1,13 @@
+@namespace Shiny.Blazor.Controls
+@implements IAsyncDisposable
+
+@*
+    view-transition-name makes this element its own group in the browser's view transition, so the
+    routed page animates and the chrome around it (app bar, nav panel) stays where it is. The style is
+    merged with a caller's own rather than splatted over it, which would drop the name.
+*@
+<CascadingValue Value="this" IsFixed="true">
+    <div class="shiny-page-transition @Class" style="@MergedStyle" @attributes="OtherAttributes">
+        @ChildContent
+    </div>
+</CascadingValue>

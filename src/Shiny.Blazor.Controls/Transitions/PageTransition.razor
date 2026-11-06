@@ -1,0 +1,27 @@
+@namespace Shiny.Blazor.Controls
+@implements IDisposable
+
+@*
+    Renders nothing: it is how a page tells the PageTransitionHost around the router how it arrives
+    and leaves. Put it anywhere in the page's markup.
+*@
+
+@code {
+    [CascadingParameter] PageTransitionHost? Host { get; set; }
+
+    /// <summary>How this page arrives.</summary>
+    [Parameter] public PageTransitionType Push { get; set; }
+
+    /// <summary>How it leaves when the user goes back. Left at Default, the push runs in reverse.</summary>
+    [Parameter] public PageTransitionType Pop { get; set; }
+
+    /// <summary>The edge it comes in from; going back leaves toward the same edge.</summary>
+    [Parameter] public PageTransitionDirection Direction { get; set; }
+
+    /// <summary>Overrides the host's duration for this page.</summary>
+    [Parameter] public TimeSpan? Duration { get; set; }
+
+    protected override void OnInitialized() => this.Host?.Register(this);
+
+    public void Dispose() => this.Host?.Unregister(this);
+}

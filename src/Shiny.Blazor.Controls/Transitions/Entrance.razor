@@ -1,0 +1,40 @@
+@namespace Shiny.Blazor.Controls
+
+@*
+    The children animate in one after another as this mounts - which, with the router, is when the
+    page appears. Plain CSS: no script, no PageTransitionHost needed.
+*@
+<div class="shiny-entrance shiny-entrance-@AnimationClass @Class" style="@MergedStyle" @attributes="OtherAttributes">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public PageEntranceAnimation Animation { get; set; } = PageEntranceAnimation.FadeUp;
+
+    /// <summary>Milliseconds between one child starting and the next.</summary>
+    [Parameter] public int Stagger { get; set; } = 50;
+
+    /// <summary>Milliseconds before the first child starts, so the page transition leads.</summary>
+    [Parameter] public int Delay { get; set; } = 120;
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    string AnimationClass => this.Animation.ToString().ToLowerInvariant();
+
+    string MergedStyle
+    {
+        get
+        {
+            var own = $"--shiny-entrance-stagger:{this.Stagger}ms;--shiny-entrance-delay:{this.Delay}ms;";
+            return this.AdditionalAttributes?.TryGetValue("style", out var style) == true ? own + style : own;
+        }
+    }
+
+    IReadOnlyDictionary<string, object>? OtherAttributes
+        => this.AdditionalAttributes?.Where(a => a.Key != "style").ToDictionary(a => a.Key, a => a.Value);
+}

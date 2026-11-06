@@ -1,0 +1,41 @@
+@page "/pagetransitions/step/{Depth:int}/{Type}/{Direction}"
+@inject IJSRuntime JS
+
+<PageTitle>Page @Depth</PageTitle>
+
+@* The whole feature, as far as the page is concerned. *@
+<PageTransition Push="@TransitionType" Direction="@TransitionDirection" />
+
+<div class="step-page" style="background:@Palette[Depth % Palette.Length]">
+    <Entrance Animation="PageEntranceAnimation.FadeUp">
+        <h1>Arrived with @TransitionType</h1>
+        <div class="transition-buttons">
+            @foreach (var type in Enum.GetValues<PageTransitionType>())
+            {
+                <a class="transition-button" href="@($"pagetransitions/step/{Depth + 1}/{type}/{Direction}")" data-testid="@($"push-{type}")">@type</a>
+            }
+        </div>
+        <p><button type="button" class="transition-button" data-testid="back" @onclick="BackAsync">Back</button></p>
+    </Entrance>
+</div>
+
+<style>
+    .step-page { min-height: 70vh; padding: 32px 24px; border-radius: 16px; color: #fff; }
+    .step-page h1 { color: #fff; }
+    .step-page .transition-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+    .step-page .transition-button { padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,.18); color: #fff; text-decoration: none; border: 0; font-size: 14px; cursor: pointer; }
+</style>
+
+@code {
+    [Parameter] public int Depth { get; set; }
+    [Parameter] public string Type { get; set; } = "";
+    [Parameter] public string Direction { get; set; } = "";
+
+    PageTransitionType TransitionType => Enum.TryParse<PageTransitionType>(this.Type, out var t) ? t : PageTransitionType.Default;
+    PageTransitionDirection TransitionDirection => Enum.TryParse<PageTransitionDirection>(this.Direction, out var d) ? d : PageTransitionDirection.Default;
+
+    // The browser's own back, so the host sees a return to the previous page and reverses the transition.
+    Task BackAsync() => this.JS.InvokeVoidAsync("history.back").AsTask();
+
+    static readonly string[] Palette = ["#334155", "#0E7490", "#7C3AED", "#B45309", "#15803D", "#BE123C"];
+}

@@ -37,6 +37,17 @@ sealed class AndroidBackButton
     }
 
 
+    /// <summary>True while an overlay owns the back button.</summary>
+    internal static bool HasActive
+    {
+        get
+        {
+            lock (active)
+                return active.Count > 0;
+        }
+    }
+
+
     /// <summary>Hands a back press to the most recent overlay. True when one took it.</summary>
     internal static bool HandleBack()
     {

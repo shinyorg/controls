@@ -99,6 +99,7 @@ public static class Catalog
             new("fab-menu", "Fab Menu", "✦", "Expanding menu of action buttons"),
             new("toolbar", "Toolbar", "☰", "Docked app bar with overflow and frosted glass"),
             new("tabbar", "Tab Bar", "☷", "Bottom tab navigation with badges"),
+            new("pagetransitions", "Page Transitions", "⇆", "Per-page navigation transitions, hero flights and entrance cascades"),
             new("stateview", "State View", "⇄", "Named branches switched by one string"),
             new("wizard", "Wizard", "➤", "Multi-step flow with a pointed progress bar"),
             new("timeline", "Timeline", "⋮", "Vertical rail of markers with content beside each one"),

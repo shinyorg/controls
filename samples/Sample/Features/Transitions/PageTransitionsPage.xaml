@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Sample.Features.Transitions.PageTransitionsPage"
+             Title="Page Transitions"
+             AutomationId="PageTransitionsPage">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="14">
+            <Label Text="Page transitions" FontSize="22" FontAttributes="Bold" />
+            <Label FontSize="14" TextColor="Gray"
+                   Text="Set PageTransition.Push on a page and that is how it arrives; it leaves the same way in reverse unless PageTransition.Pop says otherwise. Navigation itself is untouched - PushAsync, PushModalAsync, GoToAsync and anything built on them pick it up from the page." />
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <Label Text="Comes in from" FontAttributes="Bold" />
+            <Picker x:Name="DirectionPicker" AutomationId="TransitionDirection" Title="Direction" />
+
+            <HorizontalStackLayout Spacing="10">
+                <Switch x:Name="ModalSwitch" AutomationId="TransitionModal" VerticalOptions="Center" />
+                <Label Text="Present modally" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+
+            <Label Text="Push with" FontAttributes="Bold" />
+            <FlexLayout x:Name="TransitionButtons" Wrap="Wrap" />
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <Label Text="Hero" FontAttributes="Bold" />
+            <Label FontSize="13" TextColor="Gray"
+                   Text="Each card and the header on its detail page share a PageTransition.Hero name, so the card flies into place while the pages crossfade. The detail page's content cascades in with PageTransition.Entrance." />
+            <HorizontalStackLayout x:Name="HeroCards" Spacing="12" />
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <Label Text="In a NavigationPage" FontAttributes="Bold" />
+            <Button Text="Open a ShinyNavigationPage" AutomationId="OpenTransitionNav" Clicked="OnOpenNavigationPage" />
+
+            <Label FontSize="12" TextColor="Gray"
+                   Text="Swipe back from anywhere on iOS (this sample turns on full-screen swipe-back); on Android 14+ the back gesture previews the page underneath. Shell tabs (the Data Grid section, for one) switch with SharedAxisX." />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

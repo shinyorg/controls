@@ -38,6 +38,7 @@ public static class MauiProgram
             {
                 cfg.SetCustomFeedback<MyCustomFeedbackService>(); // haptic is installed by default, but we want more fun
                 cfg.AddDefaultMauiControlFeedback();
+                cfg.UsePageTransitions(shellItemTransition: Shiny.Maui.Controls.PageTransitionType.SharedAxisX, fullScreenSwipeBack: true);
 
                 // Deliberately tighter than the default of four so the ShinyImage page can actually
                 // show the queued state - with a normal budget the thirty-image grid never has

@@ -5,7 +5,10 @@ using UIKit;
 
 namespace Sample.Platforms.iOS;
 
-public class SolidTabBarRenderer : ShellRenderer
+// Derives from ShinyShellRenderer, not ShellRenderer: UsePageTransitions registers that one as the
+// Shell handler, and this registration replaces it - so a custom renderer keeps tab and flyout-item
+// transitions only by inheriting them.
+public class SolidTabBarRenderer : Shiny.Maui.Controls.ShinyShellRenderer
 {
     protected override IShellTabBarAppearanceTracker CreateTabBarAppearanceTracker()
     {

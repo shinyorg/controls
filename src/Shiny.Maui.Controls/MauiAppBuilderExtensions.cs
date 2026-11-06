@@ -95,6 +95,11 @@ public static class ControlsMauiAppBuilderExtensions
         if (cfg.InstallPageOverlayBeforeRender)
             PageOverlay.WrapBeforeRender();
 
+        // Page push/pop transitions are opt-in: on Android they replace the Shell handler, which an
+        // app with its own ShellRenderer has to know about before it happens.
+        if (cfg.PageTransitionsEnabled)
+            PageTransitionInstaller.Install(builder);
+
 #if ANDROID || IOS || MACCATALYST || WINDOWS
         builder.ConfigureMauiHandlers(handlers =>
         {
@@ -320,6 +325,40 @@ public class ShinyControlConfiguration(IServiceCollection services)
     /// own view; the overlays still work, they just install the root lazily as before.
     /// </remarks>
     public bool InstallPageOverlayBeforeRender { get; set; } = true;
+
+    internal bool PageTransitionsEnabled { get; private set; }
+
+    /// <summary>
+    /// Turns on <see cref="PageTransition"/> - per-page push/pop and modal transitions, hero
+    /// flights and Shell tab transitions for Shell and NavigationPage stacks.
+    /// </summary>
+    /// <param name="defaultTransition">The transition for pages that do not set one. Default keeps the platform's own.</param>
+    /// <param name="duration">How long a transition runs, unless a page sets its own.</param>
+    /// <param name="shellItemTransition">The transition between Shell tabs and flyout items. Default keeps the platform's.</param>
+    /// <param name="fullScreenSwipeBack">iOS: swipe back from anywhere on the page, not just the left edge.</param>
+    /// <param name="predictiveBack">Android 14+: preview the page underneath during the back gesture (needs <c>android:enableOnBackInvokedCallback="true"</c>).</param>
+    /// <remarks>
+    /// This registers <c>ShinyShellRenderer</c> as the Shell handler on iOS and Android. An app
+    /// with its own ShellRenderer should derive it from <c>ShinyShellRenderer</c> instead.
+    /// </remarks>
+    public ShinyControlConfiguration UsePageTransitions(
+        PageTransitionType defaultTransition = PageTransitionType.Default,
+        TimeSpan? duration = null,
+        PageTransitionType shellItemTransition = PageTransitionType.Default,
+        bool fullScreenSwipeBack = false,
+        bool predictiveBack = true
+    )
+    {
+        this.PageTransitionsEnabled = true;
+        PageTransition.DefaultTransition = defaultTransition;
+        PageTransition.ShellItemTransition = shellItemTransition;
+        PageTransition.FullScreenSwipeBack = fullScreenSwipeBack;
+        PageTransition.PredictiveBack = predictiveBack;
+        if (duration is not null)
+            PageTransition.Duration = duration.Value;
+
+        return this;
+    }
 
     internal DialogOptions DialogOptions { get; } = new();
 

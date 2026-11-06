@@ -1,0 +1,51 @@
+/* Children are staggered by their position: a custom property per nth-child, since sibling-index()
+   is not yet in every browser. Past 24 children they all share the last delay. */
+.shiny-entrance ::deep > * {
+    animation-duration: 380ms;
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    animation-fill-mode: both;
+    animation-delay: calc(var(--shiny-entrance-delay, 120ms) + var(--shiny-entrance-i, 24) * var(--shiny-entrance-stagger, 50ms));
+}
+
+.shiny-entrance ::deep > :nth-child(1) { --shiny-entrance-i: 0; }
+.shiny-entrance ::deep > :nth-child(2) { --shiny-entrance-i: 1; }
+.shiny-entrance ::deep > :nth-child(3) { --shiny-entrance-i: 2; }
+.shiny-entrance ::deep > :nth-child(4) { --shiny-entrance-i: 3; }
+.shiny-entrance ::deep > :nth-child(5) { --shiny-entrance-i: 4; }
+.shiny-entrance ::deep > :nth-child(6) { --shiny-entrance-i: 5; }
+.shiny-entrance ::deep > :nth-child(7) { --shiny-entrance-i: 6; }
+.shiny-entrance ::deep > :nth-child(8) { --shiny-entrance-i: 7; }
+.shiny-entrance ::deep > :nth-child(9) { --shiny-entrance-i: 8; }
+.shiny-entrance ::deep > :nth-child(10) { --shiny-entrance-i: 9; }
+.shiny-entrance ::deep > :nth-child(11) { --shiny-entrance-i: 10; }
+.shiny-entrance ::deep > :nth-child(12) { --shiny-entrance-i: 11; }
+.shiny-entrance ::deep > :nth-child(13) { --shiny-entrance-i: 12; }
+.shiny-entrance ::deep > :nth-child(14) { --shiny-entrance-i: 13; }
+.shiny-entrance ::deep > :nth-child(15) { --shiny-entrance-i: 14; }
+.shiny-entrance ::deep > :nth-child(16) { --shiny-entrance-i: 15; }
+.shiny-entrance ::deep > :nth-child(17) { --shiny-entrance-i: 16; }
+.shiny-entrance ::deep > :nth-child(18) { --shiny-entrance-i: 17; }
+.shiny-entrance ::deep > :nth-child(19) { --shiny-entrance-i: 18; }
+.shiny-entrance ::deep > :nth-child(20) { --shiny-entrance-i: 19; }
+.shiny-entrance ::deep > :nth-child(21) { --shiny-entrance-i: 20; }
+.shiny-entrance ::deep > :nth-child(22) { --shiny-entrance-i: 21; }
+.shiny-entrance ::deep > :nth-child(23) { --shiny-entrance-i: 22; }
+.shiny-entrance ::deep > :nth-child(24) { --shiny-entrance-i: 23; }
+
+.shiny-entrance-fade ::deep > * { animation-name: shiny-entrance-fade; }
+.shiny-entrance-fadeup ::deep > * { animation-name: shiny-entrance-fade-up; }
+.shiny-entrance-slidein ::deep > * { animation-name: shiny-entrance-slide-in; }
+.shiny-entrance-scale ::deep > * { animation-name: shiny-entrance-scale; }
+.shiny-entrance-none ::deep > * { animation: none; }
+
+[dir="rtl"] .shiny-entrance-slidein ::deep > * { animation-name: shiny-entrance-slide-in-rtl; }
+
+@keyframes shiny-entrance-fade { from { opacity: 0; } }
+@keyframes shiny-entrance-fade-up { from { opacity: 0; transform: translateY(24px); } }
+@keyframes shiny-entrance-slide-in { from { opacity: 0; transform: translateX(-32px); } }
+@keyframes shiny-entrance-slide-in-rtl { from { opacity: 0; transform: translateX(32px); } }
+@keyframes shiny-entrance-scale { from { opacity: 0; transform: scale(0.92); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-entrance ::deep > * { animation: none; }
+}

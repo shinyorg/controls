@@ -1,0 +1,68 @@
+@page "/pagetransitions"
+@inject NavigationManager Nav
+
+<PageTitle>Page Transitions</PageTitle>
+
+<Entrance Animation="PageEntranceAnimation.FadeUp">
+    <h1>Page Transitions</h1>
+
+    <p>
+        A <code>&lt;PageTransitionHost&gt;</code> around the router's <code>@@Body</code> animates every
+        navigation with the browser's View Transitions API. Each page says how it arrives with a
+        <code>&lt;PageTransition Push="..." /&gt;</code>; going back runs it in reverse. Links,
+        <code>NavigateTo</code> and the browser's back button all animate - navigation itself is untouched.
+    </p>
+
+    <section class="demo-section">
+        <h2>Push with</h2>
+        <label>
+            Comes in from
+            <select @bind="direction" data-testid="transition-direction">
+                @foreach (var d in Enum.GetValues<PageTransitionDirection>())
+                {
+                    <option value="@d">@d</option>
+                }
+            </select>
+        </label>
+        <div class="transition-buttons">
+            @foreach (var type in Enum.GetValues<PageTransitionType>())
+            {
+                <a class="transition-button" href="@($"pagetransitions/step/1/{type}/{direction}")" data-testid="@($"push-{type}")">@type</a>
+            }
+        </div>
+    </section>
+
+    <section class="demo-section">
+        <h2>Hero</h2>
+        <p>Each card and the header on its detail page share a <code>data-shiny-hero</code> name, so the card flies into place.</p>
+        <div class="hero-cards">
+            @foreach (var (name, color) in HeroCards)
+            {
+                <a href="@($"pagetransitions/hero/{name}")" class="hero-card" style="background:@color" data-shiny-hero="@($"card-{name}")" data-testid="@($"hero-{name}")">@name</a>
+            }
+        </div>
+    </section>
+
+    <section class="demo-section">
+        <h2>Entrance</h2>
+        <p>This page's sections cascade in with <code>&lt;Entrance Animation="FadeUp"&gt;</code> - plain CSS, no host needed.</p>
+    </section>
+</Entrance>
+
+<style>
+    .transition-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .transition-button { padding: 6px 14px; border-radius: 999px; background: var(--shiny-color-primary, #4f46e5); color: var(--shiny-color-on-primary, #fff); text-decoration: none; font-size: 14px; }
+    .hero-cards { display: flex; gap: 12px; }
+    .hero-card { width: 96px; height: 96px; border-radius: 16px; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+</style>
+
+@code {
+    PageTransitionDirection direction = PageTransitionDirection.Default;
+
+    internal static readonly (string Name, string Color)[] HeroCards =
+    [
+        ("Ocean", "#0E7490"),
+        ("Violet", "#7C3AED"),
+        ("Amber", "#B45309")
+    ];
+}

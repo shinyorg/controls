@@ -312,6 +312,7 @@ colour, and why appearance properties default to `-1` rather than a real value.
 | **[Foldables](docs/controls/foldables.md)** | Fold-aware layouts on Android foldables and iPhone Duo — panes snap to the fold, overlays move off it (MAUI add-on; CSS on Blazor) |
 | **[TabbedPage & TabBar](docs/controls/tabbedpage.md)** | Tabs with motion icons, badges, transitions and a raised centre button (MAUI) |
 | **[NavigationPage](docs/controls/navigationpage.md)** | Toolbar items on the **left** as well as the right, overflow, badges, large title (MAUI) |
+| **[Page Transitions](docs/controls/page-transitions.md)** | Per-page navigation transitions, hero flights and entrance cascades; MAUI adds modals, tabs, swipe-back and predictive back |
 | **[ShinyToolbar & ShinyTabBar](docs/controls/toolbar-tabbar.md)** | Screen-docked action toolbar and mobile-style tab bar (Blazor) |
 | **[Ribbon](docs/controls/ribbon.md)** | Office-style tabbed command bar — groups, contextual tabs, collapse and overflow (desktop + Blazor) |
 | **[Modal](docs/controls/modal.md)** | A modal window with focus trap, scroll lock, drag, resize and maximize (Blazor) |

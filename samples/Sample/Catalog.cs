@@ -138,6 +138,7 @@ public static class Catalog
             new("buttongroup", "Button Group", "▤", "Segmented control of joined buttons, with optional selection"),
             new("fab", "Fab & FabMenu", "➕", "Floating action button and expanding menu"),
             new("navigationpage", "Navigation Page", "▢", "A NavigationPage with items on both sides of the title"),
+            new("pagetransitions", "Page Transitions", "⇄", "Per-page push and pop transitions for Shell and NavigationPage"),
             new("stateview", "State View", "⇄", "Named branches switched by one string"),
             new("wizard", "Wizard", "➤", "Multi-step flow with a pointed progress bar")
         ]),
