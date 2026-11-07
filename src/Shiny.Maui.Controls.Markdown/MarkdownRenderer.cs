@@ -310,6 +310,20 @@ public static class MarkdownRenderer
 
         var span = new FormattedString();
         CollectInlines(span, inlines, theme, linkHandler, FontAttributes.None, false);
+
+        // spans carry their own font, which wins over the label's - so a heading label's size and weight
+        // must be pushed down into them or a heading renders as body text
+        if (label.IsSet(Label.FontSizeProperty) && theme.BaseFontSize > 0 && Math.Abs(label.FontSize - theme.BaseFontSize) > 0.01)
+        {
+            var scale = label.FontSize / theme.BaseFontSize;
+            foreach (var s in span.Spans)
+                s.FontSize *= scale;
+        }
+        if (label.FontAttributes != FontAttributes.None)
+        {
+            foreach (var s in span.Spans)
+                s.FontAttributes |= label.FontAttributes;
+        }
         label.FormattedText = span;
     }
 
