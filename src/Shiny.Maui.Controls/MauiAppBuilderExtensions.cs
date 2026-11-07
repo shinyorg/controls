@@ -227,11 +227,20 @@ public static class ControlsMauiAppBuilderExtensions
         var none = new Microsoft.UI.Xaml.Thickness(0);
         var resources = textBox.Resources;
 
-        resources["TextControlBorderThemeThickness"] = none;
-        resources["TextControlBorderThemeThicknessFocused"] = none;
+        Replace(resources, "TextControlBorderThemeThickness", none);
+        Replace(resources, "TextControlBorderThemeThicknessFocused", none);
 
         foreach (var key in WindowsChromeBrushKeys)
-            resources[key] = clear;
+            Replace(resources, key, clear);
+    }
+
+    // When the entry has a background, MAUI has already put its own brush under the TextControlBackground*
+    // keys of this TextBox. WinUI refuses to overwrite an existing key through the indexer
+    // (COMException 0x800F0902, which takes the whole app down); removing it first and adding it again works.
+    static void Replace(Microsoft.UI.Xaml.ResourceDictionary resources, string key, object value)
+    {
+        resources.Remove(key);
+        resources[key] = value;
     }
 
     static readonly string[] WindowsChromeBrushKeys =
