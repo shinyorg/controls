@@ -31,7 +31,7 @@ It works with `BindableLayout.ItemsSource`/`ItemTemplate` like any other MAUI la
 |---|---|---|
 | Pass at the same size (the platform does this constantly) | measures every child | measures **nothing**; the resolved pass is reused |
 | One child changes (a label's text, an image loading) | measures every child | measures **that child** |
-| Resize / rotation | measures every child | leaf children that still fit are **not re-measured** |
+| Resize / rotation | measures every child | narrower: leaf children that still fit are **not re-measured**; wider: each child once, since wrapped text may need fewer lines |
 | Measure then arrange | the flex is resolved twice | resolved once; arrange is arithmetic |
 | Allocations per pass | engine objects every pass | **none**: buffers are reused, no LINQ, no boxing |
 
@@ -60,6 +60,8 @@ A child's cached measurement is thrown away when:
 A result of zero width or height is never cached (it usually means "not loaded yet"). A layout or
 content-hosting child (`Grid`, `Border`, `ContentView`…) only reuses a measurement taken under exactly
 the same constraints, since a star-sized `Grid` fills whatever it is given.
+A leaf reuses a measurement under a narrower width, never a wider one: a wrapped `Label` is narrower
+than the width it was given too, and with more room it takes fewer lines.
 
 If a child changes size natively and nothing calls `InvalidateMeasure()`, call it yourself, or set
 `IsMeasureCacheEnabled="False"` on that layout.

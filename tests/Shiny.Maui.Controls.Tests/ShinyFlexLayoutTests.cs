@@ -552,12 +552,64 @@ public class ShinyFlexLayoutTests
         Layout(flex, 300, 800);
         foreach (var c in children) c.Measures = 0;
 
-        // Rotate: wider and shorter. Every child fitted before and still fits, so none is measured.
+        // Rotate: wider and shorter. A wider constraint can change a leaf's answer (see
+        // WrappedTextGetsTheRoomWhenTheLayoutWidens), so each child is measured once.
         Layout(flex, 600, 400);
+        children.Sum(c => c.Measures).ShouldBe(children.Length);
+        foreach (var c in children) c.Measures = 0;
+
+        // And back, narrower. Every child fitted before and still fits, so none is measured.
         Layout(flex, 250, 900);
 
         children.Sum(c => c.Measures).ShouldBe(0);
         children[6].Frame.Y.ShouldBeGreaterThan(0); // 250 fits 6 per line
+    }
+
+
+    /// <summary>
+    /// Text that wraps at words: it breaks a line before a word that does not fit, so it ends up
+    /// narrower than its constraint even when more room would let it take fewer lines.
+    /// </summary>
+    sealed class WordProbe(double wordWidth, int words, double lineHeight) : View
+    {
+        const double Space = 5;
+
+        protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
+        {
+            var perLine = Math.Max(1, (int)((widthConstraint + Space) / (wordWidth + Space)));
+            perLine = Math.Min(perLine, words);
+            var lines = (int)Math.Ceiling(words / (double)perLine);
+            var size = new Size(perLine * wordWidth + (perLine - 1) * Space, lines * lineHeight);
+            this.DesiredSize = size;
+            return size;
+        }
+    }
+
+
+    [Fact]
+    public void WrappedTextGetsTheRoomWhenTheLayoutWidens()
+    {
+        // The case from a list row: a pill that must not shrink and the text beside it taking the rest.
+        var pill = new Probe(80, 20);
+        var text = new WordProbe(60, 4, 20);
+        ShinyFlexLayout.SetShrink(pill, 0);
+        ShinyFlexLayout.SetGrow(text, 1);
+        var flex = Flex(pill, text);
+        flex.Wrap = FlexWrap.Wrap;
+        flex.AlignItems = FlexAlignItems.Start;
+        flex.AlignContent = FlexAlignContent.Start;
+
+        // Narrow: two words per line, so the text is 125 wide and two lines tall, on a line of its own.
+        Layout(flex, 150, 1000);
+        text.Frame.Height.ShouldBe(40);
+
+        // Wide: all four words fit on one line next to the pill. The text measured at 150 did not use
+        // all of it, but that answer does not hold for 600.
+        var size = Layout(flex, 600, 1000);
+
+        text.Frame.Height.ShouldBe(20);
+        text.Frame.Y.ShouldBe(0);
+        size.Height.ShouldBe(20);
     }
 
 
@@ -705,7 +757,8 @@ public class ShinyFlexLayoutTests
         var ourMeasures = ours.Sum(p => p.Measures);
         var theirMeasures = theirs.Sum(p => p.Measures);
 
-        ourMeasures.ShouldBeLessThanOrEqualTo(count + 1);
-        (theirMeasures / (double)ourMeasures).ShouldBeGreaterThan(4, $"ours {ourMeasures} vs MAUI {theirMeasures}");
+        // Every child once at 400, once more when the layout widens to 800, plus the one that changed.
+        ourMeasures.ShouldBeLessThanOrEqualTo(2 * count + 1);
+        (theirMeasures / (double)ourMeasures).ShouldBeGreaterThan(2, $"ours {ourMeasures} vs MAUI {theirMeasures}");
     }
 }
