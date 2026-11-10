@@ -54,6 +54,11 @@ static class PageEntrance
         var state = states.GetOrCreateValue(layout);
         if (!state.Played || state.Playing)
             Prepare(child, PageTransition.GetEntrance(layout));
+
+        // Play only animates the children it found when it started, so a child that arrives while it
+        // runs has to be brought in here or it stays at opacity 0.
+        if (state.Playing)
+            _ = Animate(child, Math.Max(0, PageTransition.GetEntranceDelay(layout)));
     }
 
 
