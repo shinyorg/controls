@@ -77,6 +77,8 @@ Hidden views and sources scrolled off screen don't fly.
 
 `PageEntranceAnimation`: `None`, `Fade`, `FadeUp`, `SlideIn`, `Scale`. Set it on the **layout** whose
 children cascade, not on each child. It plays on first appearance only, unless `EntranceReplay` is set.
+Children added while it plays (e.g. `BindableLayout` items loaded right after appearing) animate in too;
+children added after it finished appear without animating.
 
 ## Platform coverage
 

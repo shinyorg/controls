@@ -123,6 +123,8 @@ gives a bubble on the right. That is deliberate.
 ## Gotchas
 
 - A tooltip on a control inside a `ScrollView` follows it while open — the bubble re-places on scroll.
+- A tooltip inside a `CollectionView` / `CarouselView` item template points at its own row (MAUI reads the
+  item's position from the native views), so putting one in an item template is fine.
 - MAUI's `Hover` trigger needs a pointer; it is a no-op on phones. Use `LongPress` there, or `Focus` for
   keyboard reachability.
 - The MAUI attached form (`TooltipProperties`) creates a real `Tooltip` behind the scenes, driven from the

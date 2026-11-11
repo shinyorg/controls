@@ -71,8 +71,17 @@ static class ViewGeometry
         if (target.Handler?.PlatformView is Microsoft.UI.Xaml.UIElement { XamlRoot: not null } view &&
             root.Handler?.PlatformView is Microsoft.UI.Xaml.UIElement host)
         {
-            var p = view.TransformToVisual(host).TransformPoint(new Windows.Foundation.Point(0, 0));
-            return new Point(p.X, p.Y);
+            // Throws when the two are not in the same visual tree (a popup, a root not loaded yet);
+            // the caller falls back to the summed offsets.
+            try
+            {
+                var p = view.TransformToVisual(host).TransformPoint(new Windows.Foundation.Point(0, 0));
+                return new Point(p.X, p.Y);
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
         }
 #elif ANDROID
         if (target.Handler?.PlatformView is Android.Views.View { IsAttachedToWindow: true } view &&

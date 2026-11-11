@@ -46,7 +46,9 @@ right, deliberately.
 
 On MAUI the bubble is placed at its anchor's position in the page's overlay root and drawn in an
 edge-to-edge layer, so it lines up with the anchor on pages that reach under the status bar (Android's
-default since .NET 10) as well as on ones that don't.
+default since .NET 10) as well as on ones that don't. Inside a `CollectionView` or `CarouselView` item, where
+every item template sits at 0,0 in its own native cell, the position is read from the native views, so the
+bubble points at the row it belongs to. Walkthrough and FloatingToolbar anchors use the same geometry.
 
 Triggers are `Manual` / `Tap` / `LongPress` / `Hover` / `Focus` on MAUI, and `Manual` / `Hover` / `Click` /
 `Focus` / `HoverOrFocus` (the default) / `LongPress` on Blazor — `HoverOrFocus` being the accessible one,

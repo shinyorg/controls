@@ -102,7 +102,9 @@ animation, so it works on every head and needs no `UsePageTransitions`.
 
 `Fade`, `FadeUp`, `SlideIn` and `Scale`. It plays the first time the page appears; set
 `EntranceReplay="True"` to play every time. The children are hidden from the moment the property is
-set, so the first frame never shows them in place.
+set, so the first frame never shows them in place. A child added while the cascade is playing, such as
+`BindableLayout` items arriving from a network call just after the page appears, animates in too, after
+`EntranceDelay`; a child added after the cascade has finished just appears.
 
 ## Shell tabs and flyout items
 
