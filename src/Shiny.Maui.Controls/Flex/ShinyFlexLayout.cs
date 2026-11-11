@@ -24,8 +24,9 @@ namespace Shiny.Maui.Controls;
 /// <item><b>Per-child measurements.</b> They are reused until that child raises
 /// <see cref="VisualElement.MeasureInvalidated"/>. A text change measures one child, not all of them.
 /// For leaf views (not layouts or content hosts) a measurement is also reused under a different
-/// constraint when the child did not use all of the old one and still fits the new one. That is why
-/// a resize or rotation measures almost nothing.</item>
+/// constraint when the child did not use all of the old one and still fits the new one, except a
+/// wider width, where wrapped text would take fewer lines. That is why making the layout narrower
+/// measures almost nothing; widening it measures each child once.</item>
 /// <item><b>The last resolved pass.</b> Lines, flexed sizes and cross sizes are kept, keyed on the
 /// available size. Measure followed by arrange at the same size, which is the normal case, resolves
 /// the flex once. Arrange itself is only arithmetic.</item>
@@ -86,9 +87,10 @@ public partial class ShinyFlexLayout : Layout
     {
         public readonly IView View = view;
 
-        // Leaf views measure as min(natural, constraint), which is what lets a measurement taken under
-        // one constraint answer for another. Containers do not: a Grid with star columns fills whatever
-        // width it is given, so it only gets exact constraint matches.
+        // A leaf view that did not use all of its constraint gives the same answer under another one
+        // that still fits it (narrower only for width, see Hit), which is what lets a measurement taken
+        // under one constraint answer for another. Containers do not: a Grid with star columns fills
+        // whatever width it is given, so it only gets exact constraint matches.
         public readonly bool IsLeaf = view is not (Microsoft.Maui.ILayout or IContentView);
 
         public int Order;
@@ -155,19 +157,27 @@ public partial class ShinyFlexLayout : Layout
             return size;
         }
 
+        // Width only takes a narrower constraint. Wrapped text is narrower than its width constraint
+        // too, because it broke a line before a word that did not fit, and with more room it takes
+        // fewer lines. Reusing that answer for a wider constraint left a label as tall as it was in a
+        // narrow pass, or as narrow, when that pass was tiny. Text does not wrap on height, so a taller
+        // constraint still gives the same answer.
         bool Hit(double cachedW, double cachedH, Size cached, double width, double height)
             => !double.IsNaN(cachedW)
-               && this.AxisReusable(cachedW, cached.Width, width)
-               && this.AxisReusable(cachedH, cached.Height, height);
+               && this.AxisReusable(cachedW, cached.Width, width, widerReusable: false)
+               && this.AxisReusable(cachedH, cached.Height, height, widerReusable: true);
 
-        bool AxisReusable(double cachedConstraint, double result, double constraint)
+        bool AxisReusable(double cachedConstraint, double result, double constraint, bool widerReusable)
         {
             if (Same(cachedConstraint, constraint))
                 return true;
 
-            // The child did not use its whole constraint, so it was not limited by it. Any constraint
+            // The child did not use its whole constraint, so it was not limited by it. A constraint
             // that still fits the result gives the same answer.
-            return this.IsLeaf && result < cachedConstraint - Epsilon && result <= constraint + Epsilon;
+            return this.IsLeaf
+                   && result < cachedConstraint - Epsilon
+                   && result <= constraint + Epsilon
+                   && (widerReusable || constraint < cachedConstraint);
         }
     }
 

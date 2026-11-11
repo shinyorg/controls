@@ -236,6 +236,30 @@ public class PageTransitionTests : IDisposable
     }
 
 
+    [Fact]
+    public async Task AChildAddedWhileTheEntrancePlaysAnimatesInToo()
+    {
+        var host = new FrozenAnimationHost();
+        var first = new Label();
+        var layout = host.Attach(new VerticalStackLayout { first });
+        PageTransition.SetEntranceDelay(layout, 0);
+        PageTransition.SetEntrance(layout, PageEntranceAnimation.FadeUp);
+
+        // Loaded is what starts the entrance; a headless layout never raises it.
+        typeof(PageEntrance)
+            .GetMethod("OnLoaded", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(null, [layout, EventArgs.Empty]);
+
+        var late = new Label();
+        layout.Add(late);
+        await host.Finish();
+
+        first.Opacity.ShouldBe(1, 0.001);
+        late.Opacity.ShouldBe(1, 0.001);
+        late.TranslationY.ShouldBe(0, 0.001);
+    }
+
+
     static (ContentPage Page, BoxView Hero) PageWithHero(string name)
     {
         var hero = new BoxView();

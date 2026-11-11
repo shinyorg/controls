@@ -26,6 +26,7 @@ static class ViewGeometry
 
         double x = 0;
         double y = 0;
+        var inItemsView = false;
         Element? current = target;
 
         while (current is not null && !ReferenceEquals(current, root))
@@ -44,6 +45,11 @@ static class ViewGeometry
                 }
             }
 
+            // An item template of a CollectionView / CarouselView sits at 0,0 in its own native cell,
+            // so the sum above says nothing about where the item is in the list.
+            if (current is ItemsView)
+                inItemsView = true;
+
             current = current.Parent;
         }
 
@@ -51,7 +57,43 @@ static class ViewGeometry
         if (current is null)
             return null;
 
+        if (inItemsView && NativeOffset(target, root) is { } native)
+            return new Rect(native.X, native.Y, target.Width, target.Height);
+
         return new Rect(x, y, target.Width, target.Height);
+    }
+
+
+    /// <summary>The target's top-left in <paramref name="root"/>, measured on the native views.</summary>
+    static Point? NativeOffset(VisualElement target, Element root)
+    {
+#if WINDOWS
+        if (target.Handler?.PlatformView is Microsoft.UI.Xaml.UIElement { XamlRoot: not null } view &&
+            root.Handler?.PlatformView is Microsoft.UI.Xaml.UIElement host)
+        {
+            var p = view.TransformToVisual(host).TransformPoint(new Windows.Foundation.Point(0, 0));
+            return new Point(p.X, p.Y);
+        }
+#elif ANDROID
+        if (target.Handler?.PlatformView is Android.Views.View { IsAttachedToWindow: true } view &&
+            root.Handler?.PlatformView is Android.Views.View host)
+        {
+            var a = new int[2];
+            var b = new int[2];
+            view.GetLocationInWindow(a);
+            host.GetLocationInWindow(b);
+            var density = view.Context?.Resources?.DisplayMetrics?.Density ?? 1f;
+            return new Point((a[0] - b[0]) / density, (a[1] - b[1]) / density);
+        }
+#elif IOS || MACCATALYST
+        if (target.Handler?.PlatformView is UIKit.UIView { Window: not null } view &&
+            root.Handler?.PlatformView is UIKit.UIView host)
+        {
+            var p = view.ConvertPointToView(CoreGraphics.CGPoint.Empty, host);
+            return new Point(p.X, p.Y);
+        }
+#endif
+        return null;
     }
 
 
