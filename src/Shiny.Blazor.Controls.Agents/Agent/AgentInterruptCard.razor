@@ -1,0 +1,90 @@
+@namespace Shiny.Blazor.Controls.Agents
+
+@*
+    The default interrupt card: one block per pending interrupt, shaped by AgentInterruptRequest
+    (choices, free text, or approve / reject). Answers are collected and the run resumes once every
+    interrupt has one, in a single ResumeAsync call.
+*@
+
+<div class="agent-interrupt" role="group" aria-label="The agent is waiting for you">
+    @foreach (var request in Context.Requests)
+    {
+        var r = request;
+        <div class="@(r.Answer is null ? "agent-interrupt-item" : "agent-interrupt-item is-answered")">
+            <div class="agent-interrupt-message">@r.Message</div>
+            @if (r.Answer is { } answer)
+            {
+                <div class="agent-interrupt-answer">@(answer.Status == ResumeStatus.Cancelled ? "Rejected" : "Answered")</div>
+            }
+            else
+            {
+                @switch (r.Kind)
+                {
+                    case AgentInterruptKind.Choices when r.AllowMultiple:
+                        <ChipGroup TItem="AgentInterruptChoice" ItemsSource="r.Choices" SelectionMode="ChipSelectionMode.Multiple"
+                                   SelectedItems="Picked(r)" SelectedItemsChanged="items => picked[r] = items" />
+                        <div class="agent-prompt-actions">
+                            <button type="button" class="agent-btn agent-btn--primary" disabled="@(Picked(r).Count == 0)"
+                                    @onclick="() => Answer(r, () => r.Choose(Picked(r).Select(c => c.Id)))">Submit</button>
+                            <button type="button" class="agent-btn agent-btn--quiet" @onclick="() => Answer(r, r.Reject)">Skip</button>
+                        </div>
+                        break;
+
+                    case AgentInterruptKind.Choices:
+                        <div class="agent-prompt-actions agent-prompt-actions--wrap">
+                            @foreach (var choice in r.Choices)
+                            {
+                                var c = choice;
+                                <button type="button" class="agent-btn" @onclick="() => Answer(r, () => r.Choose([c.Id]))">@c.Label</button>
+                            }
+                        </div>
+                        break;
+
+                    case AgentInterruptKind.Text:
+                        <input type="text" class="agent-input" aria-label="@r.Message"
+                               value="@Text(r)" @oninput="e => texts[r] = e.Value?.ToString() ?? string.Empty"
+                               @onkeydown="e => OnTextKey(e, r)" />
+                        <div class="agent-prompt-actions">
+                            <button type="button" class="agent-btn agent-btn--primary" disabled="@string.IsNullOrWhiteSpace(Text(r))"
+                                    @onclick="() => Answer(r, () => r.Reply(Text(r)))">Send</button>
+                            <button type="button" class="agent-btn agent-btn--quiet" @onclick="() => Answer(r, r.Reject)">Skip</button>
+                        </div>
+                        break;
+
+                    default:
+                        <div class="agent-prompt-actions">
+                            <button type="button" class="agent-btn agent-btn--primary" @onclick="() => Answer(r, r.Approve)">Approve</button>
+                            <button type="button" class="agent-btn" @onclick="() => Answer(r, r.Reject)">Reject</button>
+                        </div>
+                        break;
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    readonly Dictionary<AgentInterruptRequest, IReadOnlyList<AgentInterruptChoice>> picked = [];
+    readonly Dictionary<AgentInterruptRequest, string> texts = [];
+
+    /// <summary>The pending interrupts.</summary>
+    [Parameter, EditorRequired] public AgentInterruptContext Context { get; set; } = default!;
+
+    IReadOnlyList<AgentInterruptChoice> Picked(AgentInterruptRequest r) => picked.GetValueOrDefault(r) ?? [];
+
+    string Text(AgentInterruptRequest r) => texts.GetValueOrDefault(r) ?? "";
+
+    void OnTextKey(KeyboardEventArgs e, AgentInterruptRequest r)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(Text(r)))
+            _ = Answer(r, () => r.Reply(Text(r)));
+    }
+
+    async Task Answer(AgentInterruptRequest request, Action answer)
+    {
+        answer();
+        // several interrupts resume together, once the last one is answered
+        if (Context.IsComplete)
+            await Context.SubmitAsync();
+    }
+}

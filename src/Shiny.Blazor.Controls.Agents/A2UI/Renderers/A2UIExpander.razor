@@ -1,0 +1,29 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@*
+    Expander: the core Expander. A bound "expanded" is written back when the user toggles it; a literal
+    (or no value) is the starting state and the renderer keeps the toggle itself.
+*@
+
+<div class="a2ui-expander" @attributes="Context.Aria()">
+    <Expander HeaderText="@Context.String("header")"
+              IsExpanded="@IsExpanded"
+              IsExpandedChanged="OnToggle">
+        @Context.Child()
+    </Expander>
+</div>
+
+@code {
+    bool? local;
+
+    bool IsBound => A2UIValues.IsBinding(Context.Component["expanded"], out _);
+
+    bool IsExpanded => IsBound ? Context.Bool("expanded") : local ?? Context.Bool("expanded");
+
+    void OnToggle(bool expanded)
+    {
+        if (!Context.Write("expanded", JsonValue.Create(expanded)))
+            local = expanded;
+    }
+}

@@ -36,6 +36,7 @@
        xmlns:images="clr-namespace:Sample.Features.Images;assembly=Sample.Linux"
        xmlns:imgeditor="clr-namespace:Sample.Features.ImageEditor;assembly=Sample.Linux"
        xmlns:imgviewer="clr-namespace:Sample.Features.ImageViewer;assembly=Sample.Linux"
+       xmlns:agents="clr-namespace:Sample.Features.Agents;assembly=Sample.Linux"
        xmlns:markdown="clr-namespace:Sample.Features.Markdown;assembly=Sample.Linux"
        xmlns:mediaelement="clr-namespace:Sample.Features.Media;assembly=Sample.Linux"
        xmlns:mediapicker="clr-namespace:Sample.Features.Media;assembly=Sample.Linux"
@@ -304,6 +305,15 @@
     </FlyoutItem>
     <FlyoutItem Title="Event List">
         <ShellContent ContentTemplate="{DataTemplate scheduler:CalendarListPage}" Route="calendarlist" />
+    </FlyoutItem>
+
+    <MenuItem Text="AI &amp; AGENTS" IsEnabled="False" />
+
+    <FlyoutItem Title="Agent View">
+        <ShellContent ContentTemplate="{DataTemplate agents:AgentViewPage}" Route="agent-view" />
+    </FlyoutItem>
+    <FlyoutItem Title="A2UI Gallery">
+        <ShellContent ContentTemplate="{DataTemplate agents:A2UIGalleryPage}" Route="a2ui-gallery" />
     </FlyoutItem>
 
     <MenuItem Text="CONTENT" IsEnabled="False" />

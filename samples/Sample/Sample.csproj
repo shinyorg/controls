@@ -46,6 +46,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="AGUI.Client"/>
 		<PackageReference Include="CommunityToolkit.Mvvm"/>
 		<PackageReference Include="Microsoft.Maui.Controls"/>
 		<PackageReference Include="Plugin.Maui.Audio" />
@@ -68,6 +69,7 @@
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Desktop\Shiny.Maui.Controls.Desktop.csproj" />
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Foldables\Shiny.Maui.Controls.Foldables.csproj" />
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Markdown\Shiny.Maui.Controls.Markdown.csproj" />
+		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Agents\Shiny.Maui.Controls.Agents.csproj" />
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.MermaidDiagrams\Shiny.Maui.Controls.MermaidDiagrams.csproj" />
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Barcodes\Shiny.Maui.Controls.Barcodes.csproj" />
 		<ProjectReference Include="..\..\src\Shiny.Maui.Controls.Keyframe\Shiny.Maui.Controls.Keyframe.csproj" />

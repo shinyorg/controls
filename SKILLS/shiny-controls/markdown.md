@@ -18,13 +18,20 @@ A read-only markdown renderer that converts markdown text to native MAUI control
 <md:MarkdownView Markdown="{Binding Markdown}" Padding="16" />
 ```
 
+Streaming text (an AI reply arriving a token at a time) can set `Markdown` on every update: only the top-level blocks whose source changed are rebuilt, so the earlier paragraphs are not re-parsed into new views each time. Still coalesce updates to ~30 per second.
+
+```xml
+<!-- inside a scrolling list: no inner scroller -->
+<md:MarkdownView Markdown="{Binding Text}" IsScrollEnabled="False" />
+```
+
 ### MarkdownView Properties
 
 | Property | Type | Default | Binding Mode | Description |
 |---|---|---|---|---|
 | `Markdown` | `string` | `""` | OneWay | The markdown content to render |
 | `Theme` | `MarkdownTheme?` | `null` | OneWay | Rendering theme; auto-resolves Light/Dark based on app theme if null |
-| `IsScrollEnabled` | `bool` | `true` | OneWay | Enable/disable scrolling of the content |
+| `IsScrollEnabled` | `bool` | `true` | OneWay | `true`: the view scrolls its own content. `false`: no scroller at all, the view sizes to its content (use inside a chat bubble or any page that already scrolls) |
 
 ### MarkdownView Events
 

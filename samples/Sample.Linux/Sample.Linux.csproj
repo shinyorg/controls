@@ -18,6 +18,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="AGUI.Client"/>
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="Microsoft.Maui.Controls" />
         <PackageReference Include="Microsoft.Maui.Platforms.Linux.Gtk4" />
@@ -32,6 +33,7 @@
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Desktop\Shiny.Maui.Controls.Desktop.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Markdown\Shiny.Maui.Controls.Markdown.csproj" />
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Agents\Shiny.Maui.Controls.Agents.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MermaidDiagrams\Shiny.Maui.Controls.MermaidDiagrams.csproj" />
         <!-- The GTK4 backend is its own package: there is no Linux TFM, so it can't live in the main one. -->
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MediaElement.Linux\Shiny.Maui.Controls.MediaElement.Linux.csproj" />

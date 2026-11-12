@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="Shouldly"/>
+        <PackageReference Include="xunit"/>
+        <PackageReference Include="xunit.runner.visualstudio"/>
+        <!-- test-only: the SDK's own SSE reader decodes the recorded fixtures -->
+        <PackageReference Include="AGUI.Client"/>
+        <PackageReference Include="AGUI.Formatting"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit"/>
+        <Using Include="Shouldly"/>
+        <Using Include="Shiny.Controls.AgentUI"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Shiny.Controls.AgentUI.Shared\Shiny.Controls.AgentUI.Shared.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- The samples' scripted agent, driven end to end here so the demo can't drift from the engine -->
+        <Compile Include="..\..\samples\Sample\Features\Agents\DemoAgentSession.cs" Link="Demo\DemoAgentSession.cs" />
+        <Compile Include="..\..\samples\Sample\Features\Agents\HttpAgentSession.cs" Link="Demo\HttpAgentSession.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+</Project>

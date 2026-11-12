@@ -14,6 +14,7 @@
     <Import Project="..\..\src\Shiny.Blazor.Controls.FloorPlan\buildTransitive\Shiny.Blazor.Controls.FloorPlan.targets" />
 
     <ItemGroup>
+        <PackageReference Include="AGUI.Client"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all"/>
     </ItemGroup>
@@ -22,6 +23,7 @@
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.SpeechAddins\Shiny.Blazor.Controls.SpeechAddins.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls\Shiny.Blazor.Controls.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Markdown\Shiny.Blazor.Controls.Markdown.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Agents\Shiny.Blazor.Controls.Agents.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.MermaidDiagrams\Shiny.Blazor.Controls.MermaidDiagrams.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Barcodes\Shiny.Blazor.Controls.Barcodes.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Camera\Shiny.Blazor.Controls.Camera.csproj"/>
@@ -44,6 +46,12 @@
     <ItemGroup>
         <EmbeddedResource Include="Pages\**\*.razor;Pages\**\*.razor.css;Pages\**\*.cs"
                           LogicalName="SampleSource/%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- The scripted AG-UI agent the MAUI sample uses too, so both hosts demo the same conversations -->
+        <Compile Include="..\Sample\Features\Agents\DemoAgentSession.cs" Link="Agents\DemoAgentSession.cs" />
+        <Compile Include="..\Sample\Features\Agents\HttpAgentSession.cs" Link="Agents\HttpAgentSession.cs" />
     </ItemGroup>
 
 </Project>

@@ -1,0 +1,40 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@{
+    var label = Context.StringOrNull("label");
+    var min = Context.Number("min") ?? 0;
+    var max = Context.Number("max") ?? 100;
+    var value = Math.Clamp(Context.Number("value") ?? min, Math.Min(min, max), Math.Max(min, max));
+    var steps = Context.Number("steps");
+    var step = steps is > 0 ? A2UIRenderHelpers.Invariant((max - min) / Math.Floor(steps.Value)) : "any";
+    var (_, error) = RunChecks();
+}
+<div class="a2ui-field">
+    <div class="a2ui-slider-head">
+        @if (label is not null)
+        {
+            <label class="a2ui-field-label" for="@ElementId">@label</label>
+        }
+        <output class="a2ui-slider-value" for="@ElementId">@value.ToString("0.##", Context.Culture)</output>
+    </div>
+    <input id="@ElementId" type="range" class="a2ui-slider"
+           min="@A2UIRenderHelpers.Invariant(min)" max="@A2UIRenderHelpers.Invariant(max)" step="@step"
+           value="@A2UIRenderHelpers.Invariant(value)"
+           aria-invalid="@(error is null ? null : "true")"
+           @attributes="Context.Aria()"
+           @oninput="OnInput" />
+    @if (error is not null)
+    {
+        <span class="a2ui-error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    void OnInput(ChangeEventArgs e)
+    {
+        Touched = true;
+        if (double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+            Context.Write("value", JsonValue.Create(d));
+    }
+}

@@ -1,0 +1,119 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+
+@*
+    The stateless Shiny-catalog renderers. Each draws the real Shiny Blazor control, not a look-alike,
+    so the theme packs and the control's own behaviour (the gauge's needle physics, the pill's tones)
+    come along. Inputs and the DataGrid are components next to this file.
+*@
+
+@code {
+    /// <summary><c>Gauge</c>: the core Gauge, with tone bands from <c>ranges</c>.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Gauge = ctx =>
+    @<div class="a2ui-gauge" @attributes="ctx.Aria()">
+        <Shiny.Blazor.Controls.Gauge Value="@(ctx.Number("value") ?? 0)"
+                                     Minimum="@(ctx.Number("min") ?? 0)"
+                                     Maximum="@(ctx.Number("max") ?? 100)"
+                                     Units="@ctx.StringOrNull("units")"
+                                     Title="@ctx.StringOrNull("label")"
+                                     Ranges="@GaugeRanges(ctx)"
+                                     Size="160px" />
+    </div>;
+
+    static IReadOnlyList<GaugeRange>? GaugeRanges(A2UIRenderContext ctx)
+    {
+        if (ctx.Component["ranges"] is not JsonArray ranges)
+            return null;
+
+        var list = new List<GaugeRange>(ranges.Count);
+        foreach (var r in ranges.OfType<JsonObject>())
+        {
+            if (A2UIValues.ToNumber(r["from"]) is not { } from || A2UIValues.ToNumber(r["to"]) is not { } to)
+                continue;
+            list.Add(new GaugeRange(from, to, A2UIRenderHelpers.ToneColor(A2UIValues.AsString(r["tone"]))));
+        }
+        return list;
+    }
+
+    /// <summary><c>ProgressBar</c>: the core ProgressBar; no value draws it indeterminate.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> ProgressBar = ctx =>
+    @<div class="a2ui-progress">
+        @{
+            var label = ctx.StringOrNull("label");
+            var value = ctx.Number("value");
+            var min = ctx.Number("min") ?? 0;
+            var max = ctx.Number("max") ?? 1;
+        }
+        @if (label is not null)
+        {
+            <span class="a2ui-field-label">@label</span>
+        }
+        <div role="progressbar" aria-label="@(ctx.Accessibility().Label ?? label)"
+             aria-valuemin="@A2UIRenderHelpers.Invariant(min)" aria-valuemax="@A2UIRenderHelpers.Invariant(max)"
+             aria-valuenow="@(value is { } v ? A2UIRenderHelpers.Invariant(v) : null)">
+            <Shiny.Blazor.Controls.ProgressBar Value="@(value ?? min)" Minimum="@min" Maximum="@(max > min ? max : min + 1)"
+                                               IsIndeterminate="@(value is null)" />
+        </div>
+    </div>;
+
+    /// <summary><c>Pill</c>: the core Pill with the tone mapped to its type.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Pill = ctx =>
+    @<span class="a2ui-pill" @attributes="ctx.Aria()">
+        <Shiny.Blazor.Controls.Pill Text="@ctx.String("text")" Type="@PillTone(ctx.Literal("tone", "neutral"))" />
+    </span>;
+
+    static PillType PillTone(string tone) => tone switch
+    {
+        "success" => PillType.Success,
+        "info" => PillType.Info,
+        "warning" => PillType.Warning,
+        "caution" => PillType.Caution,
+        "critical" => PillType.Critical,
+        _ => PillType.None
+    };
+
+    /// <summary><c>Avatar</c>: the core Avatar; the picture must be an https URL that passes the media policy.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Avatar = ctx =>
+    @<span class="a2ui-avatar">
+        @{
+            var name = ctx.String("name");
+            var uri = A2UIUrlPolicy.IsAllowedMediaUrl(ctx.StringOrNull("imageUrl"), out var u) && u.StartsWith("https:", StringComparison.OrdinalIgnoreCase) ? u : null;
+            var size = ctx.Literal("size", "medium") switch { "small" => 28d, "large" => 56d, _ => 40d };
+        }
+        <Shiny.Blazor.Controls.Avatar Name="@name" Uri="@uri" Size="@size" ColorFromName="true"
+                                      role="img" aria-label="@(ctx.Accessibility().Label ?? name)" />
+    </span>;
+
+    /// <summary><c>Timeline</c>: the core TimelineView over the bound items (title, description, time, tone).</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Timeline = ctx =>
+    @<div class="a2ui-timeline" @attributes="ctx.Aria()">
+        <TimelineView TItem="JsonObject" ItemsSource="@TimelineItems(ctx)" AllActive="true">
+            <MarkerTemplate Context="node">
+                <span class="a2ui-timeline-marker" style="@("background:" + A2UIRenderHelpers.ToneColor(A2UIValues.AsString(node.Item["tone"]) ?? "info"))"></span>
+            </MarkerTemplate>
+            <ItemTemplate Context="item">
+                <div class="a2ui-timeline-item">
+                    <div class="a2ui-timeline-head">
+                        <span class="a2ui-timeline-title">@A2UIValues.ToDisplayString(item["title"])</span>
+                        @if (item["time"] is { } time)
+                        {
+                            <span class="a2ui-timeline-time">@A2UIRenderHelpers.FormatTime(time, ctx)</span>
+                        }
+                    </div>
+                    @if (item["description"] is { } description)
+                    {
+                        <div class="a2ui-timeline-description">@A2UIValues.ToDisplayString(description)</div>
+                    }
+                </div>
+            </ItemTemplate>
+        </TimelineView>
+    </div>;
+
+    static IReadOnlyList<JsonObject> TimelineItems(A2UIRenderContext ctx)
+        => ctx.Value("items") is JsonArray a ? a.OfType<JsonObject>().ToList() : [];
+
+    /// <summary><c>Markdown</c>: the Markdown add-on's view, sized to its content (no scroller of its own).</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Markdown = ctx =>
+    @<div class="a2ui-markdown" @attributes="ctx.Aria()">
+        <MarkdownView Markdown="@ctx.String("text")" IsScrollEnabled="false" />
+    </div>;
+}

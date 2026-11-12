@@ -1,0 +1,51 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@*
+    Tabs: a tab strip and the selected tab's child. Only the selected child is drawn; the selection is
+    the renderer's own state, as the spec leaves it to the renderer.
+*@
+
+@{
+    var tabs = (Context.Component["tabs"] as JsonArray)?.OfType<JsonObject>().ToList() ?? [];
+    if (selected >= tabs.Count)
+        selected = 0;
+}
+<div class="a2ui-tabs" @attributes="Context.Aria()">
+    <div class="a2ui-tabs-strip" role="tablist">
+        @for (var i = 0; i < tabs.Count; i++)
+        {
+            var index = i;
+            var isOn = index == selected;
+            <button type="button" role="tab" id="@(ElementId + "-tab-" + index)"
+                    class="@(isOn ? "a2ui-tab a2ui-tab--selected" : "a2ui-tab")"
+                    aria-selected="@(isOn ? "true" : "false")"
+                    aria-controls="@(ElementId + "-panel")"
+                    tabindex="@(isOn ? 0 : -1)"
+                    @onclick="() => selected = index"
+                    @onkeydown="e => OnKey(e, tabs.Count)">
+                @Context.Surface.EvaluateString(tabs[index]["title"], Context.Scope)
+            </button>
+        }
+    </div>
+    @if (tabs.Count > 0)
+    {
+        <div class="a2ui-tabs-panel" role="tabpanel" id="@(ElementId + "-panel")" aria-labelledby="@(ElementId + "-tab-" + selected)">
+            @Context.ChildById(A2UIValues.AsString(tabs[selected]["child"]))
+        </div>
+    }
+</div>
+
+@code {
+    int selected;
+
+    void OnKey(KeyboardEventArgs e, int count)
+    {
+        if (count == 0)
+            return;
+        if (e.Key == "ArrowRight")
+            selected = (selected + 1) % count;
+        else if (e.Key == "ArrowLeft")
+            selected = (selected - 1 + count) % count;
+    }
+}

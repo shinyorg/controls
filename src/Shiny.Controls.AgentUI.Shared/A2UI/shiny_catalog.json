@@ -1,0 +1,527 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shinylib.net/a2ui/shiny.controls/v1.json",
+  "protocolVersion": "1.0",
+  "title": "Shiny Controls Catalog",
+  "description": "The A2UI v1.0 basic catalog plus Shiny Controls (DataGrid, Gauge, ChipGroup, DateRangePicker and more), rendered natively by Shiny.Maui.Controls.Agents and Shiny.Blazor.Controls.Agents.",
+  "catalogId": "https://shinylib.net/a2ui/shiny.controls/v1.json",
+  "instructions": "This catalog contains every component and function of the A2UI v1.0 basic catalog, with the same rules, plus the Shiny components below. Prefer a Shiny component over composing the same thing from basic ones: DataGrid for tabular data, Gauge for a single measurement against a scale, ChipGroup for picking tags or categories, DateRangePicker for a date range, Pill for a status. Bind inputs (ChipGroup, TagEntry, DateRangePicker, RangeSlider, Expander) to the data model with {\"@path\": ...} so the user's choice is written back and sent with the next action.",
+  "components": {
+    "DataGrid": {
+      "type": "object",
+      "description": "A sortable table of rows. Bind 'rows' to an array of objects in the data model; each column shows one member of every row. Inside a chat message it scrolls sideways only, never vertically.",
+      "properties": {
+        "component": {
+          "const": "DataGrid"
+        },
+        "title": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "An optional caption above the grid."
+        },
+        "columns": {
+          "type": "array",
+          "description": "The columns, in order.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "The member of each row object this column shows."
+              },
+              "header": {
+                "$ref": "common_types.json#/$defs/DynamicString",
+                "description": "The column header."
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "text",
+                  "number",
+                  "currency",
+                  "percent",
+                  "date"
+                ],
+                "default": "text",
+                "description": "How cell values are formatted, in the user's locale. 'percent' expects a fraction (0.25 is 25%); 'date' expects an ISO 8601 string."
+              },
+              "currency": {
+                "type": "string",
+                "description": "ISO 4217 code for 'currency' columns.",
+                "default": "USD"
+              },
+              "align": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "center",
+                  "end"
+                ],
+                "description": "Cell alignment. Number, currency and percent columns default to 'end'."
+              }
+            },
+            "required": [
+              "key",
+              "header"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "rows": {
+          "$ref": "common_types.json#/$defs/DynamicValue",
+          "description": "The rows: an array of objects, usually a binding such as {\"@path\": \"/orders\"}."
+        },
+        "sortable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether tapping a header sorts by that column."
+        },
+        "rowAction": {
+          "$ref": "common_types.json#/$defs/Action",
+          "description": "Dispatched when a row is tapped. Relative paths in its context resolve against the tapped row."
+        },
+        "weight": {
+          "$ref": "#/$defs/Weight"
+        }
+      },
+      "required": [
+        "component",
+        "columns",
+        "rows"
+      ]
+    },
+    "Gauge": {
+      "type": "object",
+      "description": "A dial gauge showing one number on a scale.",
+      "properties": {
+        "component": {
+          "const": "Gauge"
+        },
+        "value": {
+          "$ref": "common_types.json#/$defs/DynamicNumber",
+          "description": "The value the needle points at."
+        },
+        "min": {
+          "type": "number",
+          "default": 0,
+          "description": "The start of the scale."
+        },
+        "max": {
+          "type": "number",
+          "description": "The end of the scale."
+        },
+        "label": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "A caption under the value."
+        },
+        "units": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "Units shown after the value (e.g. 'km/h', '%')."
+        },
+        "ranges": {
+          "type": "array",
+          "description": "Coloured bands on the scale.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "number"
+              },
+              "to": {
+                "type": "number"
+              },
+              "tone": {
+                "type": "string",
+                "enum": [
+                  "good",
+                  "warning",
+                  "danger",
+                  "neutral"
+                ],
+                "default": "neutral"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "weight": {
+          "$ref": "#/$defs/Weight"
+        }
+      },
+      "required": [
+        "component",
+        "value",
+        "max"
+      ]
+    },
+    "ProgressBar": {
+      "type": "object",
+      "description": "A horizontal progress bar.",
+      "properties": {
+        "component": {
+          "const": "ProgressBar"
+        },
+        "value": {
+          "$ref": "common_types.json#/$defs/DynamicNumber",
+          "description": "Progress between min and max. Omit it for an indeterminate bar."
+        },
+        "min": {
+          "type": "number",
+          "default": 0
+        },
+        "max": {
+          "type": "number",
+          "default": 1
+        },
+        "label": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "Text shown with the bar."
+        },
+        "weight": {
+          "$ref": "#/$defs/Weight"
+        }
+      },
+      "required": [
+        "component"
+      ]
+    },
+    "Pill": {
+      "type": "object",
+      "description": "A small status badge.",
+      "properties": {
+        "component": {
+          "const": "Pill"
+        },
+        "text": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "The badge text."
+        },
+        "tone": {
+          "type": "string",
+          "enum": [
+            "neutral",
+            "success",
+            "info",
+            "warning",
+            "caution",
+            "critical"
+          ],
+          "default": "neutral",
+          "description": "The badge colour."
+        },
+        "weight": {
+          "$ref": "#/$defs/Weight"
+        }
+      },
+      "required": [
+        "component",
+        "text"
+      ]
+    },
+    "Avatar": {
+      "type": "object",
+      "description": "A person's picture, or their initials when there is no picture.",
+      "properties": {
+        "component": {
+          "const": "Avatar"
+        },
+        "name": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "The person's name; the initials come from it."
+        },
+        "imageUrl": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "An optional picture (https only)."
+        },
+        "size": {
+          "type": "string",
+          "enum": [
+            "small",
+            "medium",
+            "large"
+          ],
+          "default": "medium"
+        },
+        "weight": {
+          "$ref": "#/$defs/Weight"
+        }
+      },
+      "required": [
+        "component",
+        "name"
+      ]
+    },
+    "ChipGroup": {
+      "type": "object",
+      "description": "A set of selectable chips.",
+      "allOf": [
+        {
+          "$ref": "common_types.json#/$defs/Checkable"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ChipGroup"
+            },
+            "label": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "An optional caption."
+            },
+            "options": {
+              "type": "array",
+              "description": "The options to choose from.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "common_types.json#/$defs/DynamicString",
+                    "description": "The text shown for this option."
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "The stable value stored when this option is selected."
+                  }
+                },
+                "required": [
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "value": {
+              "$ref": "common_types.json#/$defs/DynamicStringList",
+              "description": "The selected values. Bind it to a string array in the data model."
+            },
+            "variant": {
+              "type": "string",
+              "enum": [
+                "single",
+                "multiple"
+              ],
+              "default": "multiple",
+              "description": "Whether one or several chips can be selected."
+            },
+            "weight": {
+              "$ref": "#/$defs/Weight"
+            }
+          },
+          "required": [
+            "component",
+            "options",
+            "value"
+          ]
+        }
+      ]
+    },
+    "TagEntry": {
+      "type": "object",
+      "description": "Free-text tags typed by the user and shown as removable chips.",
+      "allOf": [
+        {
+          "$ref": "common_types.json#/$defs/Checkable"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "TagEntry"
+            },
+            "label": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "An optional caption."
+            },
+            "value": {
+              "$ref": "common_types.json#/$defs/DynamicStringList",
+              "description": "The tags. Bind it to a string array in the data model."
+            },
+            "placeholder": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "Hint text in the empty entry."
+            },
+            "maxTags": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The most tags the user may add."
+            },
+            "weight": {
+              "$ref": "#/$defs/Weight"
+            }
+          },
+          "required": [
+            "component",
+            "value"
+          ]
+        }
+      ]
+    },
+    "DateRangePicker": {
+      "type": "object",
+      "description": "Picks a start and end date on a calendar.",
+      "allOf": [
+        {
+          "$ref": "common_types.json#/$defs/Checkable"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "DateRangePicker"
+            },
+            "label": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "An optional caption."
+            },
+            "start": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "The range start as an ISO 8601 date (YYYY-MM-DD). Bind it so the choice is written back."
+            },
+            "end": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "The range end as an ISO 8601 date (YYYY-MM-DD). Bind it so the choice is written back."
+            },
+            "min": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "The earliest selectable date (YYYY-MM-DD)."
+            },
+            "max": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "The latest selectable date (YYYY-MM-DD)."
+            },
+            "weight": {
+              "$ref": "#/$defs/Weight"
+            }
+          },
+          "required": [
+            "component",
+            "start",
+            "end"
+          ]
+        }
+      ]
+    },
+    "RangeSlider": {
+      "type": "object",
+      "description": "A slider with two thumbs picking a lower and an upper value.",
+      "allOf": [
+        {
+          "$ref": "common_types.json#/$defs/Checkable"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "RangeSlider"
+            },
+            "label": {
+              "$ref": "common_types.json#/$defs/DynamicString",
+              "description": "An optional caption."
+            },
+            "min": {
+              "type": "number",
+              "default": 0
+            },
+            "max": {
+              "type": "number"
+            },
+            "lower": {
+              "$ref": "common_types.json#/$defs/DynamicNumber",
+              "description": "The lower value. Bind it so the choice is written back."
+            },
+            "upper": {
+              "$ref": "common_types.json#/$defs/DynamicNumber",
+              "description": "The upper value. Bind it so the choice is written back."
+            },
+            "step": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Snap the values to multiples of this."
+            },
+            "weight": {
+              "$ref": "#/$defs/Weight"
+            }
+          },
+          "required": [
+            "component",
+            "max",
+            "lower",
+            "upper"
+          ]
+        }
+      ]
+    },
+    "Timeline": {
+      "type": "object",
+      "description": "A vertical list of events in time order.",
+      "properties": {
+        "component": {
+          "const": "Timeline"
+        },
+        "items": {
+          "$ref": "common_types.json#/$defs/DynamicValue",
+          "description": "An array of objects, each with 'title' and optionally 'description', 'time' and 'tone' (neutral, success, info, warning, critical)."
+        },
+        "weight": {
+          "$ref": "#/$defs/Weight"
+        }
+      },
+      "required": [
+        "component",
+        "items"
+      ]
+    },
+    "Expander": {
+      "type": "object",
+      "description": "A header that shows or hides its child when tapped.",
+      "properties": {
+        "component": {
+          "const": "Expander"
+        },
+        "header": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "The always-visible header text."
+        },
+        "child": {
+          "$ref": "common_types.json#/$defs/Child",
+          "description": "The component shown when expanded."
+        },
+        "expanded": {
+          "$ref": "common_types.json#/$defs/DynamicBoolean",
+          "description": "Whether it is expanded. A binding is written back when the user toggles it."
+        },
+        "weight": {
+          "$ref": "#/$defs/Weight"
+        }
+      },
+      "required": [
+        "component",
+        "header",
+        "child"
+      ]
+    },
+    "Markdown": {
+      "type": "object",
+      "description": "Formatted text written in Markdown (headings, lists, emphasis, links, code, tables). Never HTML.",
+      "properties": {
+        "component": {
+          "const": "Markdown"
+        },
+        "text": {
+          "$ref": "common_types.json#/$defs/DynamicString",
+          "description": "The Markdown source."
+        },
+        "weight": {
+          "$ref": "#/$defs/Weight"
+        }
+      },
+      "required": [
+        "component",
+        "text"
+      ]
+    }
+  }
+}

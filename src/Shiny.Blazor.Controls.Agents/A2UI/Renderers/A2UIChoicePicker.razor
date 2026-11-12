@@ -1,0 +1,86 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@*
+    ChoicePicker: radios or checkboxes (displayStyle "checkbox"), or the core ChipGroup ("chips").
+    The value is always a string list, as the spec says, even for a single choice.
+*@
+
+@{
+    var label = Context.StringOrNull("label");
+    var multiple = Context.Literal("variant", "mutuallyExclusive") == "multipleSelection";
+    var chips = Context.Literal("displayStyle", "checkbox") == "chips";
+    var options = A2UIRenderHelpers.Options(Context);
+    var selected = Context.StringList("value");
+    var shown = string.IsNullOrWhiteSpace(filter)
+        ? options
+        : options.Where(o => o.Label.Contains(filter, StringComparison.CurrentCultureIgnoreCase)).ToList();
+    var (_, error) = RunChecks();
+}
+<fieldset class="a2ui-field a2ui-choice" @attributes="Context.Aria()">
+    @if (label is not null)
+    {
+        <legend class="a2ui-field-label">@label</legend>
+    }
+    @if (Context.Bool("filterable"))
+    {
+        <input type="search" class="a2ui-input a2ui-choice-filter" placeholder="Filter"
+               aria-label="@("Filter " + (label ?? "options"))"
+               value="@filter" @oninput="e => filter = e.Value?.ToString()" />
+    }
+    @if (chips)
+    {
+        var selectedOptions = options.Where(o => selected.Contains(o.Value)).ToList();
+        @if (multiple)
+        {
+            <ChipGroup TItem="A2UIOption" ItemsSource="shown" SelectionMode="ChipSelectionMode.Multiple"
+                       SelectedItems="selectedOptions"
+                       SelectedItemsChanged="items => Select(items.Select(i => i.Value))" />
+        }
+        else
+        {
+            <ChipGroup TItem="A2UIOption" ItemsSource="shown" SelectionMode="ChipSelectionMode.Single"
+                       SelectedItem="selectedOptions.FirstOrDefault()"
+                       SelectedItemChanged="item => Select(item is null ? [] : [item.Value])" />
+        }
+    }
+    else
+    {
+        <div class="a2ui-choice-list">
+            @foreach (var option in shown)
+            {
+                var o = option;
+                var isOn = selected.Contains(o.Value);
+                <label class="a2ui-checkbox">
+                    <input type="@(multiple ? "checkbox" : "radio")" name="@ElementId" checked="@isOn"
+                           @onchange="e => Toggle(o.Value, multiple, selected)" />
+                    <span>@o.Label</span>
+                </label>
+            }
+        </div>
+    }
+    @if (error is not null)
+    {
+        <span class="a2ui-error" role="alert">@error</span>
+    }
+</fieldset>
+
+@code {
+    string? filter;
+
+    void Toggle(string value, bool multiple, IReadOnlyList<string> current)
+    {
+        if (!multiple)
+        {
+            Select([value]);
+            return;
+        }
+        Select(current.Contains(value) ? current.Where(v => v != value) : current.Append(value));
+    }
+
+    void Select(IEnumerable<string> values)
+    {
+        Touched = true;
+        Context.Write("value", A2UIRenderHelpers.ToJsonArray(values));
+    }
+}

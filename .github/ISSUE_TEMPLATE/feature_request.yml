@@ -30,6 +30,7 @@ body:
       description: Which package would this affect? (or propose a new one)
       options:
         - Core (Shiny.Maui.Controls / Shiny.Blazor.Controls)
+        - Agent UI — AgentView / A2UISurfaceView (*.Controls.Agents / Shiny.Controls.AgentUI.Shared)
         - Barcodes (*.Controls.Barcodes / Shiny.Controls.Barcodes.Shared)
         - Camera (*.Controls.Camera)
         - Camera AI (*.Controls.Camera.Ai)

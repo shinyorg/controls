@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- SPIKE: throwaway app proving out MediaElement video effects + audio tap + speech transcription -->
+    <PropertyGroup>
+        <TargetFrameworks>net10.0-ios;net10.0-android</TargetFrameworks>
+        <OutputType>Exe</OutputType>
+        <UseMaui>true</UseMaui>
+        <SingleProject>true</SingleProject>
+        <RootNamespace>MediaSpike</RootNamespace>
+        <ApplicationTitle>MediaSpike</ApplicationTitle>
+        <ApplicationId>dev.shiny.mediaspike</ApplicationId>
+        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <ApplicationVersion>1</ApplicationVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+        <ValidateXcodeVersion>false</ValidateXcodeVersion>
+        <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <NoWarn>$(NoWarn);CA1416;CA1422;XA4211</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.51" />
+        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup Condition="$(TargetFramework.Contains('-ios'))">
+        <NativeReference Include="Native\build\ShinySpeechBridge.xcframework">
+            <Kind>Framework</Kind>
+            <SmartLink>false</SmartLink>
+        </NativeReference>
+        <BundleResource Include="Native\build\crt-iphonesimulator.metallib" LogicalName="crt.metallib" Condition="$(RuntimeIdentifier.Contains('simulator'))" />
+        <BundleResource Include="Native\build\crt-iphoneos.metallib" LogicalName="crt.metallib" Condition="!$(RuntimeIdentifier.Contains('simulator'))" />
+    </ItemGroup>
+
+    <ItemGroup Condition="$(TargetFramework.Contains('-android'))">
+        <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer" Version="1.10.1.1" />
+        <PackageReference Include="Xamarin.AndroidX.Media3.UI" Version="1.10.1.1" />
+        <PackageReference Include="Xamarin.AndroidX.Media3.Effect" Version="1.10.1.1" />
+    </ItemGroup>
+</Project>

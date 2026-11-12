@@ -1,0 +1,61 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@*
+    DateTimeInput: the browser's own date, time or date-time input, chosen from enableDate/enableTime.
+    Values go to the model as ISO 8601 (YYYY-MM-DD, HH:mm or YYYY-MM-DDTHH:mm).
+*@
+
+@{
+    var enableDate = Context.Bool("enableDate");
+    var enableTime = Context.Bool("enableTime");
+    var type = (enableDate, enableTime) switch { (true, false) => "date", (false, true) => "time", _ => "datetime-local" };
+    var label = Context.StringOrNull("label");
+    var (_, error) = RunChecks();
+}
+<div class="a2ui-field">
+    @if (label is not null)
+    {
+        <label class="a2ui-field-label" for="@ElementId">@label</label>
+    }
+    <input id="@ElementId" class="a2ui-input" type="@type"
+           value="@ToInput(Context.String("value"), type)"
+           min="@ToInput(Context.StringOrNull("min"), type)"
+           max="@ToInput(Context.StringOrNull("max"), type)"
+           aria-invalid="@(error is null ? null : "true")"
+           @attributes="Context.Aria()"
+           @onchange="OnChange" @onblur="Touch" />
+    @if (error is not null)
+    {
+        <span class="a2ui-error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    void OnChange(ChangeEventArgs e)
+    {
+        Touched = true;
+        Context.Write("value", JsonValue.Create(e.Value?.ToString() ?? ""));
+    }
+
+    // The browser inputs want their own shapes: trim seconds, offsets and the parts this type hasn't got.
+    static string? ToInput(string? iso, string type)
+    {
+        if (string.IsNullOrEmpty(iso))
+            return iso;
+
+        var t = iso.IndexOf('T');
+        switch (type)
+        {
+            case "date":
+                return iso.Length >= 10 ? iso[..10] : iso;
+            case "time":
+                var time = t >= 0 ? iso[(t + 1)..] : iso;
+                return time.Length >= 5 ? time[..5] : time;
+            default:
+                if (t < 0)
+                    return iso.Length == 10 ? iso + "T00:00" : iso;
+                return iso.Length >= t + 6 ? iso[..(t + 6)] : iso;
+        }
+    }
+}

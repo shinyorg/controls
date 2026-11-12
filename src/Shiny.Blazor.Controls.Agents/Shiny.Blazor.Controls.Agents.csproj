@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <!-- Razor over the shared engine: the agent conversation and A2UI rules live in
+             Shiny.Controls.AgentUI.Shared and this package only draws them. An add-on rather than core
+             because message bubbles need the Markdown add-on (Markdig). -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <RootNamespace>Shiny.Blazor.Controls.Agents</RootNamespace>
+        <Description>Agent UI for Blazor - an AgentView that renders an AG-UI event stream (streaming markdown, reasoning, tool call cards, sub-agents, approvals, shared state, frontend tools) and an A2UISurface that renders agent-described A2UI v1.0 UI with plain HTML and CSS: the full basic catalog plus the Shiny catalog (DataGrid, Gauge, ChipGroup, DateRangePicker and more).</Description>
+        <PackageTags>blazor shiny ai agent ag-ui agui a2ui generative-ui chat copilot</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <SupportedPlatform Include="browser" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.AgentUI.Shared\Shiny.Controls.AgentUI.Shared.csproj"/>
+        <ProjectReference Include="..\Shiny.Blazor.Controls\Shiny.Blazor.Controls.csproj"/>
+        <ProjectReference Include="..\Shiny.Blazor.Controls.Markdown\Shiny.Blazor.Controls.Markdown.csproj"/>
+    </ItemGroup>
+
+</Project>

@@ -20,11 +20,13 @@ Render and edit markdown content using native MAUI controls — no WebView requi
 |---|---|---|
 | Markdown | string | Markdown content to render |
 | Theme | MarkdownTheme? | Rendering theme (auto Light/Dark if null) |
-| IsScrollEnabled | bool | Enable/disable scrolling (default: true) |
+| IsScrollEnabled | bool | `true` (default): the view scrolls its own content. `false`: no scroller, the view sizes to its content, for use inside a list or page that already scrolls |
 
 On Blazor a long unbroken word in the content (a namespace in a heading, a bare URL) wraps instead of
 widening the view, so the view never turns into a sideways scroller that moves only a few pixels. Code
 blocks still scroll sideways on their own.
+
+**Streaming.** Setting `Markdown` again rebuilds only the top-level blocks whose source changed (both hosts), so a reply that grows a token at a time re-renders its last paragraph rather than the whole document. AgentView relies on this; coalesce updates to ~30 per second all the same.
 
 Events: `LinkTapped` — fired when a link is tapped; set `Handled = true` to prevent default browser launch.
 

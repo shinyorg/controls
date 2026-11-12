@@ -1,0 +1,123 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+
+@*
+    The stateless basic-catalog renderers, as RenderFragments. Stateful ones (Tabs, Modal) and the
+    inputs are components next to this file. Never rendered itself: it only hosts the fragments, and
+    their styles live in A2UISurfaceView.razor.css under ::deep.
+*@
+
+@code {
+    /// <summary><c>Text</c>: variant h1-h5, caption or body, with the simple inline Markdown the spec allows.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Text = ctx =>
+    @<text>
+        @{
+            var variant = ctx.Literal("variant", "body");
+            var html = A2UIInlineMarkdown.ToHtml(ctx.String("text"));
+            var aria = ctx.Aria();
+        }
+        @switch (variant)
+        {
+            case "h1": <h1 class="a2ui-text a2ui-text--h1" @attributes="aria">@html</h1> break;
+            case "h2": <h2 class="a2ui-text a2ui-text--h2" @attributes="aria">@html</h2> break;
+            case "h3": <h3 class="a2ui-text a2ui-text--h3" @attributes="aria">@html</h3> break;
+            case "h4": <h4 class="a2ui-text a2ui-text--h4" @attributes="aria">@html</h4> break;
+            case "h5": <h5 class="a2ui-text a2ui-text--h5" @attributes="aria">@html</h5> break;
+            case "caption": <span class="a2ui-text a2ui-text--caption" @attributes="aria">@html</span> break;
+            default: <span class="a2ui-text a2ui-text--body" @attributes="aria">@html</span> break;
+        }
+    </text>;
+
+    /// <summary><c>Image</c>: honours the media URL policy (anything else draws nothing), <c>fit</c> and the size <c>variant</c>.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Image = ctx =>
+    @<text>
+        @if (A2UIUrlPolicy.IsAllowedMediaUrl(ctx.String("url"), out var url))
+        {
+            var fit = ctx.Literal("fit", "fill") switch { "scaleDown" => "scale-down", var f => f };
+            var description = ctx.StringOrNull("description");
+            <img class="@("a2ui-image a2ui-image--" + ctx.Literal("variant", "mediumFeature"))"
+                 src="@url" alt="@(ctx.Accessibility().Label ?? description ?? "")"
+                 style="@("object-fit:" + fit)" loading="lazy" referrerpolicy="no-referrer" />
+        }
+    </text>;
+
+    /// <summary><c>Icon</c>: a named icon from the basic set, or an agent-supplied <c>svgPath</c>.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Icon = ctx =>
+    @<text>
+        @{
+            var raw = ctx.Component["name"];
+            var svgPath = raw is JsonObject o && !A2UIValues.IsBinding(o, out _) ? ctx.Surface.EvaluateString(o["svgPath"], ctx.Scope) : null;
+            var name = svgPath is null ? ctx.String("name") : null;
+            var label = ctx.Accessibility().Label;
+        }
+        <span class="a2ui-icon" role="@(label is null ? null : "img")" aria-label="@label" aria-hidden="@(label is null ? "true" : null)">
+            @if (svgPath is not null)
+            {
+                <svg viewBox="0 0 24 24" width="1em" height="1em" focusable="false"><path d="@svgPath" fill="currentColor" /></svg>
+            }
+            else
+            {
+                @A2UIIcons.Glyph(name)
+            }
+        </span>
+    </text>;
+
+    /// <summary><c>Video</c>: a native player; the URL and poster must pass the media URL policy.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Video = ctx =>
+    @<text>
+        @if (A2UIUrlPolicy.IsAllowedMediaUrl(ctx.String("url"), out var url))
+        {
+            var poster = A2UIUrlPolicy.IsAllowedMediaUrl(ctx.StringOrNull("posterUrl"), out var p) ? p : null;
+            <video class="a2ui-video" src="@url" poster="@poster" controls preload="metadata" playsinline @attributes="ctx.Aria()"></video>
+        }
+    </text>;
+
+    /// <summary><c>AudioPlayer</c>: a native player with its description as a caption.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> AudioPlayer = ctx =>
+    @<text>
+        @if (A2UIUrlPolicy.IsAllowedMediaUrl(ctx.String("url"), out var url))
+        {
+            var description = ctx.StringOrNull("description");
+            <figure class="a2ui-audio">
+                @if (description is not null)
+                {
+                    <figcaption class="a2ui-text a2ui-text--caption">@description</figcaption>
+                }
+                <audio src="@url" controls preload="metadata" @attributes="ctx.Aria(description)"></audio>
+            </figure>
+        }
+    </text>;
+
+    /// <summary><c>Row</c>: a horizontal flex box; <c>justify</c> and <c>align</c> map to CSS.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Row = ctx => Flex(ctx, "a2ui-row");
+
+    /// <summary><c>Column</c>: a vertical flex box.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Column = ctx => Flex(ctx, "a2ui-column");
+
+    static RenderFragment Flex(A2UIRenderContext ctx, string css) =>
+    @<div class="@(css + " a2ui-justify-" + ctx.Literal("justify", "start") + " a2ui-align-" + ctx.Literal("align", "stretch"))" @attributes="ctx.Aria()">
+        @foreach (var child in ctx.Children())
+        {
+            @ctx.Child(child)
+        }
+    </div>;
+
+    /// <summary><c>List</c>: every item, not virtualised; a horizontal list scrolls sideways only.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> List = ctx =>
+    @<div class="@("a2ui-list a2ui-list--" + ctx.Literal("direction", "vertical") + " a2ui-align-" + ctx.Literal("align", "stretch"))" role="list" @attributes="ctx.Aria()">
+        @foreach (var child in ctx.Children())
+        {
+            <div class="a2ui-list-item" role="listitem">@ctx.Child(child)</div>
+        }
+    </div>;
+
+    /// <summary><c>Card</c>: a surface with an edge. The outermost card drops its edge when the view's ShowBorder is off.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Card = ctx =>
+    @<div class="@(ctx.IsRoot && !ctx.View.ShowBorder ? "a2ui-card a2ui-card--flat" : "a2ui-card")" @attributes="ctx.Aria()">
+        @ctx.Child()
+    </div>;
+
+    /// <summary><c>Divider</c>: a horizontal or vertical rule.</summary>
+    public static readonly RenderFragment<A2UIRenderContext> Divider = ctx =>
+    @<div class="@("a2ui-divider a2ui-divider--" + ctx.Literal("axis", "horizontal"))" role="separator"
+          aria-orientation="@ctx.Literal("axis", "horizontal")"></div>;
+}

@@ -1,0 +1,306 @@
+@namespace Shiny.Blazor.Controls.Agents
+@implements IAsyncDisposable
+
+@*
+    The agent conversation: every AgentItem kind, in order, then the interrupt card, then the composer.
+    The view fills its parent and owns the vertical axis - .agent-scroll is the one scroller, and the
+    A2UI surfaces, markdown bodies and tool cards inside it all size to their content.
+
+    The "jump to latest" pill sits right after the scroller; agent-view.js flags the scroller with
+    data-detached when the reader has scrolled up, and the stylesheet shows the pill from that, so
+    following the stream never costs a round trip to .NET (which matters on Blazor Server).
+*@
+
+<div class="@RootClass">
+    @if (ShowSteps && runner is { IsBusy: true } && runner.Thread.Steps.Count > 0)
+    {
+        <div class="agent-steps" aria-live="polite">
+            <span class="agent-spinner" aria-hidden="true"></span>
+            @foreach (var step in runner.Thread.Steps)
+            {
+                <span class="agent-step">@StepLabel(step)</span>
+            }
+        </div>
+    }
+
+    <div class="agent-scroll" @ref="scrollRef" role="log" aria-live="polite" aria-relevant="additions">
+        <div class="agent-items">
+            @if (runner is null)
+            {
+                <div class="agent-empty">No agent session.</div>
+            }
+            else
+            {
+                @if (runner.Thread.Items.Count == 0 && Suggestions is { Count: > 0 })
+                {
+                    <div class="agent-suggestions" role="group" aria-label="Suggestions">
+                        @foreach (var suggestion in Suggestions)
+                        {
+                            var s = suggestion;
+                            <button type="button" class="agent-suggestion" disabled="@runner.IsBusy" @onclick="() => SendAsync(s)">@s</button>
+                        }
+                    </div>
+                }
+
+                @foreach (var item in runner.Thread.Items)
+                {
+                    @if (item.SubagentRunId is { } subId)
+                    {
+                        @* sub-agent items draw inside their group: under the tool call that started it, or where it first spoke *@
+                        @if (OrphanSubagentStartsAt(subId, item) is { } orphan)
+                        {
+                            @RenderSubagent(orphan)
+                        }
+                        continue;
+                    }
+                    @RenderItem(item)
+                }
+
+                @if (runner.IsBusy && !IsStreamingText())
+                {
+                    <div class="agent-working" aria-label="Working"><span></span><span></span><span></span></div>
+                }
+
+                @if (!runner.IsBusy && runner.Thread.RunStatus == AgentRunStatus.Interrupted && InterruptContext() is { } interrupts)
+                {
+                    @if (InterruptTemplate is not null)
+                    {
+                        @InterruptTemplate(interrupts)
+                    }
+                    else
+                    {
+                        <AgentInterruptCard Context="interrupts" />
+                    }
+                }
+            }
+        </div>
+    </div>
+    <button type="button" class="agent-jump" @onclick="JumpToLatestAsync">Jump to latest ↓</button>
+
+    <div class="agent-composer-bar">
+        <div class="agent-composer">
+            <textarea @ref="inputRef" class="agent-input-text" rows="1"
+                      placeholder="@PlaceholderText" aria-label="@PlaceholderText"
+                      value="@draft" @oninput="OnDraftInput" @onkeydown="OnComposerKeyAsync"></textarea>
+            @if (runner is { IsBusy: true })
+            {
+                <button type="button" class="agent-send agent-send--stop" @onclick="Cancel" aria-label="Stop">Stop</button>
+            }
+            else
+            {
+                <button type="button" class="agent-send" disabled="@(runner is null || string.IsNullOrWhiteSpace(draft))"
+                        @onclick="SendDraftAsync" aria-label="Send">Send</button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    RenderFragment RenderItem(AgentItem item) => __builder =>
+    {
+        switch (item)
+        {
+            case AgentMessageItem { IsUser: true } user:
+                @if (UserMessageTemplate is not null)
+                {
+                    @UserMessageTemplate(user)
+                }
+                else
+                {
+                    <div class="agent-row agent-row--user">
+                        <div class="agent-bubble">@user.Text</div>
+                    </div>
+                }
+                break;
+
+            case AgentMessageItem { IsAssistant: true } assistant when assistant.Text.Length > 0 || assistant.IsStreaming:
+                @if (AssistantMessageTemplate is not null)
+                {
+                    @AssistantMessageTemplate(assistant)
+                }
+                else
+                {
+                    <div class="@(assistant.IsStreaming ? "agent-row agent-row--assistant is-streaming" : "agent-row agent-row--assistant")">
+                        @if (assistant.Name is { Length: > 0 } name)
+                        {
+                            <div class="agent-author">@name</div>
+                        }
+                        <MarkdownView Markdown="@assistant.Text" IsScrollEnabled="false" />
+                    </div>
+                }
+                break;
+
+            case AgentReasoningItem reasoning when ShowReasoning != AgentReasoningDisplay.Hidden && (reasoning.Text.Length > 0 || reasoning.IsStreaming):
+                var open = ShowReasoning == AgentReasoningDisplay.Expanded ? !collapsed.Contains(reasoning.Id) : expanded.Contains(reasoning.Id);
+                <div class="agent-row agent-reasoning">
+                    <button type="button" class="agent-reasoning-toggle" aria-expanded="@(open ? "true" : "false")"
+                            @onclick="() => ToggleReasoning(reasoning.Id)">
+                        @if (reasoning.IsStreaming)
+                        {
+                            <span class="agent-spinner" aria-hidden="true"></span>
+                        }
+                        <span>@ReasoningLabel(reasoning)</span>
+                        <span class="agent-chevron" aria-hidden="true">@(open ? "\u25BC\uFE0E" : "\u25B6\uFE0E")</span>
+                    </button>
+                    @if (open)
+                    {
+                        <div class="agent-reasoning-text">@reasoning.Text</div>
+                    }
+                </div>
+                break;
+
+            case AgentToolCallItem call:
+                @RenderToolCall(call)
+                break;
+
+            case AgentActivityItem activity:
+                @RenderActivity(activity)
+                break;
+
+            case AgentErrorItem error:
+                @if (ErrorTemplate is not null)
+                {
+                    @ErrorTemplate(error)
+                }
+                else
+                {
+                    <div class="agent-row agent-error" role="alert">
+                        <span class="agent-error-icon" aria-hidden="true">⚠</span>
+                        <span class="agent-error-message">@error.Message</span>
+                        @if (IsLastError(error) && runner is { IsBusy: false })
+                        {
+                            <button type="button" class="agent-btn" @onclick="RetryAsync">Retry</button>
+                        }
+                    </div>
+                }
+                break;
+        }
+    };
+
+    RenderFragment RenderToolCall(AgentToolCallItem call) => __builder =>
+    {
+        var prompt = Prompts?.Find(call.ToolCallId);
+        @if (ToolCallTemplates is not null && ToolCallTemplates.TryGetValue(call.Name, out var template))
+        {
+            @template(call)
+        }
+        else
+        {
+            var open = expanded.Contains(call.Id);
+            <div class="@("agent-row agent-tool agent-tool--" + call.Status.ToString().ToLowerInvariant())">
+                <button type="button" class="agent-tool-head" aria-expanded="@(open ? "true" : "false")" @onclick="() => Toggle(call.Id)">
+                    <span class="agent-tool-status" aria-hidden="true">
+                        @if (!call.HasResult && prompt is null)
+                        {
+                            <span class="agent-spinner"></span>
+                        }
+                        else if (call.Status == AgentToolCallStatus.Failed)
+                        {
+                            <span>✕</span>
+                        }
+                        else if (prompt is not null)
+                        {
+                            <span>?</span>
+                        }
+                        else
+                        {
+                            <span>✓</span>
+                        }
+                    </span>
+                    <span class="agent-tool-name">@call.Name</span>
+                    <span class="agent-tool-args">@AgentJson.Summary(call.ArgumentsText)</span>
+                    <span class="agent-chevron" aria-hidden="true">@(open ? "\u25BC\uFE0E" : "\u25B6\uFE0E")</span>
+                </button>
+                @if (call.Status == AgentToolCallStatus.Failed && call.Error is { } err)
+                {
+                    <div class="agent-tool-error">@err</div>
+                }
+                @if (open)
+                {
+                    <div class="agent-tool-body">
+                        <div class="agent-tool-label">Arguments</div>
+                        <pre class="agent-json">@AgentJson.Pretty(call.ArgumentsText)</pre>
+                        @if (call.Result is { Length: > 0 } result)
+                        {
+                            <div class="agent-tool-label">Result</div>
+                            <pre class="agent-json">@AgentJson.Pretty(result)</pre>
+                        }
+                    </div>
+                }
+                @foreach (var sub in SubagentsOf(call.ToolCallId))
+                {
+                    @RenderSubagent(sub)
+                }
+            </div>
+        }
+        @if (prompt is not null)
+        {
+            <div class="agent-row agent-prompt-row">
+                <AgentPromptView @key="prompt" Prompt="prompt" />
+            </div>
+        }
+    };
+
+    RenderFragment RenderActivity(AgentActivityItem activity) => __builder =>
+    {
+        @if (ActivityTemplates is not null && ActivityTemplates.TryGetValue(activity.ActivityType, out var template))
+        {
+            @template(activity)
+        }
+        else if (binding is not null && binding.Handles(activity))
+        {
+            @* the activity row draws the one edge; the surface's outermost Card stays flat *@
+            <div class="agent-row agent-activity">
+                @foreach (var surface in binding.GetSurfaces(activity.Id))
+                {
+                    <A2UISurfaceView @key="surface" Surface="surface" Renderers="Renderers" IsScrollEnabled="false" ShowBorder="false" />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="agent-row agent-activity">
+                <div class="agent-tool-label">@activity.ActivityType</div>
+                <pre class="agent-json">@AgentJson.Pretty(activity.Content?.ToJsonString())</pre>
+            </div>
+        }
+    };
+
+    RenderFragment RenderSubagent(AgentSubagent sub) => __builder =>
+    {
+        @if (SubagentTemplate is not null)
+        {
+            @SubagentTemplate(sub)
+            return;
+        }
+        var open = !collapsed.Contains("sub:" + sub.Id);
+        <div class="@("agent-subagent agent-subagent--" + sub.Status.ToString().ToLowerInvariant())">
+            <button type="button" class="agent-subagent-head" aria-expanded="@(open ? "true" : "false")" @onclick="() => ToggleSubagent(sub.Id)">
+                @if (sub.Status == AgentSubagentStatus.Running)
+                {
+                    <span class="agent-spinner" aria-hidden="true"></span>
+                }
+                <span class="agent-subagent-name">@sub.Name</span>
+                <span class="agent-subagent-status">@SubagentStatus(sub)</span>
+                <span class="agent-chevron" aria-hidden="true">@(open ? "\u25BC\uFE0E" : "\u25B6\uFE0E")</span>
+            </button>
+            @if (open)
+            {
+                <div class="agent-subagent-body">
+                    @foreach (var item in runner!.Thread.Items.Where(i => i.SubagentRunId == sub.Id))
+                    {
+                        @RenderItem(item)
+                    }
+                    @foreach (var nested in runner.Thread.Subagents.Where(s => s.ParentSubagentRunId == sub.Id && s.ParentToolCallId is null))
+                    {
+                        @RenderSubagent(nested)
+                    }
+                    @if (sub.Error is { } error)
+                    {
+                        <div class="agent-tool-error">@error</div>
+                    }
+                </div>
+            }
+        </div>
+    };
+}

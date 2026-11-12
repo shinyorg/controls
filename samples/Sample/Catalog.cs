@@ -204,6 +204,12 @@ public static class Catalog
             new("chattemplates", "Chat Templates", "❏", "Per-message rendering with custom templates")
         ]),
 
+        new("AI & Agents", "#F472B6",
+        [
+            new("agent-view", "Agent View", "✦", "An AG-UI conversation: streaming, tool cards, approvals, A2UI surfaces"),
+            new("a2ui-gallery", "A2UI Gallery", "◩", "Agent-described UI rendered with native views and Shiny controls")
+        ]),
+
         new("Content", "#A3E635",
         [
             new("markdownview", "Markdown Viewer", "↓", "Markdig-powered renderer"),

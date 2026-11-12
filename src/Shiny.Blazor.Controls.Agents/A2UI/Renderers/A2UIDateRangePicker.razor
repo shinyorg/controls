@@ -1,0 +1,35 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@* DateRangePicker: the core range picker; start and end go back to the model as YYYY-MM-DD. *@
+
+@{
+    var label = Context.StringOrNull("label");
+    var (_, error) = RunChecks();
+}
+<div class="a2ui-field" @attributes="Context.Aria(label)">
+    @if (label is not null)
+    {
+        <span class="a2ui-field-label">@label</span>
+    }
+    <DateRangePicker StartDate="@(A2UIRenderHelpers.ParseDate(Context.String("start")))"
+                     EndDate="@(A2UIRenderHelpers.ParseDate(Context.String("end")))"
+                     MinDate="@(A2UIRenderHelpers.ParseDate(Context.StringOrNull("min")))"
+                     MaxDate="@(A2UIRenderHelpers.ParseDate(Context.StringOrNull("max")))"
+                     Culture="@Context.Culture"
+                     Title="@label"
+                     RangeChanged="OnRange" />
+    @if (error is not null)
+    {
+        <span class="a2ui-error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    void OnRange(DateRange? range)
+    {
+        Touched = true;
+        Context.Write("start", range is { } r ? JsonValue.Create(A2UIRenderHelpers.FormatDate(r.Start)) : JsonValue.Create(""));
+        Context.Write("end", range is { } r2 ? JsonValue.Create(A2UIRenderHelpers.FormatDate(r2.End)) : JsonValue.Create(""));
+    }
+}

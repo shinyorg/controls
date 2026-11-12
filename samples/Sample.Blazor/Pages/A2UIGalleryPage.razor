@@ -1,0 +1,88 @@
+@page "/a2ui-gallery"
+@using Sample.Features.Agents
+@using Shiny.Blazor.Controls.Agents
+@using Shiny.Controls.AgentUI.A2UI
+@implements IDisposable
+
+<PageTitle>A2UI Gallery</PageTitle>
+
+<h3>A2UI Gallery</h3>
+
+<p style="color:gray;font-size:14px;">
+    Agent-described UI with no agent: A2UI v1.0 messages applied to a surface host and drawn by
+    A2UISurfaceView with plain HTML and the real Shiny controls. Type into the inputs, tap the buttons
+    and the grid rows - every action the surface would send to the agent lands in the log.
+</p>
+
+<div class="demo-fill">
+    <div class="demo-fill-body">
+        <div class="a2ui-gallery">
+            <div class="a2ui-gallery-tabs" role="tablist">
+                @foreach (var (id, title) in Surfaces)
+                {
+                    var surfaceId = id;
+                    <button type="button" role="tab" aria-selected="@(selected == surfaceId ? "true" : "false")"
+                            class="@(selected == surfaceId ? "a2ui-gallery-tab is-selected" : "a2ui-gallery-tab")"
+                            @onclick="() => selected = surfaceId">@title</button>
+                }
+                <button type="button" class="a2ui-gallery-reset" @onclick="Reset">Reset</button>
+            </div>
+
+            @* The view fills this region and owns its scroll; nothing around it scrolls on the same axis. *@
+            <div class="a2ui-gallery-surface">
+                <A2UISurfaceView @key="host" Host="host" SurfaceId="@selected" AriaLabel="A2UI surface" />
+            </div>
+
+            <div class="a2ui-gallery-log" aria-label="Outbound messages" aria-live="polite">
+                @if (log.Count == 0)
+                {
+                    <span class="a2ui-gallery-empty">Actions and errors the renderer sends to the agent appear here.</span>
+                }
+                @foreach (var line in log)
+                {
+                    <div class="@("a2ui-gallery-line is-" + line.Kind.ToString().ToLowerInvariant())">
+                        <strong>@line.Kind</strong> <code>@line.Text</code>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    static readonly (string Id, string Title)[] Surfaces =
+    [
+        ("dashboard", "Dashboard (Shiny catalog)"),
+        ("newsletter", "Form"),
+        ("kitchen-sink", "Kitchen sink")
+    ];
+
+    A2UISurfaceHost host = default!;
+    string selected = "dashboard";
+    readonly List<(A2UIOutboundKind Kind, string Text)> log = [];
+
+    protected override void OnInitialized() => Reset();
+
+    void Reset()
+    {
+        if (host is not null)
+            host.Outbound -= OnOutbound;
+
+        host = new A2UISurfaceHost(new A2UICatalogRegistry().Add(A2UICatalog.CreateShiny()));
+        host.Outbound += OnOutbound;
+        host.Apply(DemoAgentSession.DashboardJson);
+        host.Apply(DemoAgentSession.FormJson);
+        host.Apply(SampleA2UISurfaces.KitchenSinkJson);
+        log.Clear();
+    }
+
+    void OnOutbound(object? sender, A2UIOutboundMessage message)
+    {
+        log.Insert(0, (message.Kind, message.Body.ToJsonString()));
+        if (log.Count > 50)
+            log.RemoveAt(log.Count - 1);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => host.Outbound -= OnOutbound;
+}

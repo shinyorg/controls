@@ -1,0 +1,138 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@*
+    DataGrid: the core DataGrid over the bound rows. Cells are formatted in the surface's culture
+    (numbers, currency with the column's ISO code, percent from a fraction, dates), sorting works on the
+    raw values, and a row tap runs rowAction in that row's item scope, so {"@path": "id"} in its
+    context reads the tapped row. No height is set: the grid sizes to its rows and only ever scrolls
+    sideways, which keeps it from nesting a vertical scroller inside the conversation.
+*@
+
+@{
+    var title = Context.StringOrNull("title");
+    var columns = Columns();
+    var rows = Rows(columns);
+    var sortable = Context.Bool("sortable", fallback: true);
+    var hasAction = Context.Has("rowAction");
+}
+<div class="a2ui-datagrid" @attributes="Context.Aria(title)">
+    @if (title is not null)
+    {
+        <div class="a2ui-datagrid-title">@title</div>
+    }
+    <DataGrid TItem="A2UIGridRow" Items="rows" Dense="true" Hover="@hasAction" Outlined="@(!InsideCard())"
+              FilterMode="DataGridFilterMode.Menu"
+              RowClick="@(hasAction ? EventCallback.Factory.Create<A2UIGridRow>(this, OnRowClick) : default)"
+              Class="@(hasAction ? "a2ui-datagrid--actionable" : null)">
+        <Columns>
+            @for (var i = 0; i < columns.Count; i++)
+            {
+                var index = i;
+                var column = columns[i];
+                <PropertyColumn TItem="A2UIGridRow" TProperty="object"
+                                Property="@(r => r.Values[index])"
+                                Title="@column.Header"
+                                Sortable="@sortable" Filterable="false" Groupable="false"
+                                Alignment="@column.Alignment"
+                                TextFormatter="@(v => Format(v, column))" />
+            }
+        </Columns>
+    </DataGrid>
+</div>
+
+@code {
+    sealed record GridColumn(string Key, string Header, string Format, string Currency, DataGridCellAlignment Alignment);
+
+    List<GridColumn> Columns()
+    {
+        var list = new List<GridColumn>();
+        if (Context.Component["columns"] is not JsonArray columns)
+            return list;
+
+        foreach (var c in columns.OfType<JsonObject>())
+        {
+            if (A2UIValues.AsString(c["key"]) is not { } key)
+                continue;
+            var format = A2UIValues.AsString(c["format"]) ?? "text";
+            var align = A2UIValues.AsString(c["align"]) switch
+            {
+                "start" => DataGridCellAlignment.Start,
+                "center" => DataGridCellAlignment.Center,
+                "end" => DataGridCellAlignment.End,
+                _ => format is "number" or "currency" or "percent" ? DataGridCellAlignment.End : DataGridCellAlignment.Start
+            };
+            var header = Context.Surface.EvaluateString(c["header"], Context.Scope);
+            // the grid keys columns by title, so two with the same header still need distinct ids
+            if (list.Any(x => x.Header == header))
+                header += " (" + key + ")";
+            list.Add(new GridColumn(key, header, format, A2UIValues.AsString(c["currency"]) ?? "USD", align));
+        }
+        return list;
+    }
+
+    List<A2UIGridRow> Rows(List<GridColumn> columns)
+    {
+        var rows = new List<A2UIGridRow>();
+        if (Context.Value("rows") is not JsonArray items)
+            return rows;
+
+        // the item scope needs the array's absolute path, which only a binding has
+        string? listPath = A2UIValues.IsBinding(Context.Component["rows"], out var p) ? Context.Scope.Resolve(p) : null;
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (items[i] is not JsonObject item)
+                continue;
+            var values = new object?[columns.Count];
+            for (var c = 0; c < columns.Count; c++)
+                values[c] = SortValue(item[columns[c].Key], columns[c].Format);
+            rows.Add(new A2UIGridRow(i, listPath is null ? null : listPath.TrimEnd('/') + "/" + i, item, values));
+        }
+        return rows;
+    }
+
+    object? SortValue(JsonNode? node, string format)
+    {
+        if (node is null)
+            return null;
+        switch (format)
+        {
+            case "number" or "currency" or "percent":
+                return A2UIValues.ToNumber(node);
+            case "date":
+                return A2UIFormatting.TryParseDate(node, Context.Surface.Host.TimeZone, out var d) ? d : A2UIValues.ToDisplayString(node);
+            default:
+                return A2UIValues.ToDisplayString(node);
+        }
+    }
+
+    string? Format(object? value, GridColumn column)
+    {
+        var culture = Context.Culture;
+        return value switch
+        {
+            null => null,
+            double d when column.Format == "currency" => A2UIFormatting.FormatCurrency(d, column.Currency, null, true, culture),
+            double d when column.Format == "percent" => A2UIFormatting.FormatNumber(d * 100, null, true, culture) + culture.NumberFormat.PercentSymbol,
+            double d => A2UIFormatting.FormatNumber(d, null, true, culture),
+            DateTimeOffset d => d.TimeOfDay == TimeSpan.Zero ? d.ToString("d", culture) : d.ToString("g", culture),
+            _ => value.ToString()
+        };
+    }
+
+    void OnRowClick(A2UIGridRow row)
+    {
+        var scope = row.Path is null ? Context.Scope : Context.Scope.ForItem(row.Path, row.Index);
+        Context.Dispatch("rowAction", scope);
+    }
+
+    bool InsideCard()
+    {
+        for (var p = Context.Parent; p is not null; p = p.Parent)
+        {
+            if (p.Component.Type == "Card")
+                return true;
+        }
+        return false;
+    }
+}

@@ -1,0 +1,43 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@* ChipGroup: the core ChipGroup over the options; the selection goes back to the model as a string list. *@
+
+@{
+    var label = Context.StringOrNull("label");
+    var options = A2UIRenderHelpers.Options(Context);
+    var values = Context.StringList("value");
+    var selected = options.Where(o => values.Contains(o.Value)).ToList();
+    var single = Context.Literal("variant", "multiple") == "single";
+    var (_, error) = RunChecks();
+}
+<div class="a2ui-field" role="group" @attributes="Context.Aria(label)">
+    @if (label is not null)
+    {
+        <span class="a2ui-field-label">@label</span>
+    }
+    @if (single)
+    {
+        <ChipGroup TItem="A2UIOption" ItemsSource="options" SelectionMode="ChipSelectionMode.Single"
+                   SelectedItem="selected.FirstOrDefault()"
+                   SelectedItemChanged="item => Select(item is null ? [] : [item.Value])" />
+    }
+    else
+    {
+        <ChipGroup TItem="A2UIOption" ItemsSource="options" SelectionMode="ChipSelectionMode.Multiple"
+                   SelectedItems="selected"
+                   SelectedItemsChanged="items => Select(items.Select(i => i.Value))" />
+    }
+    @if (error is not null)
+    {
+        <span class="a2ui-error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    void Select(IEnumerable<string> values)
+    {
+        Touched = true;
+        Context.Write("value", A2UIRenderHelpers.ToJsonArray(values));
+    }
+}

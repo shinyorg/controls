@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Shared rather than mirrored. How an AG-UI event stream folds into a conversation (chunks,
+             tool calls, interrupts, shared state, sub-agents) and how an A2UI surface resolves its
+             bindings, functions and checks are rules that are easy to get subtly different on two
+             hosts. They live once; MAUI and Blazor only draw. The one dependency is the official
+             AG-UI .NET SDK's protocol types, so the event model can't drift from the spec. -->
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.AgentUI</RootNamespace>
+        <Description>Host-neutral engine behind the Shiny agent controls - folds an AG-UI event stream (streamed text, reasoning, tool calls, activity, shared state with JSON Patch, interrupts and sub-agents) into a renderable conversation, runs frontend tools and the run/resume loop, and implements A2UI v1.0 surfaces: the message envelope, data model and bindings, collection scopes, the basic catalog's functions (formatString, the regex dialect and its safety check, TR35 dates, plural rules), checks, actions and catalog negotiation. Used by the .NET MAUI and Blazor AgentView and A2UISurface.</Description>
+        <PackageTags>maui blazor shiny ai agent ag-ui agui a2ui generative-ui chat</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="AGUI.Abstractions" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Pinned from github.com/google/A2UI (Apache-2.0) at 8bf644a3, catalogs/basic/v1/catalog.json -->
+        <EmbeddedResource Include="A2UI\basic_catalog.json" LogicalName="Shiny.Controls.AgentUI.A2UI.basic_catalog.json" />
+        <!-- Ours. Published at https://shinylib.net/a2ui/shiny.controls/v1.json (merged with the basic catalog) -->
+        <EmbeddedResource Include="A2UI\shiny_catalog.json" LogicalName="Shiny.Controls.AgentUI.A2UI.shiny_catalog.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Controls.AgentUI.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,55 @@
+{
+  "description": "A sales dashboard: basic layout with Shiny DataGrid, Gauge, DateRangePicker, ChipGroup, Pill and Markdown.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "dashboard",
+        "catalogId": "https://shinylib.net/a2ui/shiny.controls/v1.json",
+        "sendDataModel": true,
+        "dataModel": {
+          "range": { "start": "2026-10-01", "end": "2026-10-31" },
+          "regions": ["eu", "na"],
+          "target": { "percent": 72 },
+          "orders": [
+            { "id": "A-1001", "customer": "Northwind", "total": 1250.5, "margin": 0.31, "date": "2026-10-03", "status": "Shipped" },
+            { "id": "A-1002", "customer": "Contoso", "total": 980, "margin": 0.22, "date": "2026-10-09", "status": "Pending" },
+            { "id": "A-1003", "customer": "Fabrikam", "total": 4410.25, "margin": 0.4, "date": "2026-10-17", "status": "Shipped" }
+          ]
+        },
+        "components": [
+          { "id": "root", "component": "Column", "children": ["header", "filters", "kpis", "grid", "notes", "refresh"] },
+          { "id": "header", "component": "Row", "align": "center", "children": ["title", "status"] },
+          { "id": "title", "component": "Text", "variant": "h2", "text": "October sales", "weight": 1 },
+          { "id": "status", "component": "Pill", "text": "Live", "tone": "success" },
+          { "id": "filters", "component": "Row", "children": ["range", "regions"] },
+          { "id": "range", "component": "DateRangePicker", "label": "Period", "start": { "@path": "/range/start" }, "end": { "@path": "/range/end" }, "weight": 1 },
+          { "id": "regions", "component": "ChipGroup", "label": "Regions", "variant": "multiple", "value": { "@path": "/regions" },
+            "options": [ { "label": "Europe", "value": "eu" }, { "label": "North America", "value": "na" }, { "label": "Asia", "value": "apac" } ], "weight": 1 },
+          { "id": "kpis", "component": "Row", "children": ["targetGauge", "orderCount"] },
+          { "id": "targetGauge", "component": "Gauge", "label": "Target", "units": "%", "min": 0, "max": 100,
+            "value": { "@path": "/target/percent" },
+            "ranges": [ { "from": 0, "to": 50, "tone": "danger" }, { "from": 50, "to": 80, "tone": "warning" }, { "from": 80, "to": 100, "tone": "good" } ] },
+          { "id": "orderCount", "component": "Text", "variant": "h3",
+            "text": { "@call": "formatString", "args": { "value": "${/orders/0/customer} leads the month" } } },
+          { "id": "grid", "component": "DataGrid", "title": "Orders",
+            "rows": { "@path": "/orders" },
+            "columns": [
+              { "key": "id", "header": "Order" },
+              { "key": "customer", "header": "Customer" },
+              { "key": "date", "header": "Date", "format": "date" },
+              { "key": "total", "header": "Total", "format": "currency", "currency": "EUR" },
+              { "key": "margin", "header": "Margin", "format": "percent" },
+              { "key": "status", "header": "Status" }
+            ],
+            "rowAction": { "event": { "name": "openOrder", "context": { "orderId": { "@path": "id" } } } } },
+          { "id": "notes", "component": "Expander", "header": "How this is calculated", "child": "notesText", "expanded": false },
+          { "id": "notesText", "component": "Markdown", "text": "Totals are **net of tax**. Margin is `(total - cost) / total`." },
+          { "id": "refreshLabel", "component": "Text", "text": "Refresh" },
+          { "id": "refresh", "component": "Button", "child": "refreshLabel", "variant": "primary",
+            "action": { "event": { "name": "refresh", "context": { "start": { "@path": "/range/start" }, "end": { "@path": "/range/end" }, "regions": { "@path": "/regions" } } } } }
+        ]
+      }
+    }
+  ]
+}

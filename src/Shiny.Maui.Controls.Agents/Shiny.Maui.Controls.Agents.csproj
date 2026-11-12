@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Pure MAUI views over the shared engine, so no platform TFMs: the agent conversation and
+             A2UI rules live in Shiny.Controls.AgentUI.Shared and this package only draws them. An
+             add-on rather than core because message bubbles need the Markdown add-on (Markdig). -->
+        <TargetFrameworks>$(BaseTargetFramework)</TargetFrameworks>
+        <UseMaui>true</UseMaui>
+        <IsAotCompatible>true</IsAotCompatible>
+        <RootNamespace>Shiny.Maui.Controls.Agents</RootNamespace>
+        <Description>Agent UI for .NET MAUI - an AgentView that renders an AG-UI event stream (streaming markdown, reasoning, tool call cards, sub-agents, approvals, shared state, frontend tools) and an A2UISurface that renders agent-described A2UI v1.0 UI with native views: the full basic catalog plus the Shiny catalog (DataGrid, Gauge, ChipGroup, DateRangePicker and more).</Description>
+        <PackageTags>maui shiny ai agent ag-ui agui a2ui generative-ui chat copilot</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.AgentUI.Shared\Shiny.Controls.AgentUI.Shared.csproj"/>
+        <ProjectReference Include="..\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj"/>
+        <ProjectReference Include="..\Shiny.Maui.Controls.Markdown\Shiny.Maui.Controls.Markdown.csproj"/>
+    </ItemGroup>
+
+</Project>

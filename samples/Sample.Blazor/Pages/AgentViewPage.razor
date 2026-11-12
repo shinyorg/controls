@@ -1,0 +1,112 @@
+@page "/agent-view"
+@using System.Text.Json.Nodes
+@using Sample.Features.Agents
+@using Shiny.Blazor.Controls.Agents
+@using Shiny.Controls.AgentUI
+@inject HttpClient Http
+
+<PageTitle>Agent View</PageTitle>
+
+<h3>Agent View</h3>
+
+<p style="color:gray;font-size:14px;">
+    A full AG-UI conversation: streamed markdown, reasoning, tool cards, A2UI surfaces built from Shiny
+    controls, a frontend tool answered by a date range picker, an approval, a sub-agent and a run error
+    with Retry. The scripted demo agent needs no API key; point it at a live AG-UI endpoint to try the
+    real thing. The reading list on the right is bound to the conversation's shared state.
+</p>
+
+<div class="agent-endpoint">
+    <input type="url" class="agent-endpoint-input" placeholder="http://localhost:5299/agent" aria-label="AG-UI endpoint URL"
+           value="@endpoint" @oninput="e => endpoint = e.Value?.ToString() ?? string.Empty" />
+    <button type="button" class="agent-endpoint-btn" disabled="@string.IsNullOrWhiteSpace(endpoint)" @onclick="ConnectLive">Connect</button>
+    <button type="button" class="agent-endpoint-btn" disabled="@(session is DemoAgentSession)" @onclick="UseDemo">Use demo agent</button>
+    <span class="agent-endpoint-status">@status</span>
+</div>
+
+<div class="demo-fill">
+    <div class="demo-fill-body">
+        <div class="agent-page">
+            <div class="agent-page-chat">
+                <AgentView @key="session"
+                           Session="session"
+                           Tools="tools"
+                           Prompts="prompts"
+                           Suggestions="suggestions"
+                           @bind-State="state"
+                           PlaceholderText="Ask the agent…" />
+            </div>
+            <aside class="agent-page-state" aria-label="Reading list (shared state)">
+                <h4>Reading list</h4>
+                <p class="agent-page-hint">Shared state. Ask the agent to "track my reading list"; tick a book and the agent sees it on the next turn.</p>
+                @if (state?["books"] is JsonArray books)
+                {
+                    var done = books.Count(b => b?["done"]?.GetValue<bool>() == true);
+                    var goal = state["goal"]?.GetValue<int>() ?? 0;
+                    <div class="agent-page-progress">@done of @(goal > 0 ? goal : books.Count) read</div>
+                    <ul class="agent-page-books">
+                        @for (var i = 0; i < books.Count; i++)
+                        {
+                            var index = i;
+                            var book = books[i];
+                            <li>
+                                <label>
+                                    <input type="checkbox" checked="@(book?["done"]?.GetValue<bool>() == true)" @onchange="e => ToggleBook(index, e.Value is true)" />
+                                    <span>@(book?["title"]?.GetValue<string>())</span>
+                                </label>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="agent-page-empty">Nothing yet.</p>
+                }
+            </aside>
+        </div>
+    </div>
+</div>
+
+@code {
+    readonly AgentPromptQueue prompts = new();
+    readonly AgentToolRegistry tools = new();
+    IAgentSession session = new DemoAgentSession();
+    IReadOnlyList<string> suggestions = DemoAgentSession.Suggestions;
+    JsonNode? state;
+    string endpoint = "";
+    string status = "Demo agent";
+
+    // the prompts the live sample server answers
+    static readonly IReadOnlyList<string> LiveSuggestions = ["text", "reasoning", "frontend-tool", "a2ui", "interrupt", "error"];
+
+    protected override void OnInitialized() => tools.AddAll(prompts);
+
+    void ConnectLive()
+    {
+        if (!Uri.TryCreate(endpoint.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            status = "Enter an http(s) URL";
+            return;
+        }
+        session = new HttpAgentSession(Http, uri);
+        suggestions = LiveSuggestions;
+        state = null;
+        status = "Live: " + uri.Host + ":" + uri.Port;
+    }
+
+    void UseDemo()
+    {
+        session = new DemoAgentSession();
+        suggestions = DemoAgentSession.Suggestions;
+        state = null;
+        status = "Demo agent";
+    }
+
+    void ToggleBook(int index, bool done)
+    {
+        if (state?.DeepClone() is not JsonObject copy || copy["books"] is not JsonArray books || books[index] is not JsonObject book)
+            return;
+        book["done"] = done;
+        state = copy;
+    }
+}

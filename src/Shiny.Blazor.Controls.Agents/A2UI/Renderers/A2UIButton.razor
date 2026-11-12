@@ -1,0 +1,30 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@*
+    Button: its child (usually a Text) inside a native button. A failing @checks disables it, and the
+    tap runs the action inside a user gesture, which is what lets an openUrl function call through.
+*@
+
+@{
+    var checks = Context.Checks();
+    var blocked = !checks.IsValid;
+    var variant = Context.Literal("variant", "default");
+}
+<button type="button" id="@ElementId"
+        class="@("a2ui-button a2ui-button--" + variant)"
+        disabled="@blocked"
+        title="@(blocked ? checks.FirstMessage : null)"
+        aria-describedby="@(blocked && checks.FirstMessage is not null ? ElementId + "-hint" : null)"
+        @attributes="Context.Aria()"
+        @onclick="Click">
+    @Context.Child()
+</button>
+@if (blocked && checks.FirstMessage is { } hint)
+{
+    <span id="@(ElementId + "-hint")" class="a2ui-hint">@hint</span>
+}
+
+@code {
+    void Click() => Context.Dispatch();
+}

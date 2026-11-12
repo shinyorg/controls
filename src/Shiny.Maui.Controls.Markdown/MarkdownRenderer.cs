@@ -24,6 +24,48 @@ public static class MarkdownRenderer
         return layout;
     }
 
+    /// <summary>
+    /// Re-renders <paramref name="layout"/> to <paramref name="markdown"/>, keeping the view of every
+    /// top-level block whose source text hasn't changed. While a reply streams in, only its last block
+    /// changes, so only that block is rebuilt - the earlier ones aren't re-parsed into new views per token.
+    /// </summary>
+    /// <param name="layout">The layout a previous call (or <see cref="Render"/>) filled.</param>
+    /// <param name="blocks">The block sources the layout's children were built from; updated in place.</param>
+    public static void RenderInto(VerticalStackLayout layout, List<string> blocks, string markdown, MarkdownTheme theme, Action<string>? linkHandler = null)
+    {
+        var document = Markdig.Markdown.Parse(markdown, Pipeline);
+        layout.Spacing = theme.BlockSpacing;
+
+        var index = 0;
+        foreach (var block in document)
+        {
+            var source = markdown.Substring(block.Span.Start, Math.Min(block.Span.Length, markdown.Length - block.Span.Start));
+            if (index < blocks.Count && index < layout.Children.Count && blocks[index] == source)
+            {
+                index++;
+                continue;
+            }
+
+            var view = RenderBlock(block, theme, linkHandler) ?? new ContentView();
+            if (index < layout.Children.Count)
+            {
+                layout.Children[index] = view;
+                blocks[index] = source;
+            }
+            else
+            {
+                layout.Children.Add(view);
+                blocks.Add(source);
+            }
+            index++;
+        }
+
+        while (layout.Children.Count > index)
+            layout.Children.RemoveAt(layout.Children.Count - 1);
+        if (blocks.Count > index)
+            blocks.RemoveRange(index, blocks.Count - index);
+    }
+
     static View? RenderBlock(Block block, MarkdownTheme theme, Action<string>? linkHandler) => block switch
     {
         HeadingBlock heading => RenderHeading(heading, theme, linkHandler),

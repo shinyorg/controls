@@ -1,0 +1,37 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@* RangeSlider: the core RangeSlider; lower and upper go back to the model as numbers. *@
+
+@{
+    var label = Context.StringOrNull("label");
+    var min = Context.Number("min") ?? 0;
+    var max = Context.Number("max") ?? 100;
+    var step = Context.Number("step") is double s and > 0 ? s : 1;
+    var (_, error) = RunChecks();
+}
+<div class="a2ui-field" role="group" @attributes="Context.Aria(label)">
+    @if (label is not null)
+    {
+        <span class="a2ui-field-label">@label</span>
+    }
+    <RangeSlider Minimum="min" Maximum="max" Step="step"
+                 LowerValue="@(Context.Number("lower") ?? min)"
+                 UpperValue="@(Context.Number("upper") ?? max)"
+                 ColdColor="var(--shiny-color-primary, #0055D9)"
+                 HotColor="var(--shiny-color-primary, #0055D9)"
+                 RangeChanged="OnRange" />
+    @if (error is not null)
+    {
+        <span class="a2ui-error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    void OnRange((double Lower, double Upper) range)
+    {
+        Touched = true;
+        Context.Write("lower", JsonValue.Create(range.Lower));
+        Context.Write("upper", JsonValue.Create(range.Upper));
+    }
+}

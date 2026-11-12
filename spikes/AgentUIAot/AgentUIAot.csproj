@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- SPIKE: Native AOT publish check for Shiny.Controls.AgentUI.Shared (Phase 1 exit criterion) -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Shiny.Controls.AgentUI.Shared\Shiny.Controls.AgentUI.Shared.csproj" />
+    <PackageReference Include="AGUI.Formatting" Version="1.0.1" />
+  </ItemGroup>
+</Project>

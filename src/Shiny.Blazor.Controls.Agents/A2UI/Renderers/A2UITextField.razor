@@ -1,0 +1,53 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@*
+    TextField: writes to its binding on every keystroke. The value attribute is re-rendered from the
+    model, which by then holds exactly what was typed, so Blazor leaves the element, its focus and its
+    caret alone.
+*@
+
+@{
+    var label = Context.StringOrNull("label");
+    var value = Context.String("value");
+    var placeholder = Context.StringOrNull("placeholder");
+    var variant = Context.Literal("variant", "shortText");
+    var (_, error) = RunChecks();
+    var errorId = error is null ? null : ElementId + "-error";
+}
+<div class="a2ui-field">
+    @if (label is not null)
+    {
+        <label class="a2ui-field-label" for="@ElementId">@label</label>
+    }
+    @if (variant == "longText")
+    {
+        <textarea id="@ElementId" class="a2ui-input a2ui-input--multiline" rows="3"
+                  value="@value" placeholder="@placeholder"
+                  aria-invalid="@(error is null ? null : "true")" aria-describedby="@errorId"
+                  @attributes="Context.Aria()"
+                  @oninput="OnInput" @onblur="Touch"></textarea>
+    }
+    else
+    {
+        <input id="@ElementId" class="a2ui-input"
+               type="@(variant switch { "number" => "number", "obscured" => "password", _ => "text" })"
+               inputmode="@(variant == "number" ? "decimal" : null)"
+               value="@value" placeholder="@placeholder"
+               aria-invalid="@(error is null ? null : "true")" aria-describedby="@errorId"
+               @attributes="Context.Aria()"
+               @oninput="OnInput" @onblur="Touch" />
+    }
+    @if (error is not null)
+    {
+        <span id="@errorId" class="a2ui-error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    void OnInput(ChangeEventArgs e)
+    {
+        Touched = true;
+        Context.Write("value", JsonValue.Create(e.Value?.ToString() ?? ""));
+    }
+}

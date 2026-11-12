@@ -1,0 +1,27 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@{
+    var (_, error) = RunChecks();
+}
+<div class="a2ui-field">
+    <label class="a2ui-checkbox">
+        <input type="checkbox" checked="@Context.Bool("value")"
+               aria-invalid="@(error is null ? null : "true")"
+               @attributes="Context.Aria()"
+               @onchange="OnChange" />
+        <span>@Context.String("label")</span>
+    </label>
+    @if (error is not null)
+    {
+        <span class="a2ui-error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    void OnChange(ChangeEventArgs e)
+    {
+        Touched = true;
+        Context.Write("value", JsonValue.Create(e.Value is true || e.Value is string s && s.Equals("true", StringComparison.OrdinalIgnoreCase)));
+    }
+}

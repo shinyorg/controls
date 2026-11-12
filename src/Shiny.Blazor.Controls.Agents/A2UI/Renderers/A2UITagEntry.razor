@@ -1,0 +1,32 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@* TagEntry: the core TagEntry; the tags go back to the model as a string list. *@
+
+@{
+    var label = Context.StringOrNull("label");
+    var max = Context.Number("maxTags");
+    var (_, error) = RunChecks();
+}
+<div class="a2ui-field" @attributes="Context.Aria(label)">
+    @if (label is not null)
+    {
+        <span class="a2ui-field-label">@label</span>
+    }
+    <TagEntry Tags="@Context.StringList("value")"
+              TagsChanged="OnTags"
+              MaxTags="@(max is > 0 ? (int)max.Value : 0)"
+              Placeholder="@Context.StringOrNull("placeholder")" />
+    @if (error is not null)
+    {
+        <span class="a2ui-error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    void OnTags(IReadOnlyList<string> tags)
+    {
+        Touched = true;
+        Context.Write("value", A2UIRenderHelpers.ToJsonArray(tags));
+    }
+}

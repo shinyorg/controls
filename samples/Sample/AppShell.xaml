@@ -2,6 +2,7 @@
 <shiny:ShinyShell x:Class="Sample.AppShell"
                   xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                  xmlns:agents="clr-namespace:Sample.Features.Agents"
                   xmlns:shiny="clr-namespace:Shiny;assembly=Shiny.Maui.Shell"
                   xmlns:home="clr-namespace:Sample.Features.Home"
                   xmlns:fp="clr-namespace:Sample.Features.FloatingPanel"
@@ -1277,6 +1278,33 @@
         <Tab>
             <ShellContent ContentTemplate="{DataTemplate chat:ChatTemplatePage}" Route="chattemplates" />
         </Tab>
+    </FlyoutItem>
+
+    <!-- ============================================================ -->
+    <!--  AI & AGENTS -->
+    <!-- ============================================================ -->
+    <MenuItem Text="AI &amp; AGENTS"
+              StyleClass="SectionHeader"
+              IsEnabled="False">
+        <MenuItem.IconImageSource>
+            <FontImageSource Glyph=" " Size="1" Color="Transparent" />
+        </MenuItem.IconImageSource>
+    </MenuItem>
+
+    <FlyoutItem Title="Agent View">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2726;" Size="20"
+                             Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate agents:AgentViewPage}" Route="agent-view" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="A2UI Gallery">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x25E9;" Size="20"
+                             Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate agents:A2UIGalleryPage}" Route="a2ui-gallery" />
     </FlyoutItem>
 
     <!-- ============================================================ -->

@@ -1,0 +1,156 @@
+@namespace Shiny.Blazor.Controls.Agents
+
+@*
+    The inline question a built-in UI tool is waiting on, drawn under its tool card. One layout per
+    AgentPromptKinds kind; each answers with Submit (the JSON the agent reads) or Decline. An app's own
+    kind with no layout here still gets a Decline, so a run is never left hanging.
+*@
+
+<div class="agent-prompt" role="group" aria-label="@Prompt.Title">
+    @if (Prompt.Title.Length > 0 && Prompt.Kind != AgentPromptKinds.Confirm)
+    {
+        <div class="agent-prompt-title">@Prompt.Title</div>
+    }
+
+    @switch (Prompt.Kind)
+    {
+        case AgentPromptKinds.Confirm:
+            <div class="agent-prompt-title">@(Prompt.Str("title") ?? "Please confirm")</div>
+            @if (Prompt.Str("message") is { } message && Prompt.Str("title") is not null)
+            {
+                <div class="agent-prompt-message">@message</div>
+            }
+            <div class="agent-prompt-actions">
+                <button type="button" class="agent-btn agent-btn--primary" @onclick="() => Confirm(true)">@(Prompt.Str("confirmText") ?? "Confirm")</button>
+                <button type="button" class="agent-btn" @onclick="() => Confirm(false)">@(Prompt.Str("cancelText") ?? "Cancel")</button>
+            </div>
+            break;
+
+        case AgentPromptKinds.ChooseOne:
+            <div class="agent-prompt-actions agent-prompt-actions--wrap">
+                @foreach (var option in Prompt.List("options"))
+                {
+                    var o = option;
+                    <button type="button" class="agent-btn" @onclick="() => Choose(o)">@o</button>
+                }
+            </div>
+            <div class="agent-prompt-actions">
+                <button type="button" class="agent-btn agent-btn--quiet" @onclick="Decline">Skip</button>
+            </div>
+            break;
+
+        case AgentPromptKinds.ChooseMany:
+            var min = (int)(Prompt.Number("min") ?? 0);
+            var max = (int)(Prompt.Number("max") ?? 0);
+            <ChipGroup TItem="string" ItemsSource="@Prompt.List("options")" SelectionMode="ChipSelectionMode.Multiple"
+                       MaxSelectionCount="@max"
+                       SelectedItems="choices" SelectedItemsChanged="items => choices = items" />
+            <div class="agent-prompt-actions">
+                <button type="button" class="agent-btn agent-btn--primary" disabled="@(choices.Count < min)"
+                        @onclick="SubmitChoices">Done</button>
+                <button type="button" class="agent-btn agent-btn--quiet" @onclick="Decline">Skip</button>
+            </div>
+            break;
+
+        case AgentPromptKinds.Date:
+            <input type="date" class="agent-input" aria-label="@Prompt.Title"
+                   min="@Prompt.Str("min")" max="@Prompt.Str("max")"
+                   value="@date" @onchange="e => date = e.Value?.ToString()" />
+            <div class="agent-prompt-actions">
+                <button type="button" class="agent-btn agent-btn--primary" disabled="@string.IsNullOrEmpty(date)"
+                        @onclick="SubmitDate">Done</button>
+                <button type="button" class="agent-btn agent-btn--quiet" @onclick="Decline">Cancel</button>
+            </div>
+            break;
+
+        case AgentPromptKinds.DateRange:
+            <DateRangeCalendar StartDate="start" EndDate="end"
+                               MinDate="@Prompt.Date("min")" MaxDate="@Prompt.Date("max")"
+                               RangeChanged="OnRange" />
+            <div class="agent-prompt-actions">
+                <button type="button" class="agent-btn agent-btn--primary" disabled="@(start is null || end is null)"
+                        @onclick="SubmitRange">@RangeLabel</button>
+                <button type="button" class="agent-btn agent-btn--quiet" @onclick="Decline">Cancel</button>
+            </div>
+            break;
+
+        case AgentPromptKinds.Text:
+            @if (Prompt.Arguments["multiline"] is JsonValue m && m.GetValueKind() == JsonValueKind.True)
+            {
+                <textarea class="agent-input" rows="3" aria-label="@Prompt.Title" placeholder="@Prompt.Str("placeholder")"
+                          value="@text" @oninput="SetText"></textarea>
+            }
+            else
+            {
+                <input type="text" class="agent-input" aria-label="@Prompt.Title" placeholder="@Prompt.Str("placeholder")"
+                       value="@text" @oninput="SetText"
+                       @onkeydown="OnTextKey" />
+            }
+            <div class="agent-prompt-actions">
+                <button type="button" class="agent-btn agent-btn--primary" disabled="@string.IsNullOrWhiteSpace(text)"
+                        @onclick="SubmitText">Send</button>
+                <button type="button" class="agent-btn agent-btn--quiet" @onclick="Decline">Skip</button>
+            </div>
+            break;
+
+        default:
+            <pre class="agent-json">@AgentJson.Pretty(Prompt.Arguments.ToJsonString())</pre>
+            <div class="agent-prompt-actions">
+                <button type="button" class="agent-btn" @onclick="Decline">Dismiss</button>
+            </div>
+            break;
+    }
+</div>
+
+@code {
+    IReadOnlyList<string> choices = [];
+    string? date;
+    string text = "";
+    DateOnly? start;
+    DateOnly? end;
+
+    /// <summary>The prompt to draw.</summary>
+    [Parameter, EditorRequired] public AgentPrompt Prompt { get; set; } = default!;
+
+    string RangeLabel => start is { } s && end is { } e
+        ? s.ToString("d MMM", CultureInfo.CurrentCulture) + " – " + e.ToString("d MMM", CultureInfo.CurrentCulture)
+        : "Choose dates";
+
+    void Submit(JsonObject result) => Prompt.Submit(result);
+
+    void Decline() => Prompt.Decline();
+
+    void Confirm(bool confirmed) => Submit(new JsonObject { ["confirmed"] = confirmed });
+
+    void Choose(string option) => Submit(new JsonObject { ["choice"] = option });
+
+    void SubmitDate() => Submit(new JsonObject { ["date"] = date });
+
+    void SetText(ChangeEventArgs e) => text = e.Value?.ToString() ?? "";
+
+    void SubmitChoices() => Submit(new JsonObject { ["choices"] = new JsonArray(choices.Select(c => (JsonNode?)JsonValue.Create(c)).ToArray()) });
+
+    void SubmitText() => Submit(new JsonObject { ["text"] = text });
+
+    void OnTextKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(text))
+            SubmitText();
+    }
+
+    void OnRange(DateRange? range)
+    {
+        start = range?.Start;
+        end = range?.End;
+    }
+
+    void SubmitRange()
+    {
+        if (start is { } s && end is { } e)
+            Submit(new JsonObject
+            {
+                ["start"] = s.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["end"] = e.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            });
+    }
+}

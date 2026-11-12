@@ -41,6 +41,7 @@
        xmlns:imgeditor="clr-namespace:Sample.Features.ImageEditor;assembly=Sample.MacOS"
        xmlns:imgviewer="clr-namespace:Sample.Features.ImageViewer;assembly=Sample.MacOS"
        xmlns:keyframe="clr-namespace:Sample.Features.Keyframe;assembly=Sample.MacOS"
+       xmlns:agents="clr-namespace:Sample.Features.Agents;assembly=Sample.MacOS"
        xmlns:markdown="clr-namespace:Sample.Features.Markdown;assembly=Sample.MacOS"
        xmlns:mediaelement="clr-namespace:Sample.Features.Media;assembly=Sample.MacOS"
        xmlns:mediapicker="clr-namespace:Sample.Features.Media;assembly=Sample.MacOS"
@@ -349,6 +350,15 @@
     </FlyoutItem>
     <FlyoutItem Title="Event List">
         <ShellContent ContentTemplate="{DataTemplate scheduler:CalendarListPage}" Route="calendarlist" />
+    </FlyoutItem>
+
+    <MenuItem Text="AI &amp; AGENTS" IsEnabled="False" />
+
+    <FlyoutItem Title="Agent View">
+        <ShellContent ContentTemplate="{DataTemplate agents:AgentViewPage}" Route="agent-view" />
+    </FlyoutItem>
+    <FlyoutItem Title="A2UI Gallery">
+        <ShellContent ContentTemplate="{DataTemplate agents:A2UIGalleryPage}" Route="a2ui-gallery" />
     </FlyoutItem>
 
     <MenuItem Text="CONTENT" IsEnabled="False" />

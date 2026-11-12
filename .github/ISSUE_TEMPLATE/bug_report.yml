@@ -35,6 +35,7 @@ body:
         - Shiny.Maui.Controls.Keyframe
         - Shiny.Maui.Controls.Keyframe.Export
         - Shiny.Maui.Controls.Markdown
+        - Shiny.Maui.Controls.Agents
         - Shiny.Maui.Controls.MediaElement
         - Shiny.Maui.Controls.MediaElement.Linux
         - Shiny.Maui.Controls.MermaidDiagrams
@@ -53,6 +54,7 @@ body:
         - Shiny.Blazor.Controls.FloorPlan
         - Shiny.Blazor.Controls.Gamepad
         - Shiny.Blazor.Controls.Markdown
+        - Shiny.Blazor.Controls.Agents
         - Shiny.Blazor.Controls.MediaElement
         - Shiny.Blazor.Controls.MermaidDiagrams
         - Shiny.Blazor.Controls.Office
@@ -62,6 +64,7 @@ body:
         - Shiny.Blazor.Controls.Themes.Ocean
         - Shiny.Blazor.Controls.Themes.Terminal
         # --- Shared / internal ---
+        - Shiny.Controls.AgentUI.Shared
         - Shiny.Controls.Barcodes.Shared
         - Shiny.Controls.BarcodeReader.Shared
         - Shiny.Controls.Camera.Shared

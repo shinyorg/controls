@@ -6,12 +6,17 @@
 
 <div class="@CssClass" style="@HostStyle">
     <div class="shiny-md-content" style="@ContentStyle" @ref="contentEl">
-        @((MarkupString)html)
+        @for (var i = 0; i < blocks.Count; i++)
+        {
+            @((MarkupString)blocks[i].Html)
+        }
     </div>
 </div>
 
 @code {
-    string html = "";
+    // One entry per top-level block. While a reply streams in only its last block changes, so only
+    // that block is turned back into HTML instead of the whole document per token.
+    readonly List<(string Source, string Html)> blocks = [];
     Microsoft.AspNetCore.Components.ElementReference contentEl;
     Microsoft.JSInterop.DotNetObjectReference<MarkdownView>? selfRef;
     Microsoft.JSInterop.IJSObjectReference? module;
@@ -73,9 +78,43 @@
 
     protected override void OnParametersSet()
     {
-        html = string.IsNullOrWhiteSpace(Markdown)
-            ? string.Empty
-            : Markdig.Markdown.ToHtml(Markdown, Pipeline);
+        var markdown = Markdown ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            blocks.Clear();
+            return;
+        }
+
+        var document = Markdig.Markdown.Parse(markdown, Pipeline);
+        var index = 0;
+        foreach (var block in document)
+        {
+            var source = markdown.Substring(block.Span.Start, Math.Min(block.Span.Length, markdown.Length - block.Span.Start));
+            if (index < blocks.Count && blocks[index].Source == source)
+            {
+                index++;
+                continue;
+            }
+
+            var entry = (source, RenderBlock(block));
+            if (index < blocks.Count)
+                blocks[index] = entry;
+            else
+                blocks.Add(entry);
+            index++;
+        }
+        if (blocks.Count > index)
+            blocks.RemoveRange(index, blocks.Count - index);
+    }
+
+    static string RenderBlock(Markdig.Syntax.Block block)
+    {
+        using var writer = new System.IO.StringWriter();
+        var renderer = new Markdig.Renderers.HtmlRenderer(writer);
+        Pipeline.Setup(renderer);
+        renderer.Render(block);
+        writer.Flush();
+        return writer.ToString();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

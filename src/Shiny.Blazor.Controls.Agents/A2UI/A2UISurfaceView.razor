@@ -1,0 +1,66 @@
+@namespace Shiny.Blazor.Controls.Agents
+@implements IDisposable
+
+@*
+    Draws one A2UI surface (or every surface on a host) from the engine's model. The engine does the
+    A2UI work - bindings, functions, checks, children, actions - and this view only maps each component
+    type to a renderer and re-renders when the surface changes.
+
+    Every child sits in an .a2ui-slot: the slot carries the flex weight, aria-hidden and aria-live, so
+    renderers never have to repeat them. All styling lives in this component's stylesheet under ::deep,
+    so renderer fragments and renderer components share one set of rules and the theme packs restyle
+    everything through the --shiny-* tokens.
+*@
+
+<div class="@RootClass" role="region" aria-label="@AriaLabel">
+    @foreach (var surface in VisibleSurfaces())
+    {
+        @if (surface.Root is { } root)
+        {
+            <div class="a2ui-surface" data-surface-id="@surface.SurfaceId">
+                @RenderChild(new A2UIChild(root.Id, root, surface.RootScope), null)
+            </div>
+        }
+        else
+        {
+            @* the spec buffers until root arrives *@
+            <div class="a2ui-surface a2ui-surface--pending" aria-busy="true">
+                <div class="a2ui-missing"></div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>Draws one child: its slot, then its renderer, a placeholder while it hasn't arrived, or "unsupported".</summary>
+    internal RenderFragment RenderChild(A2UIChild child, A2UIRenderContext? parent) => __builder =>
+    {
+        var depth = parent is null ? 0 : parent.Depth + 1;
+        if (child.Component is not { } component)
+        {
+            // a child reference that hasn't arrived yet: progressive rendering draws a placeholder
+            <div class="a2ui-slot"><div class="a2ui-missing" aria-busy="true" title="@child.Id"></div></div>
+            return;
+        }
+        if (depth > MaxDepth || IsCycle(parent, child))
+        {
+            <div class="a2ui-slot"><div class="a2ui-unsupported" role="note">Component '@child.Id' references itself.</div></div>
+            return;
+        }
+
+        var ctx = new A2UIRenderContext(this, component, child.Scope, parent, depth);
+        var a11y = ctx.Accessibility();
+        <div class="a2ui-slot" style="@SlotStyle(component)"
+             aria-hidden="@(a11y.Hidden ? "true" : null)"
+             aria-live="@(a11y.Live is "polite" or "assertive" ? a11y.Live : null)">
+            @if (EffectiveRenderers.TryGet(component.Type, out var renderer))
+            {
+                @renderer(ctx)
+            }
+            else
+            {
+                <div class="a2ui-unsupported" role="note">Unsupported component: @component.Type</div>
+            }
+        </div>
+    };
+}

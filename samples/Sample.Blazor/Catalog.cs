@@ -157,6 +157,12 @@ public static class Catalog
             new("chat", "Chat", "✉", "Bubbles, typing indicators, load-more and input bar")
         ]),
 
+        new("AI & Agents", "#F472B6",
+        [
+            new("agent-view", "Agent View", "✦", "An AG-UI conversation: streaming, tool cards, approvals, A2UI surfaces"),
+            new("a2ui-gallery", "A2UI Gallery", "◩", "Agent-described UI rendered with plain HTML and Shiny controls")
+        ]),
+
         new("Content", "#A3E635",
         [
             new("markdown", "Markdown", "↓", "Markdig-powered renderer"),

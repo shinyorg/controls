@@ -1,0 +1,28 @@
+@namespace Shiny.Blazor.Controls.Agents.Renderers
+@inherits A2UIRendererBase
+
+@*
+    Modal: the trigger inline; interacting with it opens the content in the core ModalView. The click
+    is caught on the wrapper so any trigger component works, and a trigger Button's own action still
+    runs.
+*@
+
+<div class="a2ui-modal-trigger" @onclick="() => open = true"
+     @onkeydown="OnKey">
+    @Context.Child("trigger")
+</div>
+<ModalView IsOpen="open" IsOpenChanged="v => open = v" AriaLabel="@Context.Accessibility().Label" Size="ModalSize.Medium">
+    <div class="a2ui-view a2ui-view--fit">
+        @Context.Child("content")
+    </div>
+</ModalView>
+
+@code {
+    bool open;
+
+    void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+            open = true;
+    }
+}

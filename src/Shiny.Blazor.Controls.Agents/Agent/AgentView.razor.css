@@ -1,0 +1,499 @@
+/* AgentView fills its parent and owns the vertical axis: .agent-scroll is the only scroller; the root
+   itself never scrolls, and everything inside the scroller sizes to its content. The bubble and
+   composer tokens match ChatView's, so the two read as one family under every theme pack. */
+
+.agent-view {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--shiny-color-background, #F6FAFE);
+    color: var(--shiny-color-on-surface, #161C23);
+    font-family: var(--shiny-type-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+    font-size: calc(15px * var(--shiny-type-scale, 1));
+}
+
+.agent-steps {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    padding: var(--shiny-spacing-1, 4px) var(--shiny-spacing-3, 12px);
+    font-size: var(--shiny-type-body-small-size, 12px);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    border-bottom: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.agent-step + .agent-step::before {
+    content: "›";
+    margin-right: var(--shiny-spacing-2, 8px);
+    opacity: 0.6;
+}
+
+.agent-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.agent-items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--shiny-spacing-3, 12px);
+    padding: var(--shiny-spacing-4, 16px) var(--shiny-spacing-3, 12px);
+    max-width: 900px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.agent-empty {
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    text-align: center;
+    padding: var(--shiny-spacing-5, 24px);
+}
+
+/* ── suggestions ──────────────────────────────────────────────── */
+
+.agent-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--shiny-spacing-2, 8px);
+    padding: var(--shiny-spacing-5, 24px) 0;
+}
+
+.agent-suggestion {
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-full, 999px);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+    font-size: var(--shiny-type-body-medium-size, 14px);
+    cursor: pointer;
+}
+
+.agent-suggestion:hover:not(:disabled) {
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+}
+
+/* ── rows ─────────────────────────────────────────────────────── */
+
+::deep .agent-row {
+    min-width: 0;
+}
+
+.agent-row--user {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.agent-bubble {
+    max-width: 75%;
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
+    border-radius: var(--shiny-shape-corner-large, 18px);
+    border-bottom-right-radius: 4px;
+    background: var(--shiny-color-primary-container, #C2D8FA);
+    color: var(--shiny-color-on-primary-container, #124294);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+
+.agent-row--assistant {
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.agent-author {
+    font-size: var(--shiny-type-label-small-size, 11px);
+    font-weight: 600;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    margin-bottom: 2px;
+}
+
+/* the streaming caret, after the last block of the markdown body */
+.agent-row--assistant.is-streaming ::deep .shiny-md-content > :last-child::after {
+    content: "";
+    display: inline-block;
+    width: 0.5em;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: -0.15em;
+    background: var(--shiny-color-primary, #0055D9);
+    animation: agent-caret 1s steps(1) infinite;
+}
+
+@keyframes agent-caret {
+    50% { opacity: 0; }
+}
+
+/* ── reasoning ────────────────────────────────────────────────── */
+
+.agent-reasoning-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    padding: 2px 0;
+    border: none;
+    background: none;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font: inherit;
+    font-size: var(--shiny-type-body-small-size, 13px);
+    cursor: pointer;
+}
+
+.agent-reasoning-text {
+    margin-top: var(--shiny-spacing-1, 4px);
+    padding-left: var(--shiny-spacing-3, 12px);
+    border-left: 2px solid var(--shiny-color-outline-variant, #BBC7DF);
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+    font-size: var(--shiny-type-body-small-size, 13px);
+    white-space: pre-wrap;
+    opacity: 0.85;
+}
+
+::deep .agent-chevron {
+    font-size: 0.65em;
+    opacity: 0.6;
+    margin-left: auto;
+}
+
+/* ── tool cards ───────────────────────────────────────────────── */
+
+.agent-tool {
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-medium, 12px);
+    background: var(--shiny-color-surface-container-low, #F0F4F8);
+    overflow: hidden;
+}
+
+.agent-tool-head {
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    width: 100%;
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: var(--shiny-type-body-small-size, 13px);
+    text-align: left;
+    cursor: pointer;
+}
+
+.agent-tool-status {
+    display: inline-flex;
+    width: 16px;
+    justify-content: center;
+    color: var(--shiny-color-success, #2E7D32);
+}
+
+.agent-tool--failed .agent-tool-status { color: var(--shiny-color-error, #BA1A1A); }
+
+.agent-tool-name {
+    font-family: var(--shiny-type-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-weight: 600;
+}
+
+.agent-tool-args {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+.agent-tool-body {
+    padding: 0 var(--shiny-spacing-3, 12px) var(--shiny-spacing-3, 12px);
+}
+
+::deep .agent-tool-label {
+    margin: var(--shiny-spacing-2, 8px) 0 var(--shiny-spacing-1, 4px);
+    font-size: var(--shiny-type-label-small-size, 11px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+/* JSON never adds a vertical scroller; long lines scroll sideways */
+::deep .agent-json {
+    margin: 0;
+    padding: var(--shiny-spacing-2, 8px);
+    border-radius: var(--shiny-shape-corner-small, 6px);
+    background: var(--shiny-color-surface-container-highest, #DCE0E4);
+    font-family: var(--shiny-type-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 12px;
+    color: var(--shiny-color-on-surface, #161C23);
+    white-space: pre;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+::deep .agent-tool-error {
+    padding: 0 var(--shiny-spacing-3, 12px) var(--shiny-spacing-2, 8px);
+    color: var(--shiny-color-error, #BA1A1A);
+    font-size: var(--shiny-type-body-small-size, 13px);
+}
+
+/* ── activity (A2UI) ──────────────────────────────────────────── */
+
+/* the row draws the one edge; the surface inside has ShowBorder off */
+.agent-activity {
+    padding: var(--shiny-spacing-4, 16px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-medium, 12px);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
+}
+
+/* ── sub-agents ───────────────────────────────────────────────── */
+
+::deep .agent-subagent {
+    margin: 0 var(--shiny-spacing-3, 12px) var(--shiny-spacing-3, 12px) var(--shiny-spacing-5, 24px);
+    padding-left: var(--shiny-spacing-3, 12px);
+    border-left: 2px solid var(--shiny-color-primary, #0055D9);
+}
+
+::deep .agent-subagent-head {
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    padding: var(--shiny-spacing-1, 4px) 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: var(--shiny-type-body-small-size, 13px);
+    cursor: pointer;
+}
+
+::deep .agent-subagent-name { font-weight: 600; }
+::deep .agent-subagent-status { color: var(--shiny-color-on-surface-variant, #3B475B); }
+::deep .agent-subagent-body { display: flex; flex-direction: column; gap: var(--shiny-spacing-2, 8px); font-size: 0.95em; }
+::deep .agent-subagent--failed { border-left-color: var(--shiny-color-error, #BA1A1A); }
+::deep .agent-subagent--completed { border-left-color: var(--shiny-color-outline-variant, #BBC7DF); }
+
+/* ── prompts and interrupts ───────────────────────────────────── */
+
+::deep .agent-prompt,
+::deep .agent-interrupt {
+    display: flex;
+    flex-direction: column;
+    gap: var(--shiny-spacing-2, 8px);
+    padding: var(--shiny-spacing-3, 12px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-primary, #0055D9);
+    border-radius: var(--shiny-shape-corner-medium, 12px);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
+}
+
+::deep .agent-prompt-title,
+::deep .agent-interrupt-message { font-weight: 600; }
+::deep .agent-prompt-message { color: var(--shiny-color-on-surface-variant, #3B475B); }
+
+::deep .agent-interrupt-item { display: flex; flex-direction: column; gap: var(--shiny-spacing-2, 8px); }
+::deep .agent-interrupt-item + .agent-interrupt-item {
+    padding-top: var(--shiny-spacing-2, 8px);
+    border-top: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+}
+::deep .agent-interrupt-item.is-answered { opacity: 0.7; }
+::deep .agent-interrupt-answer { font-size: var(--shiny-type-body-small-size, 13px); color: var(--shiny-color-on-surface-variant, #3B475B); }
+
+::deep .agent-prompt-actions { display: flex; gap: var(--shiny-spacing-2, 8px); align-items: center; }
+::deep .agent-prompt-actions--wrap { flex-wrap: wrap; }
+
+::deep .agent-btn {
+    min-height: 34px;
+    padding: 0 var(--shiny-spacing-4, 16px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #74777F);
+    border-radius: var(--shiny-shape-corner-large, 18px);
+    background: transparent;
+    color: var(--shiny-color-primary, #0055D9);
+    font: inherit;
+    font-size: var(--shiny-type-body-medium-size, 14px);
+    font-weight: 500;
+    cursor: pointer;
+}
+
+::deep .agent-btn--primary {
+    border-color: transparent;
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
+}
+
+::deep .agent-btn--quiet { border-color: transparent; color: var(--shiny-color-on-surface-variant, #3B475B); }
+::deep .agent-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+::deep .agent-btn:hover:not(:disabled) { filter: brightness(0.94); }
+
+::deep .agent-input {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 420px;
+    min-height: 36px;
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #74777F);
+    border-radius: var(--shiny-shape-corner-small, 6px);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
+    color: var(--shiny-color-on-surface, #161C23);
+    font: inherit;
+}
+
+/* ── error ────────────────────────────────────────────────────── */
+
+.agent-error {
+    display: flex;
+    align-items: center;
+    gap: var(--shiny-spacing-2, 8px);
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
+    border-radius: var(--shiny-shape-corner-medium, 12px);
+    background: var(--shiny-color-error-container, #FFDAD6);
+    color: var(--shiny-color-on-error-container, #410002);
+}
+
+.agent-error-message { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+
+/* ── progress ─────────────────────────────────────────────────── */
+
+::deep .agent-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: agent-spin 0.8s linear infinite;
+    color: var(--shiny-color-primary, #0055D9);
+    flex: 0 0 auto;
+}
+
+@keyframes agent-spin {
+    to { transform: rotate(360deg); }
+}
+
+.agent-working {
+    display: flex;
+    gap: 4px;
+    padding: var(--shiny-spacing-2, 8px) 0;
+}
+
+.agent-working span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--shiny-color-on-surface-variant, #3B475B);
+    animation: agent-dot 1.2s infinite ease-in-out;
+}
+
+.agent-working span:nth-child(2) { animation-delay: 0.15s; }
+.agent-working span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes agent-dot {
+    0%, 80%, 100% { opacity: 0.25; }
+    40% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ::deep .agent-spinner, .agent-working span { animation: none; }
+}
+
+/* ── jump to latest ───────────────────────────────────────────── */
+
+.agent-jump {
+    display: none;
+    position: absolute;
+    left: 50%;
+    bottom: 84px;
+    transform: translateX(-50%);
+    z-index: 2;
+    padding: var(--shiny-spacing-1, 4px) var(--shiny-spacing-3, 12px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-full, 999px);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
+    color: var(--shiny-color-primary, #0055D9);
+    font: inherit;
+    font-size: var(--shiny-type-body-small-size, 13px);
+    box-shadow: var(--shiny-elevation-2, 0 2px 6px rgba(0,0,0,0.15));
+    cursor: pointer;
+}
+
+.agent-scroll[data-detached] + .agent-jump {
+    display: block;
+}
+
+/* ── composer ─────────────────────────────────────────────────── */
+
+.agent-composer-bar {
+    flex: 0 0 auto;
+    padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px) var(--shiny-spacing-3, 12px);
+}
+
+.agent-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--shiny-spacing-2, 8px);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-2, 8px) calc(6px * var(--shiny-density-scale, 1)) var(--shiny-spacing-3, 12px);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-extra-large, 24px);
+    background: var(--shiny-color-surface-container-lowest, #FFFFFF);
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+
+.agent-composer:focus-within {
+    border-color: var(--shiny-color-primary, #0055D9);
+}
+
+.agent-input-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    box-sizing: border-box;
+    border: none;
+    outline: none;
+    background: transparent;
+    resize: none;
+    overflow-y: hidden;
+    font: inherit;
+    line-height: 1.4;
+    padding: calc(7px * var(--shiny-density-scale, 1)) 0;
+    color: var(--shiny-color-on-surface, #161C23);
+}
+
+.agent-input-text::placeholder {
+    color: var(--shiny-color-on-surface-variant, #3B475B);
+}
+
+.agent-send {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 0 var(--shiny-spacing-4, 16px);
+    border: none;
+    border-radius: var(--shiny-shape-corner-large, 18px);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
+    font: inherit;
+    font-size: var(--shiny-type-body-medium-size, 14px);
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.agent-send--stop {
+    background: var(--shiny-color-surface-container-highest, #DCE0E4);
+    color: var(--shiny-color-on-surface, #161C23);
+}
+
+.agent-send:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
