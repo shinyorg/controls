@@ -8,8 +8,7 @@ public static class FoldablesMauiAppBuilderExtensions
 {
     /// <summary>
     /// Make Shiny.Maui.Controls fold-aware with the built-in providers: Jetpack WindowManager on Android
-    /// foldables and <c>UIHinge</c> + reserved regions on iPhone Duo (iOS 27.1+, app built with the
-    /// iOS 27.1 SDK). Call alongside <c>UseShinyControls</c>, in either order.
+    /// foldables and <c>UIHinge</c> + reserved regions on iPhone Duo (iOS 27.1+). Call alongside <c>UseShinyControls</c>, in either order.
     /// </summary>
     /// <remarks>
     /// A source passed to <c>ShinyControlConfiguration.UseFoldPosture</c> always wins over this one,

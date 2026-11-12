@@ -2,8 +2,7 @@ namespace Shiny.Maui.Controls.Foldables;
 
 /// <summary>
 /// The built-in posture source: Jetpack WindowManager on Android, <c>UIHingeInteraction</c> plus the
-/// window's division reserved region on iOS 27.1+ (iPhone Duo). Everywhere else — and on iOS when the
-/// app is not built against the iOS 27.1 SDK — it reports <see cref="FoldInfo.None"/> forever.
+/// window's division reserved region on iOS 27.1+ (iPhone Duo). Everywhere else it reports <see cref="FoldInfo.None"/> forever.
 /// </summary>
 /// <remarks>
 /// <para><see cref="FoldablesMauiAppBuilderExtensions.UseShinyFoldables"/> registers it and wires it to

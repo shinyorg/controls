@@ -18,8 +18,8 @@ builder
 
 - Android: Jetpack WindowManager (`Xamarin.AndroidX.Window.WindowJava`), following the resumed Activity.
   Live updates need MAUI's default `MainActivity` ConfigChanges (ScreenSize/SmallestScreenSize/ScreenLayout/Orientation).
-- iOS: `UIHingeInteraction` plus the `division` reserved region. **Only in the `net10.0-ios27.1` build**,
-  so the app must target `net10.0-ios27.1`. The plain `net10.0-ios` build reports no fold. Never on Mac Catalyst.
+- iOS: `UIHingeInteraction` plus the `division` reserved region. In the package's `net10.0-ios` build (compiled
+  against the iOS 27.2 bindings), so a plain `net10.0-ios` app gets it; active on iOS 27.1+ only. Never on Mac Catalyst.
 - Other platforms: `FoldPostureProvider.IsSupported == false`, posture is always `FoldInfo.None`.
 
 ## API (namespace `Shiny.Maui.Controls`)

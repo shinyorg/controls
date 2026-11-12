@@ -1,14 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <!--
-            Two iOS builds on purpose. UIHinge, UIHingeInteraction and UIView.GetReservedRegions only
-            exist in the iOS 27.1 SDK bindings (Microsoft.iOS.Ref 27.1), so the iPhone Duo provider is
-            compiled into the net10.0-ios27.1 build. The plain net10.0-ios build (whatever the installed
-            workload defaults to) reports no fold, which keeps the package restorable for every app -
-            NuGet hands an app the build nearest its own TFM, so an app targeting net10.0-ios27.1 gets
-            the real provider and everything older gets the no-op instead of a restore error.
-        -->
-        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-ios27.1;$(BaseTargetFramework)-android</TargetFrameworks>
+        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android</TargetFrameworks>
         <UseMaui>true</UseMaui>
         <IsAotCompatible>true</IsAotCompatible>
         <SingleProject>true</SingleProject>
@@ -19,8 +11,13 @@
         <PackageTags>maui foldable fold hinge posture tabletop book dual-screen iphone-duo pixel-fold windowmanager controls</PackageTags>
     </PropertyGroup>
 
-    <!-- The iPhone Duo provider: only the iOS 27.1 bindings have UIHinge and reserved regions. -->
-    <PropertyGroup Condition="'$(TargetFramework)' == '$(BaseTargetFramework)-ios27.1'">
+    <!--
+        The iPhone Duo provider. UIHinge, UIHingeInteraction and UIView.GetReservedRegions (iOS 27.1) are not
+        in the 26.0 bindings a plain net10.0-ios library builds against by default, so float to the newest
+        bindings the installed workload has (CI pins the workload set to one with 27.2).
+    -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+        <UseFloatingTargetPlatformVersion>true</UseFloatingTargetPlatformVersion>
         <DefineConstants>$(DefineConstants);SHINY_UIHINGE</DefineConstants>
     </PropertyGroup>
 

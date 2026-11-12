@@ -65,7 +65,7 @@ public static class MauiProgram
                 media.CompressionQuality = 85;
                 media.MaxDimension = 2048;
             })
-            // Jetpack WindowManager on Android foldables, UIHinge on iPhone Duo (iOS 27.1 build only)
+            // Jetpack WindowManager on Android foldables, UIHinge on iPhone Duo (iOS 27.1+)
             .UseShinyFoldables()
             .UseShinyMediaElement()
             // the on-screen gamepad: its iOS/Android multi-touch handler, and IGamepadManager reporting

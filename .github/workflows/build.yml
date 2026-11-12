@@ -39,7 +39,11 @@ jobs:
       uses: actions/setup-dotnet@v6
       with:
           dotnet-version: '10.0.400'
-          workloads: maui, macos
+
+    # Pinned: Shiny.Maui.Controls.Foldables compiles its iOS build against the 27.2 bindings (UIHinge),
+    # so the workload set has to carry them. setup-dotnet's `workloads:` always takes the latest.
+    - name: Install workloads
+      run: dotnet workload install maui macos --version 10.0.404
 
     - name: Build
       run: dotnet build Build.slnf /restore -m -property:Configuration=Release -property:PublicRelease=true

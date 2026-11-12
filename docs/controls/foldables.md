@@ -25,7 +25,7 @@ builder
 | Platform | Source | Notes |
 |---|---|---|
 | Android | Jetpack WindowManager (`Xamarin.AndroidX.Window.WindowJava` 1.5.1.3): `WindowInfoTracker` → `FoldingFeature` | Follows the resumed Activity. Bounds are converted from px to dp. Posture streams live only while the Activity handles `ScreenSize \| SmallestScreenSize \| ScreenLayout \| Orientation` config changes (MAUI's default `MainActivity` does). Without them a fold recreates the Activity and the posture is read again when it comes back. |
-| iOS 27.1+ (iPhone Duo) | `UIHingeInteraction` for the hinge status, plus the window's active `division` reserved region (`UIView.GetReservedRegions`) for the fold rectangle and its margins | **The app must target `net10.0-ios27.1`** (Xcode 27.1 SDK). The package also ships a plain `net10.0-ios` build so every app can restore it, but that build reports no fold. Guarded at runtime with `OperatingSystem.IsIOSVersionAtLeast(27, 1)` and never active on Mac Catalyst. |
+| iOS 27.1+ (iPhone Duo) | `UIHingeInteraction` for the hinge status, plus the window's active `division` reserved region (`UIView.GetReservedRegions`) for the fold rectangle and its margins | Built into the package's `net10.0-ios` build (compiled against the iOS 27.2 bindings), so a plain `net10.0-ios` app gets it. Guarded at runtime with `OperatingSystem.IsIOSVersionAtLeast(27, 1)` and never active on Mac Catalyst. |
 | Everything else | — | `FoldPostureProvider.IsSupported` is false and the posture is always `FoldInfo.None`. |
 
 Posture is reported for the current Activity or key window only.
