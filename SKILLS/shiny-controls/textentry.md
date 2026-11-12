@@ -46,6 +46,7 @@ Two things to know before generating code:
 | FocusedBorderColor | Color | #007AFF | Border color when focused |
 | BorderThickness | double | 1.0 | Border thickness when unfocused |
 | FocusedBorderThickness | double | 2.0 | Border thickness when focused |
+| HasFocusGlow | bool | true | Glow around the border while focused or in error. `false` drops the border's Shadow entirely (no shadow mask per size change on Windows); focus still shows through the stroke. Set it before the control is shown |
 | CornerRadius | CornerRadius | 8 | Border corner radius |
 | EntryBackgroundColor | Color | Transparent | Background color inside the border |
 | FontSize | double | 15 | Text and placeholder font size |

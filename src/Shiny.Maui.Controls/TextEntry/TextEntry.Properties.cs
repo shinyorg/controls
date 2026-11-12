@@ -97,6 +97,27 @@ public partial class TextEntry
         nameof(FocusedBorderThickness), typeof(double), typeof(TextEntry), 2.0);
     public double FocusedBorderThickness { get => (double)GetValue(FocusedBorderThicknessProperty); set => SetValue(FocusedBorderThicknessProperty, value); }
 
+    /// <summary>
+    /// When false, the field has no focus/error glow and its border carries no Shadow at all -
+    /// focus and errors still show through the stroke colour and thickness. MAUI wraps an element
+    /// that has a Shadow and renders a shadow mask on every size change (on Windows on the UI
+    /// thread), even while the glow is invisible, which adds up for fields that sit on many pages.
+    /// Set it in XAML or a style, before the control is shown: changing it later re-applies the
+    /// border's shadow, which on Android can clear focus from the entry.
+    /// </summary>
+    public static readonly BindableProperty HasFocusGlowProperty = BindableProperty.Create(
+        nameof(HasFocusGlow), typeof(bool), typeof(TextEntry), true,
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady(b, typeof(TextEntry), () =>
+            {
+                var te = (TextEntry)b;
+                if ((bool)n)
+                    te.outerBorder.Shadow = te.focusGlow;
+                else
+                    te.outerBorder.ClearValue(VisualElement.ShadowProperty);
+                te.SyncHint();
+            }));
+    public bool HasFocusGlow { get => (bool)GetValue(HasFocusGlowProperty); set => SetValue(HasFocusGlowProperty, value); }
+
     // Bootstrap radius is .375rem = 6px
     public static readonly BindableProperty CornerRadiusProperty = BindableProperty.Create(
         nameof(CornerRadius), typeof(CornerRadius), typeof(TextEntry), new CornerRadius(6),

@@ -425,9 +425,13 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
     // Assigning Border.Shadow re-applies the platform shadow, and on Android that tears the
     // border's view down far enough to clear focus from the entry inside it - so a tap would
     // focus the entry and lose it again in the same frame, making the control impossible to
-    // type into. Only the brush and opacity are touched from here on.
+    // type into. Only the brush and opacity are touched from here on. With HasFocusGlow off the
+    // border has no Shadow at all and there is nothing to show.
     void ShowGlow(Color? color, string token)
     {
+        if (!HasFocusGlow)
+            return;
+
         // Shadow.Brush is Brush-typed too, and a Shadow assigned to an element is parented by it, so
         // it sits in the resource chain like any other child.
         ThemeBrush.Apply(focusGlow, Shadow.BrushProperty, color, token.AsBrush());
@@ -797,6 +801,7 @@ public partial class TextEntry : ContentView, IKeyboardAccessoryHost
     // Test seams.
     internal bool IsPlaceholderUp => isPlaceholderUp;
     internal Entry InnerEntry => entry;
+    internal Border OuterBorder => outerBorder;
 
     // ---- Input assistance -----------------------------------------------------------------
 
