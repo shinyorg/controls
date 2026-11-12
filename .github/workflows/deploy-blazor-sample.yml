@@ -37,7 +37,8 @@ jobs:
         with:
           fetch-depth: 0   # Nerdbank.GitVersioning needs full history
 
-      # pinned to 10.0.404 (SDK and workload set), the same as global.json
+      # pinned to 10.0.404 (SDK and workload set), the same as global.json — the workload commands
+      # below take the set from global.json's workloadVersion and must not pass --version (the SDK rejects both)
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
@@ -50,8 +51,8 @@ jobs:
       # turns that back into a build failure, but the workload is what actually fixes it.
       - name: Restore workloads
         run: |
-          dotnet workload install wasm-tools --version 10.0.404
-          dotnet workload restore "${{ env.SAMPLE_CSPROJ }}" --version 10.0.404
+          dotnet workload install wasm-tools
+          dotnet workload restore "${{ env.SAMPLE_CSPROJ }}"
 
       - name: Publish
         run: dotnet publish "${{ env.SAMPLE_CSPROJ }}" -c Release -o publish
