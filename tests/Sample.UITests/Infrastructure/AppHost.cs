@@ -68,6 +68,12 @@ public abstract class AppHost : IAsyncDisposable
     /// </summary>
     public DateTimeOffset? AgentSince { get; set; }
 
+    /// <summary>
+    /// The host name the app uses to reach a server a test runs on this machine at <paramref name="port"/>.
+    /// Loopback everywhere; a head behind a device boundary maps the port across first.
+    /// </summary>
+    public virtual Task<string> ExposeHostPortAsync(int port) => Task.FromResult("127.0.0.1");
+
     /// <summary>Port on this machine where the agent answers; heads behind a device boundary forward it.</summary>
     public virtual async Task<int> ResolvePortAsync(TimeSpan timeout)
     {
@@ -255,6 +261,14 @@ public sealed class AndroidAppHost : AppHost
 
     Task<ProcessResult> AdbShell(string command)
         => ProcessRunner.Run(Adb, $"-s {serial} shell {command}");
+
+    // adb reverse rather than the emulator's 10.0.2.2: the app's request then carries a 127.0.0.1 Host
+    // header, which a loopback-bound HttpListener accepts (it answers any other host with an HTML 400)
+    public override async Task<string> ExposeHostPortAsync(int port)
+    {
+        (await ProcessRunner.Run(Adb, $"-s {serial} reverse tcp:{port} tcp:{port}")).EnsureSuccess("adb reverse");
+        return "127.0.0.1";
+    }
 
     double? pixelsPerDp;
 

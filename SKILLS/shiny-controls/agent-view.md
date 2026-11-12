@@ -44,6 +44,8 @@ Agent.StateChanged += (_, _) => Refresh(Agent.State);
   - `ToolCallTemplates` / `ActivityTemplates` (`AgentTemplateDictionary`, keyed by tool name or activity type): `AgentToolCallItem` / `AgentActivityItem`.
   - `InterruptTemplate`: `AgentInterruptRequest`, with `Kind`, `Message`, `Choices`, `AllowMultiple`, and `ApproveCommand` / `RejectCommand` / `ChooseCommand` / `ReplyCommand`.
   - `ErrorTemplate`: `AgentErrorItem`; retry with `RetryCommand`.
+  - `SubagentTemplate`: `AgentSubagent` (`Name`, `Status`, `Description`, `Error`). Replaces the whole sub-agent group; `AgentSubagent` isn't observable, so the view re-sets the binding context when it changes.
+- The composer is a multi-line `Editor` (grows to ~5 lines, then scrolls). `SendOnEnter` (default true on Desktop idiom, false on phone/tablet): Enter sends; pasted multi-line text is kept. Don't wrap the view to add your own composer border.
 - Methods: `SendAsync`, `Cancel`, `Clear`, `RetryAsync`. `IsBusy` is read-only.
 
 ## Blazor

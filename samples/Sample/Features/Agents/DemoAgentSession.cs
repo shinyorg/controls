@@ -9,8 +9,8 @@ namespace Sample.Features.Agents;
 /// <summary>
 /// A scripted AG-UI agent, so the agent pages work with no API key and no server. It answers by
 /// keyword and emits real AG-UI events - streamed markdown, reasoning, backend tool calls, A2UI
-/// surfaces (a Shiny dashboard and a basic form), a frontend tool, an approval interrupt, shared
-/// state, a sub-agent and a run error - exactly as a live endpoint would. Shared by the MAUI and
+/// surfaces (a Shiny dashboard, a basic form and a media card), a frontend tool, interrupts of every
+/// shape (approval, one choice, several choices, free text), shared state, a sub-agent and a run error - exactly as a live endpoint would. Shared by the MAUI and
 /// Blazor samples (and driven end to end by the engine's tests).
 /// </summary>
 public sealed class DemoAgentSession : IAgentSession
@@ -22,6 +22,10 @@ public sealed class DemoAgentSession : IAgentSession
         "Book a trip",
         "Sign me up for the newsletter",
         "Delete my old drafts",
+        "Order lunch",
+        "Pick pizza toppings",
+        "Rename my project",
+        "Show me some media",
         "Research AG-UI for me",
         "Track my reading list",
         "What can you do?",
@@ -32,6 +36,8 @@ public sealed class DemoAgentSession : IAgentSession
     public const string PickDateRangeTool = "pick_date_range";
 
     int ids;
+    // what each pending interrupt asked, so a resume is answered in kind
+    readonly Dictionary<string, string> interrupts = new(StringComparer.Ordinal);
 
     /// <summary>The delay between streamed tokens. Zero for tests.</summary>
     public TimeSpan TokenDelay { get; init; } = TimeSpan.FromMilliseconds(18);
@@ -74,11 +80,7 @@ public sealed class DemoAgentSession : IAgentSession
         // 2. resuming an interrupt
         if (input.Resume is { Count: > 0 } resume)
         {
-            var approved = resume.All(r => r.Status == ResumeStatus.Resolved);
-            foreach (var e in Text(approved
-                ? "Done - I deleted **3 drafts** from before October. They're in the bin for 30 days if you change your mind."
-                : "No problem, I left your drafts alone."))
-                yield return e;
+            foreach (var e in Text(OnResume(resume))) yield return e;
             yield return Finished(input);
             yield break;
         }
@@ -135,27 +137,34 @@ public sealed class DemoAgentSession : IAgentSession
         else if (Has(prompt, "delete", "remove", "approve"))
         {
             foreach (var e in Text("That deletes 3 drafts permanently, so I need your OK first.")) yield return e;
-            yield return Event(new
-            {
-                type = "RUN_FINISHED",
-                threadId = ThreadId,
-                runId = input.RunId,
-                outcome = new
-                {
-                    type = "interrupt",
-                    interrupts = new[]
-                    {
-                        new
-                        {
-                            id = Id("int"),
-                            reason = "approval",
-                            message = "Delete 3 drafts from before October?",
-                            responseSchema = new { type = "object", properties = new { approved = new { type = "boolean" } } }
-                        }
-                    }
-                }
-            });
+            yield return Interrupt(input, "approval", "Delete 3 drafts from before October?",
+                responseSchema: new { type = "object", properties = new { approved = new { type = "boolean" } } });
             yield break;
+        }
+        else if (Has(prompt, "lunch", "order food"))
+        {
+            foreach (var e in Text("The canteen closes orders at 11:30. What would you like?")) yield return e;
+            yield return Interrupt(input, "lunch", "Pick today's lunch",
+                metadata: new { choices = LunchChoices.Select(c => new { id = c.Id, label = c.Label }).ToArray() });
+            yield break;
+        }
+        else if (Has(prompt, "topping", "pizza"))
+        {
+            foreach (var e in Text("Build your pizza - pick as many as you like.")) yield return e;
+            yield return Interrupt(input, "toppings", "Which toppings?",
+                metadata: new { allowMultiple = true, choices = ToppingChoices.Select(c => new { id = c.Id, label = c.Label }).ToArray() });
+            yield break;
+        }
+        else if (Has(prompt, "rename", "name my", "call it"))
+        {
+            foreach (var e in Text("Sure. I'll update the repo, the docs and the package ids.")) yield return e;
+            yield return Interrupt(input, "rename", "What should the project be called?",
+                responseSchema: new { type = "object", properties = new { text = new { type = "string" } }, required = new[] { "text" } });
+            yield break;
+        }
+        else if (Has(prompt, "media", "video", "audio", "music", "link"))
+        {
+            foreach (var e in Media()) yield return e;
         }
         else if (Has(prompt, "research", "investigate"))
         {
@@ -181,6 +190,8 @@ public sealed class DemoAgentSession : IAgentSession
                 - **"Book a trip"** - a *frontend tool*: I ask, a date range picker answers
                 - **"Sign me up for the newsletter"** - an A2UI form whose button sends an action back to me
                 - **"Delete my old drafts"** - an approval *interrupt*
+                - **"Order lunch"**, **"Pick pizza toppings"**, **"Rename my project"** - interrupts that ask for one choice, several, or free text
+                - **"Show me some media"** - an A2UI card with video, audio and a link that opens in the browser
                 - **"Research AG-UI"** - a sub-agent working inside my turn
                 - **"Track my reading list"** - shared state the page can bind to
                 - **"Fail on purpose"** - a run error with Retry
@@ -188,6 +199,68 @@ public sealed class DemoAgentSession : IAgentSession
         }
 
         yield return Finished(input);
+    }
+
+    static readonly (string Id, string Label)[] LunchChoices = [("soup", "Tomato soup"), ("salad", "Greek salad"), ("wrap", "Falafel wrap")];
+    static readonly (string Id, string Label)[] ToppingChoices = [("cheese", "Extra cheese"), ("mushroom", "Mushroom"), ("olive", "Olive"), ("pepper", "Pepper"), ("basil", "Basil")];
+
+    object Interrupt(RunAgentInput input, string kind, string message, object? metadata = null, object? responseSchema = null)
+    {
+        var id = Id("int");
+        interrupts[id] = kind;
+        return new
+        {
+            type = "RUN_FINISHED",
+            threadId = ThreadId,
+            runId = input.RunId,
+            outcome = new
+            {
+                type = "interrupt",
+                interrupts = new[] { new { id, reason = kind, message, metadata, responseSchema } }
+            }
+        };
+    }
+
+    string OnResume(IEnumerable<AGUIResume> resume)
+    {
+        var answers = new List<string>();
+        foreach (var r in resume)
+        {
+            var kind = interrupts.GetValueOrDefault(r.InterruptId ?? "") ?? "approval";
+            interrupts.Remove(r.InterruptId ?? "");
+            var payload = r.Payload is { } p ? JsonNode.Parse(p.GetRawText()) : null;
+            var resolved = r.Status == ResumeStatus.Resolved;
+            var picked = (payload?["choiceIds"] as JsonArray)?.Select(x => x?.GetValue<string>()).OfType<string>().ToList() ?? [];
+
+            answers.Add(kind switch
+            {
+                _ when !resolved && kind == "approval" => "No problem, I left your drafts alone.",
+                _ when !resolved => "Okay, never mind.",
+                "approval" => "Done - I deleted **3 drafts** from before October. They're in the bin for 30 days if you change your mind.",
+                "lunch" when picked.Count > 0 => $"Ordered: **{Label(LunchChoices, picked[0])}**. It'll be at reception at 12:15.",
+                "toppings" when picked.Count > 0 => $"One pizza with **{string.Join(", ", picked.Select(id => Label(ToppingChoices, id)))}** coming up.",
+                "toppings" => "A plain margherita it is.",
+                "rename" when payload?["text"]?.GetValue<string>() is { Length: > 0 } name => $"Renamed to **{name}**. I opened a PR with the changes.",
+                _ => "I didn't get an answer, so I'll leave it."
+            });
+        }
+        return string.Join("\n\n", answers);
+    }
+
+    static string Label((string Id, string Label)[] choices, string id) => choices.FirstOrDefault(c => c.Id == id).Label ?? id;
+
+    IEnumerable<object?> Media()
+    {
+        var messages = JsonNode.Parse(MediaJson)!;
+        yield return new
+        {
+            type = "ACTIVITY_SNAPSHOT",
+            messageId = Id("surface"),
+            activityType = "a2ui-surface",
+            content = new JsonObject { ["a2ui_operations"] = messages },
+            replace = true
+        };
+        foreach (var e in Text("A short film, a song, and the A2UI spec if you want to read up.")) yield return e;
     }
 
     IEnumerable<object?> OnAction(JsonObject action)
@@ -432,6 +505,31 @@ public sealed class DemoAgentSession : IAgentSession
                 { "id": "submitLabel", "component": "Text", "text": "Subscribe" },
                 { "id": "submit", "component": "Button", "child": "submitLabel", "variant": "primary",
                   "action": { "event": { "name": "subscribe", "context": { "name": { "@path": "/name" }, "email": { "@path": "/email" }, "topics": { "@path": "/topics" } } } } }
+              ]
+            }
+          }
+        ]
+        """;
+
+    /// <summary>A basic-catalog card with Video, AudioPlayer and a Button whose action opens a URL (<c>openUrl</c>).</summary>
+    public const string MediaJson = """
+        [
+          {
+            "version": "1.0",
+            "createSurface": {
+              "surfaceId": "media",
+              "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json",
+              "dataModel": { "spec": "https://a2ui.org" },
+              "components": [
+                { "id": "root", "component": "Card", "child": "body" },
+                { "id": "body", "component": "Column", "children": ["heading", "video", "audio", "divider", "open"] },
+                { "id": "heading", "component": "Text", "variant": "h4", "text": "Media" },
+                { "id": "video", "component": "Video", "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" },
+                { "id": "audio", "component": "AudioPlayer", "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3", "description": "T-Rex roar (CC0)" },
+                { "id": "divider", "component": "Divider" },
+                { "id": "openLabel", "component": "Text", "text": "Read the A2UI spec" },
+                { "id": "open", "component": "Button", "child": "openLabel",
+                  "action": { "functionCall": { "@call": "openUrl", "args": { "url": { "@path": "/spec" } } } } }
               ]
             }
           }

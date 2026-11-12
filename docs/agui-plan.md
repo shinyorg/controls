@@ -459,27 +459,38 @@ Phases 2 and 3 can run in parallel once Phase 1 lands.
 2. **Protobuf transport** — out of scope for the controls (transport isn't ours); note it for
    AiConversation.
 
-## Where it stands (after Phases 2–5)
+## Where it stands (after Phases 2–5 and the follow-up round)
 
 - **Hosts:** `src/Shiny.Maui.Controls.Agents` and `src/Shiny.Blazor.Controls.Agents` render all 18 basic and all 12
-  Shiny components and every AgentView item kind. Both were driven in a running app against the scripted demo
-  and the spike's live `AGUI.Server` endpoint: Blazor with Playwright, MAUI on the macOS head. The Mac Catalyst
-  head crashes at launch on macOS 27 (no scene lifecycle), which is a sample issue predating this work.
-- **Not exercised at runtime:** on MAUI, tap-driven paths (grid `rowAction`, the range calendar, chips,
-  Expander), because DevFlow can't tap on the macOS head. On both hosts, the choices and text interrupt shapes
-  (no fixture produces them; covered by the AiConversation bridge's tests) and Video/Audio/`openUrl`.
-- **Engine fixes from the host builds:**
-  - `A2UIAgentBinding` no longer assigns a rejected (reused-id) surface to a second activity.
-  - New `AgentRunner.RetryAsync`.
-  - New `AgentThreadChangeKind.InterruptsChanged`.
-  - `AgentRunner.Cancel` now reaches a frontend tool waiting on a prompt between runs.
-- **Known host gaps:**
-  - MAUI composer is single-line.
-  - `SubagentTemplate` is Blazor-only.
+  Shiny components and every AgentView item kind. Both add-ons (and `Shiny.Maui.Controls.Markdown`) target core's
+  frameworks, so a platform head gets core's platform assembly.
+- **Follow-up round:**
+  - MAUI composer is a growing `Editor` with `SendOnEnter`.
+  - `SubagentTemplate` is on both hosts.
+  - Fixed the Blazor multi-choice interrupt chips showing the record instead of the label.
+  - The Mac Catalyst sample adopts the UIScene lifecycle, so it launches on macOS 27.
+- **Samples:** the Agent View page on both hosts has four sources:
+  - Demo: `DemoAgentSession`, which also covers the choice, multi-choice and text interrupts and the media card
+    (Video, AudioPlayer, `openUrl`).
+  - Recordings: `ReplayAgentSession` plays the spike's `.sse` fixtures.
+  - Endpoint: `HttpAgentSession`.
+  - Your key: `ChatClientAgentSession` runs `AGUI.Server` in-process over an OpenAI-compatible `IChatClient`,
+    with a `render_ui` tool. It runs in the browser on the WebAssembly sample; a trimmed WASM app needs
+    `<TrimmerRootAssembly Include="AGUI.Abstractions" />`.
+- **Speech repo:** the BlazorSample has an Agent page over a real `IAiSession`. It references the controls Agents
+  project only when a sibling checkout exists, until the package ships.
+- **Tests:**
+  - 263 engine tests, covering every demo scenario, the replay session and the chat-client session through
+    `AGUI.Server`.
+  - Playwright: `AgentViewTests`, `AgentViewPhoneTests` and `A2UIGalleryTests`, green in Chromium, WebKit,
+    iPhone and the trimmed publish. The Your key tests run against a mock OpenAI server.
+  - DevFlow: `AgentViewTests` and `A2UIGalleryTests`, green on the iOS simulator, the Android emulator and
+    the macOS head. The Your key test reaches its mock through `adb reverse` on Android.
+  - An opt-in live test (`AGUI_ENDPOINT`) runs against `spikes/AgUiSpike -- serve`.
+- **Known gaps:**
+  - MAUI can't see Shift, so a desktop composer with `SendOnEnter` gets new lines only by pasting.
   - A MAUI DataGrid in a message caps at 12 rows, with "Show all" opening a modal.
   - The core MAUI DataGrid can't read JSON rows, so the renderer uses cell templates.
-- **Tests:** 245 engine tests (including every demo scenario through the real runner), plus an opt-in live
-  test (`AGUI_ENDPOINT`) against `spikes/AgUiSpike -- serve`.
 
 ## Docs & release obligations
 
@@ -492,7 +503,7 @@ New packages and new controls, so the full checklist in `CLAUDE.md` applies:
 - Docs site: `controls/agent-view/` and `controls/a2ui/` folders, release notes, sidebar nodes,
   homepage "UI Controls" card (Flagship group).
 - Jon Dick nitpick checklist on both hosts (see [Layout](#layout-and-the-nitpick-checklist)).
-- TODO: capture screenshots for AgentView and A2UISurface (on request, using the scripted demo). Once they
-  exist, add both to the docs homepage's `ControlsMarquee` (it needs `/images/<slug>/s1.png`).
+- Screenshots: `public/images/agent-view/` and `public/images/a2ui/` in the docs repo (MAUI on the Android
+  emulator via DevFlow, Blazor via Playwright), shown on both pages and as `ControlsMarquee` tiles.
 
-**Status:** all of the above are written except the screenshots and marquee tiles.
+**Status:** all of the above are done.

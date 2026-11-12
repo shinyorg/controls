@@ -1,10 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <!-- Pure MAUI views over the shared engine, so no platform TFMs: the agent conversation and
-             A2UI rules live in Shiny.Controls.AgentUI.Shared and this package only draws them. An
-             add-on rather than core because message bubbles need the Markdown add-on (Markdig). -->
-        <TargetFrameworks>$(BaseTargetFramework)</TargetFrameworks>
+        <!-- Pure MAUI views over the shared engine: the agent conversation and A2UI rules live in
+             Shiny.Controls.AgentUI.Shared and this package only draws them. It still carries core's
+             platform TFMs, because a net10.0-only reference to core hands a platform head core's
+             net10.0 assembly (the Android head then has no Java types for core). An add-on rather
+             than core because message bubbles need the Markdown add-on (Markdig). -->
+        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android</TargetFrameworks>
+        <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <UseMaui>true</UseMaui>
         <IsAotCompatible>true</IsAotCompatible>
         <RootNamespace>Shiny.Maui.Controls.Agents</RootNamespace>

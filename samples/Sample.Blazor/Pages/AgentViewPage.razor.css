@@ -1,15 +1,69 @@
-.agent-endpoint {
+.agent-intro {
+    color: gray;
+    font-size: 14px;
+}
+
+/* One edge around the whole demo: the source bar on top, then the chat and the panel side by side,
+   split by single dividers. The chat owns its scroll, the panel scrolls on its own beside it - side
+   by side, never nested. */
+.agent-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid var(--shiny-color-outline-variant, #ccc);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--shiny-color-surface, #fff);
+}
+
+.agent-source {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    border-bottom: 1px solid var(--shiny-color-outline-variant, #ccc);
+    color: var(--shiny-color-on-surface, #161C23);
+}
+
+.agent-source-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.agent-source-tab {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--shiny-color-on-surface-variant, #444);
+    font: inherit;
+    cursor: pointer;
+}
+
+.agent-source-tab:hover {
+    background: var(--shiny-color-surface-container-high, #eee);
+}
+
+.agent-source-tab.is-selected {
+    background: var(--shiny-color-secondary-container, #dbe4ff);
+    color: var(--shiny-color-on-secondary-container, #0b1d4d);
+    font-weight: 600;
+}
+
+.agent-source-form {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
+    margin: 0;
 }
 
-.agent-endpoint-input {
-    flex: 1 1 260px;
+.agent-source-input {
+    flex: 1 1 140px;
     min-width: 0;
-    max-width: 420px;
+    box-sizing: border-box;
     padding: 6px 10px;
     border: 1px solid var(--shiny-color-outline-variant, #ccc);
     border-radius: 8px;
@@ -18,39 +72,39 @@
     font: inherit;
 }
 
-.agent-endpoint-btn {
-    padding: 6px 12px;
-    border: 1px solid var(--shiny-color-outline-variant, #ccc);
-    border-radius: 8px;
-    background: var(--shiny-color-surface-container-low, #fff);
-    color: var(--shiny-color-primary, #0055D9);
-    font: inherit;
-    cursor: pointer;
+.agent-source-input--wide {
+    flex: 2 1 220px;
 }
 
-.agent-endpoint-btn:disabled {
+.agent-source-btn {
+    padding: 6px 14px;
+}
+
+.agent-source-btn:disabled {
     opacity: 0.5;
     cursor: default;
 }
 
-.agent-endpoint-status {
-    color: gray;
-    font-size: 13px;
+.agent-source-note,
+.agent-source-status {
+    font-size: 12px;
+    color: var(--shiny-color-on-surface-variant, gray);
 }
 
-/* One edge around the whole demo; the chat and the panel split it with a single divider. The chat
-   owns its scroll, the panel scrolls on its own beside it - side by side, never nested. */
-.agent-page {
+.agent-source-status.is-error {
+    color: var(--shiny-color-error, #B3261E);
+}
+
+.agent-page-main {
+    flex: 1 1 0;
     display: flex;
     min-height: 0;
-    border: 1px solid var(--shiny-color-outline-variant, #ccc);
-    border-radius: 12px;
-    overflow: hidden;
 }
 
 .agent-page-chat {
     flex: 1 1 auto;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
 }
@@ -95,14 +149,52 @@
     cursor: pointer;
 }
 
+/* a phone has no height to spare: the heading says what this is, the source bar says the rest */
+@media (max-width: 600px) {
+    .agent-intro {
+        display: none;
+    }
+
+    /* all four sources on one line, and the model, key and Connect on another */
+    .agent-source-tabs {
+        gap: 2px;
+    }
+
+    .agent-source-tab {
+        padding: 6px 8px;
+        font-size: 13px;
+    }
+
+    .agent-source-input {
+        flex-basis: 90px;
+    }
+
+    .agent-source-input--wide {
+        flex-basis: 100%;
+    }
+
+    .agent-source-btn {
+        padding: 6px 10px;
+    }
+
+    /* the panel sizes to its books; the how-to line is the desktop's luxury */
+    .agent-page-hint {
+        display: none;
+    }
+
+    .agent-page-state {
+        padding: 8px 16px;
+    }
+}
+
 @media (max-width: 820px) {
-    .agent-page {
+    .agent-page-main {
         flex-direction: column;
     }
 
     .agent-page-state {
         flex: 0 0 auto;
-        max-height: 30%;
+        max-height: 45%;
         border-left: none;
         border-top: 1px solid var(--shiny-color-outline-variant, #ccc);
     }

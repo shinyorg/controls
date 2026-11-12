@@ -463,15 +463,26 @@ sealed class AgentSubagentView : ContentView
 {
     readonly Label header;
     readonly string fallbackName;
+    readonly View? custom;
     bool collapsed;
     AgentSubagent? subagent;
 
-    public AgentSubagentView(AgentSubagent? subagent, string id)
+    public AgentSubagentView(AgentView owner, AgentSubagent? subagent, string id)
     {
         this.subagent = subagent;
         this.fallbackName = subagent?.Name ?? id;
         this.header = AgentTheme.Text("", ShinyThemeKeys.Type.LabelLargeSize, ShinyThemeKeys.Color.OnSurfaceVariant);
         this.Items = new VerticalStackLayout { Spacing = 8, Padding = new Thickness(12, 0, 0, 0) };
+
+        if (owner.SubagentTemplate is { } template)
+        {
+            // the template replaces the whole group (as on Blazor): the sub-agent's own items are
+            // still collected in Items, but only the template is drawn
+            this.custom = AgentView.Inflate(template, subagent!, owner);
+            this.custom.BindingContext = subagent;
+            this.Content = this.custom;
+            return;
+        }
 
         var rail = new BoxView { WidthRequest = 2, HorizontalOptions = LayoutOptions.Start }
             .Themed(BoxView.ColorProperty, ShinyThemeKeys.Color.Tertiary);
@@ -494,6 +505,14 @@ sealed class AgentSubagentView : ContentView
     public void Refresh(AgentSubagent? subagent)
     {
         this.subagent = subagent ?? this.subagent;
+        if (this.custom is not null)
+        {
+            // the sub-agent object changes in place, so re-set the context to re-evaluate bindings
+            this.custom.BindingContext = null;
+            this.custom.BindingContext = this.subagent;
+            return;
+        }
+
         var status = this.subagent?.Status switch
         {
             AgentSubagentStatus.Completed => "done",
@@ -538,7 +557,8 @@ static class AgentInterruptView
             }
             case AgentInterruptKind.Choices:
             {
-                var flex = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
+                // ShinyFlexLayout: MAUI's FlexLayout can measure a label short on Android and clip it
+                var flex = new ShinyFlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
                 foreach (var choice in request.Choices)
                 {
                     var button = AgentTheme.TonalButton(choice.Label);

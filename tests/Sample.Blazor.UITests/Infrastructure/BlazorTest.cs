@@ -53,7 +53,9 @@ public abstract class BlazorTest
                 consoleLog.Add("[network] " + line);
 
             // A missing asset of the app's own is a bug; a remote demo image that 404s is the internet.
-            if (response.Url.StartsWith(App.BaseUrl, StringComparison.OrdinalIgnoreCase))
+            // The dev server's own tooling probes (hot reload settings) are neither.
+            if (response.Url.StartsWith(App.BaseUrl, StringComparison.OrdinalIgnoreCase)
+                && !response.Url.Contains("/_framework/dotnet-browser-tools/", StringComparison.Ordinal))
                 lock (consoleErrors) consoleErrors.Add(line);
         };
         Page.PageError += (_, error) =>

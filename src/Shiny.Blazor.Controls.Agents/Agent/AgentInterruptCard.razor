@@ -21,7 +21,7 @@
                 @switch (r.Kind)
                 {
                     case AgentInterruptKind.Choices when r.AllowMultiple:
-                        <ChipGroup TItem="AgentInterruptChoice" ItemsSource="r.Choices" SelectionMode="ChipSelectionMode.Multiple"
+                        <ChipGroup TItem="AgentInterruptChoice" ItemsSource="r.Choices" SelectionMode="ChipSelectionMode.Multiple" DisplaySelector="c => c.Label"
                                    SelectedItems="Picked(r)" SelectedItemsChanged="items => picked[r] = items" />
                         <div class="agent-prompt-actions">
                             <button type="button" class="agent-btn agent-btn--primary" disabled="@(Picked(r).Count == 0)"

@@ -50,7 +50,9 @@ are those of the basic catalog: `required`, `regex`, `length`, `numeric`, `email
 
 The Shiny components render with the real controls. DataGrid formats `number` / `currency` / `percent` / `date`
 columns in the user's culture and sends `rowAction` with the tapped row as its scope (relative paths in the
-action's context read that row). DateRangePicker, ChipGroup, TagEntry, RangeSlider and Expander write back to
+action's context read that row). Its columns keep the width their text needs and the grid scrolls sideways, so
+on a phone it never squeezes every column into "…"; on MAUI a grid with more than 12 rows shows those and a
+"Show all" link that opens the rest in a modal, so it never scrolls vertically inside the conversation. DateRangePicker, ChipGroup, TagEntry, RangeSlider and Expander write back to
 their bindings.
 
 ## Your own components
@@ -87,4 +89,4 @@ bindings (`Write`), dispatches actions (`Dispatch`), reads checks and accessibil
 - Inside AgentView it sizes to its content. A2UI `List` renders without virtualization; Row/Column `weight`
   maps to star sizing on MAUI and to `flex-grow` on Blazor.
 
-TODO: capture screenshots for A2UISurfaceView (MAUI + Blazor) from the sample's A2UI gallery.
+Screenshots (MAUI on Android, Blazor) are on the [docs site](https://shinylib.net/controls/a2ui/).

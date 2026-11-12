@@ -18,6 +18,10 @@
         <!-- test-only: the SDK's own SSE reader decodes the recorded fixtures -->
         <PackageReference Include="AGUI.Client"/>
         <PackageReference Include="AGUI.Formatting"/>
+        <!-- the samples' bring-your-own-key agent: AGUI.Server in-process over an IChatClient -->
+        <PackageReference Include="AGUI.Server"/>
+        <PackageReference Include="Microsoft.Extensions.AI"/>
+        <PackageReference Include="Microsoft.Extensions.AI.OpenAI"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -34,10 +38,14 @@
         <!-- The samples' scripted agent, driven end to end here so the demo can't drift from the engine -->
         <Compile Include="..\..\samples\Sample\Features\Agents\DemoAgentSession.cs" Link="Demo\DemoAgentSession.cs" />
         <Compile Include="..\..\samples\Sample\Features\Agents\HttpAgentSession.cs" Link="Demo\HttpAgentSession.cs" />
+        <Compile Include="..\..\samples\Sample\Features\Agents\ReplayAgentSession.cs" Link="Demo\ReplayAgentSession.cs" />
+        <Compile Include="..\..\samples\Sample\Features\Agents\ChatClientAgentSession.cs" Link="Demo\ChatClientAgentSession.cs" />
     </ItemGroup>
 
     <ItemGroup>
         <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+        <!-- the recordings again as resources, under the names the samples embed them with -->
+        <EmbeddedResource Include="Fixtures\agui\*.sse" LogicalName="AgentRecordings/%(Filename)%(Extension)" />
     </ItemGroup>
 
 </Project>

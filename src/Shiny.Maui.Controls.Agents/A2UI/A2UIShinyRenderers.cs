@@ -48,6 +48,9 @@ static class A2UIShinyRenderers
             var grid = new ShinyDataGrid
             {
                 RowHeight = GridRowHeight,
+                // columns keep their measured width and the grid scrolls sideways (the catalog's promise),
+                // instead of squeezing every column into a phone's width and ellipsizing them all
+                HorizontalScroll = true,
                 SelectionMode = hasRowAction ? DataGridSelectionMode.Single : DataGridSelectionMode.None,
                 SortMode = sortable ? DataGridSortMode.Single : DataGridSortMode.None
             };
@@ -116,6 +119,7 @@ static class A2UIShinyRenderers
                 .ToList();
 
             var shown = all.Count > MaxInlineRows ? all.Take(MaxInlineRows).ToList() : all;
+            SizeColumns(inline, specs, shown, culture);
             inline.ItemsSource = shown;
             // sized to its rows (plus the header) so it never scrolls vertically inside the surface
             inline.HeightRequest = (shown.Count + 1) * GridRowHeight + 12;
@@ -127,6 +131,7 @@ static class A2UIShinyRenderers
         {
             // the full grid fills a modal page, where it owns its own scrolling
             var full = Create();
+            SizeColumns(full, specs, all.Take(MaxInlineRows * 4).ToList(), culture);
             full.ItemsSource = all;
             ContentPage? page = null;
             var close = AgentTheme.LinkButton("Done");
@@ -147,6 +152,39 @@ static class A2UIShinyRenderers
         };
 
         return new VerticalStackLayout { Spacing = 6, Children = { title, inline, more } };
+    }
+
+    // An absolute width per column from the longest text it shows (header or cell), estimated from the
+    // character count rather than measured: the grid's Auto columns measure cells off-screen, which
+    // throws inside Android's TextView here. Clamped so one long value can't make a column huge.
+    static void SizeColumns(ShinyDataGrid grid, List<JsonObject> specs, List<A2UIGridRow> rows, CultureInfo culture)
+    {
+        var changed = false;
+        for (var i = 0; i < specs.Count && i < grid.Columns.Count; i++)
+        {
+            var key = A2UIValues.AsString(specs[i]["key"]) ?? "";
+            var format = A2UIValues.AsString(specs[i]["format"]) ?? "text";
+            var currency = A2UIValues.AsString(specs[i]["currency"]) ?? "USD";
+            var longest = Math.Max(
+                (grid.Columns[i].Title ?? "").Length + 2, // the sort glyph
+                rows.Count == 0 ? 0 : rows.Max(r => FormatCell(r.Get(key, format), format, currency, culture)?.Length ?? 0));
+            var width = new GridLength(Math.Clamp(longest * 8.5 + 28, 64, 260));
+            if (grid.Columns[i].Width != width)
+            {
+                grid.Columns[i].Width = width;
+                changed = true;
+            }
+        }
+
+        // the grid builds its header when columns are added and doesn't watch Width, so re-add the same
+        // columns (their bindings come with them) to rebuild the header at the new widths
+        if (changed)
+        {
+            var columns = grid.Columns.ToList();
+            grid.Columns.Clear();
+            foreach (var column in columns)
+                grid.Columns.Add(column);
+        }
     }
 
     static string? FormatCell(object? value, string format, string currency, CultureInfo culture)

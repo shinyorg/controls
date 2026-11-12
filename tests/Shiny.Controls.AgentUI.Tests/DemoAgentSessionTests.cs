@@ -1,3 +1,4 @@
+using AGUI.Abstractions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Sample.Features.Agents;
@@ -126,6 +127,91 @@ public class DemoAgentSessionTests
 
         runner.Thread.RunStatus.ShouldBe(AgentRunStatus.Failed);
         runner.Thread.Items.OfType<AgentErrorItem>().ShouldHaveSingleItem();
+    }
+
+    static AGUIResume Answer(AGUIInterrupt interrupt, string payloadJson) => new()
+    {
+        InterruptId = interrupt.Id,
+        Status = ResumeStatus.Resolved,
+        Payload = JsonElement.Parse(payloadJson)
+    };
+
+    [Fact]
+    public async Task Lunch_AsksForOneChoice_AndOrdersIt()
+    {
+        var (runner, _, _) = Create();
+        await runner.SendAsync("order lunch");
+
+        var interrupt = runner.Thread.PendingInterrupts.ShouldHaveSingleItem();
+        var choices = interrupt.Metadata!.Value.GetProperty("choices");
+        choices.GetArrayLength().ShouldBe(3);
+        choices[1].GetProperty("id").GetString().ShouldBe("salad");
+        interrupt.Metadata.Value.TryGetProperty("allowMultiple", out _).ShouldBeFalse();
+
+        await runner.ResumeAsync([Answer(interrupt, """{"choiceIds":["salad"]}""")]);
+
+        runner.Thread.PendingInterrupts.ShouldBeEmpty();
+        LastAssistantText(runner).ShouldContain("Greek salad");
+    }
+
+    [Fact]
+    public async Task Toppings_AllowsSeveralChoices()
+    {
+        var (runner, _, _) = Create();
+        await runner.SendAsync("pick pizza toppings");
+
+        var interrupt = runner.Thread.PendingInterrupts.ShouldHaveSingleItem();
+        interrupt.Metadata!.Value.GetProperty("allowMultiple").GetBoolean().ShouldBeTrue();
+        interrupt.Metadata.Value.GetProperty("choices").GetArrayLength().ShouldBe(5);
+
+        await runner.ResumeAsync([Answer(interrupt, """{"choiceIds":["mushroom","basil"]}""")]);
+
+        LastAssistantText(runner).ShouldContain("Mushroom, Basil");
+    }
+
+    [Fact]
+    public async Task Rename_AsksForText()
+    {
+        var (runner, _, _) = Create();
+        await runner.SendAsync("rename my project");
+
+        var interrupt = runner.Thread.PendingInterrupts.ShouldHaveSingleItem();
+        interrupt.ResponseSchema!.Value.GetProperty("properties").GetProperty("text").GetProperty("type").GetString().ShouldBe("string");
+        interrupt.Metadata.ShouldBeNull();
+
+        await runner.ResumeAsync([Answer(interrupt, """{"text":"Glitter"}""")]);
+
+        LastAssistantText(runner).ShouldContain("**Glitter**");
+    }
+
+    [Fact]
+    public async Task Choice_Cancelled_SaysNeverMind()
+    {
+        var (runner, _, _) = Create();
+        await runner.SendAsync("order lunch");
+        await runner.ResumeAllAsync(approved: false);
+
+        LastAssistantText(runner).ShouldContain("never mind");
+    }
+
+    [Fact]
+    public async Task Media_DrawsVideoAudio_AndTheLinkOpensTheUrl()
+    {
+        var (runner, binding, errors) = Create();
+        Uri? opened = null;
+        binding.Host.OpenUrl = uri => opened = uri;
+
+        await runner.SendAsync("show me some media");
+
+        var surface = binding.Host.GetSurface("media").ShouldNotBeNull();
+        surface.GetComponent("video")!.Type.ShouldBe("Video");
+        surface.GetComponent("audio")!.Type.ShouldBe("AudioPlayer");
+        errors.ShouldBeEmpty();
+
+        // openUrl needs a user gesture, which DispatchAction is
+        surface.DispatchAction(surface.GetComponent("open")!).ShouldBeTrue();
+        opened.ShouldBe(new Uri("https://a2ui.org"));
+        runner.IsBusy.ShouldBeFalse(); // a local function, so nothing goes to the agent
     }
 
     static async Task WaitIdle(AgentRunner runner)

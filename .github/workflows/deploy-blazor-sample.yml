@@ -37,10 +37,11 @@ jobs:
         with:
           fetch-depth: 0   # Nerdbank.GitVersioning needs full history
 
+      # pinned to 10.0.404 (SDK and workload set), the same as global.json
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.404'
 
       # wasm-tools has to be named explicitly: `dotnet workload restore` installs nothing for a
       # Blazor WebAssembly project, and without the workload the SkiaSharp native relink is skipped
@@ -49,8 +50,8 @@ jobs:
       # turns that back into a build failure, but the workload is what actually fixes it.
       - name: Restore workloads
         run: |
-          dotnet workload install wasm-tools
-          dotnet workload restore "${{ env.SAMPLE_CSPROJ }}"
+          dotnet workload install wasm-tools --version 10.0.404
+          dotnet workload restore "${{ env.SAMPLE_CSPROJ }}" --version 10.0.404
 
       - name: Publish
         run: dotnet publish "${{ env.SAMPLE_CSPROJ }}" -c Release -o publish

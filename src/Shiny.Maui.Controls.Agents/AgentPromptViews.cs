@@ -50,7 +50,8 @@ static class AgentPromptViews
 
     static View ChooseOne(AgentPrompt prompt)
     {
-        var options = new FlexLayout
+        // ShinyFlexLayout: MAUI's FlexLayout can measure a label short on Android and clip it
+        var options = new ShinyFlexLayout
         {
             Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
             Direction = Microsoft.Maui.Layouts.FlexDirection.Row

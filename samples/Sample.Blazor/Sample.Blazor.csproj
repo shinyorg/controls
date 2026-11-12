@@ -15,6 +15,15 @@
 
     <ItemGroup>
         <PackageReference Include="AGUI.Client"/>
+        <!-- "Your key": a real model in the browser, no server - AGUI.Server turns its stream into AG-UI events in-process -->
+        <PackageReference Include="AGUI.Server"/>
+        <PackageReference Include="Microsoft.Extensions.AI"/>
+        <PackageReference Include="Microsoft.Extensions.AI.OpenAI"/>
+        <!-- AGUI.Server's JSON options reach AGUI.Abstractions' interrupt content types (InterruptResponseContent…)
+             through the reflection resolver. Trimmed, their constructors lose their parameter names and every
+             streamed update fails with NotSupportedException (ConstructorContainsNullParameterNames), which
+             surfaces only as "An error occurred while streaming the agent response". Rooting keeps them whole. -->
+        <TrimmerRootAssembly Include="AGUI.Abstractions" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all"/>
     </ItemGroup>
@@ -52,6 +61,11 @@
         <!-- The scripted AG-UI agent the MAUI sample uses too, so both hosts demo the same conversations -->
         <Compile Include="..\Sample\Features\Agents\DemoAgentSession.cs" Link="Agents\DemoAgentSession.cs" />
         <Compile Include="..\Sample\Features\Agents\HttpAgentSession.cs" Link="Agents\HttpAgentSession.cs" />
+        <Compile Include="..\Sample\Features\Agents\ReplayAgentSession.cs" Link="Agents\ReplayAgentSession.cs" />
+        <Compile Include="..\Sample\Features\Agents\ChatClientAgentSession.cs" Link="Agents\ChatClientAgentSession.cs" />
+        <!-- the "Recordings" source: AG-UI streams recorded off a real AGUI.Server endpoint -->
+        <EmbeddedResource Include="..\..\tests\Shiny.Controls.AgentUI.Tests\Fixtures\agui\*.sse"
+                          LogicalName="AgentRecordings/%(Filename)%(Extension)" />
     </ItemGroup>
 
 </Project>

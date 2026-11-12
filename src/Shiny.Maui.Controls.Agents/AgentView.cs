@@ -25,6 +25,8 @@ namespace Shiny.Maui.Controls.Agents;
 public partial class AgentView : ContentView
 {
     const double StickThreshold = 48;
+    // about five lines of body text, plus the editor's own insets
+    const double ComposerMaxHeight = 140;
 
     readonly Grid root;
     readonly Label stepsLabel;
@@ -34,7 +36,7 @@ public partial class AgentView : ContentView
     readonly HorizontalStackLayout busyRow;
     readonly Button jumpButton;
     readonly ChipGroup suggestionChips;
-    readonly Entry input;
+    readonly Editor input;
     readonly Button sendButton;
 
     readonly Dictionary<AgentItem, AgentItemView> views = new(ReferenceEqualityComparer.Instance);
@@ -111,15 +113,18 @@ public partial class AgentView : ContentView
         };
         this.suggestionChips.ChipTapped += (_, e) => _ = this.SendAsync(e.Item?.ToString() ?? "");
 
-        this.input = new Entry
+        // a multi-line composer: grows with its text up to about five lines, then scrolls inside
+        // itself (its own row, so it never nests in the conversation's scroller)
+        this.input = new Editor
         {
             Placeholder = this.PlaceholderText,
-            ReturnType = ReturnType.Send,
+            AutoSize = EditorAutoSizeOption.TextChanges,
+            MaximumHeightRequest = ComposerMaxHeight,
             VerticalOptions = LayoutOptions.Center
         }.FontToken(ShinyThemeKeys.Type.BodyLargeSize)
-            .Themed(Entry.TextColorProperty, ShinyThemeKeys.Color.OnSurface)
-            .Themed(Entry.PlaceholderColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
-        this.input.Completed += (_, _) => this.SendFromComposer();
+            .Themed(Editor.TextColorProperty, ShinyThemeKeys.Color.OnSurface)
+            .Themed(Editor.PlaceholderColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
+        this.input.TextChanged += this.OnComposerTextChanged;
         this.input.AutomationId = "AgentViewComposer";
         SemanticProperties.SetDescription(this.input, "Message");
 
@@ -147,11 +152,8 @@ public partial class AgentView : ContentView
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
             ColumnSpacing = 8
         };
-        composerRow.Add(this.input, 0, 0);
+        composerRow.Add(ComposerField(this.input), 0, 0);
         composerRow.Add(this.sendButton, 1, 0);
-
-        // the entry's own platform chrome is the composer's edge - wrapping it in a Border as well
-        // would draw two outlines on the platforms whose Entry has one
         composerRow.Margin = new Thickness(12, 4, 12, 12);
         var composer = composerRow;
 
@@ -229,6 +231,79 @@ public partial class AgentView : ContentView
         runner.Thread.Clear();
         // a fresh surface host, so old surface ids can be reused by the agent
         this.Reattach();
+        this.stickToBottom = true;
+        this.jumpButton.IsVisible = false;
+        this.ShrinkContent();
+    }
+
+    // iOS and Mac Catalyst editors are bare (a transparent UITextView), so a filled, unstroked field
+    // shows where to type. Everywhere else the editor draws its own field (Android's underline,
+    // WinUI's box, AppKit's and GTK's text view background), and that is the composer's edge - a
+    // Border around it would stack two boxes.
+    static View ComposerField(Editor editor)
+    {
+        var platform = DevicePlatformSafe();
+        if (platform != DevicePlatform.iOS && platform != DevicePlatform.MacCatalyst)
+            return editor;
+
+        editor.BackgroundColor = Colors.Transparent;
+        return new Border
+        {
+            StrokeThickness = 0,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 18 },
+            Padding = new Thickness(10, 2),
+            Content = editor
+        }.Themed(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.SurfaceContainerHigh);
+    }
+
+    static DevicePlatform DevicePlatformSafe()
+    {
+        try
+        {
+            return DeviceInfo.Current.Platform;
+        }
+        catch
+        {
+            return DevicePlatform.Unknown;
+        }
+    }
+
+    bool trimmingNewline;
+
+    // with SendOnEnter, a typed Enter arrives as exactly one inserted line break: drop it and send.
+    // Pasted text (several characters at once) keeps its line breaks.
+    void OnComposerTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (this.trimmingNewline || !this.SendOnEnter)
+            return;
+        if (!IsSingleNewlineInsert(e.OldTextValue ?? "", e.NewTextValue ?? "", out var without))
+            return;
+
+        // changing Text inside its own TextChanged is unsafe on some platforms, so do it next
+        this.Dispatcher.Dispatch(() =>
+        {
+            this.trimmingNewline = true;
+            this.input.Text = without;
+            this.trimmingNewline = false;
+            this.SendFromComposer();
+        });
+    }
+
+    internal static bool IsSingleNewlineInsert(string oldText, string newText, out string without)
+    {
+        without = oldText;
+        var inserted = newText.Length - oldText.Length;
+        if (inserted is not (1 or 2))
+            return false;
+
+        var prefix = 0;
+        while (prefix < oldText.Length && oldText[prefix] == newText[prefix])
+            prefix++;
+        if (!newText.EndsWith(oldText[prefix..], StringComparison.Ordinal))
+            return false;
+
+        var added = newText.Substring(prefix, inserted);
+        return added is "\n" or "\r" or "\r\n";
     }
 
     void SendFromComposer()
@@ -455,7 +530,7 @@ public partial class AgentView : ContentView
             return group.Items;
 
         var subagent = runner.Thread.FindSubagent(subagentRunId);
-        group = new AgentSubagentView(subagent, subagentRunId);
+        group = new AgentSubagentView(this, subagent, subagentRunId);
         this.subagentViews[subagentRunId] = group;
 
         Layout parent = this.itemsStack;
@@ -566,13 +641,32 @@ public partial class AgentView : ContentView
 
     // ── scrolling ────────────────────────────────────────────────────────────────
 
+    // Where the content really ends (its last visible row plus padding), not its arranged height or
+    // ScrollView.ContentSize: on Android the ScrollView keeps its content at least viewport + offset
+    // tall, so after a Clear the arranged height still allowed the old offset and "scroll to the end"
+    // went right back to it, leaving a short new conversation above the top edge. Read off the rows'
+    // frames, so it costs nothing per scroll event.
+    double ScrollMax
+    {
+        get
+        {
+            if (this.scroller.Content is not Layout content)
+                return 0;
+            var bottom = content.Children.OfType<View>().Where(v => v.IsVisible).Select(v => v.Frame.Bottom).DefaultIfEmpty(0).Max();
+            return Math.Max(0, bottom + content.Padding.Bottom - this.scroller.Height);
+        }
+    }
+
     void OnScrolled()
     {
-        var max = this.scroller.ContentSize.Height - this.scroller.Height;
+        var max = this.ScrollMax;
         var atBottom = max <= 0 || this.scroller.ScrollY >= max - StickThreshold;
         this.stickToBottom = atBottom;
         this.jumpButton.IsVisible = !atBottom;
     }
+
+    // after a Clear the new conversation is shorter: go to its (measured) end, which also drops the old offset
+    void ShrinkContent() => this.ScrollToEnd(false);
 
     void OnContentGrew()
     {
@@ -585,9 +679,11 @@ public partial class AgentView : ContentView
     void ScrollToEnd(bool animated)
         => this.Dispatcher.Dispatch(async () =>
         {
-            var max = this.scroller.ContentSize.Height - this.scroller.Height;
-            if (max > 0)
-                await this.scroller.ScrollToAsync(0, max, animated);
+            var max = this.ScrollMax;
+            // also when the content fits: after Clear, Android keeps the old (now out-of-range) offset,
+            // which left a short new conversation scrolled out of sight above the viewport
+            if (max > 0 || this.scroller.ScrollY > 0)
+                await this.scroller.ScrollToAsync(0, max, animated && max > 0);
             this.jumpButton.IsVisible = false;
         });
 

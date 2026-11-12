@@ -131,6 +131,34 @@ public partial class AgentView
         set => this.SetValue(PlaceholderTextProperty, value);
     }
 
+    /// <summary>
+    /// Whether pressing Enter in the composer sends the message. When false, Enter adds a new line and
+    /// the Send button sends. Defaults to true on the desktop idiom and false on phones and tablets.
+    /// Pasted multi-line text is always kept as it is.
+    /// </summary>
+    public static readonly BindableProperty SendOnEnterProperty = BindableProperty.Create(
+        nameof(SendOnEnter), typeof(bool), typeof(AgentView), false,
+        defaultValueCreator: _ => IsDesktopIdiom());
+
+    /// <inheritdoc cref="SendOnEnterProperty"/>
+    public bool SendOnEnter
+    {
+        get => (bool)this.GetValue(SendOnEnterProperty);
+        set => this.SetValue(SendOnEnterProperty, value);
+    }
+
+    static bool IsDesktopIdiom()
+    {
+        try
+        {
+            return DeviceInfo.Current.Idiom == DeviceIdiom.Desktop;
+        }
+        catch
+        {
+            return false; // no platform (unit tests)
+        }
+    }
+
     /// <summary>Prompts offered as chips while the conversation is empty. Tapping one sends it.</summary>
     public static readonly BindableProperty SuggestionsProperty = BindableProperty.Create(
         nameof(Suggestions), typeof(IEnumerable<string>), typeof(AgentView), null,
@@ -224,6 +252,21 @@ public partial class AgentView
     {
         get => (DataTemplate?)this.GetValue(ErrorTemplateProperty);
         set => this.SetValue(ErrorTemplateProperty, value);
+    }
+
+    /// <summary>
+    /// Replaces a sub-agent's whole group (header and items). Binding context: the
+    /// <see cref="AgentSubagent"/>, re-set whenever its status changes.
+    /// </summary>
+    public static readonly BindableProperty SubagentTemplateProperty = BindableProperty.Create(
+        nameof(SubagentTemplate), typeof(DataTemplate), typeof(AgentView), null,
+        propertyChanged: (b, _, _) => ((AgentView)b).RebuildItems());
+
+    /// <inheritdoc cref="SubagentTemplateProperty"/>
+    public DataTemplate? SubagentTemplate
+    {
+        get => (DataTemplate?)this.GetValue(SubagentTemplateProperty);
+        set => this.SetValue(SubagentTemplateProperty, value);
     }
 
     // ── state ────────────────────────────────────────────────────────────────────

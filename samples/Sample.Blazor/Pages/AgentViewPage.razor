@@ -9,98 +9,221 @@
 
 <h3>Agent View</h3>
 
-<p style="color:gray;font-size:14px;">
+<p class="agent-intro">
     A full AG-UI conversation: streamed markdown, reasoning, tool cards, A2UI surfaces built from Shiny
-    controls, a frontend tool answered by a date range picker, an approval, a sub-agent and a run error
-    with Retry. The scripted demo agent needs no API key; point it at a live AG-UI endpoint to try the
-    real thing. The reading list on the right is bound to the conversation's shared state.
+    controls, frontend tools, interrupts, a sub-agent and a run error with Retry. Pick where the events
+    come from: the scripted demo, recordings of a real server, your own AG-UI endpoint, or a real model
+    with your own key.
 </p>
-
-<div class="agent-endpoint">
-    <input type="url" class="agent-endpoint-input" placeholder="http://localhost:5299/agent" aria-label="AG-UI endpoint URL"
-           value="@endpoint" @oninput="e => endpoint = e.Value?.ToString() ?? string.Empty" />
-    <button type="button" class="agent-endpoint-btn" disabled="@string.IsNullOrWhiteSpace(endpoint)" @onclick="ConnectLive">Connect</button>
-    <button type="button" class="agent-endpoint-btn" disabled="@(session is DemoAgentSession)" @onclick="UseDemo">Use demo agent</button>
-    <span class="agent-endpoint-status">@status</span>
-</div>
 
 <div class="demo-fill">
     <div class="demo-fill-body">
+        @* One edge around the whole demo: the source bar, the chat and the panel split it with single dividers. *@
         <div class="agent-page">
-            <div class="agent-page-chat">
-                <AgentView @key="session"
-                           Session="session"
-                           Tools="tools"
-                           Prompts="prompts"
-                           Suggestions="suggestions"
-                           @bind-State="state"
-                           PlaceholderText="Ask the agent…" />
+            <div class="agent-source" data-testid="agent-source">
+                <div class="agent-source-tabs" role="tablist" aria-label="Agent source">
+                    @foreach (var (kind, label) in Sources)
+                    {
+                        var k = kind;
+                        <button type="button" role="tab" aria-selected="@(source == k ? "true" : "false")"
+                                class="@(source == k ? "agent-source-tab is-selected" : "agent-source-tab")"
+                                @onclick="() => Select(k)">@label</button>
+                    }
+                </div>
+
+                @switch (source)
+                {
+                    case AgentSource.Demo:
+                        <div class="agent-source-note">A scripted agent: no key, no server. Every event it sends is real AG-UI.</div>
+                        break;
+
+                    case AgentSource.Recordings:
+                        <div class="agent-source-note">Streams recorded off a real <code>AGUI.Server</code> endpoint, replayed byte for byte. Send a recording's name.</div>
+                        break;
+
+                    case AgentSource.Endpoint:
+                        <form class="agent-source-form" novalidate @onsubmit="ConnectEndpoint" @onsubmit:preventDefault>
+                            <input type="url" class="agent-source-input agent-source-input--wide" placeholder="http://localhost:5299/agent"
+                                   aria-label="AG-UI endpoint URL"
+                                   value="@endpoint" @oninput="e => endpoint = e.Value?.ToString() ?? string.Empty" />
+                            <button type="submit" class="agent-source-btn" disabled="@string.IsNullOrWhiteSpace(endpoint)">Connect</button>
+                        </form>
+                        break;
+
+                    case AgentSource.Key:
+                        @* not a <form>: a submitted password field is what makes a browser offer to save the key *@
+                        <div class="agent-source-form" @onkeydown="OnKeyFormKey">
+                            <input type="url" class="agent-source-input agent-source-input--wide" aria-label="Base URL"
+                                   placeholder="https://api.openai.com/v1"
+                                   value="@baseUrl" @oninput="e => baseUrl = e.Value?.ToString() ?? string.Empty" />
+                            <input type="text" class="agent-source-input" aria-label="Model" placeholder="gpt-4.1-mini"
+                                   value="@model" @oninput="e => model = e.Value?.ToString() ?? string.Empty" />
+                            @* the key lives in this field only - never stored, never logged *@
+                            <input type="password" class="agent-source-input" aria-label="API key" placeholder="API key"
+                                   autocomplete="off" spellcheck="false" data-1p-ignore data-lpignore="true"
+                                   value="@apiKey" @oninput="e => apiKey = e.Value?.ToString() ?? string.Empty" />
+                            <button type="button" class="agent-source-btn" @onclick="ConnectKey" disabled="@(string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(model))">Connect</button>
+                        </div>
+                        <div class="agent-source-note">Any OpenAI-compatible endpoint. Your key is held only in this page's memory and goes straight from your browser to that URL - never stored, never sent anywhere else.</div>
+                        break;
+                }
+
+                @if (status is { Length: > 0 })
+                {
+                    <div class="@(statusIsError ? "agent-source-status is-error" : "agent-source-status")" role="status">@status</div>
+                }
             </div>
-            <aside class="agent-page-state" aria-label="Reading list (shared state)">
-                <h4>Reading list</h4>
-                <p class="agent-page-hint">Shared state. Ask the agent to "track my reading list"; tick a book and the agent sees it on the next turn.</p>
-                @if (state?["books"] is JsonArray books)
+
+            <div class="agent-page-main">
+                <div class="agent-page-chat">
+                    <AgentView @key="session"
+                               Session="session"
+                               Tools="tools"
+                               Prompts="prompts"
+                               Suggestions="suggestions"
+                               @bind-State="state"
+                               PlaceholderText="Ask the agent…" />
+                </div>
+                @if (source == AgentSource.Demo || state is not null)
                 {
-                    var done = books.Count(b => b?["done"]?.GetValue<bool>() == true);
-                    var goal = state["goal"]?.GetValue<int>() ?? 0;
-                    <div class="agent-page-progress">@done of @(goal > 0 ? goal : books.Count) read</div>
-                    <ul class="agent-page-books">
-                        @for (var i = 0; i < books.Count; i++)
+                    <aside class="agent-page-state" aria-label="Reading list (shared state)">
+                        <h4>Reading list</h4>
+                        <p class="agent-page-hint">Shared state. Ask the agent to "track my reading list"; tick a book and the agent sees it on the next turn.</p>
+                        @if (state?["books"] is JsonArray books)
                         {
-                            var index = i;
-                            var book = books[i];
-                            <li>
-                                <label>
-                                    <input type="checkbox" checked="@(book?["done"]?.GetValue<bool>() == true)" @onchange="e => ToggleBook(index, e.Value is true)" />
-                                    <span>@(book?["title"]?.GetValue<string>())</span>
-                                </label>
-                            </li>
+                            var done = books.Count(b => b?["done"]?.GetValue<bool>() == true);
+                            var goal = state["goal"]?.GetValue<int>() ?? 0;
+                            <div class="agent-page-progress">@done of @(goal > 0 ? goal : books.Count) read</div>
+                            <ul class="agent-page-books">
+                                @for (var i = 0; i < books.Count; i++)
+                                {
+                                    var index = i;
+                                    var book = books[i];
+                                    <li>
+                                        <label>
+                                            <input type="checkbox" checked="@(book?["done"]?.GetValue<bool>() == true)" @onchange="e => ToggleBook(index, e.Value is true)" />
+                                            <span>@(book?["title"]?.GetValue<string>())</span>
+                                        </label>
+                                    </li>
+                                }
+                            </ul>
                         }
-                    </ul>
+                        else
+                        {
+                            <p class="agent-page-empty">Nothing yet.</p>
+                        }
+                    </aside>
                 }
-                else
-                {
-                    <p class="agent-page-empty">Nothing yet.</p>
-                }
-            </aside>
+            </div>
         </div>
     </div>
 </div>
 
 @code {
-    readonly AgentPromptQueue prompts = new();
-    readonly AgentToolRegistry tools = new();
-    IAgentSession session = new DemoAgentSession();
-    IReadOnlyList<string> suggestions = DemoAgentSession.Suggestions;
-    JsonNode? state;
-    string endpoint = "";
-    string status = "Demo agent";
+    enum AgentSource { Demo, Recordings, Endpoint, Key }
+
+    static readonly (AgentSource Kind, string Label)[] Sources =
+    [
+        (AgentSource.Demo, "Demo"),
+        (AgentSource.Recordings, "Recordings"),
+        (AgentSource.Endpoint, "Endpoint"),
+        (AgentSource.Key, "Your key")
+    ];
 
     // the prompts the live sample server answers
     static readonly IReadOnlyList<string> LiveSuggestions = ["text", "reasoning", "frontend-tool", "a2ui", "interrupt", "error"];
 
+    readonly AgentPromptQueue prompts = new();
+    readonly AgentToolRegistry tools = new();
+    AgentSource source = AgentSource.Demo;
+    IAgentSession? session = new DemoAgentSession();
+    IReadOnlyList<string>? suggestions = DemoAgentSession.Suggestions;
+    JsonNode? state;
+    string? status;
+    bool statusIsError;
+
+    string endpoint = "";
+    string baseUrl = "https://api.openai.com/v1";
+    string model = "gpt-4.1-mini";
+    string apiKey = "";
+
     protected override void OnInitialized() => tools.AddAll(prompts);
 
-    void ConnectLive()
+    void Select(AgentSource next)
     {
-        if (!Uri.TryCreate(endpoint.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
-        {
-            status = "Enter an http(s) URL";
+        if (next == source)
             return;
-        }
-        session = new HttpAgentSession(Http, uri);
-        suggestions = LiveSuggestions;
+
+        source = next;
         state = null;
-        status = "Live: " + uri.Host + ":" + uri.Port;
+        SetStatus(null);
+        switch (next)
+        {
+            case AgentSource.Demo:
+                Use(new DemoAgentSession(), DemoAgentSession.Suggestions);
+                break;
+
+            case AgentSource.Recordings:
+                var replay = ReplayAgentSession.FromResources(typeof(AgentViewPage).Assembly);
+                Use(replay, replay.Suggestions);
+                break;
+
+            default:
+                // nothing to talk to until Connect
+                Use(null, null);
+                SetStatus("Not connected");
+                break;
+        }
     }
 
-    void UseDemo()
+    void ConnectEndpoint()
     {
-        session = new DemoAgentSession();
-        suggestions = DemoAgentSession.Suggestions;
-        state = null;
-        status = "Demo agent";
+        if (!TryHttpUri(endpoint, out var uri))
+        {
+            SetStatus("Enter an http(s) URL", error: true);
+            return;
+        }
+        Use(new HttpAgentSession(Http, uri), LiveSuggestions);
+        SetStatus("Connected to " + uri.Host + ":" + uri.Port);
     }
+
+    void ConnectKey()
+    {
+        if (!TryHttpUri(baseUrl, out var uri))
+        {
+            SetStatus("Enter the endpoint's http(s) base URL", error: true);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(model))
+        {
+            SetStatus("Enter a model and your API key", error: true);
+            return;
+        }
+        Use(ChatClientAgentSession.ForOpenAI(apiKey.Trim(), model.Trim(), uri), ChatClientAgentSession.Suggestions);
+        SetStatus(model.Trim() + " at " + uri.Host);
+    }
+
+    void OnKeyFormKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            ConnectKey();
+    }
+
+    void Use(IAgentSession? next, IReadOnlyList<string>? nextSuggestions)
+    {
+        session = next;
+        suggestions = nextSuggestions;
+        state = null;
+    }
+
+    void SetStatus(string? text, bool error = false)
+    {
+        status = text;
+        statusIsError = error;
+    }
+
+    static bool TryHttpUri(string value, out Uri uri)
+        => Uri.TryCreate(value.Trim(), UriKind.Absolute, out uri!) && uri.Scheme is "http" or "https";
 
     void ToggleBook(int index, bool done)
     {

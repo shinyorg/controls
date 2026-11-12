@@ -80,3 +80,8 @@ Left unset, `Theme` resolves to `MarkdownTheme.Themed` — every colour in it is
 so the rendered markdown follows the app's scheme *and* its theme pack. `MarkdownTheme.Light` and
 `MarkdownTheme.Dark` stay literal palettes, for a preview that has to look the same whatever the app
 is doing. See [Styling & theming](styling.md#dark-mode).
+
+## Target frameworks
+
+The MAUI package targets the same frameworks as core (`net10.0`, `net10.0-ios`, `net10.0-android`, and Windows when
+built on Windows), so a platform app always gets core's platform assembly through it.

@@ -373,9 +373,10 @@ static class A2UIBasicRenderers
     static View Tabs(A2UIRenderContext ctx)
     {
         // wraps rather than scrolling sideways, so a long tab strip never adds a scroller
-        var header = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
+        // ShinyFlexLayout: MAUI's FlexLayout measured a tab title short on Android and clipped it ("Layou")
+        var header = new ShinyFlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
         var body = new Grid();
-        var buttons = new List<(Button Button, BoxView Line)>();
+        var buttons = new List<(Label Button, BoxView Line)>();
         var pages = new List<View>();
 
         void Select(int index)
@@ -385,7 +386,8 @@ static class A2UIBasicRenderers
                 var selected = i == index;
                 pages[i].IsVisible = selected;
                 buttons[i].Line.IsVisible = selected;
-                buttons[i].Button.Themed(Microsoft.Maui.Controls.Button.TextColorProperty, selected ? ShinyThemeKeys.Color.Primary : ShinyThemeKeys.Color.OnSurfaceVariant);
+                buttons[i].Button.Themed(Label.TextColorProperty, selected ? ShinyThemeKeys.Color.Primary : ShinyThemeKeys.Color.OnSurfaceVariant);
+                SemanticProperties.SetDescription(buttons[i].Button, $"{buttons[i].Button.Text} tab{(selected ? ", selected" : "")}");
                 buttons[i].Button.FontAttributes = selected ? FontAttributes.Bold : FontAttributes.None;
             }
         }
@@ -394,11 +396,17 @@ static class A2UIBasicRenderers
         foreach (var tab in tabs.OfType<JsonObject>())
         {
             var index = pages.Count;
-            var button = AgentTheme.LinkButton("");
+            // a Label, not a Button: Android measures a Button's text without its letter spacing and
+            // clipped the last letter ("Layou")
+            var button = new Label { Padding = new Thickness(8, 6), MinimumHeightRequest = 30 }
+                .FontToken(ShinyThemeKeys.Type.LabelLargeSize);
             var line = new BoxView { HeightRequest = 2 }.Themed(BoxView.ColorProperty, ShinyThemeKeys.Color.Primary);
             ctx.Watch(s => button.Text = ctx.Surface.EvaluateString(tab["title"], s));
-            button.Clicked += (_, _) => Select(index);
-            header.Children.Add(new VerticalStackLayout { Spacing = 0, Children = { button, line } });
+            var tap = new TapGestureRecognizer();
+            tap.Tapped += (_, _) => Select(index);
+            button.GestureRecognizers.Add(tap);
+            var item = new VerticalStackLayout { Spacing = 0, Children = { button, line } };
+            header.Children.Add(item);
             buttons.Add((button, line));
 
             var childId = A2UIValues.AsString(tab["child"]) ?? "";

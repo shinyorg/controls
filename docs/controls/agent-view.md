@@ -73,6 +73,7 @@ The view fills its parent and owns the vertical scroll. Give it a real height (a
 | `ShowReasoning` | `AgentReasoningDisplay` | `Hidden`, `Collapsed` (default, a "Thought for 4s" row) or `Expanded` |
 | `ShowSteps` | `bool` | A breadcrumb of the agent's current step while it runs |
 | `PlaceholderText` | `string` | The composer's placeholder |
+| `SendOnEnter` | `bool` | MAUI: Enter in the composer sends (default **true** on the Desktop idiom, **false** on phones and tablets, where Enter adds a line and Send sends). Pasted multi-line text is always kept |
 | `Suggestions` | `IEnumerable<string>` | Chips shown while the conversation is empty |
 | `State` | `JsonNode?` | The agent's shared state (AG-UI `STATE_SNAPSHOT` / `STATE_DELTA`). Writes from the app go out with the next run |
 
@@ -86,7 +87,7 @@ The view fills its parent and owns the vertical scroll. Give it a real height (a
 | `ActivityTemplates[type]` | `AgentActivityItem` | `a2ui-surface` → A2UISurfaceView; anything else → JSON |
 | `InterruptTemplate` | MAUI `AgentInterruptRequest` / Blazor `AgentInterruptContext` | Approve / Reject, choice buttons, or a text reply (below) |
 | `ErrorTemplate` | `AgentErrorItem` | Error row with Retry |
-| `SubagentTemplate` (Blazor) | `AgentSubagent` | Indented group with name and status |
+| `SubagentTemplate` | `AgentSubagent` | Indented group with name and status. The template replaces the whole group (the sub-agent's own rows aren't drawn); on MAUI the binding context is re-set as its status changes |
 
 **Methods / events:** `SendAsync(text)`, `Cancel()` (Stop), `Clear()`, `RetryAsync()`, `StateChanged`. MAUI
 also has `RetryCommand` and a read-only `IsBusy`.
@@ -148,7 +149,7 @@ reaches the agent with each action.
 ## Platform notes
 
 - Pure MAUI views (iOS, Android, Mac Catalyst, macOS, Windows, Linux) and pure Razor (WebAssembly, Server, Hybrid).
-- MAUI's composer is a single-line entry; Blazor's is a text area (Enter sends, Shift+Enter adds a new line).
-- `SubagentTemplate` is Blazor-only for now.
+- The composer is multi-line on both hosts. MAUI's is an `Editor` that grows with its text up to about five lines and then scrolls inside itself; Enter sends when `SendOnEnter` is true (MAUI can't see Shift, so on the desktop a new line comes from pasting, or turn `SendOnEnter` off). Blazor's is a text area (Enter sends, Shift+Enter adds a new line).
+- On iOS and Mac Catalyst, MAUI's composer sits in a filled, unstroked field (the editor itself is bare there); on Android, Windows, macOS (AppKit) and Linux the editor's own field is the edge, so there is never a double border.
 
-TODO: capture screenshots for AgentView (MAUI + Blazor), using the sample's scripted demo agent.
+Screenshots (MAUI on Android, Blazor) are on the [docs site](https://shinylib.net/controls/agent-view/).

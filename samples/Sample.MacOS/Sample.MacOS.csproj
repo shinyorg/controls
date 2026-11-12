@@ -25,6 +25,10 @@
 
     <ItemGroup>
         <PackageReference Include="AGUI.Client"/>
+        <!-- the agent page's "Your key" source: AGUI.Server in-process over an OpenAI-compatible IChatClient -->
+        <PackageReference Include="AGUI.Server"/>
+        <PackageReference Include="Microsoft.Extensions.AI"/>
+        <PackageReference Include="Microsoft.Extensions.AI.OpenAI"/>
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="Microsoft.Maui.Controls" />
         <PackageReference Include="Microsoft.Maui.Platforms.MacOS" />
@@ -100,8 +104,17 @@
         </BundleResource>
         <!-- ShinyImage's resource:// demo on the Images page; must match the main head's LogicalName. -->
         <EmbeddedResource Include="..\Sample\Assets\embedded-icon.svg" LogicalName="Sample.Assets.embedded-icon.svg" />
+        <!-- the agent page's "Recordings" source: the AGUI.Server streams the engine tests replay, linked not copied -->
+        <EmbeddedResource Include="..\..\tests\Shiny.Controls.AgentUI.Tests\Fixtures\agui\*.sse" LogicalName="AgentRecordings/%(Filename)%(Extension)" Link="AgentRecordings\%(Filename)%(Extension)" />
     </ItemGroup>
     <!-- The gallery renders its own source under each demo page. -->
     <Import Project="..\Sample\Sample.Source.targets" />
+
+	<ItemGroup>
+		<!-- AGUI.Server's JSON options reach AGUI.Abstractions' interrupt content types by reflection; trimmed, their
+		     constructors lose their parameter names and every "Your key" run fails with only
+		     "An error occurred while streaming the agent response". Rooting keeps them whole. -->
+		<TrimmerRootAssembly Include="AGUI.Abstractions" />
+	</ItemGroup>
 
 </Project>

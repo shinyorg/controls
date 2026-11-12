@@ -22,7 +22,9 @@
         <PackageVersion Include="AGUI.Abstractions" Version="1.0.1"/>
         <PackageVersion Include="AGUI.Formatting" Version="1.0.1"/>
         <PackageVersion Include="AGUI.Client" Version="1.0.1"/>
+        <PackageVersion Include="AGUI.Server" Version="1.0.1"/>
         <PackageVersion Include="Microsoft.Extensions.AI" Version="10.8.3"/>
+        <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.8.1"/>
         <PackageVersion Include="Xamarin.AndroidX.Camera.Core" Version="1.6.1"/>
         <PackageVersion Include="Xamarin.AndroidX.Camera.Camera2" Version="1.6.1"/>
         <PackageVersion Include="Xamarin.AndroidX.Camera.Lifecycle" Version="1.6.1"/>

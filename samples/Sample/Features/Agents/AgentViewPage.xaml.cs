@@ -15,21 +15,45 @@ public partial class AgentViewPage : ContentPage
         var prompts = new AgentPromptQueue();
         Agent.Prompts = prompts;
         Agent.Tools = new AgentToolRegistry().AddAll(prompts);
-        Agent.Suggestions = DemoAgentSession.Suggestions;
-        Agent.Session = new DemoAgentSession();
         Agent.StateChanged += (_, state) => ShowReadingList(state);
+        SourcePicker.SelectedIndex = 0; // Demo
 
         SizeChanged += (_, _) => PlaceStatePanel();
         SampleSourceCode.Attach(this);
     }
 
-    void OnDemo(object? sender, EventArgs e)
+    void OnSourceChanged(object? sender, EventArgs e)
     {
-        Agent.Suggestions = DemoAgentSession.Suggestions;
-        Agent.Session = new DemoAgentSession();
+        var source = SourcePicker.SelectedIndex;
+        DemoOptions.IsVisible = source == 0;
+        RecordingsOptions.IsVisible = source == 1;
+        EndpointOptions.IsVisible = source == 2;
+        KeyOptions.IsVisible = source == 3;
+
+        switch (source)
+        {
+            case 0:
+                // a scripted agent: every scenario works offline
+                Agent.Suggestions = DemoAgentSession.Suggestions;
+                Agent.Session = new DemoAgentSession();
+                break;
+
+            case 1:
+                // the AGUI.Server streams the engine tests replay, embedded in this app
+                var replay = ReplayAgentSession.FromResources(typeof(AgentViewPage).Assembly);
+                Agent.Suggestions = replay.Suggestions;
+                Agent.Session = replay;
+                break;
+
+            default:
+                // the endpoint and key sources wait for Connect
+                Agent.Suggestions = null;
+                Agent.Session = null;
+                break;
+        }
     }
 
-    async void OnConnect(object? sender, EventArgs e)
+    async void OnConnectEndpoint(object? sender, EventArgs e)
     {
         var text = EndpointEntry.Text?.Trim();
         if (string.IsNullOrEmpty(text))
@@ -46,7 +70,46 @@ public partial class AgentViewPage : ContentPage
         Agent.Session = new HttpAgentSession(Http, endpoint);
     }
 
+    async void OnConnectKey(object? sender, EventArgs e)
+    {
+        // the key is read from the entry and handed to the session - never stored or logged
+        var key = ApiKeyEntry.Text?.Trim();
+        var model = ModelEntry.Text?.Trim();
+        if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(model))
+        {
+            await DisplayAlertAsync("Your key", "Enter an API key and a model.", "OK");
+            return;
+        }
+        if (!Uri.TryCreate(BaseUrlEntry.Text?.Trim(), UriKind.Absolute, out var endpoint) || endpoint.Scheme is not ("http" or "https"))
+        {
+            await DisplayAlertAsync("Your key", "Enter the http(s) base URL of an OpenAI-compatible API, such as https://api.openai.com/v1.", "OK");
+            return;
+        }
+
+        Agent.Suggestions = ChatClientAgentSession.Suggestions;
+        Agent.Session = ChatClientAgentSession.ForOpenAI(key, model, endpoint);
+    }
+
     void OnClear(object? sender, EventArgs e) => Agent.Clear();
+
+    // a custom sub-agent card: the template replaces the whole group, bound to the AgentSubagent
+    void OnSubagentTemplateToggled(object? sender, ToggledEventArgs e)
+        => Agent.SubagentTemplate = e.Value ? SubagentCard : null;
+
+    static readonly DataTemplate SubagentCard = new(() =>
+    {
+        var name = new Label { FontAttributes = FontAttributes.Bold, AutomationId = "CustomSubagentName" };
+        name.SetBinding(Label.TextProperty, static (AgentSubagent s) => s.Name, stringFormat: "🧪 {0}");
+        var status = new Label { FontSize = 13, AutomationId = "CustomSubagentStatus" };
+        status.SetBinding(Label.TextProperty, static (AgentSubagent s) => s.Status, stringFormat: "{0}");
+        return new Border
+        {
+            Padding = new Thickness(12, 8),
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
+            AutomationId = "CustomSubagentCard",
+            Content = new HorizontalStackLayout { Spacing = 10, Children = { name, status } }
+        };
+    });
 
     // the panel is bound to the same shared state the agent edits; tapping a book edits it back
     void ShowReadingList(JsonNode? state)
@@ -100,7 +163,7 @@ public partial class AgentViewPage : ContentPage
     void PlaceStatePanel()
     {
         var wide = Width >= 760;
-        Grid.SetRow(StatePanel, wide ? 1 : 2);
+        Grid.SetRow(StatePanel, wide ? 2 : 3);
         Grid.SetColumn(StatePanel, wide ? 1 : 0);
         StatePanel.WidthRequest = wide ? 260 : -1;
         StatePanel.Margin = wide ? new Thickness(0, 0, 12, 12) : new Thickness(12, 0, 12, 12);

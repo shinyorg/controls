@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>$(BaseTargetFramework)</TargetFrameworks>
+        <!-- core's TFMs, so a platform head gets core's platform assembly through this reference -->
+        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android</TargetFrameworks>
+        <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <UseMaui>true</UseMaui>
         <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
