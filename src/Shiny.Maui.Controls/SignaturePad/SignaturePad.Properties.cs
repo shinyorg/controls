@@ -76,9 +76,7 @@ public partial class SignaturePad
         Colors.Black,
         propertyChanged: (b, _, n) => StyleGuard.WhenReady(b, typeof(SignaturePad), () =>
             {
-            var pad = (SignaturePad)b;
-            pad.drawable.StrokeColor = (Color)n;
-            pad.graphicsView.Invalidate();
+            ((SignaturePad)b).signatureView.StrokeColor = (Color)n;
         }));
 
     public Color StrokeColor
@@ -94,9 +92,7 @@ public partial class SignaturePad
         Colors.White,
         propertyChanged: (b, _, n) => StyleGuard.WhenReady(b, typeof(SignaturePad), () =>
             {
-            var pad = (SignaturePad)b;
-            pad.drawable.BackgroundColor = (Color)n;
-            pad.graphicsView.Invalidate();
+            ((SignaturePad)b).signatureView.SignatureBackgroundColor = (Color)n;
         }));
 
     public Color SignatureBackgroundColor
@@ -112,9 +108,7 @@ public partial class SignaturePad
         3.0,
         propertyChanged: (b, _, n) => StyleGuard.WhenReady(b, typeof(SignaturePad), () =>
             {
-            var pad = (SignaturePad)b;
-            pad.drawable.StrokeWidth = (float)(double)n;
-            pad.graphicsView.Invalidate();
+            ((SignaturePad)b).signatureView.StrokeWidth = (double)n;
         }));
 
     public double StrokeWidth

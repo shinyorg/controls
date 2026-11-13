@@ -28,7 +28,7 @@ public partial class SignaturePad
     UINavigationController? FindNavigationController()
     {
         // Prefer the nav controller that actually hosts our view (the current page).
-        var responder = graphicsView?.Handler?.PlatformView as UIResponder;
+        var responder = signatureView?.Surface.Handler?.PlatformView as UIResponder;
         while (responder is not null)
         {
             if (responder is UIViewController vc && vc.NavigationController is { } nav)

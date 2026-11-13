@@ -1,0 +1,82 @@
+.shiny-resizable-handle {
+    position: relative;
+    flex: 0 0 var(--shiny-border-thin, 1px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--shiny-resizable-handle-color, var(--shiny-color-outline-variant, #BBC7DF));
+    outline: none;
+    touch-action: none;
+    z-index: 1;
+}
+
+/* The grab area: wider than the line, laid over the panels either side. */
+.shiny-resizable-handle::after {
+    content: "";
+    position: absolute;
+}
+
+.shiny-resizable-handle--h {
+    cursor: col-resize;
+}
+
+.shiny-resizable-handle--h::after {
+    top: 0;
+    bottom: 0;
+    left: -6px;
+    right: -6px;
+}
+
+.shiny-resizable-handle--v {
+    cursor: row-resize;
+}
+
+.shiny-resizable-handle--v::after {
+    left: 0;
+    right: 0;
+    top: -6px;
+    bottom: -6px;
+}
+
+.shiny-resizable-handle:hover,
+.shiny-resizable-handle.is-dragging,
+.shiny-resizable-handle:focus-visible {
+    background: var(--shiny-color-primary, #0055D9);
+}
+
+.shiny-resizable-handle:focus-visible {
+    box-shadow: 0 0 0 2px var(--shiny-color-primary, #0055D9);
+}
+
+.shiny-resizable-handle[data-disabled] {
+    cursor: default;
+    background: var(--shiny-resizable-handle-color, var(--shiny-color-outline-variant, #BBC7DF));
+}
+
+.shiny-resizable-grip {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    gap: 2px;
+    padding: 3px 2px;
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline-variant, #BBC7DF);
+    border-radius: var(--shiny-shape-corner-extra-small, 4px);
+    background: var(--shiny-color-surface-container-high, #E2E6EA);
+    pointer-events: none;
+}
+
+.shiny-resizable-handle--h .shiny-resizable-grip {
+    grid-template-columns: repeat(2, 2px);
+    grid-auto-rows: 2px;
+}
+
+.shiny-resizable-handle--v .shiny-resizable-grip {
+    grid-template-columns: repeat(3, 2px);
+    grid-auto-rows: 2px;
+    padding: 2px 3px;
+}
+
+.shiny-resizable-grip span {
+    border-radius: 50%;
+    background: var(--shiny-color-on-surface-variant, #3B475B);
+}

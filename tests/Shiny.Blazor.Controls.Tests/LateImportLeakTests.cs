@@ -34,6 +34,8 @@ public class LateImportLeakTests
         typeof(SheetView),
         typeof(ZoomPanView),
         typeof(SignaturePad),
+        typeof(SignatureView),
+        typeof(ResizablePanelGroup),
         typeof(MediaPickerButton),
         typeof(AppLayout),
         typeof(Ribbon),

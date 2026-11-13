@@ -1,0 +1,26 @@
+@namespace Shiny.Blazor.Controls
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* The script owns the canvas (its pixel size, strokes and pointer capture); the guide and clear
+   button are markup laid over it, so they are never part of the exported image. *@
+<div class="shiny-sigview @(ShowBorder ? null : "shiny-sigview--borderless") @(IsReadOnly ? "is-readonly" : null) @Class"
+     style="@RootStyle"
+     @ref="host">
+    <canvas class="shiny-sigview-canvas" @ref="canvasEl" role="img" aria-label="@AriaLabel"></canvas>
+
+    @if (ShowSignatureLine)
+    {
+        <div class="shiny-sigview-line" aria-hidden="true"><span>✕</span></div>
+    }
+
+    @if (strokeCount == 0 && !String.IsNullOrEmpty(PlaceholderText))
+    {
+        <div class="shiny-sigview-placeholder @(ShowSignatureLine ? "is-under-line" : null)" aria-hidden="true">@PlaceholderText</div>
+    }
+
+    @if (ShowClearButton && strokeCount > 0 && !IsReadOnly)
+    {
+        <button type="button" class="shiny-sigview-clear-btn" @onclick="ClearAsync">@ClearButtonText</button>
+    }
+</div>

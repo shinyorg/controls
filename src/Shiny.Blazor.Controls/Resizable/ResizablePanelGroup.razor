@@ -1,0 +1,13 @@
+@namespace Shiny.Blazor.Controls
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="shiny-resizable-group @(Direction == ResizableDirection.Vertical ? "shiny-resizable-group--v" : "shiny-resizable-group--h") @Class"
+     style="@Style"
+     data-direction="@(Direction == ResizableDirection.Vertical ? "vertical" : "horizontal")"
+     data-keyboard-step="@KeyboardStep.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+     @ref="groupEl">
+    <CascadingValue Value="this" IsFixed="true">
+        @ChildContent
+    </CascadingValue>
+</div>

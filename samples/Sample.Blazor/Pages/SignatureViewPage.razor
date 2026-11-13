@@ -1,0 +1,82 @@
+@page "/signatureview"
+
+<PageTitle>Signature View</PageTitle>
+
+<h1>Signature View</h1>
+
+<div class="demo-section">
+    <h2>In a form</h2>
+    <p>The same surface the Signature Pad uses, placed straight on the page. Submit stays disabled until there is ink.</p>
+
+    <label style="display:block;margin-bottom:6px;font-weight:600;">Customer signature</label>
+    <SignatureView @ref="signature"
+                   @bind-HasSignature="hasSignature"
+                   PlaceholderText="Sign here"
+                   ShowSignatureLine="true"
+                   Height="180px"
+                   IsReadOnly="@readOnly"
+                   StrokeCompleted="OnStroke"
+                   Cleared="OnCleared" />
+
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        <button disabled="@(!hasSignature)" @onclick="Submit">Submit</button>
+        <button disabled="@(!hasSignature)" @onclick="Undo">Undo</button>
+        <button @onclick="() => readOnly = !readOnly">@(readOnly ? "Unlock" : "Lock (read-only)")</button>
+    </div>
+    <div class="state">Strokes: <code>@strokes</code> · Status: <code>@status</code></div>
+
+    @if (signatureDataUrl != null)
+    {
+        <img src="@signatureDataUrl" alt="Exported signature"
+             style="margin-top:12px;max-width:100%;border:1px solid var(--shiny-color-outline-variant, #E5E7EB);border-radius:8px;" />
+    }
+</div>
+
+<div class="demo-section">
+    <h2>Ink and paper</h2>
+    <p>Blue ink on a cream card. The card draws the edge here, so the surface's own border is off.</p>
+    <div style="border:2px solid #D97706;border-radius:12px;overflow:hidden;">
+        <SignatureView ShowBorder="false"
+                       StrokeColor="#1D4ED8"
+                       StrokeWidth="4"
+                       SignatureBackgroundColor="#FFFBEB"
+                       PlaceholderText="Initial here"
+                       Height="120px" />
+    </div>
+</div>
+
+@code {
+    SignatureView? signature;
+    bool hasSignature;
+    bool readOnly;
+    int strokes;
+    string status = "Waiting for a signature";
+    string? signatureDataUrl;
+
+    void OnStroke(int count)
+    {
+        strokes = count;
+        status = "Signing…";
+    }
+
+    void OnCleared()
+    {
+        strokes = 0;
+        status = "Cleared";
+    }
+
+    async Task Undo()
+    {
+        if (signature is null) return;
+        await signature.UndoAsync();
+        strokes = signature.StrokeCount;
+    }
+
+    async Task Submit()
+    {
+        if (signature is null) return;
+        var png = await signature.ExportPngAsync();
+        signatureDataUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
+        status = $"Submitted ({png.Length:N0} bytes)";
+    }
+}

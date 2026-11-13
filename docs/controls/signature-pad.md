@@ -4,9 +4,11 @@
 
 A signature capture control that opens in a FloatingPanel overlay (MAUI) or SheetView (Blazor). Users draw on a canvas and tap Sign to export the signature as a PNG. The Sign button is disabled until the user actually draws something.
 
+The drawing surface inside the sheet is a [SignatureView](signature-view.md). To put a signature on the page itself — a form, a card, a table row — use SignatureView directly.
+
 **Important:** Like FloatingPanel, SignaturePad must be placed inside an `OverlayHost` or `ShinyContentPage` on MAUI — it uses a FloatingPanel internally.
 
-While the pad is open the control automatically suppresses system navigation gestures that would otherwise steal edge-started strokes (restoring them on close): on iOS, the navigation controller's interactive "swipe back" pop; on Android, the system back edge-swipe (API 29+) and — when the pad is hosted inside a `TabbedPage` — the swipe-between-tabs gesture. So strokes that begin near the screen edges are drawn instead of navigating away.
+While the pad is open the control automatically suppresses system navigation gestures that would otherwise steal edge-started strokes (restoring them on close): on iOS, the navigation controller's interactive "swipe back" pop; on Android, the system back edge-swipe (API 29+, which the SignatureView surface excludes itself from) and — when the pad is hosted inside a `TabbedPage` — the swipe-between-tabs gesture. So strokes that begin near the screen edges are drawn instead of navigating away.
 
 ```xml
 <!-- MAUI — must be inside ShinyContentPage.Panels or OverlayHost -->
@@ -77,3 +79,5 @@ Set `AutomationId` on the control and its parts are named after it, for UI tests
 | Sheet content (lives in the floating panel) | `<id>_Popup` |
 | Drawing surface | `<id>_Canvas` |
 | Sign / cancel / clear | `<id>_Sign` / `<id>_Cancel` / `<id>_Clear` |
+
+The Clear button shows once something is drawn.

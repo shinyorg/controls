@@ -1,21 +1,18 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 
 using Shiny.Blazor.Controls.Theming;
 
 namespace Shiny.Blazor.Controls;
 
-public partial class SignaturePad : IAsyncDisposable
+/// <summary>
+/// A <see cref="SignatureView"/> in a sheet, with Sign and Cancel buttons. Use <see cref="SignatureView"/>
+/// directly to put the surface on the page itself.
+/// </summary>
+public partial class SignaturePad
 {
-    IJSObjectReference? module;
-    bool disposed;
-    DotNetObjectReference<SignaturePad>? selfRef;
-    ElementReference canvasHost;
-    ElementReference canvasEl;
-    bool initialized;
+    SignatureView? signatureView;
     bool isOpen;
     bool hasSignature;
-    bool isSyncing;
     IList<DetentValue> resolvedDetents = new List<DetentValue>();
 
     [Parameter] public bool IsOpen { get; set; }
@@ -53,62 +50,14 @@ public partial class SignaturePad : IAsyncDisposable
     protected override void OnParametersSet()
     {
         resolvedDetents = new List<DetentValue> { Detent };
-
-        if (IsOpen != isOpen)
-        {
-            isOpen = IsOpen;
-            if (isOpen && initialized)
-                _ = InitCanvasAsync();
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var loaded = await JS.InvokeAsync<IJSObjectReference>(
-                "import",
-                "./_content/Shiny.Blazor.Controls/signature-pad.js");
-            if (disposed) { await loaded.ReleaseLateAsync(); return; }
-            module = loaded;
-            selfRef = DotNetObjectReference.Create(this);
-        }
-
-        if (isOpen && module != null && !initialized)
-        {
-            // Small delay to let the sheet animate and canvas get layout
-            await Task.Delay(100);
-            await InitCanvasAsync();
-        }
-    }
-
-    async Task InitCanvasAsync()
-    {
-        if (module == null || selfRef == null) return;
-
-        try
-        {
-            // a named DTO, not an anonymous type: trimmed/AOT publish strips anonymous-type
-            // constructor parameter names, which the JS interop serializer requires
-            await module.InvokeVoidAsync("init", canvasHost, canvasEl, selfRef, new SignaturePadJsOptions
-            {
-                StrokeColor = StrokeColor,
-                StrokeWidth = StrokeWidth,
-                BackgroundColor = SignatureBackgroundColor
-            });
-            initialized = true;
-        }
-        catch (JSException)
-        {
-            // Canvas may not be laid out yet
-        }
+        isOpen = IsOpen;
     }
 
     async Task OnSign()
     {
-        if (module == null || !hasSignature) return;
+        if (signatureView is null || !hasSignature) return;
 
-        var pngBytes = await module.InvokeAsync<byte[]>("exportPng", canvasHost, ExportWidth, ExportHeight);
+        var pngBytes = await signatureView.ExportPngAsync(ExportWidth, ExportHeight);
 
         await CleanupAndClose();
         await Signed.InvokeAsync(pngBytes);
@@ -120,58 +69,14 @@ public partial class SignaturePad : IAsyncDisposable
         await Cancelled.InvokeAsync();
     }
 
-    async Task OnClear()
-    {
-        if (module != null)
-            await module.InvokeVoidAsync("clear", canvasHost);
-        hasSignature = false;
-    }
-
     async Task CleanupAndClose()
     {
-        if (module != null)
-            await module.InvokeVoidAsync("clear", canvasHost);
+        if (signatureView is not null)
+            await signatureView.ClearAsync();
         hasSignature = false;
-        initialized = false;
-
-        if (module != null)
-        {
-            try { await module.InvokeVoidAsync("dispose", canvasHost); }
-            catch (JSException) { }
-        }
 
         isOpen = false;
         IsOpen = false;
         await IsOpenChanged.InvokeAsync(false);
-    }
-
-    [JSInvokable]
-    public Task OnHasSignatureChanged(bool value)
-    {
-        hasSignature = value;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        disposed = true;
-        if (module != null)
-        {
-            try
-            {
-                await module.InvokeVoidAsync("dispose", canvasHost);
-                await module.DisposeAsync();
-            }
-            catch (JSDisconnectedException) { }
-        }
-        selfRef?.Dispose();
-    }
-
-    sealed class SignaturePadJsOptions
-    {
-        public string? StrokeColor { get; set; }
-        public double StrokeWidth { get; set; }
-        public string? BackgroundColor { get; set; }
     }
 }

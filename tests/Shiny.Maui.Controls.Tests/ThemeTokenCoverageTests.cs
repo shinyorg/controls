@@ -32,6 +32,8 @@ public class ThemeTokenCoverageTests(ITestOutputHelper output)
         ["ColorPicker.Properties.cs"] = "SelectedColor's default is a data value, not chrome",
         ["SignaturePadDrawable.cs"] = "signature ink and paper - a captured signature stays black-on-white for export",
         ["SignaturePad.Properties.cs"] = "StrokeColor/SignatureBackgroundColor are the ink and paper (see SignaturePadDrawable)",
+        ["SignatureView.Properties.cs"] = "StrokeColor/SignatureBackgroundColor are the ink and paper (see SignaturePadDrawable)",
+        ["SignatureView.cs"] = "the clear chip sits on the white paper, so it agrees with the ink rather than the theme",
         ["ImageEditorDrawable.cs"] = "the colour being drawn onto the image is content",
         ["SelectionBackgroundConverter.cs"] = "fallbacks only - DataGrid.ApplyTheme overwrites both from theme tokens",
         ["SectionRenderer.cs"] = "deliberately emulates the iOS system separator/label colours, and already ships a light/dark pair for each",

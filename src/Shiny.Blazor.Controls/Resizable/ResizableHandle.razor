@@ -1,0 +1,26 @@
+@namespace Shiny.Blazor.Controls
+@implements IDisposable
+
+@{
+    var before = Group?.PanelBefore(this);
+}
+<div class="shiny-resizable-handle @(Group?.Direction == ResizableDirection.Vertical ? "shiny-resizable-handle--v" : "shiny-resizable-handle--h") @(WithHandle ? "has-grip" : null) @Class"
+     style="@Style"
+     role="separator"
+     tabindex="@(Disabled ? "-1" : "0")"
+     aria-orientation="@(Group?.Direction == ResizableDirection.Vertical ? "horizontal" : "vertical")"
+     aria-controls="@before?.Id"
+     aria-valuenow="@(before is null ? null : Math.Round(Group!.SizeOf(before) ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture))"
+     aria-valuemin="@(before is null ? null : Math.Round(before.MinSize).ToString(System.Globalization.CultureInfo.InvariantCulture))"
+     aria-valuemax="@(before is null ? null : Math.Round(before.MaxSize).ToString(System.Globalization.CultureInfo.InvariantCulture))"
+     aria-label="@AriaLabel"
+     aria-disabled="@(Disabled ? "true" : null)"
+     data-resizable-handle
+     data-disabled="@(Disabled ? "" : null)">
+    @if (WithHandle)
+    {
+        <div class="shiny-resizable-grip" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+    }
+</div>

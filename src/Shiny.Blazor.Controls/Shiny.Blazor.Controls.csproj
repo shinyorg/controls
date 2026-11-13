@@ -31,6 +31,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- The resizable panel arithmetic is small enough to share as source rather than a package:
+             compiled into both hosts as an internal type, and mirrored by resizable.js for drags. -->
+        <Compile Include="..\Shiny.Maui.Controls\Resizable\ResizableLayout.cs" Link="Resizable\ResizableLayout.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="Shiny.Controls.MotionIcons.Tests" />
         <InternalsVisibleTo Include="Shiny.Blazor.Controls.Tests" />
         <InternalsVisibleTo Include="Shiny.Blazor.Controls.Office" />

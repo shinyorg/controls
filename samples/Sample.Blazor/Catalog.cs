@@ -49,6 +49,7 @@ public static class Catalog
             new("floorplan", "Floor Plan", "⊞", "Rooms, walls and furniture on a pan/zoom drawing surface"),
             new("seatingchart", "Seating Chart", "⌗", "The same plan in view mode — tap a desk to see who sits there"),
             new("docking", "Docking", "▨", "Visual-Studio-style tear-off tool windows"),
+            new("resizable", "Resizable", "⇹", "Panels with draggable handles, nested and collapsible"),
             new("ribbon", "Ribbon", "☷", "Office-style tabbed command bar for desktop windows")
         ]),
 
@@ -86,6 +87,7 @@ public static class Catalog
             new("passwordstrength", "Password Strength", "▓", "Password field with a live strength meter and rule checklist"),
             new("captcha", "Captcha", "🛡", "Human check — local challenge, reCAPTCHA, hCaptcha or Turnstile"),
             new("signaturepad", "Signature Pad", "✍", "Draw, clear and export a signature"),
+            new("signatureview", "Signature View", "✒", "An inline signature surface for forms, cards and rows"),
             new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Touch / kiosk QWERTY that never steals the caret"),
             new("keyboardshortcuts", "Keyboard Shortcuts", "⌘", "Page, element and modal shortcuts, chords and push-to-talk"),
             new("gamepad", "Gamepad", "✚", "On-screen NES, SNES and Xbox/PlayStation controller that is a real Shiny.Gamepad IGamepad")

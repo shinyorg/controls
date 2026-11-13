@@ -61,6 +61,8 @@ public class DarkModeCoverageTests(ITestOutputHelper output)
         ["ImageEditor.razor.cs"] = "draw and text colours are applied to the image, not to chrome",
         ["SignaturePad.razor.cs"] = "ink and paper - the signature is captured as an image, not themed",
         ["SignaturePad.razor.css"] = "the clear chip sits on the pad's white paper, so it agrees with the ink rather than the theme",
+        ["SignatureView.razor.cs"] = "ink and paper - the signature is captured as an image, not themed",
+        ["SignatureView.razor.css"] = "the guide, placeholder and clear chip sit on the white paper, so they agree with the ink rather than the theme",
         ["RangeSlider.razor.cs"] = "the cold-to-hot ramp is semantic",
         ["Slider.razor.cs"] = "the cold-to-hot ramp is semantic",
         ["LoadingOverlay.razor.cs"] = "a scrim and its white content read the same in both schemes",

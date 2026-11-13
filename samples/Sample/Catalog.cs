@@ -72,6 +72,7 @@ public static class Catalog
             new("seatingchart", "Seating Chart", "⌗", "The same plan in view mode — tap a desk to see who sits there"),
             new("timeline", "Timeline", "⋮", "Vertical rail of markers with content beside each one"),
             new("docking", "Docking", "▨", "Visual-Studio-style tear-off tool windows"),
+            new("resizable", "Resizable", "⇹", "Panels with draggable handles, nested and collapsible"),
             new("ribbon", "Ribbon", "☷", "Office-style tabbed command bar for desktop windows")
         ]),
 
@@ -125,6 +126,7 @@ public static class Catalog
             new("securitypin", "Security Pin", "✱", "PIN entry with masking and shake-on-error"),
             new("passwordstrength", "Password Strength", "▓", "Password field with a live strength meter and rule checklist"),
             new("signaturepad", "Signature Pad", "✍", "Draw, clear and export a signature"),
+            new("signatureview", "Signature View", "✒", "An inline signature surface for forms, cards and rows"),
             new("onscreenkeyboard", "On-Screen Keyboard", "⌨", "Desktop virtual keyboard for kiosks"),
             new("keyboardshortcuts", "Keyboard Shortcuts", "⌘", "Page, view and modal shortcuts, chords and push-to-talk"),
             new("gamepad", "Gamepad", "✚", "On-screen NES, SNES and Xbox/PlayStation controller that is a real Shiny.Gamepad IGamepad")

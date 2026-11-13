@@ -1,8 +1,5 @@
 @namespace Shiny.Blazor.Controls
 @using Shiny.Blazor.Controls.Theming
-@using Microsoft.JSInterop
-@inject IJSRuntime JS
-@implements IAsyncDisposable
 
 <SheetView @bind-IsOpen="isOpen"
            IsLocked="@IsLocked"
@@ -16,9 +13,17 @@
         <div class="shiny-sigpad">
             <div class="shiny-sigpad-title">Draw your signature below</div>
 
-            <div class="shiny-sigpad-canvas-host" @ref="canvasHost">
-                <canvas class="shiny-sigpad-canvas" @ref="canvasEl"></canvas>
-                <button class="shiny-sigpad-clear-btn" @onclick="OnClear">Clear</button>
+            <div class="shiny-sigpad-canvas-host">
+                @* Mounted with the sheet's content; the surface sizes itself to the host as it animates in. *@
+                <SignatureView @ref="signatureView"
+                               @bind-HasSignature="hasSignature"
+                               StrokeColor="@StrokeColor"
+                               StrokeWidth="@StrokeWidth"
+                               SignatureBackgroundColor="@SignatureBackgroundColor"
+                               ExportWidth="@ExportWidth"
+                               ExportHeight="@ExportHeight"
+                               Height="100%"
+                               Style="position:absolute;inset:0;" />
             </div>
 
             <div class="shiny-sigpad-buttons">

@@ -14,10 +14,10 @@ public class SignaturePadTests : BlazorTest
     {
         await Open("signaturepad");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Capture Signature" }).ClickAsync();
-        await Expect(Page.Locator(".shiny-sigpad-canvas")).ToBeInViewportAsync();
+        await Expect(Page.Locator(".shiny-sigview-canvas")).ToBeInViewportAsync();
 
         // The sheet slides up; drawing before it settles lands the stroke off the canvas.
-        var canvas = Page.Locator(".shiny-sigpad-canvas");
+        var canvas = Page.Locator(".shiny-sigview-canvas");
         LocatorBoundingBoxResult? last = null;
         for (var i = 0; i < 40; i++)
         {
@@ -33,7 +33,7 @@ public class SignaturePadTests : BlazorTest
 
     async Task DrawStroke()
     {
-        var canvas = Page.Locator(".shiny-sigpad-canvas");
+        var canvas = Page.Locator(".shiny-sigview-canvas");
         var box = (await canvas.BoundingBoxAsync())!;
         var y = box.Y + box.Height / 2;
 
@@ -69,7 +69,7 @@ public class SignaturePadTests : BlazorTest
         var image = Page.GetByAltText("Captured signature");
         await Expect(image).ToBeVisibleAsync();
         await Expect(image).ToHaveAttributeAsync("src", new System.Text.RegularExpressions.Regex("^data:image/png;base64,.{100,}"));
-        await Expect(Page.Locator(".shiny-sigpad-canvas")).Not.ToBeInViewportAsync();
+        await Expect(Page.Locator(".shiny-sigview-canvas")).Not.ToBeInViewportAsync();
         await AssertNoConsoleErrors();
     }
 
@@ -100,7 +100,7 @@ public class SignaturePadTests : BlazorTest
 
         await Expect(Status).ToHaveTextAsync("Signature cancelled");
         await Expect(Page.GetByAltText("Captured signature")).ToHaveCountAsync(0);
-        await Expect(Page.Locator(".shiny-sigpad-canvas")).Not.ToBeInViewportAsync();
+        await Expect(Page.Locator(".shiny-sigview-canvas")).Not.ToBeInViewportAsync();
         await AssertNoConsoleErrors();
     }
 

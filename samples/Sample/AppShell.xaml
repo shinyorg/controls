@@ -85,6 +85,7 @@
                   xmlns:camera="clr-namespace:Sample.Features.Camera"
                   xmlns:mediaelement="clr-namespace:Sample.Features.Media"
                   xmlns:docking="clr-namespace:Sample.Features.Docking"
+                  xmlns:resizable="clr-namespace:Sample.Features.Resizable"
                   xmlns:ribbon="clr-namespace:Sample.Features.Ribbon"
                   Title="Shiny Controls"
                   FlyoutBackgroundColor="{AppThemeBinding Light=#F5F3FF, Dark=#0F0D1A}"
@@ -453,6 +454,14 @@
         <ShellContent ContentTemplate="{DataTemplate docking:DockingPage}" Route="docking" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Resizable">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x21F9;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate resizable:ResizablePage}" Route="resizable" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Ribbon">
         <FlyoutItem.FlyoutIcon>
             <FontImageSource Glyph="&#x2637;" Size="20"
@@ -816,6 +825,14 @@
                              Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
         </FlyoutItem.FlyoutIcon>
         <ShellContent ContentTemplate="{DataTemplate sigpad:SignaturePadPage}" Route="signaturepad" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Signature View">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2712;" Size="20"
+                             Color="{AppThemeBinding Light=#059669, Dark=#34D399}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate sigpad:SignatureViewPage}" Route="signatureview" />
     </FlyoutItem>
 
     <FlyoutItem Title="On-Screen Keyboard">

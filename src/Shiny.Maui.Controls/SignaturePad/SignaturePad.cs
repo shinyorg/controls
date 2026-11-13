@@ -25,8 +25,7 @@ public partial class SignaturePad : ContentView
     /// <summary>Names the clear button.</summary>
     public const string ClearAutomationIdSuffix = "_Clear";
 
-    readonly SignaturePadDrawable drawable;
-    readonly GraphicsView graphicsView;
+    readonly SignatureView signatureView;
     readonly Button signButton;
     readonly Button cancelButton;
     readonly FloatingPanel.FloatingPanel floatingPanel;
@@ -38,17 +37,16 @@ public partial class SignaturePad : ContentView
         // touches to the page content underneath.
         IsVisible = false;
 
-        drawable = new SignaturePadDrawable();
-
-        graphicsView = new GraphicsView
+        // The panel is the frame here, so the surface draws no border of its own.
+        signatureView = new SignatureView
         {
-            Drawable = drawable,
+            ShowBorder = false,
+            CornerRadius = 0,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill
         };
-        graphicsView.StartInteraction += OnStartInteraction;
-        graphicsView.DragInteraction += OnDragInteraction;
-        graphicsView.EndInteraction += OnEndInteraction;
+        signatureView.StrokeCompleted += (_, _) => signButton!.IsEnabled = signatureView.HasSignature;
+        signatureView.Cleared += (_, _) => signButton!.IsEnabled = false;
 
         signButton = new Button
         {
@@ -70,22 +68,6 @@ public partial class SignaturePad : ContentView
         cancelButton.SetDynamicResource(Button.TextColorProperty, ShinyThemeKeys.Color.OnSecondaryContainer);
         this.ApplyCancelButtonColor(this.CancelButtonColor);
         cancelButton.Clicked += OnCancelClicked;
-
-        var clearButton = new Button
-        {
-            Text = "Clear",
-            BackgroundColor = Colors.Transparent,
-            HorizontalOptions = LayoutOptions.End,
-            VerticalOptions = LayoutOptions.Start,
-            Padding = new Thickness(8, 2)
-        }.Neutralize().WithFontSize(ShinyThemeKeys.Type.BodySmallSize);
-        clearButton.SetDynamicResource(Button.TextColorProperty, ShinyThemeKeys.Color.OnSurfaceVariant);
-        clearButton.Clicked += OnClearClicked;
-
-        // Canvas area with clear button overlaid
-        var canvasGrid = new Grid();
-        canvasGrid.Children.Add(graphicsView);
-        canvasGrid.Children.Add(clearButton);
 
         // Button bar
         var buttonBar = new Grid
@@ -123,16 +105,16 @@ public partial class SignaturePad : ContentView
         };
         contentGrid.Children.Add(titleLabel);
         Grid.SetRow(titleLabel, 0);
-        contentGrid.Children.Add(canvasGrid);
-        Grid.SetRow(canvasGrid, 1);
+        contentGrid.Children.Add(signatureView);
+        Grid.SetRow(signatureView, 1);
         contentGrid.Children.Add(buttonBar);
         Grid.SetRow(buttonBar, 2);
 
         AutomationIds.Link(this, contentGrid, PopupAutomationIdSuffix);
-        AutomationIds.Link(this, graphicsView, CanvasAutomationIdSuffix);
+        AutomationIds.Link(this, signatureView.Surface, CanvasAutomationIdSuffix);
         AutomationIds.Link(this, signButton, SignAutomationIdSuffix);
         AutomationIds.Link(this, cancelButton, CancelAutomationIdSuffix);
-        AutomationIds.Link(this, clearButton, ClearAutomationIdSuffix);
+        AutomationIds.Link(this, signatureView.ClearButton, ClearAutomationIdSuffix);
 
         floatingPanel = new FloatingPanel.FloatingPanel
         {
@@ -179,30 +161,9 @@ public partial class SignaturePad : ContentView
         StyleGuard.MarkReady(this, typeof(SignaturePad));
     }
 
-    void OnStartInteraction(object? sender, TouchEventArgs e)
-    {
-        if (e.Touches.Length == 0) return;
-        drawable.BeginStroke(e.Touches[0]);
-        graphicsView.Invalidate();
-    }
-
-    void OnDragInteraction(object? sender, TouchEventArgs e)
-    {
-        if (e.Touches.Length == 0) return;
-        drawable.AddPoint(e.Touches[0]);
-        graphicsView.Invalidate();
-    }
-
-    void OnEndInteraction(object? sender, TouchEventArgs e)
-    {
-        drawable.EndStroke();
-        graphicsView.Invalidate();
-        signButton.IsEnabled = drawable.HasSignature;
-    }
-
     void OnSignClicked(object? sender, EventArgs e)
     {
-        var stream = drawable.ExportToPng(ExportWidth, ExportHeight);
+        var stream = signatureView.ExportToPng(ExportWidth, ExportHeight);
         var args = new SignatureImageEventArgs(stream);
 
         Signed?.Invoke(this, args);
@@ -225,17 +186,14 @@ public partial class SignaturePad : ContentView
         IsVisible = false;
     }
 
-    void OnClearClicked(object? sender, EventArgs e)
-    {
-        ResetCanvas();
-    }
-
     void ResetCanvas()
     {
-        drawable.Clear();
-        graphicsView.Invalidate();
+        signatureView.Clear();
         signButton.IsEnabled = false;
     }
+
+    /// <summary>The surface inside the sheet - the same <see cref="SignatureView"/> you can place on a page yourself.</summary>
+    internal SignatureView SignatureView => signatureView;
 
     // Implemented per-platform to suppress system navigation gestures that
     // would otherwise steal edge-started strokes while the pad is open:

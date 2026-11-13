@@ -1,0 +1,9 @@
+/* min-width/min-height 0: a flex item will not shrink below its content otherwise, and a panel has to
+   be able to go all the way down to its MinSize (or to nothing, collapsed). Content that does not fit
+   scrolls inside the panel, never the group. */
+.shiny-resizable-panel {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             xmlns:local="clr-namespace:Sample.Features.Resizable"
+             x:Class="Sample.Features.Resizable.ResizablePage"
+             x:DataType="local:ResizablePage"
+             Title="Resizable"
+             AutomationId="ResizablePage">
+
+    <!-- The group fills the * row - never a ScrollView around it - and the border is the only edge. -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="16" RowSpacing="8">
+        <Label Grid.Row="0"
+               Text="Drag a handle to resize. The explorer collapses when dragged past half its 15% minimum; the properties panel is capped at 35%."
+               FontSize="13"
+               TextColor="Gray" />
+
+        <HorizontalStackLayout Grid.Row="1" Spacing="8">
+            <Button x:Name="ToggleButton" Text="Collapse explorer" FontSize="12" Clicked="OnToggle" AutomationId="ResizableToggle" />
+            <Button Text="Reset" FontSize="12" Clicked="OnReset" AutomationId="ResizableReset" />
+        </HorizontalStackLayout>
+
+        <Border Grid.Row="2" StrokeShape="RoundRectangle 8" Stroke="LightGray" StrokeThickness="1" Padding="0">
+            <shiny:ResizablePanelGroup x:Name="Outer" AutomationId="ResizableOuter" Direction="Horizontal" LayoutChanged="OnLayoutChanged">
+                <shiny:ResizablePanel x:Name="Explorer" DefaultSize="22" MinSize="15" Collapsible="True"
+                                      Collapsed="OnExplorerCollapsed" Expanded="OnExplorerExpanded">
+                    <VerticalStackLayout Padding="12" Spacing="4">
+                        <Label Text="Explorer" FontAttributes="Bold" />
+                        <Label Text="Program.cs" FontSize="12" />
+                        <Label Text="MauiProgram.cs" FontSize="12" />
+                        <Label Text="Features/" FontSize="12" />
+                    </VerticalStackLayout>
+                </shiny:ResizablePanel>
+                <shiny:ResizableHandle WithHandle="True" />
+                <shiny:ResizablePanel MinSize="30">
+                    <shiny:ResizablePanelGroup Direction="Vertical">
+                        <shiny:ResizablePanel DefaultSize="70" MinSize="20">
+                            <VerticalStackLayout Padding="12" Spacing="4">
+                                <Label Text="Editor" FontAttributes="Bold" />
+                                <Label Text="The nested group stacks vertically inside the main panel." FontSize="12" />
+                            </VerticalStackLayout>
+                        </shiny:ResizablePanel>
+                        <shiny:ResizableHandle />
+                        <shiny:ResizablePanel MinSize="10">
+                            <VerticalStackLayout Padding="12" Spacing="4">
+                                <Label Text="Terminal" FontAttributes="Bold" />
+                                <Label Text="$ dotnet watch" FontFamily="Courier" FontSize="12" />
+                            </VerticalStackLayout>
+                        </shiny:ResizablePanel>
+                    </shiny:ResizablePanelGroup>
+                </shiny:ResizablePanel>
+                <shiny:ResizableHandle />
+                <shiny:ResizablePanel DefaultSize="20" MinSize="10" MaxSize="35">
+                    <VerticalStackLayout Padding="12" Spacing="4">
+                        <Label Text="Properties" FontAttributes="Bold" />
+                        <Label Text="Capped at 35%." FontSize="12" />
+                    </VerticalStackLayout>
+                </shiny:ResizablePanel>
+            </shiny:ResizablePanelGroup>
+        </Border>
+
+        <Label x:Name="StatusLabel" Grid.Row="3" AutomationId="ResizableStatus" Text="Sizes: 22 · 58 · 20" FontSize="12" TextColor="Gray" />
+    </Grid>
+</ContentPage>

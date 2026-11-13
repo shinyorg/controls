@@ -243,7 +243,10 @@ public partial class ShinyImage : ContentView, IDisposable
 
         if (!result.Success)
         {
-            this.ShowError(uri, result.Error ?? new InvalidOperationException("Image load failed"));
+            if (OperatingSystem.IsBrowser() && result.Error is HttpRequestException { StatusCode: null })
+                await this.ShowCrossOriginAsync(uri, result.Error, token).ConfigureAwait(true);
+            else
+                this.ShowError(uri, result.Error ?? new InvalidOperationException("Image load failed"));
             return;
         }
 
@@ -283,6 +286,66 @@ public partial class ShinyImage : ContentView, IDisposable
         this.SetProgress(new ImageLoadProgress(ImageLoadState.Loaded, result.ContentLength ?? 0, result.ContentLength));
         await this.ShowImageAsync(imageSource).ConfigureAwait(true);
         this.RaiseLoaded(uri, result.Origin, result.ContentLength);
+    }
+
+
+    /// <summary>
+    /// Hands a URL the browser would not let .NET read to the platform image instead.
+    /// </summary>
+    /// <remarks>
+    /// In a browser the download is a <c>fetch</c>, and the page may only read the bytes when the
+    /// server sends CORS headers - which plenty of image hosts (avatar services, CDNs) do not. An
+    /// &lt;img&gt; needs no such permission to show the picture, so the platform image loads the URL
+    /// itself, without the caches or a real percentage (both need the bytes). An unknown host or an
+    /// offline browser fails the fetch the same way, so the image's own load decides: one that comes
+    /// back with no size to show is the error it was.
+    /// </remarks>
+    async Task ShowCrossOriginAsync(string uri, Exception error, CancellationToken token)
+    {
+        this.SetProgress(new ImageLoadProgress(ImageLoadState.Downloading));
+
+        var source = ImageSource.FromUri(new System.Uri(uri));
+        // Asynchronous continuations, so the platform finishes handling its load (re-measuring the
+        // image) before the size is read below.
+        var settled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnImagePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(Image.IsLoading) && !this.targetImage.IsLoading)
+                settled.TrySetResult();
+        }
+
+        this.targetImage.PropertyChanged += OnImagePropertyChanged;
+        try
+        {
+            this.targetImage.Source = source;
+            if (this.targetImage.IsLoading)
+                await settled.Task.WaitAsync(token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Left set, a reloaded control would read this source as content it already has.
+            if (this.targetImage.Source == source)
+                this.targetImage.Source = null;
+            return;
+        }
+        finally
+        {
+            this.targetImage.PropertyChanged -= OnImagePropertyChanged;
+        }
+
+        if (!this.StillWanted(uri, token))
+            return;
+
+        var natural = this.targetImage.Handler?.GetDesiredSize(double.PositiveInfinity, double.PositiveInfinity) ?? Size.Zero;
+        if (natural.Width <= 0 || natural.Height <= 0)
+        {
+            this.ShowError(uri, error);
+            return;
+        }
+
+        this.SetProgress(new ImageLoadProgress(ImageLoadState.Loaded));
+        await this.ShowImageAsync(source).ConfigureAwait(true);
+        this.RaiseLoaded(uri, ImageOrigin.Network, null);
     }
 
 

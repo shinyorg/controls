@@ -2,6 +2,8 @@
 
 A signature capture control that opens in a FloatingPanel overlay (MAUI) or SheetView (Blazor). The user draws on a canvas and taps Sign to export the signature as a PNG image. The Sign button is disabled until the user actually draws something. Like FloatingPanel, the MAUI SignaturePad **must** be placed inside an `OverlayHost` or `ShinyContentPage` — it uses a FloatingPanel internally.
 
+The drawing surface inside the sheet is a `SignatureView` (see signature-view.md). For a signature that belongs on the page itself — a form field, a card — generate `SignatureView` directly instead of a SignaturePad.
+
 ## Important: Placement Requirement (MAUI)
 
 SignaturePad uses a FloatingPanel internally, so it **must** live inside an `OverlayHost` or `ShinyContentPage.Panels` — just like a standalone FloatingPanel. Placing it outside an overlay host will not display correctly.
@@ -200,6 +202,7 @@ public partial class SignatureViewModel : ObservableObject
 - **Blazor**: SignaturePad uses `SheetView` internally; no special host required
 - The Sign button is automatically disabled until the user draws on the canvas
 - The canvas resets automatically after signing or cancelling
+- The Clear button appears once something is drawn
 - On MAUI, `SignCommand` receives `SignatureImageEventArgs` with an `ImageStream` (PNG)
 - On Blazor, `Signed` callback receives `byte[]` (raw PNG bytes)
 - Set `ExportWidth`/`ExportHeight` to control the resolution of the exported PNG. The drawn signature (captured in the on-screen canvas coordinate space) is scaled **uniformly to fit and centered** within those dimensions, so the whole signature is preserved without clipping or aspect-ratio distortion even when the canvas and the export size differ — if the aspect ratios differ the image is letterboxed with the background color

@@ -1,0 +1,13 @@
+@namespace Shiny.Blazor.Controls
+@implements IDisposable
+
+<div class="shiny-resizable-panel @Class"
+     id="@Id"
+     style="@PanelStyle"
+     data-resizable-panel
+     data-min="@Invariant(MinSize)"
+     data-max="@Invariant(MaxSize)"
+     data-collapsible="@(Collapsible ? "" : null)"
+     data-collapsed-size="@Invariant(CollapsedSize)">
+    @ChildContent
+</div>

@@ -2,6 +2,10 @@ namespace Shiny.Maui.Controls.SignaturePad;
 
 internal sealed class SignaturePadDrawable : IDrawable
 {
+    // Deliberately not themed: the guide sits on the signature surface, which is paper (white by
+    // default, and still white in dark mode because the signature is captured as an image).
+    static readonly Color GuideColor = Color.FromArgb("#9CA3AF");
+
     readonly List<List<PointF>> committedStrokes = new();
     List<PointF>? activeStroke;
 
@@ -13,7 +17,16 @@ internal sealed class SignaturePadDrawable : IDrawable
     public Color BackgroundColor { get; set; } = Colors.White;
     public Color StrokeColor { get; set; } = Colors.Black;
     public float StrokeWidth { get; set; } = 3f;
+
+    /// <summary>Draws a baseline to sign on. On screen only, never exported.</summary>
+    public bool ShowSignatureLine { get; set; }
+
+    /// <summary>Shown over the baseline while nothing is drawn. On screen only, never exported.</summary>
+    public string? PlaceholderText { get; set; }
+
     public bool HasSignature => committedStrokes.Count > 0;
+
+    public int StrokeCount => committedStrokes.Count;
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
@@ -27,10 +40,38 @@ internal sealed class SignaturePadDrawable : IDrawable
         canvas.FillColor = BackgroundColor;
         canvas.FillRectangle(dirtyRect);
 
+        DrawGuide(canvas, dirtyRect);
         DrawStrokes(canvas, committedStrokes, 1f, 0f, 0f, StrokeWidth);
 
         if (activeStroke is { Count: >= 2 })
             DrawSingleStroke(canvas, activeStroke, 1f, 0f, 0f, StrokeWidth);
+    }
+
+    void DrawGuide(ICanvas canvas, RectF rect)
+    {
+        var lineY = rect.Top + rect.Height * 0.72f;
+        var inset = Math.Min(24f, rect.Width * 0.08f);
+
+        if (ShowSignatureLine)
+        {
+            canvas.StrokeColor = GuideColor;
+            canvas.StrokeSize = 1;
+            canvas.DrawLine(rect.Left + inset, lineY, rect.Right - inset, lineY);
+
+            canvas.FontColor = GuideColor;
+            canvas.FontSize = 16;
+            canvas.DrawString("✕", rect.Left + inset, lineY - 24, 20, 20, HorizontalAlignment.Left, VerticalAlignment.Bottom);
+        }
+
+        if (!HasSignature && activeStroke is null && !String.IsNullOrEmpty(PlaceholderText))
+        {
+            canvas.FontColor = GuideColor;
+            canvas.FontSize = 14;
+            var textTop = ShowSignatureLine ? lineY + 6 : rect.Top;
+            var textHeight = ShowSignatureLine ? 20 : rect.Height;
+            var vertical = ShowSignatureLine ? VerticalAlignment.Top : VerticalAlignment.Center;
+            canvas.DrawString(PlaceholderText, rect.Left + inset, textTop, rect.Width - inset * 2, textHeight, HorizontalAlignment.Center, vertical);
+        }
     }
 
     public void BeginStroke(PointF point)
@@ -43,12 +84,26 @@ internal sealed class SignaturePadDrawable : IDrawable
         activeStroke?.Add(point);
     }
 
-    public void EndStroke()
+    /// <returns>True when the stroke was long enough to keep.</returns>
+    public bool EndStroke()
     {
-        if (activeStroke is { Count: >= 2 })
-            committedStrokes.Add(activeStroke);
+        var kept = activeStroke is { Count: >= 2 };
+        if (kept)
+            committedStrokes.Add(activeStroke!);
 
         activeStroke = null;
+        return kept;
+    }
+
+    public void CancelStroke() => activeStroke = null;
+
+    public bool Undo()
+    {
+        if (committedStrokes.Count == 0)
+            return false;
+
+        committedStrokes.RemoveAt(committedStrokes.Count - 1);
+        return true;
     }
 
     public void Clear()
@@ -57,10 +112,16 @@ internal sealed class SignaturePadDrawable : IDrawable
         activeStroke = null;
     }
 
-    public Stream ExportToPng(int width, int height)
+    /// <param name="exportService">
+    /// Draws the bitmap on targets without a built-in platform context (plain <c>net10.0</c>, which
+    /// browser and desktop backends run on). Ignored on iOS, Mac Catalyst and Android.
+    /// </param>
+    public Stream ExportToPng(int width, int height, IBitmapExportService? exportService = null)
     {
-#if IOS || MACCATALYST || ANDROID
-        using var context = new Microsoft.Maui.Graphics.Platform.PlatformBitmapExportContext(width, height, 1f);
+        using var context = CreateExportContext(width, height, exportService);
+        if (context is null)
+            return Stream.Null;
+
         var canvas = context.Canvas;
 
         canvas.FillColor = BackgroundColor;
@@ -79,8 +140,15 @@ internal sealed class SignaturePadDrawable : IDrawable
         DrawStrokes(canvas, committedStrokes, scale, offsetX, offsetY, strokeWidth);
 
         return context.Image.AsStream(Microsoft.Maui.Graphics.ImageFormat.Png);
+    }
+
+    static BitmapExportContext? CreateExportContext(int width, int height, IBitmapExportService? exportService)
+    {
+#if IOS || MACCATALYST || ANDROID
+        return new Microsoft.Maui.Graphics.Platform.PlatformBitmapExportContext(width, height, 1f);
 #else
-        return Stream.Null;
+        // No platform context on this target; a backend that can draw bitmaps registers the service.
+        return exportService?.CreateContext(width, height, 1f);
 #endif
     }
 

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             xmlns:local="clr-namespace:Sample.Features.SignaturePad"
+             x:Class="Sample.Features.SignaturePad.SignatureViewPage"
+             x:DataType="local:SignatureViewPage"
+             Title="Signature View"
+             AutomationId="SignatureViewPage">
+
+    <!-- The page scrolls; a stroke on the surface holds the scroller off, a touch beside it still scrolls. -->
+    <ScrollView Padding="16">
+        <VerticalStackLayout Spacing="16">
+
+            <Label Text="In a form" FontSize="18" FontAttributes="Bold" />
+            <Label Text="The same surface the Signature Pad uses, placed straight on the page. Submit stays disabled until there is ink."
+                   FontSize="13" />
+
+            <Label Text="Customer signature" FontAttributes="Bold" />
+            <shiny:SignatureView x:Name="Signature"
+                                 AutomationId="FormSignature"
+                                 HeightRequest="180"
+                                 PlaceholderText="Sign here"
+                                 ShowSignatureLine="True"
+                                 StrokeCompleted="OnStroke"
+                                 Cleared="OnCleared" />
+
+            <HorizontalStackLayout Spacing="8">
+                <Button Text="Submit"
+                        AutomationId="SignatureSubmit"
+                        IsEnabled="{Binding HasSignature, Source={x:Reference Signature}}"
+                        Clicked="OnSubmit" />
+                <Button Text="Undo"
+                        IsEnabled="{Binding HasSignature, Source={x:Reference Signature}}"
+                        Clicked="OnUndo" />
+                <Button x:Name="LockButton" Text="Lock" Clicked="OnLock" />
+            </HorizontalStackLayout>
+
+            <Label x:Name="StatusLabel" AutomationId="SignatureViewStatus" Text="Waiting for a signature" FontSize="13" TextColor="Gray" />
+
+            <Border x:Name="ResultFrame" IsVisible="False" StrokeShape="RoundRectangle 8" Stroke="LightGray" Padding="8">
+                <Image x:Name="ResultImage" HeightRequest="120" Aspect="AspectFit" />
+            </Border>
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
+            <Label Text="Ink and paper" FontSize="18" FontAttributes="Bold" />
+            <Label Text="Blue ink on a cream card. The card draws the edge here, so the surface's own border is off."
+                   FontSize="13" />
+            <Border StrokeShape="RoundRectangle 12" Stroke="#D97706" StrokeThickness="2" Padding="0">
+                <shiny:SignatureView ShowBorder="False"
+                                     CornerRadius="0"
+                                     HeightRequest="120"
+                                     StrokeColor="#1D4ED8"
+                                     StrokeWidth="4"
+                                     SignatureBackgroundColor="#FFFBEB"
+                                     PlaceholderText="Initial here" />
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,72 @@
+@page "/resizable"
+
+<PageTitle>Resizable</PageTitle>
+
+<div class="demo-fill" style="padding: 16px;">
+    <h2>Resizable</h2>
+    <p style="color: gray; font-size: 13px;">
+        Drag a handle, or focus one (Tab) and use the arrow keys, Home and End. The sidebar collapses when
+        dragged past half its 15% minimum, and Enter on its handle toggles it. Sizes persist to this page's
+        state through <code>@@bind-Sizes</code>.
+    </p>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+        <button @onclick="ToggleSidebar">@(sidebarCollapsed ? "Expand" : "Collapse") sidebar</button>
+        <button @onclick="Reset">Reset</button>
+        <span class="state" style="margin:0;">Sizes: <code>@Format(outer)</code> / <code>@Format(inner)</code></span>
+    </div>
+
+    @* The group fills the body and draws no border of its own; the frame here is the only edge. *@
+    <div class="demo-fill-body" style="border: 1px solid var(--shiny-color-outline-variant, #ddd); border-radius: 6px; overflow: hidden;">
+        <ResizablePanelGroup @ref="outerGroup" Direction="ResizableDirection.Horizontal" @bind-Sizes="outer">
+            <ResizablePanel @ref="sidebar" DefaultSize="22" MinSize="15" Collapsible @bind-IsCollapsed="sidebarCollapsed">
+                <div class="pane">
+                    <strong>Explorer</strong>
+                    <ul style="padding-left:16px;margin:8px 0;">
+                        <li>Program.cs</li>
+                        <li>App.razor</li>
+                        <li>Pages/</li>
+                        <li>wwwroot/</li>
+                    </ul>
+                </div>
+            </ResizablePanel>
+            <ResizableHandle WithHandle />
+            <ResizablePanel MinSize="30">
+                <ResizablePanelGroup Direction="ResizableDirection.Vertical" @bind-Sizes="inner">
+                    <ResizablePanel DefaultSize="70" MinSize="20">
+                        <div class="pane"><strong>Editor</strong><p>The nested group stacks vertically inside the main panel.</p></div>
+                    </ResizablePanel>
+                    <ResizableHandle />
+                    <ResizablePanel MinSize="10">
+                        <div class="pane"><strong>Terminal</strong><p><code>$ dotnet watch</code></p></div>
+                    </ResizablePanel>
+                </ResizablePanelGroup>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel DefaultSize="20" MinSize="10" MaxSize="35">
+                <div class="pane"><strong>Properties</strong><p>Capped at 35%.</p></div>
+            </ResizablePanel>
+        </ResizablePanelGroup>
+    </div>
+</div>
+
+<style>
+    .pane { padding: 12px; height: 100%; box-sizing: border-box; font-size: 13px; }
+</style>
+
+@code {
+    ResizablePanelGroup? outerGroup;
+    ResizablePanel? sidebar;
+    IReadOnlyList<double>? outer;
+    IReadOnlyList<double>? inner;
+    bool sidebarCollapsed;
+
+    static string Format(IReadOnlyList<double>? sizes)
+        => sizes is null ? "—" : String.Join(" · ", sizes.Select(x => x.ToString("0")));
+
+    Task ToggleSidebar()
+        => sidebar is null ? Task.CompletedTask : sidebarCollapsed ? sidebar.ExpandAsync() : sidebar.CollapseAsync();
+
+    Task Reset()
+        => outerGroup?.SetSizesAsync(22, 58, 20) ?? Task.CompletedTask;
+}
