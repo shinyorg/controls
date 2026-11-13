@@ -28,6 +28,7 @@ A text entry control with a Material 3 floating label, customizable border, left
 | FocusedBorderColor | Color | #007AFF | Border color focused |
 | BorderThickness | double | 1 | Unfocused border thickness |
 | FocusedBorderThickness | double | 2 | Focused border thickness |
+| HasFocusGlow | bool | true | Soft glow around the border while focused or in error. `false` leaves the border without a Shadow (cheaper layout on Windows); focus still shows through the stroke |
 | CornerRadius | CornerRadius | 8 | Corner radius |
 | EntryBackgroundColor | Color | Transparent | Background fill |
 | IsReadOnly | bool | false | Read-only mode |
