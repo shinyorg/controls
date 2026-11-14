@@ -28,6 +28,9 @@ public partial class SecurityPinViewModel(AppSettings appSettings) : ObservableO
     string alphaPin = string.Empty;
 
     [ObservableProperty]
+    string highlightPin = string.Empty;
+
+    [ObservableProperty]
     string statusMessage = "Enter a PIN to get started";
 
     [RelayCommand]
@@ -36,6 +39,7 @@ public partial class SecurityPinViewModel(AppSettings appSettings) : ObservableO
         HiddenPin = string.Empty;
         VisiblePin = string.Empty;
         AlphaPin = string.Empty;
+        HighlightPin = string.Empty;
         StatusMessage = "Cleared";
     }
 

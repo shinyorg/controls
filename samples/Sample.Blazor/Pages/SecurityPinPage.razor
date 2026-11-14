@@ -27,6 +27,21 @@
 </div>
 
 <div class="demo-section">
+    <h2>Current-cell highlight</h2>
+    <p>Dashed cells; the cell awaiting the next digit gets a thick solid orange border and a tinted fill.</p>
+    <SecurityPin @bind-Value="valueHighlight"
+                 Length="4"
+                 CellBorderStyle="SecurityPinBorderStyle.Dashed"
+                 CellFocusedBorderStyle="SecurityPinBorderStyle.Solid"
+                 CellFocusedBorderThickness="3"
+                 CellFocusedBorderColor="#F97316"
+                 CellFocusedBackgroundColor="#FFF3E0"
+                 CellFocusedTextColor="#C2410C"
+                 Completed="OnCompleted" />
+    <div class="state">Value: <code>@valueHighlight</code></div>
+</div>
+
+<div class="demo-section">
     <h2>Last completion</h2>
     <p>Last completed value: <code>@lastCompleted</code></p>
 </div>
@@ -34,6 +49,7 @@
 @code {
     string value4 = "";
     string value6 = "";
+    string valueHighlight = "";
     string? lastCompleted;
 
     void OnCompleted(SecurityPinCompletedEventArgs e) => lastCompleted = e.Value;

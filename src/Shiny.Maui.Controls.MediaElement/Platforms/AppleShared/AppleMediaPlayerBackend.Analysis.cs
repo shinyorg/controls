@@ -24,6 +24,7 @@ partial class AppleMediaPlayerBackend
     int frameRotation;
 
     MTAudioProcessingTap? tap;
+    readonly List<MTAudioProcessingTap> retiredTaps = [];
     AudioStreamBasicDescription tapFormat;
     float[] tapBuffer = [];
     float[] tapChannel = [];
@@ -263,6 +264,11 @@ partial class AppleMediaPlayerBackend
         sink.OnAudio(this.tapBuffer.AsSpan(0, needed), (int)this.tapFormat.SampleRate, channels);
     }
 
+    // The player and every item it played are gone; nothing can call a tap any more. Kept alive (not disposed) even
+    // now, deliberately: the binding's callbacks are static and a late call on a disposed tap still aborts, while an
+    // undisposed tap only costs its native allocation until the GC finalizes it.
+    void ReleaseRetiredTaps() => this.retiredTaps.Clear();
+
     void TeardownAnalysis()
     {
         this.RemoveVideoOutput();
@@ -271,7 +277,12 @@ partial class AppleMediaPlayerBackend
         {
             if (this.item is not null)
                 this.item.AudioMix = null;
-            this.tap.Dispose();
+
+            // ⚠️ Not disposed here. AVFoundation tears the processing chain down asynchronously and can still call
+            // the old tap's prepare/unprepare after the item is gone; the binding resolves those calls through a table
+            // of live managed taps, so a disposed one makes MediaToolbox throw KeyNotFoundException inside the binding
+            // - where no handler of ours can catch it - and the process aborts. Retired taps live until the player does.
+            this.retiredTaps.Add(this.tap);
             this.tap = null;
         }
         this.asset = null;

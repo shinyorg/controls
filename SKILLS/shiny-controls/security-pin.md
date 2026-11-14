@@ -33,6 +33,12 @@ A PIN/OTP entry control with individually rendered cells. Input is captured by a
 | `CellBackgroundColor` | `Color?` | `null` | OneWay | Cell fill color (unset → theme `surface-container-low`) |
 | `CellFocusedBackgroundColor` | `Color?` | `null` | OneWay | Background color for the currently active cell (unset → `CellBackgroundColor`) |
 | `CellTextColor` | `Color?` | `null` | OneWay | Color for the rendered digit/character (unset → theme `on-surface`) |
+| `CellFocusedTextColor` | `Color?` | `null` | OneWay | Character color for the currently active cell (unset → `CellTextColor`) |
+| `CellBorderThickness` | `double` | unset (theme thin, 1) | OneWay | Cell stroke width |
+| `CellFocusedBorderThickness` | `double` | unset | OneWay | Stroke width for the currently active cell (unset → `CellBorderThickness`) |
+| `CellBorderStyle` | `SecurityPinBorderStyle` | `Solid` | OneWay | `Solid`, `Dashed`, `Dotted` or `None` |
+| `CellFocusedBorderStyle` | `SecurityPinBorderStyle?` | `null` | OneWay | Stroke style for the currently active cell (unset → `CellBorderStyle`) |
+| `HighlightCurrentCell` | `bool` | `true` | OneWay | When false, the active cell is drawn like the others |
 | `FontSize` | `double` | `24` | OneWay | Font size for the rendered character |
 | `UseFeedback` | `bool` | `true` | OneWay | Haptic click on digit entry, long press on completion |
 
@@ -103,6 +109,25 @@ void OnPinCompleted(object? sender, SecurityPinCompletedEventArgs e)
                    FontSize="22"
                    Value="{Binding Pin}" />
 ```
+
+## Current-Cell Highlight
+
+The "active cell" is the one waiting for the next character: the first empty cell, or the last cell once the pin is full. It only shows while the pin has focus. Each `CellFocused…` property left unset falls back to its `Cell…` twin, except `CellFocusedBorderColor`, which falls back to theme `primary`. Only set it when you want something other than `primary`.
+
+```xml
+<shiny:SecurityPin Length="4"
+                   CellBorderStyle="Dashed"
+                   CellFocusedBorderStyle="Solid"
+                   CellFocusedBorderThickness="3"
+                   CellFocusedBorderColor="DarkOrange"
+                   CellFocusedBackgroundColor="#FFF3E0"
+                   CellFocusedTextColor="DarkOrange" />
+```
+
+Blazor takes the same parameters (colors as CSS strings, `CellBorderStyle="SecurityPinBorderStyle.Dashed"`, `CellFocusedBorderThickness` is `double?`). The Blazor active cell also draws a focus ring, set by the `--shiny-pin-focus-ring` CSS custom property (`none` removes it).
+
+- When the user wants the active cell to stand out, use the `CellFocused…` properties. Never swap styles from the `Focused`/`TextChanged` events.
+- Use `HighlightCurrentCell="False"` when the user wants every cell to look the same.
 
 ## Behavior Notes
 

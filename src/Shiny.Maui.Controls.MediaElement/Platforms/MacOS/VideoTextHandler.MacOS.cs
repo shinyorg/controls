@@ -10,6 +10,13 @@ partial class VideoTextHandler : ViewHandler<VideoTextSurface, VideoTextPlatform
 {
     protected override VideoTextPlatformView CreatePlatformView() => new();
 
+    // MAUI arranges nothing for a custom view on net10.0-macos; without this the view stays 0x0 — see MediaPlayerNSView
+    public override void PlatformArrange(Rect frame)
+    {
+        base.PlatformArrange(frame);
+        this.PlatformView?.ApplyArrangedFrame(frame);
+    }
+
     // The AppKit head has no IFontManager to lean on, so fonts resolve straight through NSFont.
     // The resolver lives on the native view, so it captures values, never the virtual view.
     static void MapText(VideoTextHandler handler, VideoTextSurface view)

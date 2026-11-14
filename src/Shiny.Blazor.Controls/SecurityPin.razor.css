@@ -30,9 +30,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
+    transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
 }
 
+/* The ring around the cell awaiting input. Override --shiny-pin-focus-ring (any box-shadow value,
+   or none) to restyle or drop it. */
 .shiny-pin-cell.is-current {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shiny-color-primary, #0055D9) 30%, transparent);
+    box-shadow: var(--shiny-pin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--shiny-color-primary, #0055D9) 30%, transparent));
 }

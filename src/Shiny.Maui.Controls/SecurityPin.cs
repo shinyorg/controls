@@ -267,17 +267,119 @@ public class SecurityPin : ContentView
         typeof(Color),
         typeof(SecurityPin),
         null,
-        propertyChanged: (b, _, n) => StyleGuard.WhenReady(b, typeof(SecurityPin), () =>
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SecurityPin), () =>
             {
-                var pin = (SecurityPin)b;
-                foreach (var label in pin.cellLabels)
-                    ThemeProbe.Tint(label, Label.TextColorProperty, (Color?)n, ShinyThemeKeys.Color.OnSurface);
+                ((SecurityPin)b).ApplyCellStyle();
             })
     );
     public Color? CellTextColor
     {
         get => (Color?)GetValue(CellTextColorProperty);
         set => SetValue(CellTextColorProperty, value);
+    }
+
+    public static readonly BindableProperty CellFocusedTextColorProperty = BindableProperty.Create(
+        nameof(CellFocusedTextColor),
+        typeof(Color),
+        typeof(SecurityPin),
+        null,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SecurityPin), () =>
+            {
+                ((SecurityPin)b).ApplyCellStyle();
+            })
+    );
+    /// <summary>Character colour of the cell awaiting the next character. Unset keeps <see cref="CellTextColor"/>.</summary>
+    public Color? CellFocusedTextColor
+    {
+        get => (Color?)GetValue(CellFocusedTextColorProperty);
+        set => SetValue(CellFocusedTextColorProperty, value);
+    }
+
+    public static readonly BindableProperty CellBorderThicknessProperty = BindableProperty.Create(
+        nameof(CellBorderThickness),
+        typeof(double),
+        typeof(SecurityPin),
+        ThemeTokens.Unset,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SecurityPin), () =>
+            {
+                ((SecurityPin)b).ApplyCellStyle();
+            })
+    );
+    /// <summary>Stroke width of the cells. Unset follows the theme's thin border token.</summary>
+    public double CellBorderThickness
+    {
+        get => (double)GetValue(CellBorderThicknessProperty);
+        set => SetValue(CellBorderThicknessProperty, value);
+    }
+
+    public static readonly BindableProperty CellFocusedBorderThicknessProperty = BindableProperty.Create(
+        nameof(CellFocusedBorderThickness),
+        typeof(double),
+        typeof(SecurityPin),
+        ThemeTokens.Unset,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SecurityPin), () =>
+            {
+                ((SecurityPin)b).ApplyCellStyle();
+            })
+    );
+    /// <summary>Stroke width of the cell awaiting the next character. Unset keeps <see cref="CellBorderThickness"/>.</summary>
+    public double CellFocusedBorderThickness
+    {
+        get => (double)GetValue(CellFocusedBorderThicknessProperty);
+        set => SetValue(CellFocusedBorderThicknessProperty, value);
+    }
+
+    public static readonly BindableProperty CellBorderStyleProperty = BindableProperty.Create(
+        nameof(CellBorderStyle),
+        typeof(SecurityPinBorderStyle),
+        typeof(SecurityPin),
+        SecurityPinBorderStyle.Solid,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SecurityPin), () =>
+            {
+                ((SecurityPin)b).ApplyCellStyle();
+            })
+    );
+    public SecurityPinBorderStyle CellBorderStyle
+    {
+        get => (SecurityPinBorderStyle)GetValue(CellBorderStyleProperty);
+        set => SetValue(CellBorderStyleProperty, value);
+    }
+
+    public static readonly BindableProperty CellFocusedBorderStyleProperty = BindableProperty.Create(
+        nameof(CellFocusedBorderStyle),
+        typeof(SecurityPinBorderStyle?),
+        typeof(SecurityPin),
+        null,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SecurityPin), () =>
+            {
+                ((SecurityPin)b).ApplyCellStyle();
+            })
+    );
+    /// <summary>Stroke style of the cell awaiting the next character. Unset keeps <see cref="CellBorderStyle"/>.</summary>
+    public SecurityPinBorderStyle? CellFocusedBorderStyle
+    {
+        get => (SecurityPinBorderStyle?)GetValue(CellFocusedBorderStyleProperty);
+        set => SetValue(CellFocusedBorderStyleProperty, value);
+    }
+
+    public static readonly BindableProperty HighlightCurrentCellProperty = BindableProperty.Create(
+        nameof(HighlightCurrentCell),
+        typeof(bool),
+        typeof(SecurityPin),
+        true,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SecurityPin), () =>
+            {
+                ((SecurityPin)b).ApplyCellStyle();
+            })
+    );
+    /// <summary>
+    /// While the pin has focus, the cell awaiting the next character takes the <c>CellFocused…</c>
+    /// appearance. Turn it off to draw every cell alike.
+    /// </summary>
+    public bool HighlightCurrentCell
+    {
+        get => (bool)GetValue(HighlightCurrentCellProperty);
+        set => SetValue(HighlightCurrentCellProperty, value);
     }
 
     public static readonly BindableProperty FontSizeProperty = BindableProperty.Create(
@@ -381,7 +483,7 @@ public class SecurityPin : ContentView
             shape.SetCornerTokenOrValue(CellCornerRadius, ShinyThemeKeys.Shape.CornerSmallRadius);
             border.StrokeShape = shape;
 
-            ApplyActiveCellStyle(border, i);
+            ApplyActiveCellStyle(i);
         }
     }
 
@@ -390,9 +492,10 @@ public class SecurityPin : ContentView
     /// fill at all - the cells were simply not there unless an app-wide implicit Border style happened
     /// to stroke them - and a cell that had been focused kept its focused colour after focus moved on.
     /// </remarks>
-    void ApplyActiveCellStyle(Border border, int index)
+    void ApplyActiveCellStyle(int index)
     {
-        var isCurrent = index == CurrentIndex && hiddenEntry.IsFocused;
+        var border = cellBorders[index];
+        var isCurrent = HighlightCurrentCell && index == CurrentIndex && hiddenEntry.IsFocused;
 
         // The focused cell takes the primary colour unless the consumer coloured the cells themselves
         // and said nothing about focus, in which case it keeps theirs - as it always has.
@@ -403,6 +506,30 @@ public class SecurityPin : ContentView
 
         var fill = isCurrent ? CellFocusedBackgroundColor ?? CellBackgroundColor : CellBackgroundColor;
         ThemeProbe.Tint(border, VisualElement.BackgroundColorProperty, fill, ShinyThemeKeys.Color.SurfaceContainerLow);
+
+        var ink = isCurrent ? CellFocusedTextColor ?? CellTextColor : CellTextColor;
+        ThemeProbe.Tint(cellLabels[index], Label.TextColorProperty, ink, ShinyThemeKeys.Color.OnSurface);
+
+        var style = isCurrent ? CellFocusedBorderStyle ?? CellBorderStyle : CellBorderStyle;
+        var thickness = isCurrent && ThemeTokens.IsSet(CellFocusedBorderThickness)
+            ? CellFocusedBorderThickness
+            : CellBorderThickness;
+
+        // Cleared first: a local value outranks a dynamic resource, so a cell that had been given the
+        // focused (or None) width would otherwise keep it when it goes back to the theme token.
+        border.ClearValue(Border.StrokeThicknessProperty);
+        if (style == SecurityPinBorderStyle.None)
+            border.StrokeThickness = 0;
+        else
+            border.SetTokenOrValue(Border.StrokeThicknessProperty, thickness, ShinyThemeKeys.Border.Thin);
+
+        // StrokeDashArray is measured in multiples of the stroke width, so the pattern scales with it.
+        if (style == SecurityPinBorderStyle.Dashed)
+            border.StrokeDashArray = new DoubleCollection { 4, 2 };
+        else if (style == SecurityPinBorderStyle.Dotted)
+            border.StrokeDashArray = new DoubleCollection { 1, 1.5 };
+        else
+            border.ClearValue(Border.StrokeDashArrayProperty);
     }
 
     int CurrentIndex => Math.Min(Value?.Length ?? 0, cellBorders.Count - 1);
@@ -422,7 +549,7 @@ public class SecurityPin : ContentView
         }
 
         for (var i = 0; i < cellBorders.Count; i++)
-            ApplyActiveCellStyle(cellBorders[i], i);
+            ApplyActiveCellStyle(i);
     }
 
     void OnHiddenEntryTextChanged(object? sender, TextChangedEventArgs e)
@@ -490,4 +617,13 @@ public class SecurityPin : ContentView
 public class SecurityPinCompletedEventArgs(string value) : EventArgs
 {
     public string Value { get; } = value;
+}
+
+/// <summary>How a <see cref="SecurityPin"/> cell's outline is drawn.</summary>
+public enum SecurityPinBorderStyle
+{
+    Solid,
+    Dashed,
+    Dotted,
+    None
 }

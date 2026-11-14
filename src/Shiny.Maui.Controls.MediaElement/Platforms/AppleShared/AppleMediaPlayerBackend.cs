@@ -144,6 +144,10 @@ partial class AppleMediaPlayerBackend : IMediaPlayerBackend
 
         this.output.PlayerLayer.Player = this.player;
         this.ApplyGravity();
+#if MACOS
+        var traced = this.output; // TRACE
+        _ = Task.Delay(3000).ContinueWith(_ => this.OnMain(() => { var l = traced.PlayerLayer; Console.Error.WriteLine($"[video] layer frame={l.Frame} super={l.SuperLayer?.GetType().Name} hidden={l.Hidden} opacity={l.Opacity} player={(l.Player is null ? "null" : "set")} ready={l.ReadyForDisplay} gravity={l.VideoGravity} viewFrame={(traced as AppKit.NSView)?.Frame} window={(traced as AppKit.NSView)?.Window is not null} itemStatus={this.item?.Status} presentation={this.item?.PresentationSize} tracks={this.item?.Tracks.Length}"); })); // TRACE
+#endif
 
 #if IOS || MACCATALYST
         if (this.output.SupportsPictureInPicture)
@@ -608,6 +612,7 @@ partial class AppleMediaPlayerBackend : IMediaPlayerBackend
         this.player.Pause();
         this.player.ReplaceCurrentItemWithPlayerItem(null);
         this.player.Dispose();
+        this.ReleaseRetiredTaps();
     }
 }
 

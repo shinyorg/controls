@@ -271,8 +271,9 @@ public class SpeechCaptionAnalyzer : AudioAnalyzer, ISourceAudioAnalyzer, ICapti
             () => (this.Engine, this.Provider, this.Culture, this.PreferOnDevice)).ConfigureAwait(false);
 
         ICaptionEngine? created = null;
+        string? nativeUnavailable = null;
         if (mode != SpeechCaptionEngine.Provider && !(mode == SpeechCaptionEngine.Auto && provider is not null))
-            created = await CreateNativeAsync(culture, onDevice, this).ConfigureAwait(false);
+            (created, nativeUnavailable) = await CreateNativeAsync(culture, onDevice, this).ConfigureAwait(false);
 
         if (created is null && mode != SpeechCaptionEngine.Native)
         {
@@ -283,9 +284,11 @@ public class SpeechCaptionAnalyzer : AudioAnalyzer, ISourceAudioAnalyzer, ICapti
 
         if (created is null)
         {
-            ((ICaptionSink)this).Fail(mode == SpeechCaptionEngine.Native
-                ? "No native speech recognizer can take pushed audio here (or speech permission was refused)."
-                : "No speech recognizer is available: the platform recognizer cannot take pushed audio here and no ISpeechToTextProvider is set or registered.", null);
+            // the platform's own reason (permission refused, Dictation off) says what to fix; the generic one only
+            // applies where there is no platform recognizer to ask
+            ((ICaptionSink)this).Fail(nativeUnavailable ?? (mode == SpeechCaptionEngine.Native
+                ? "No native speech recognizer can take pushed audio here."
+                : "No speech recognizer is available: the platform recognizer cannot take pushed audio here and no ISpeechToTextProvider is set or registered."), null);
         }
 
         Console.Error.WriteLine($"[analysis] caption engine={created?.GetType().Name ?? "none"} mode={mode}"); // TRACE
@@ -294,16 +297,17 @@ public class SpeechCaptionAnalyzer : AudioAnalyzer, ISourceAudioAnalyzer, ICapti
         return created;
     }
 
-    static async Task<ICaptionEngine?> CreateNativeAsync(CultureInfo? culture, bool onDevice, ICaptionSink sink)
+    static async Task<(ICaptionEngine? Engine, string? Unavailable)> CreateNativeAsync(CultureInfo? culture, bool onDevice, ICaptionSink sink)
     {
 #if IOS || MACCATALYST || MACOS
         return await AppleCaptionEngine.TryCreateAsync(culture, onDevice, sink).ConfigureAwait(false);
 #elif ANDROID
         await Task.CompletedTask;
-        return AndroidCaptionEngine.TryCreate(culture, onDevice, sink);
+        var engine = AndroidCaptionEngine.TryCreate(culture, onDevice, sink);
+        return (engine, engine is null ? "Android's speech recognizer cannot take pushed audio here (it needs Android 13+ and a recognition service)." : null);
 #else
         await Task.CompletedTask;
-        return null;
+        return (null, null);
 #endif
     }
 

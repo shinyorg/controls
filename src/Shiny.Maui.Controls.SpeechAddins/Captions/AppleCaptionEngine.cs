@@ -41,8 +41,13 @@ sealed class AppleCaptionEngine : ICaptionEngine
         this.sink = sink;
     }
 
-    /// <summary>Create the engine, asking for permission if needed; <c>null</c> when recognition is unavailable or refused.</summary>
-    public static async Task<AppleCaptionEngine?> TryCreateAsync(System.Globalization.CultureInfo? culture, bool preferOnDevice, ICaptionSink sink)
+    const string DictationOff = "Speech recognition is unavailable because Siri and Dictation are turned off. Turn on Dictation in System Settings › Keyboard (iOS: Settings › General › Keyboard › Enable Dictation), or give the analyzer a Provider.";
+
+    /// <summary>
+    /// Create the engine: asks for speech permission if needed, then checks the recognizer will actually run. Returns
+    /// the engine, or <c>null</c> with the reason it cannot be used.
+    /// </summary>
+    public static async Task<(AppleCaptionEngine? Engine, string? Unavailable)> TryCreateAsync(System.Globalization.CultureInfo? culture, bool preferOnDevice, ICaptionSink sink)
     {
         var status = SFSpeechRecognizer.AuthorizationStatus;
         if (status == SFSpeechRecognizerAuthorizationStatus.NotDetermined)
@@ -53,7 +58,7 @@ sealed class AppleCaptionEngine : ICaptionEngine
         }
         Console.Error.WriteLine($"[analysis] speech auth={status}"); // TRACE
         if (status != SFSpeechRecognizerAuthorizationStatus.Authorized)
-            return null;
+            return (null, "Speech recognition permission was not granted.");
 
         var locale = culture is null ? NSLocale.CurrentLocale : new NSLocale(culture.Name.Replace('-', '_'));
         var recognizer = new SFSpeechRecognizer(locale);
@@ -61,10 +66,44 @@ sealed class AppleCaptionEngine : ICaptionEngine
         if (!recognizer.Available)
         {
             recognizer.Dispose();
-            return null;
+            return (null, $"The speech recognizer is not available for {locale.Identifier}.");
         }
 
-        return new AppleCaptionEngine(recognizer, preferOnDevice && recognizer.SupportsOnDeviceRecognition, sink);
+        // Permission is not the whole story: with Siri and Dictation turned off the recognizer is "available" and
+        // authorized, then fails every request. There is no API that says so, so a short silent request finds out
+        // before any captioning starts.
+        var onDevice = preferOnDevice && recognizer.SupportsOnDeviceRecognition;
+        if (await IsDictationDisabledAsync(recognizer, onDevice).ConfigureAwait(false))
+        {
+            recognizer.Dispose();
+            return (null, DictationOff);
+        }
+
+        return (new AppleCaptionEngine(recognizer, onDevice, sink), null);
+    }
+
+    // kLSRErrorDomain 201 ("Siri and Dictation are disabled"). Any other outcome — a result, "no speech detected", a
+    // timeout — means the recognizer runs.
+    static async Task<bool> IsDictationDisabledAsync(SFSpeechRecognizer recognizer, bool onDevice)
+    {
+        var outcome = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var format = new AVAudioFormat(16000, 1);
+        using var silence = new AVAudioPcmBuffer(format, 3200) { FrameLength = 3200 }; // 0.2 s, zero-filled
+        using var request = new SFSpeechAudioBufferRecognitionRequest { ShouldReportPartialResults = false, RequiresOnDeviceRecognition = onDevice };
+        request.Append(silence);
+        request.EndAudio();
+
+        using var task = recognizer.GetRecognitionTask(request, (result, error) =>
+        {
+            if (error is not null)
+                outcome.TrySetResult(error.Code == 201);
+            else if (result?.Final == true)
+                outcome.TrySetResult(false);
+        });
+
+        var finished = await Task.WhenAny(outcome.Task, Task.Delay(TimeSpan.FromSeconds(3))).ConfigureAwait(false);
+        task.Cancel();
+        return finished == outcome.Task && outcome.Task.Result;
     }
 
     public Task PushAsync(AudioFrame frame, CancellationToken ct)
@@ -164,11 +203,26 @@ sealed class AppleCaptionEngine : ICaptionEngine
                 Console.Error.WriteLine($"[analysis] request error {error.Domain}/{error.Code} {error.LocalizedDescription}"); // TRACE
                 // "no speech detected" (and a cancelled request) are normal ends of an utterance, not failures
                 if (error.Code is not (1110 or 203 or 216 or 301))
-                    this.sink.Fail("Speech recognition failed: " + error.LocalizedDescription);
+                    this.ReportFailure(error);
                 this.sink.Partial(null);
                 done.TrySetResult();
             }
         });
+    }
+
+    // Reported once: a settings problem fails every request the same way, and a status line repeating it per
+    // utterance helps nobody.
+    int failureReported;
+
+    void ReportFailure(NSError error)
+    {
+        if (Interlocked.Exchange(ref this.failureReported, 1) == 1)
+            return;
+
+        // kLSRErrorDomain 201: Apple's recognizer will not run - not even on-device - while Siri and Dictation are off
+        // 201 can still arrive mid-session if Dictation is switched off while captioning
+        var message = error.Code == 201 ? DictationOff : "Speech recognition failed: " + error.LocalizedDescription;
+        this.sink.Fail(message);
     }
 
     void Finish()

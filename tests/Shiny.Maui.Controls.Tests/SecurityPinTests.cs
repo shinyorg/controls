@@ -119,4 +119,86 @@ public class SecurityPinTests
         cells.Count.ShouldBe(6);
         StrokeOf(cells[5]).ShouldBe(this.Token(ShinyThemeKeys.Brush.Outline));
     }
+
+
+    // A test host never gives an Entry real focus. IView.IsFocused is the setter the handlers use,
+    // and it raises Focused / Unfocused just as the platform would.
+    static void FocusEntry(SecurityPin pin, bool focused = true)
+        => ((Microsoft.Maui.IView)Find<Entry>(pin).Single()).IsFocused = focused;
+
+
+    [Fact]
+    public void TheCurrentCell_TakesTheFocusedAppearance()
+    {
+        var pin = Pin();
+        pin.Value = "1";
+        pin.CellFocusedBorderColor = Colors.Orange;
+        pin.CellFocusedBackgroundColor = Colors.Beige;
+        pin.CellFocusedTextColor = Colors.Brown;
+        pin.CellFocusedBorderThickness = 3;
+        pin.CellBorderStyle = SecurityPinBorderStyle.Dashed;
+        pin.CellFocusedBorderStyle = SecurityPinBorderStyle.Solid;
+
+        FocusEntry(pin);
+
+        var cells = Cells(pin);
+        var current = cells[1];
+        StrokeOf(current).ShouldBe(Colors.Orange);
+        current.BackgroundColor.ShouldBe(Colors.Beige);
+        current.StrokeThickness.ShouldBe(3);
+        current.StrokeDashArray.ShouldBeEmpty();
+        ((Label)current.Content!).TextColor.ShouldBe(Colors.Brown);
+
+        var other = cells[2];
+        StrokeOf(other).ShouldBe(this.Token(ShinyThemeKeys.Brush.Outline));
+        other.StrokeThickness.ShouldNotBe(3);
+        other.StrokeDashArray.ShouldNotBeEmpty();
+    }
+
+
+    [Fact]
+    public void LosingFocus_ReturnsTheCurrentCellToNormal()
+    {
+        var pin = Pin();
+        pin.CellFocusedBorderThickness = 3;
+        pin.CellFocusedBackgroundColor = Colors.Beige;
+
+        FocusEntry(pin);
+        FocusEntry(pin, false);
+
+        var first = Cells(pin)[0];
+        first.StrokeThickness.ShouldNotBe(3);
+        first.BackgroundColor.ShouldBe(this.Token(ShinyThemeKeys.Color.SurfaceContainerLow));
+    }
+
+
+    [Fact]
+    public void HighlightCurrentCellOff_DrawsEveryCellAlike()
+    {
+        var pin = Pin();
+        pin.HighlightCurrentCell = false;
+        pin.CellFocusedBackgroundColor = Colors.Beige;
+
+        FocusEntry(pin);
+
+        var first = Cells(pin)[0];
+        StrokeOf(first).ShouldBe(this.Token(ShinyThemeKeys.Brush.Outline));
+        first.BackgroundColor.ShouldBe(this.Token(ShinyThemeKeys.Color.SurfaceContainerLow));
+    }
+
+
+    [Fact]
+    public void BorderStyleNone_DrawsNoStroke()
+    {
+        var pin = Pin();
+        pin.CellBorderThickness = 2;
+        pin.CellBorderStyle = SecurityPinBorderStyle.None;
+
+        foreach (var cell in Cells(pin))
+            cell.StrokeThickness.ShouldBe(0);
+
+        pin.CellBorderStyle = SecurityPinBorderStyle.Solid;
+        foreach (var cell in Cells(pin))
+            cell.StrokeThickness.ShouldBe(2);
+    }
 }

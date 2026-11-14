@@ -84,6 +84,21 @@
                                    Completed="OnAlphaPinCompleted" />
             </VerticalStackLayout>
 
+            <!-- Current-cell highlight -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Current-cell highlight (dashed cells, thick solid focus)"
+                       FontAttributes="Bold" />
+                <shiny:SecurityPin AutomationId="HighlightPin"
+                                   Length="4"
+                                   Value="{Binding HighlightPin}"
+                                   CellBorderStyle="Dashed"
+                                   CellFocusedBorderStyle="Solid"
+                                   CellFocusedBorderThickness="3"
+                                   CellFocusedBorderColor="DarkOrange"
+                                   CellFocusedBackgroundColor="#FFF3E0"
+                                   CellFocusedTextColor="DarkOrange" />
+            </VerticalStackLayout>
+
             <Button AutomationId="ClearPinsButton" Text="Clear All"
                     Command="{Binding ClearCommand}" />
 

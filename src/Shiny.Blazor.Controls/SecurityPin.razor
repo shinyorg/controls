@@ -23,9 +23,10 @@
             var idx = i;
             var ch = idx < (Value?.Length ?? 0) ? (Value![idx].ToString()) : "";
             var display = !string.IsNullOrEmpty(HideCharacter) && !string.IsNullOrEmpty(ch) ? HideCharacter : ch;
-            var isCurrent = idx == CurrentIndex && isFocused;
+            var isCurrent = HighlightCurrentCell && idx == CurrentIndex && isFocused;
+            var ink = isCurrent ? CellFocusedTextColor ?? CellTextColor : CellTextColor;
             <div class="shiny-pin-cell @(isCurrent ? "is-current" : "")" style="@CellStyle(isCurrent)">
-                <span style="font-size:@(FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture))px;@(CellTextColor is null ? "" : $"color:{CellTextColor};")">@display</span>
+                <span style="font-size:@(FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture))px;@(ink is null ? "" : $"color:{ink};")">@display</span>
             </div>
         }
     </div>
@@ -47,7 +48,22 @@
     [Parameter] public string? CellBorderColor { get; set; }
     [Parameter] public string? CellFocusedBorderColor { get; set; }
     [Parameter] public string? CellBackgroundColor { get; set; }
+    /// <summary>Fill of the cell awaiting the next character. Unset keeps <see cref="CellBackgroundColor"/>.</summary>
+    [Parameter] public string? CellFocusedBackgroundColor { get; set; }
     [Parameter] public string? CellTextColor { get; set; }
+    /// <summary>Character colour of the cell awaiting the next character. Unset keeps <see cref="CellTextColor"/>.</summary>
+    [Parameter] public string? CellFocusedTextColor { get; set; }
+    [Parameter] public double CellBorderThickness { get; set; } = 1;
+    /// <summary>Stroke width of the cell awaiting the next character. Unset keeps <see cref="CellBorderThickness"/>.</summary>
+    [Parameter] public double? CellFocusedBorderThickness { get; set; }
+    [Parameter] public SecurityPinBorderStyle CellBorderStyle { get; set; } = SecurityPinBorderStyle.Solid;
+    /// <summary>Stroke style of the cell awaiting the next character. Unset keeps <see cref="CellBorderStyle"/>.</summary>
+    [Parameter] public SecurityPinBorderStyle? CellFocusedBorderStyle { get; set; }
+    /// <summary>
+    /// While the pin has focus, the cell awaiting the next character takes the <c>CellFocused…</c>
+    /// appearance and the focus ring. Turn it off to draw every cell alike.
+    /// </summary>
+    [Parameter] public bool HighlightCurrentCell { get; set; } = true;
     [Parameter] public double FontSize { get; set; } = 24;
     [Parameter] public EventCallback<SecurityPinCompletedEventArgs> Completed { get; set; }
 
@@ -62,13 +78,31 @@
     {
         var size = CellSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var radius = CellCornerRadius.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var border = isCurrent && CellFocusedBorderColor is not null
-            ? CellFocusedBorderColor
+
+        // The focused cell takes the primary colour unless the consumer coloured the cells themselves
+        // and said nothing about focus, in which case it keeps theirs - the same rule as MAUI.
+        var border = isCurrent && (CellFocusedBorderColor is not null || CellBorderColor is null)
+            ? CellFocusedBorderColor ?? "var(--shiny-color-primary, #0055D9)"
             : (CellBorderColor ?? "var(--shiny-color-outline-variant, #BBC7DF)");
+
         // "white" here painted a stark white cell in dark mode; the border beside it was already a
         // token, so the cell was half-themed.
-        var bg = CellBackgroundColor ?? "var(--shiny-color-surface-container-low, #EFF4FB)";
-        return $"width:{size}px;height:{size}px;border-radius:{radius}px;border:1px solid {border};background:{bg};";
+        var bg = (isCurrent ? CellFocusedBackgroundColor ?? CellBackgroundColor : CellBackgroundColor)
+            ?? "var(--shiny-color-surface-container-low, #EFF4FB)";
+
+        var style = isCurrent ? CellFocusedBorderStyle ?? CellBorderStyle : CellBorderStyle;
+        var width = (isCurrent ? CellFocusedBorderThickness ?? CellBorderThickness : CellBorderThickness)
+            .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var stroke = style switch
+        {
+            SecurityPinBorderStyle.Dashed => $"{width}px dashed {border}",
+            SecurityPinBorderStyle.Dotted => $"{width}px dotted {border}",
+            SecurityPinBorderStyle.None => "none",
+            _ => $"{width}px solid {border}"
+        };
+
+        // box-sizing keeps a thicker focused border inside the cell, so the row doesn't shift.
+        return $"box-sizing:border-box;width:{size}px;height:{size}px;border-radius:{radius}px;border:{stroke};background:{bg};";
     }
 
     public ValueTask FocusAsync() => inputRef.FocusAsync();
