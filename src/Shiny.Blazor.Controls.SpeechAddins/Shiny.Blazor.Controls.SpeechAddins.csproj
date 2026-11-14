@@ -9,9 +9,17 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Blazor.Controls\Shiny.Blazor.Controls.csproj"/>
+        <!-- SpeechCaptionAnalyzer is an audio analyzer for the Blazor MediaElement and CameraView -->
+        <ProjectReference Include="..\Shiny.Controls.Analysis.Shared\Shiny.Controls.Analysis.Shared.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Shiny.Speech"/>
+        <!-- ISpeechToTextProvider: the cloud / Whisper engines captions are recognized with -->
+        <PackageReference Include="Shiny.Speech.Cloud"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
     </ItemGroup>
 </Project>

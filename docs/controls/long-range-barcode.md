@@ -7,7 +7,7 @@ shelf, at an angle, a little out of focus. **MAUI only** (iOS, Android, Mac Cata
 <cam:BarcodeAnalyzer Mode="LongRange" AutoZoom="True" />
 ```
 
-- **Package**: `Shiny.Maui.Controls.Camera.Barcode`, the same analyzer and package as ordinary scanning
+- **Package**: `Shiny.Maui.Controls.Analysis.Barcode`, the same analyzer and package as ordinary scanning
 - **Engine**: `Shiny.Controls.BarcodeReader.Shared`, dependency-free and usable without a camera
 - **Same results**: `BarcodesDetectedEventArgs`, `OnDetected`, `BarcodesDetectedCommand`, `Formats` and
   `ScanWindow` behave exactly as in `Standard` mode
@@ -68,15 +68,16 @@ public async Task<bool> OnBarcodes(BarcodesDetectedEventArgs args)
 As with every analyzer, results are only delivered while armed: call `CameraView.Scan()` (or bind
 `ScanCommand`). Return `true` from `OnDetected` to keep scanning.
 
-From `IMediaService`, pass a `BarcodeScanOptions` (a `MediaScanOptions` with the barcode settings added):
+From `IMediaService`, pass the mode and auto-zoom straight to the scan verb (`BarcodeScanOptions` is gone —
+the barcode package no longer references the camera, so its settings are parameters rather than a subclass of
+the camera's `MediaScanOptions`):
 
 ```csharp
-var code = await media.ScanBarcodeAsync(options: new BarcodeScanOptions
-{
-    Mode = BarcodeScanMode.LongRange,
-    AutoZoom = true
-});
+var code = await media.ScanBarcodeAsync(mode: BarcodeScanMode.LongRange, autoZoom: true);
 ```
+
+The same `BarcodeAnalyzer` also runs on a `MediaElement`, reading codes out of a playing video; it cannot zoom a
+video, so `AutoZoom` simply does nothing there. See [Media analysis](media-analysis.md).
 
 **Analysis resolution.** On Android, CameraX analyzes at 640x480 unless asked otherwise. In `LongRange` mode
 the analyzer raises its camera's `AnalysisResolution` from `Default` to `FullHd` when it is attached (or when

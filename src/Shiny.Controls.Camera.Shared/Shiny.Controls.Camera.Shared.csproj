@@ -4,11 +4,19 @@
         <TargetFramework>$(BaseTargetFramework)</TargetFramework>
         <IsAotCompatible>true</IsAotCompatible>
         <RootNamespace>Shiny.Controls.Camera</RootNamespace>
-        <Description>Shared contracts for the Shiny CameraView frame-analysis pipeline (Detection, IFrameAnalyzer, CameraFrame, CoordinateTransform).</Description>
+        <Description>Shared camera contracts for the Shiny CameraView: effects, filters, video overlays and the camera enums. The frame-analysis contracts (IFrameAnalyzer, VideoFrame, OverlayBox) live in Shiny.Controls.Analysis.Shared.</Description>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Graphics" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.Analysis.Shared\Shiny.Controls.Analysis.Shared.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
     </ItemGroup>
 
     <ItemGroup>

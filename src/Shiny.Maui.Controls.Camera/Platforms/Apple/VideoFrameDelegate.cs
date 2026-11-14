@@ -9,7 +9,7 @@ namespace Shiny.Maui.Controls.Camera;
 
 // Single sample-buffer delegate for the AVCaptureVideoDataOutput. Does two jobs per frame:
 //   1. when an effect chain is set, render the filtered frame into the overlay UIImageView;
-//   2. when frames are wanted, hand a managed AppleCameraFrame to the analysis pipeline.
+//   2. when frames are wanted, hand a managed AppleVideoFrame to the analysis pipeline.
 sealed class VideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegate
 {
     // GPU-backed where we can get a Metal device: the default CIContext can fall back to a CPU renderer, which
@@ -49,7 +49,7 @@ sealed class VideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegate
     public Func<bool>? WantFrames;
 
     /// <summary>Receives each wrapped frame (off the capture queue). The callee owns/disposes it.</summary>
-    public Action<AppleCameraFrame>? OnFrame;
+    public Action<AppleVideoFrame>? OnFrame;
 
     /// <summary>Invoked (off the capture queue) when a frame raises an exception, so it can be surfaced.</summary>
     public Action<Exception>? OnError;
@@ -101,7 +101,7 @@ sealed class VideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegate
                         && chain.Length > 0
                         && this.RenderForAnalyzer(chain, pixelBuffer) is { } effected)
                     {
-                        this.OnFrame(AppleCameraFrame.Wrap(effected, rotation: 0, mirrored: this.Mirrored));
+                        this.OnFrame(AppleVideoFrame.Wrap(effected, rotation: 0, mirrored: this.Mirrored));
                         recorder?.AppendVideo(sampleBuffer);
                         return;
                     }
@@ -111,15 +111,15 @@ sealed class VideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegate
                     // with one attached a borrowed frame would be read by the analyzer on one thread while
                     // the encoder mutated it on another — an OCR pass over a half-drawn HUD. A copy costs
                     // 8.3 MB at 1080p, which is why it is now only paid on the frames an analyzer actually
-                    // takes (see CameraPipeline.WantsFrame) rather than on every delivered frame.
+                    // takes (see FrameAnalysisPipeline.WantsFrame) rather than on every delivered frame.
                     if (recorder == null)
                     {
-                        this.OnFrame(AppleCameraFrame.Borrow(sampleBuffer, pixelBuffer, rotation: 0, mirrored: this.Mirrored));
+                        this.OnFrame(AppleVideoFrame.Borrow(sampleBuffer, pixelBuffer, rotation: 0, mirrored: this.Mirrored));
                         handedOff = true;
                     }
                     else
                     {
-                        this.OnFrame(AppleCameraFrame.Copy(pixelBuffer, rotation: 0, mirrored: this.Mirrored));
+                        this.OnFrame(AppleVideoFrame.Copy(pixelBuffer, rotation: 0, mirrored: this.Mirrored));
                     }
                 }
 

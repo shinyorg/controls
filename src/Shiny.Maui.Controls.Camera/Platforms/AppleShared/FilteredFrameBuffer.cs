@@ -15,7 +15,7 @@ namespace Shiny.Maui.Controls.Camera;
 /// rendered into.
 /// </para>
 /// <para>
-/// BGRA because that is what everything downstream of <see cref="AppleCameraFrame"/> expects, and
+/// BGRA because that is what everything downstream of <see cref="AppleVideoFrame"/> expects, and
 /// IOSurface-backed so Core Image can render into it on the GPU rather than reading it back.
 /// </para>
 /// </remarks>

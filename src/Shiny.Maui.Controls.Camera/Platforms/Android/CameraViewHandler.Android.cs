@@ -412,6 +412,18 @@ public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLa
 
     // ---- property mappers ----
 
+    readonly AndroidMicrophoneTap microphone = new();
+
+    // Open the microphone for an attached audio analyzer, close it when there is none.
+    partial void OnAudioAnalyzerSynced()
+    {
+        if (this.AudioPipeline.HasAnalyzer)
+            _ = this.microphone.StartAsync(this.AudioPipeline, message => this.MaybeVirtualView?.Dispatcher.Dispatch(() => this.MaybeVirtualView?.OnCameraError(message)));
+        else
+            this.microphone.Stop();
+    }
+
+
     static partial void MapFacing(CameraViewHandler handler, CameraView view) => handler.BindUseCases();
 
     static partial void MapIsActive(CameraViewHandler handler, CameraView view)

@@ -5,7 +5,7 @@ namespace Shiny.Blazor.Controls.Camera.Media;
 /// <summary>
 /// Barcode scanning off <see cref="IMediaService"/> — the modal camera opened with a
 /// <see cref="BarcodeAnalyzer"/>, so a scan is one line and no page of your own. The same verbs, arguments and
-/// result type (<see cref="DetectedBarcode"/>) as the MAUI <c>Shiny.Maui.Controls.Camera.Barcode</c> extensions.
+/// result type (<see cref="DetectedBarcode"/>) as the MAUI <c>Shiny.Maui.Controls.Analysis.Barcode</c> extensions.
 /// </summary>
 /// <remarks>
 /// Decoding uses the browser's native <c>BarcodeDetector</c> — Chromium (Chrome, Edge, Android) today. Elsewhere

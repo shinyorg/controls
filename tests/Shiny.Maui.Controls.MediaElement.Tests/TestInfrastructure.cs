@@ -223,6 +223,19 @@ sealed class FakeMediaPlayerBackend : IMediaPlayerBackend
         this.Calls.Add("Dispose");
     }
 
+    public IMediaAnalysisSink? AnalysisSink { get; private set; }
+
+    public void SetAnalysisSink(IMediaAnalysisSink? sink)
+    {
+        this.AnalysisSink = sink;
+        this.Calls.Add($"SetAnalysisSink({(sink is null ? "null" : $"frames={sink.FramesEnabled},audio={sink.AudioEnabled}")})");
+    }
+
+    public Func<MediaSource, AudioAnalysisFormat, IAsyncEnumerable<AudioFrame>?>? Decoder { get; set; }
+
+    public IAsyncEnumerable<AudioFrame>? DecodeAudio(MediaSource source, AudioAnalysisFormat format, CancellationToken ct)
+        => this.Decoder?.Invoke(source, format);
+
 
     // ── test drivers ─────────────────────────────────────────────────────────────────────────────
 

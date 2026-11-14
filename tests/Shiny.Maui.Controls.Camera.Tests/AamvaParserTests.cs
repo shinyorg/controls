@@ -1,4 +1,4 @@
-using Shiny.Maui.Controls.Camera.Documents;
+using Shiny.Maui.Controls.Analysis.Documents;
 using Shouldly;
 using Xunit;
 

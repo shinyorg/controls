@@ -1,6 +1,6 @@
 using Android.Content;
 using Android.Runtime;
-using CameraFrame = AndroidX.Camera.Effects.Frame;
+using VideoFrame = AndroidX.Camera.Effects.Frame;
 using MauiGraphics = Microsoft.Maui.Graphics;
 using PlatformCanvas = Microsoft.Maui.Graphics.Platform.PlatformCanvas;
 
@@ -29,7 +29,7 @@ sealed class OverlayDrawListener : Java.Lang.Object, AndroidX.Arch.Core.Util.IFu
     {
         try
         {
-            if (p0.JavaCast<CameraFrame>() is not { } frame)
+            if (p0.JavaCast<VideoFrame>() is not { } frame)
                 return Java.Lang.Boolean.True!;
 
             var size = frame.Size;

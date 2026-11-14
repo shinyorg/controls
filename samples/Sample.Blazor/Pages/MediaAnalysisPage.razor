@@ -1,0 +1,103 @@
+@page "/mediaanalysis"
+@using Microsoft.Maui.Graphics
+@using Shiny.Blazor.Controls.Analysis
+@using Shiny.Blazor.Controls.Media
+@using Shiny.Blazor.Controls.SpeechAddins
+@using Shiny.Controls.Analysis
+@using Shiny.Controls.Media
+@using Shiny.Speech.Cloud
+@inject IServiceProvider Services
+
+<PageTitle>Media Analysis</PageTitle>
+
+<h1>Media Analysis</h1>
+
+<div class="demo-section">
+    <p>
+        The Blazor <code>CameraView</code>'s frame analyzers run over a playing video too, and any
+        <code>IAudioAnalyzer</code> can listen to what it plays. Captions are recognized by a Shiny.Speech
+        <code>ISpeechToTextProvider</code>; a same-origin clip is decoded and transcribed ahead of playback so the
+        captions line up with the picture.
+    </p>
+
+    <MediaElement @ref="player"
+                  Source="@source"
+                  Style="max-width:640px;aspect-ratio:16/9;"
+                  Analyzer="@analyzer"
+                  AudioAnalyzer="@captions"
+                  OnPositionChanged="OnPositionChanged"
+                  BarcodesDetected="OnBarcodes"
+                  DocumentDetected="OnDocument"
+                  OnAnalysisError="OnError">
+        <CaptionView Source="@captions" Position="@position" />
+    </MediaElement>
+
+    <div class="demo-row">
+        <button class="btn" @onclick='() => source = "media/speech.mp4"'>Local clip</button>
+        <button class="btn" @onclick='() => source = "https://media.w3.org/2010/05/sintel/trailer.mp4"'>Remote trailer</button>
+    </div>
+
+    <div class="demo-row">
+        <label>Frame analyzer
+            <select @onchange="OnAnalyzerChanged">
+                <option value="none">None</option>
+                <option value="barcode">Barcodes (BarcodeDetector)</option>
+                <option value="document">Document presence</option>
+            </select>
+        </label>
+        <button class="btn" @onclick="() => player!.ScanAsync()" disabled="@(analyzer is null)">Scan</button>
+    </div>
+    <p class="demo-note">@result</p>
+
+    <h3>Captions</h3>
+    @if (captions is null)
+    {
+        <p class="demo-note">
+            Register an <code>ISpeechToTextProvider</code> (Azure, OpenAI, ElevenLabs…) in <code>Program.cs</code> to
+            caption here — the browser's own speech recognition only listens to the microphone.
+        </p>
+    }
+    else
+    {
+        <p>@captions.Transcript</p>
+    }
+</div>
+
+@code {
+    MediaElement? player;
+    string source = "media/speech.mp4";
+    FrameAnalyzer? analyzer;
+    SpeechCaptionAnalyzer? captions;
+    TimeSpan position;
+    string? result;
+
+    protected override void OnInitialized()
+    {
+        if (this.Services.GetService(typeof(ISpeechToTextProvider)) is ISpeechToTextProvider provider)
+        {
+            this.captions = new SpeechCaptionAnalyzer(provider);
+            this.captions.CaptionsChanged += (_, _) => this.InvokeAsync(this.StateHasChanged);
+        }
+    }
+
+    void OnPositionChanged(TimeSpan value) => this.position = value;
+
+    void OnAnalyzerChanged(ChangeEventArgs e)
+    {
+        this.result = null;
+        this.analyzer = e.Value?.ToString() switch
+        {
+            "barcode" => new BarcodeAnalyzer(),
+            "document" => new DocumentAnalyzer(),
+            _ => null
+        };
+    }
+
+    void OnBarcodes(IReadOnlyList<DetectedBarcode> codes)
+        => this.result = String.Join(", ", codes.Select(c => $"{c.Format}: {c.Value}"));
+
+    void OnDocument(RectF bounds)
+        => this.result = $"Document at {bounds.X:P0}, {bounds.Y:P0} ({bounds.Width:P0} × {bounds.Height:P0}) at {this.position:mm\\:ss}";
+
+    void OnError(string message) => this.result = message;
+}

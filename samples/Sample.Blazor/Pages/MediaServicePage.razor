@@ -4,6 +4,7 @@
 @using Shiny.Blazor.Controls.Camera.Ai
 @using Shiny.Blazor.Controls.Camera.Media
 @using Shiny.Controls.Camera
+@using Shiny.Controls.Analysis
 @inject IMediaService Media
 @implements IAsyncDisposable
 
@@ -217,7 +218,7 @@
     async Task ScanQrBand()
     {
         var code = await Media.ScanBarcodeAsync(
-            formats: [Shiny.Controls.Camera.BarcodeFormat.QrCode],
+            formats: [Shiny.Controls.Analysis.BarcodeFormat.QrCode],
             options: new MediaScanOptions
             {
                 Title = "QR codes only",

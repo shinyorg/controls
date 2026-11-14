@@ -36,7 +36,7 @@ public enum CameraCaptureFormat
     /// </summary>
     /// <remarks>
     /// Best paired with <see cref="ICompositedVideoOverlayRenderer"/> and no draw effects. Luminance reads
-    /// on <see cref="CameraFrame"/> get cheaper — the first plane already <i>is</i> luminance — while
+    /// on <see cref="VideoFrame"/> get cheaper — the first plane already <i>is</i> luminance — while
     /// <c>ToCGImage</c> becomes a GPU conversion paid only on frames an analyzer actually takes.
     /// </remarks>
     Yuv420

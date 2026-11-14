@@ -56,6 +56,8 @@
 	<string>Assets.xcassets/appicon.appiconset</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app uses the camera for the CameraView preview, capture and frame analysis demos</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app uses speech recognition for voice input and live captions</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app uses the microphone for video recording with audio</string>
 </dict>

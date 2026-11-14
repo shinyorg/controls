@@ -165,7 +165,7 @@ public class MediaScanSessionTests
     }
 
 
-    MediaScanRequest<string> Request() => new()
+    FrameScanRequest<string> Request() => new()
     {
         Analyzer = new NullAnalyzer(),
         Subscribe = push => this.push = push,
@@ -204,7 +204,7 @@ public class MediaScanSessionTests
     sealed class NullAnalyzer : FrameAnalyzer
     {
         public override string Id => "test";
-        public override ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct) => new((IReadOnlyList<OverlayBox>?)null);
+        public override ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct) => new((IReadOnlyList<OverlayBox>?)null);
     }
 
 

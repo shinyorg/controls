@@ -20,5 +20,11 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Controls.MediaElement.Shared\Shiny.Controls.MediaElement.Shared.csproj" />
+        <!-- frame and audio analysis, shared with the Blazor CameraView -->
+        <ProjectReference Include="..\Shiny.Blazor.Controls.Analysis\Shiny.Blazor.Controls.Analysis.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
+        <Using Include="Shiny.Blazor.Controls.Analysis" />
     </ItemGroup>
 </Project>

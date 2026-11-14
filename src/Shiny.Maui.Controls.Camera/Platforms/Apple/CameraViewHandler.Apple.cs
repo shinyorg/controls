@@ -96,6 +96,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
                 this.ConfigureSession();
                 if (this.session is { Running: false })
                     this.session.StartRunning();
+                this.SyncAudioCapture();
             }
             catch (Exception ex)
             {
@@ -154,7 +155,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
         // frame off the data output so the recording matches the preview. Nothing to composite -> fast native
         // AVCaptureMovieFileOutput path (unchanged, no perf/behavior change).
         var chain = this.VirtualView.EffectChain;
-        if (options.Overlay != null || !chain.IsEmpty)
+        // an attached audio analyzer is reading the session's own audio output: record through the same path so
+        // the two share it instead of competing for the microphone
+        if (options.Overlay != null || !chain.IsEmpty || this.AudioPipeline.HasAnalyzer)
         {
             var recorder = new AppleVideoOverlayRecorder(
                 path,
@@ -228,13 +231,14 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
     // Add an AVCaptureAudioDataOutput feeding the overlay recorder (the AVAssetWriter path needs audio samples
     // routed to it; the native movie-output path handles audio itself). The audio device input is added
     // separately via EnsureAudioInput.
-    void EnsureAudioDataOutput(AppleVideoOverlayRecorder recorder)
+    void EnsureAudioDataOutput(AppleVideoOverlayRecorder? recorder)
     {
         if (this.session == null)
             return;
 
         this.audioDelegate ??= new AppleAudioDelegate();
-        this.audioDelegate.Recorder = recorder;
+        if (recorder != null)
+            this.audioDelegate.Recorder = recorder;
 
         if (this.audioDataOutput == null)
         {
@@ -252,6 +256,72 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
 
 
     // ---- property mappers ----
+
+    // Open the session's microphone for an attached audio analyzer, or stop feeding it. The mic input and audio output
+    // are added on first use and kept, like a recording's: removing them mid-session reconfigures the capture.
+    partial void OnAudioAnalyzerSynced() => this.OnSessionQueue(this.SyncAudioCapture, "The microphone could not be opened for audio analysis");
+
+    void SyncAudioCapture()
+    {
+        if (!this.AudioPipeline.HasAnalyzer)
+        {
+            if (this.audioDelegate != null)
+                this.audioDelegate.Analysis = null;
+
+            // A microphone opened only for analysis is closed again (and the OS recording indicator with it) unless a
+            // recording has started using it since; one a recording added stays, as it always has.
+            var recording = this.overlayRecorder != null || this.movieOutput is { Recording: true };
+            if (this.audioOpenedForAnalysis && !recording && this.session != null)
+            {
+                this.session.BeginConfiguration();
+                if (this.audioDataOutput != null)
+                {
+                    this.session.RemoveOutput(this.audioDataOutput);
+                    this.audioDataOutput.Dispose();
+                    this.audioDataOutput = null;
+                }
+                if (this.audioInput != null)
+                {
+                    this.session.RemoveInput(this.audioInput);
+                    this.audioInput.Dispose();
+                    this.audioInput = null;
+                }
+                this.session.CommitConfiguration();
+            this.appAudioSession?.Deactivate();
+            }
+            this.audioOpenedForAnalysis = false;
+            return;
+        }
+
+        if (this.session == null)
+            return; // ConfigureSession calls back in once the session exists
+
+        if (AVCaptureDevice.GetAuthorizationStatus(AVAuthorizationMediaType.Audio) == AVAuthorizationStatus.NotDetermined)
+        {
+            AVCaptureDevice.RequestAccessForMediaType(AVAuthorizationMediaType.Audio, granted =>
+            {
+                if (granted)
+                    this.OnSessionQueue(this.SyncAudioCapture, "The microphone could not be opened for audio analysis");
+            });
+            return;
+        }
+
+        if (AVCaptureDevice.GetAuthorizationStatus(AVAuthorizationMediaType.Audio) != AVAuthorizationStatus.Authorized)
+        {
+            this.MainThread(() => this.MaybeVirtualView?.OnCameraError("Microphone access was denied, so the audio analyzer receives no audio."));
+            return;
+        }
+
+        if (this.audioInput == null)
+            this.audioOpenedForAnalysis = true;
+        this.EnsureAudioInput();
+        this.EnsureAudioDataOutput(null);
+        if (this.audioDelegate != null)
+            this.audioDelegate.Analysis = this.AudioPipeline;
+    }
+
+    bool audioOpenedForAnalysis;
+
 
     static partial void MapFacing(CameraViewHandler handler, CameraView view)
         => handler.OnSessionQueue(handler.ReconfigureInput, "The camera could not be changed");
@@ -638,7 +708,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
     /// <summary>
     /// Orient every connection on the session so buffers arrive upright for the way the device is being
     /// held, and front-mirror the frame-delivery one to match the preview. The wrapped
-    /// <see cref="AppleCameraFrame"/> then needs no further rotation/mirroring.
+    /// <see cref="AppleVideoFrame"/> then needs no further rotation/mirroring.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -773,7 +843,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, CameraPreviewVi
     /// </summary>
     /// <remarks>
     /// <para>
-    /// ⚠️ <b>Not the same saving as <c>CameraPipeline.WantsFrame</c>, and it sits a layer below it.</b> That
+    /// ⚠️ <b>Not the same saving as <c>FrameAnalysisPipeline.WantsFrame</c>, and it sits a layer below it.</b> That
     /// gate decides whether a delivered frame is worth wrapping — it runs <i>inside</i> the delegate, so the
     /// capture pipeline has already produced, converted and handed over the buffer by the time it is asked.
     /// This decides whether AVFoundation delivers at all.

@@ -1135,6 +1135,14 @@
         <ShellContent ContentTemplate="{DataTemplate mediaelement:MediaElementPage}" Route="mediaelement" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Media Analysis">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2318;" Size="20"
+                             Color="{AppThemeBinding Light=#9333EA, Dark=#C084FC}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate mediaelement:MediaAnalysisPage}" Route="mediaanalysis" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Video Text">
         <FlyoutItem.FlyoutIcon>
             <FontImageSource Glyph="&#x24C9;" Size="20"

@@ -181,6 +181,7 @@ public static class Catalog
             new("longrangebarcode", "Long-Range Barcodes", "║", "Reads codes across a room, with auto-zoom on ones too small to read"),
             new("livevideo", "Live Video", "◎", "Camera frames encoded to JPEG or H.264 and drawn back, like a video call"),
             new("mediaelement", "Media Element", "▶", "Audio and video with a themed transport bar"),
+            new("mediaanalysis", "Media Analysis", "⌘", "OCR, barcodes and live speech captions over a playing video"),
             new("videotext", "Video Text", "Ⓣ", "A looping video playing inside the letters"),
             new("documentsession", "Scanned Documents", "▧", "AI document scanning and extraction"),
             new("shinyimage", "Shiny Image", "▥", "Placeholder, download progress and error artwork"),

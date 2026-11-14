@@ -23,10 +23,12 @@
         <InternalsVisibleTo Include="Shiny.Maui.Controls.Camera.Tests" />
     </ItemGroup>
 
-    <!-- Shared contracts (OverlayBox, CameraFrame, IFrameAnalyzer, CoordinateTransform) live in one
-         assembly so the analyzer sub-packages can be referenced alongside this one without duplicating types. -->
+    <!-- The analysis pipeline (FrameAnalyzer, VideoFrame, the overlay) is shared with MediaElement, so the analyzer
+         packages reference it rather than this package and work on either host. Camera.Shared holds the camera's
+         own contracts (effects, filters, video overlays). -->
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Controls.Camera.Shared\Shiny.Controls.Camera.Shared.csproj" />
+        <ProjectReference Include="..\Shiny.Maui.Controls.Analysis\Shiny.Maui.Controls.Analysis.csproj" />
     </ItemGroup>
 
     <!--

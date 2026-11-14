@@ -137,6 +137,26 @@ public interface IMediaPlayerBackend : IDisposable
 
     /// <summary>Return from Picture-in-Picture to inline playback. A no-op when not in PiP.</summary>
     Task ExitPictureInPictureAsync();
+
+    /// <summary>
+    /// Hand the backend the sink for frame and audio analysis, or <c>null</c> to stop. Called again whenever the
+    /// analyzers change; read <see cref="IMediaAnalysisSink.FramesEnabled"/> and <see cref="IMediaAnalysisSink.AudioEnabled"/>
+    /// and attach or remove taps to match. Advertise what works with <see cref="MediaPlaybackCapabilities.FrameAnalysis"/>
+    /// and <see cref="MediaPlaybackCapabilities.AudioAnalysis"/>.
+    /// </summary>
+    /// <remarks>
+    /// A no-op default is supplied so a backend written against an earlier version still compiles; such a backend
+    /// never feeds an analyzer, which is what it did before analysis existed.
+    /// </remarks>
+    void SetAnalysisSink(IMediaAnalysisSink? sink) { }
+
+    /// <summary>
+    /// Decode <paramref name="source"/>'s audio ahead of playback, converted to <paramref name="format"/> and positioned
+    /// in media time, or return <c>null</c> when this backend cannot (a stream, protected content, no decoder). Used to
+    /// give an <see cref="ISourceAudioAnalyzer"/> the whole source at once. Advertise it with
+    /// <see cref="MediaPlaybackCapabilities.SourceAudioAnalysis"/>. Default <c>null</c>.
+    /// </summary>
+    IAsyncEnumerable<AudioFrame>? DecodeAudio(MediaSource source, AudioAnalysisFormat format, CancellationToken ct) => null;
 }
 
 

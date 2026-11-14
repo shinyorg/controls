@@ -211,7 +211,7 @@ public class VideoCaptureOptions : MediaCameraOptions
 /// Options for a scanning session — the shape shared by every <c>Scan…</c> extension (barcodes, OCR, credit
 /// cards, licenses, passports, faces).
 /// </summary>
-public class MediaScanOptions : MediaCameraOptions
+public class MediaScanOptions : MediaCameraOptions, ICameraScanOptions
 {
     /// <summary>
     /// Restrict detection (and the viewfinder reticle) to a normalized rectangle in upright image space.

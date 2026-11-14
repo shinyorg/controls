@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using Shiny.Controls.Analysis;
 using Shiny.Controls.Camera;
+using Shiny.Maui.Controls.Analysis;
 using Shiny.Maui.Controls.Camera;
 
 namespace Sample.Features.Camera;

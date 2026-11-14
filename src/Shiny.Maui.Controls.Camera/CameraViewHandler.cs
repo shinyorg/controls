@@ -7,7 +7,8 @@ namespace Shiny.Maui.Controls.Camera;
 
 public partial class CameraViewHandler
 {
-    internal readonly CameraPipeline Pipeline = new();
+    internal readonly FrameAnalysisPipeline Pipeline = new();
+    internal readonly AudioAnalysisPipeline AudioPipeline = new();
 
     /// <summary>
     /// The bound <see cref="CameraView"/>, or <c>null</c> once the handler has been disconnected.
@@ -38,15 +39,23 @@ public partial class CameraViewHandler
         // the analyzer raises its typed events on the UI thread via this dispatcher
         this.Pipeline.SetDispatcher(a => this.MaybeVirtualView?.Dispatcher.Dispatch(a));
 
+        // the microphone is opened while an audio analyzer is attached and enabled, and closed when it is not
+        this.AudioPipeline.OnActiveChanged = () => this.OnAudioAnalyzerSynced();
+        this.AudioPipeline.SetDispatcher(a => this.MaybeVirtualView?.Dispatcher.Dispatch(a));
+
         this.SyncAnalyzer();
+        this.SyncAudioAnalyzer();
     }
 
     private protected void TeardownPipeline()
     {
         this.Pipeline.SetAnalyzer(null);
+        this.AudioPipeline.SetAnalyzer(null);
     }
 
     void SyncAnalyzer() => this.Pipeline.SetAnalyzer(this.MaybeVirtualView?.Analyzer);
+
+    void SyncAudioAnalyzer() => this.AudioPipeline.SetAnalyzer(this.MaybeVirtualView?.AudioAnalyzer);
 
     public static IPropertyMapper<CameraView, CameraViewHandler> Mapper =
         new PropertyMapper<CameraView, CameraViewHandler>(ViewHandler.ViewMapper)
@@ -64,6 +73,7 @@ public partial class CameraViewHandler
             [nameof(CameraView.Overlays)] = MapOverlay,
             [nameof(CameraView.ScanWindow)] = MapOverlay,
             [nameof(CameraView.Analyzer)] = MapAnalyzer,
+            [nameof(CameraView.AudioAnalyzer)] = MapAudioAnalyzer,
             [nameof(CameraView.Filter)] = MapEffects,
             [nameof(CameraView.AnalyzerSeesEffects)] = MapEffects,
             [nameof(CameraView.Effects)] = MapEffects,
@@ -78,6 +88,8 @@ public partial class CameraViewHandler
 
     static void MapAnalyzer(CameraViewHandler handler, CameraView view) => handler.SyncAnalyzer();
 
+    static void MapAudioAnalyzer(CameraViewHandler handler, CameraView view) => handler.SyncAudioAnalyzer();
+
     public static CommandMapper<CameraView, CameraViewHandler> CommandMapper =
         new(ViewHandler.ViewCommandMapper);
 
@@ -87,6 +99,9 @@ public partial class CameraViewHandler
 
     // Implemented only where binding the analyzer use case is decided up-front (Android); elsewhere elided.
     partial void OnAnalyzersSynced();
+
+    // Every platform opens or closes its microphone tap to match AudioPipeline.HasAnalyzer.
+    partial void OnAudioAnalyzerSynced();
 
     static partial void MapFacing(CameraViewHandler handler, CameraView view);
     static partial void MapIsActive(CameraViewHandler handler, CameraView view);

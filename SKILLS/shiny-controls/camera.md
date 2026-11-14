@@ -4,9 +4,10 @@ A cross-platform camera control for **.NET MAUI** (iOS, Android, Windows, macOS 
 
 - **MAUI core**: `Shiny.Maui.Controls.Camera` — `CameraView` (handler-based `View`) + `CameraOverlayView` (drop-in box overlay), backed by AVFoundation (Apple), CameraX (Android), Media Capture (Windows). Register with `.UseShinyCamera()`.
 - **Blazor core**: `Shiny.Blazor.Controls.Camera` — `<CameraView>` component over `getUserMedia` / `MediaRecorder` / `BarcodeDetector`.
-- **Analyzer add-ons** (MAUI): `Shiny.Maui.Controls.Camera.Barcode`, `.Camera.Face`, `.Camera.Motion`, `.Camera.Ocr`, `.Camera.Documents` (Invoice / Receipt / DriversLicense / HealthCard / CreditCard / Passport), `.Camera.Ai` (AI document scanner — detect-then-send-to-`IChatClient`). Add only what you need.
-- **AI document scanner**: `Shiny.Maui.Controls.Camera.Ai` (MAUI) / `Shiny.Blazor.Controls.Camera.Ai` (Blazor) — detect a document is *present*, then send that one frame to a **Microsoft.Extensions.AI `IChatClient`** for structured extraction. See *AI document scanner* below.
-- **Shared contracts**: `Shiny.Controls.Camera` namespace — `IFrameAnalyzer`, `FrameAnalyzer` (base), `OverlayBox`, `CameraFrame`, `CoordinateTransform`, the document building blocks (`RecognizedText`, `DocumentField`, `DocumentLineItem`, `DocumentDetectedEventArgs<T>`, `IDocumentParser<T>`), and the enums (`CameraFacing`, `CameraFilter`, `CameraFlashMode`, `PreviewScaleMode`).
+- **Analyzer add-ons** (MAUI — renamed from `Shiny.Maui.Controls.Camera.*`; they no longer reference the camera and run on `MediaElement` too): `Shiny.Maui.Controls.Analysis.Barcode`, `.Analysis.Face`, `.Analysis.Motion`, `.Analysis.Ocr`, `.Analysis.Documents` (Invoice / Receipt / DriversLicense / HealthCard / CreditCard / Passport), `.Analysis.Ai` (AI document scanner — detect-then-send-to-`IChatClient`). Add only what you need.
+- **AI document scanner**: `Shiny.Maui.Controls.Analysis.Ai` (MAUI) / `Shiny.Blazor.Controls.Camera.Ai` (Blazor) — detect a document is *present*, then send that one frame to a **Microsoft.Extensions.AI `IChatClient`** for structured extraction. See *AI document scanner* below.
+- **Shared contracts**: `Shiny.Controls.Analysis` namespace (package `Shiny.Controls.Analysis.Shared`) — `IFrameAnalyzer`, `VideoFrame` (was `CameraFrame`), `VideoFrameFormat`, `OverlayBox`, `CoordinateTransform`, `PreviewScaleMode`, `IAudioAnalyzer`/`AudioFrame`, `ICaptionSource`/`CaptionCue`, `IScanOptions`, the barcode/document result types (`DetectedBarcode`, `RecognizedText`, `DocumentField`, `DocumentLineItem`, `DocumentDetectedEventArgs<T>`, `IDocumentParser<T>`, `AiDocument`). `FrameAnalyzer`/`AudioAnalyzer` (bases), `IAnalysisHost`, `IZoomableAnalysisHost`, `AnalysisResolution`, `FrameScanRequest<T>`, `CaptionView` and the platform frames (`AppleVideoFrame`, `AndroidVideoFrame`, `WindowsVideoFrame`) are in `Shiny.Maui.Controls.Analysis` (namespace + package). Camera-only types stay in `Shiny.Controls.Camera`: `CameraFacing`, `CameraFilter`, `CameraFlashMode`, the effects, `ICameraScanOptions`. Custom native analyzers downcast to the **platform** frame (`AndroidVideoFrame` → `MediaImage` or `ToBitmap()`), never `AndroidCameraFrame`, so they also work on video.
+- **Audio analyzers**: `CameraView.AudioAnalyzer` (MAUI + Blazor) feeds the microphone to any `IAudioAnalyzer` — e.g. `SpeechCaptionAnalyzer` (SpeechAddins) for live captions shown by `CaptionView`. See `mediaelement.md` and `docs/controls/media-analysis.md`.
 
 **Prefer `IMediaService` when you want a result, not a screen.** The same package registers a MAUI-only
 `IMediaService` that presents a modal `CameraView` page for you — permissions, photo/video capture with
@@ -26,12 +27,12 @@ directly (below) only when the camera is part of a screen the app designs itself
 ```bash
 dotnet add package Shiny.Maui.Controls.Camera
 # optional analyzers
-dotnet add package Shiny.Maui.Controls.Camera.Barcode
-dotnet add package Shiny.Maui.Controls.Camera.Face
-dotnet add package Shiny.Maui.Controls.Camera.Motion
-dotnet add package Shiny.Maui.Controls.Camera.Ocr
-dotnet add package Shiny.Maui.Controls.Camera.Documents   # Invoice / Receipt / DriversLicense / HealthCard / CreditCard / Passport
-dotnet add package Shiny.Maui.Controls.Camera.Ai          # AI document scanner — detect a document, then parse it with Microsoft.Extensions.AI
+dotnet add package Shiny.Maui.Controls.Analysis.Barcode
+dotnet add package Shiny.Maui.Controls.Analysis.Face
+dotnet add package Shiny.Maui.Controls.Analysis.Motion
+dotnet add package Shiny.Maui.Controls.Analysis.Ocr
+dotnet add package Shiny.Maui.Controls.Analysis.Documents   # Invoice / Receipt / DriversLicense / HealthCard / CreditCard / Passport
+dotnet add package Shiny.Maui.Controls.Analysis.Ai          # AI document scanner — detect a document, then parse it with Microsoft.Extensions.AI
 ```
 
 ```csharp
@@ -221,10 +222,10 @@ The rung is read **per capture** on Apple and Windows, so it can be changed live
 Set **one** `IFrameAnalyzer` on `Camera.Analyzer` (swap it any time; `null` clears). The pipeline streams frames off the UI thread with drop-on-busy back-pressure. The analyzer **always draws its bounding boxes**, but **only delivers a result while it is _armed_** — so you get live boxes without a flood of events. **Arm with `Camera.Scan()` / `Camera.ScanCommand`**; the next confirmed detection is delivered once, then the analyzer goes quiet until armed again (single-shot). To keep scanning, an `OnDetected` handler returns `true` (see below).
 
 ```csharp
-using Shiny.Maui.Controls.Camera.Barcode;
-using Shiny.Maui.Controls.Camera.Documents;
-using Shiny.Maui.Controls.Camera.Motion;
-using FaceAnalyzer = Shiny.Maui.Controls.Camera.Face.FaceAnalyzer;
+using Shiny.Maui.Controls.Analysis.Barcode;
+using Shiny.Maui.Controls.Analysis.Documents;
+using Shiny.Maui.Controls.Analysis.Motion;
+using FaceAnalyzer = Shiny.Maui.Controls.Analysis.Face.FaceAnalyzer;
 
 var barcode = new BarcodeAnalyzer();                          // Apple Vision / MLKit (iOS+Android), ZXing.Net on Windows
 // fires once per frame with EVERY code in view (array); .First is the first one
@@ -289,7 +290,7 @@ the pipeline asks on the capture thread **before the platform builds a frame at 
 ```csharp
 public override bool WantsFrame() => timeProvider.GetUtcNow() >= this.nextPassAt;
 
-public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
 {
     this.nextPassAt = timeProvider.GetUtcNow() + Cadence;
     ...
@@ -314,7 +315,7 @@ public class MyAnalyzer : FrameAnalyzer
 {
     IMyNativeDetector? detector;
 
-    public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+    public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
     {
         this.detector ??= CreateDetector();          // lazily — the analyzer can be re-attached later
         ...
@@ -342,7 +343,7 @@ document analyzers already do this (and `BarcodeScanner` / `TextRecognizer` expo
 ### Ambient light and other whole-frame statistics
 
 For a consumer that wants a *number* rather than an image — an exposure or ambient-light average — use
-**`CameraFrame.SampleLuminance(destination, columns, rows)`**, which fills an evenly spaced grid by reading
+**`VideoFrame.SampleLuminance(destination, columns, rows)`**, which fills an evenly spaced grid by reading
 only those pixels off the native buffer. `GetLuminance()` materializes the entire plane (a 2 MB array at
 1080p, converted pixel by pixel), so reading a 32×32 grid out of it pays two million reads for a thousand.
 
@@ -471,9 +472,8 @@ Rules for generated code:
 - `LongRange`-only tuning: `FullFrameInterval` (3; 0 = never), `MaxNativeCropsPerFrame` (2),
   `UncheckedConfirmations` (2; Code 39 / short ITF), `ShowCandidates` (true; amber boxes on codes found but
   not read), `CandidateColor`.
-- `IMediaService`: pass `new BarcodeScanOptions { Mode = BarcodeScanMode.LongRange, AutoZoom = true }` as the
-  `options` of `ScanBarcodeAsync` / `ScanBarcodesAsync`. `BarcodeScanOptions` derives from
-  `MediaScanOptions`, so every modal option still applies.
+- `IMediaService`: `media.ScanBarcodeAsync(mode: BarcodeScanMode.LongRange, autoZoom: true)` (also on
+  `ScanBarcodesAsync`). There is no `BarcodeScanOptions` any more; `options:` is the plain `MediaScanOptions`.
 - A custom analyzer can hand a cropped region to Vision / ML Kit with
   `BarcodeScanner.ScanLuminanceAsync(byte[] luminance, int width, int height, ct)`. Boxes come back
   normalized to that image.
@@ -576,8 +576,8 @@ record DocumentField(string Label, string? Value, RectF? Bounds, float Confidenc
 For an OCR-backed document, derive from **`DocumentAnalyzer<TDocument>`** and supply an **`IDocumentParser<TDocument>`** — don't derive from `FrameAnalyzer` directly. The base runs the shared OCR recognizer, calls your parser, raises the typed `DocumentDetected` (+ `DocumentDetectedCommand`) on the UI thread, draws the parser's boxes, and honors `IsEnabled`/`ShowBoundingBox`/`OverlayProvider`. You write only the payload + the parse rules. Three pieces:
 
 ```csharp
-using Shiny.Controls.Camera;                  // RecognizedText, DocumentField, IDocumentParser<T>, OverlayBox
-using Shiny.Maui.Controls.Camera.Documents;   // DocumentAnalyzer<T>
+using Shiny.Controls.Analysis;                // RecognizedText, DocumentField, IDocumentParser<T>, OverlayBox
+using Shiny.Maui.Controls.Analysis.Documents;   // DocumentAnalyzer<T>
 
 // 1) payload — nullable fields (only what was found is set) + a Fields bag for extras
 //    (BusinessCard already ships — this LoyaltyCard is just an illustrative custom type)
@@ -626,13 +626,13 @@ public LoyaltyCard Merge(LoyaltyCard a, LoyaltyCard b) => a with
 public bool IsComplete(LoyaltyCard d) => d.MemberNumber is not null;
 ```
 
-### AI document scanner (`Shiny.Maui.Controls.Camera.Ai` — detect, then let an LLM read it)
+### AI document scanner (`Shiny.Maui.Controls.Analysis.Ai` — detect, then let an LLM read it)
 
 When you don't want to write parse rules — or the document is free-form — use **`AiDocumentAnalyzer<TDocument>`**. It splits the work to save time and money: a **cheap, native presence detector** runs every frame (Apple Vision document segmentation; managed edge detection on Android/Windows — **no OCR**) and draws a live outline, but the **(paid) model call fires at most once per document**, only when one is **steadily in view** and the analyzer is **armed**. At that moment it encodes *just that one frame* to JPEG (cropped to the document) and sends it to a **Microsoft.Extensions.AI `IChatClient`**, parsing the reply straight into `TDocument` via MEAI **structured output**. The model call runs **off the analysis thread**, so the preview never stalls.
 
 ```csharp
-using Shiny.Maui.Controls.Camera.Ai;
-using Shiny.Controls.Camera;          // AiDocument (built-in schema-free payload)
+using Shiny.Maui.Controls.Analysis.Ai;
+using Shiny.Controls.Analysis;        // AiDocument (built-in schema-free payload)
 
 // any IChatClient with a vision model — Azure OpenAI / OpenAI / Ollama / …
 IChatClient chat = serviceProvider.GetRequiredService<IChatClient>();
@@ -866,7 +866,7 @@ camera.Effects.Add(new FaceMaskEffect
 only; Windows and the managed head report boxes with `Landmarks == null`. Eyes are named **as seen on screen**,
 so the front camera's mirroring is already accounted for.
 
-### AI stylization (`Shiny.Maui.Controls.Camera.Ai` / `Shiny.Blazor.Controls.Camera.Ai`)
+### AI stylization (`Shiny.Maui.Controls.Analysis.Ai` / `Shiny.Blazor.Controls.Camera.Ai`)
 
 ```csharp
 // MAUI — a capture effect, so CapturePhotoAsync returns the stylized image
@@ -914,7 +914,7 @@ need `<NoWarn>$(NoWarn);MEAI001</NoWarn>`.
     // All five spatial looks run in the browser (Blur as a CSS filter, the rest as generated SVG filters).
     IReadOnlyList<ICameraEffect>? effects = [CameraEffects.Comic];
 
-    CameraAnalyzer? analyzer = new BarcodeAnalyzer();   // single analyzer; set null to disable, swap to change
+    FrameAnalyzer? analyzer = new BarcodeAnalyzer();   // single analyzer; set null to disable, swap to change
     string? cameraId;
     string? status;
     readonly List<string> codes = new();
@@ -1026,7 +1026,7 @@ Blazor mirrors the MAUI single-analyzer shape: assign a typed **`Analyzer`** (to
 
 - **Apple: the capture pixel format is a per-frame cost you can stop paying.** `CameraView.CaptureFormat` defaults to `Bgra32`, which is not what the camera produces — the sensor delivers biplanar YCbCr, so BGRA means the capture pipeline colour-converts every frame for as long as the preview is up (idle, not recording, no analyzer — it does not matter), and the hardware encoder converts it back to YUV to write the file. Set `CameraCaptureFormat.Yuv420` to ask for the native format; a device that does not list it silently keeps BGRA.
   - ⚠️ **Only opt in when the overlay is layer-composited and there are no draw effects.** A `CGBitmapContext` cannot be built over a biplanar buffer, so anything drawing on the CPU makes the recorder convert to a scratch BGRA surface and back on every frame — worse than never leaving BGRA. `ICompositedVideoOverlayRenderer` never touches the CPU and is unaffected.
-  - `CameraFrame.Format` reports what the frame actually holds, and luminance gets **cheaper**: NV12's first plane already *is* luminance, so `SampleLuminance` reads one byte per sample instead of four plus arithmetic. `ToCGImage()` becomes a GPU conversion, paid only on frames an analyzer actually takes.
+  - `VideoFrame.Format` reports what the frame actually holds, and luminance gets **cheaper**: NV12's first plane already *is* luminance, so `SampleLuminance` reads one byte per sample instead of four plus arithmetic. `ToCGImage()` becomes a GPU conversion, paid only on frames an analyzer actually takes.
   - Android (CameraX) and Windows pick their own formats; the property is ignored there.
 
 - **Frames are only delivered while something wants them.** An attached analyzer, a live effect chain, or a burn-in recording — any one is enough, and with none of the three the sample-buffer delegate is detached entirely on Apple. This is a layer below `IFrameAnalyzer.WantsFrame()`, which decides whether a *delivered* frame is worth wrapping. Nothing to do for it; it matters because a plain preview now costs nothing on the video queue.
@@ -1087,14 +1087,14 @@ sealed class HudOverlay : ICompositedVideoOverlayRenderer
 - **Parse an invoice** → set `Camera.Analyzer = new InvoiceAnalyzer()` and handle `DocumentDetected` (`Invoice` with `.Lines`).
 - **Parse a receipt** → set `Camera.Analyzer = new ReceiptAnalyzer()` and handle `DocumentDetected` (`Receipt` with `.Lines`, `.Taxes`, subtotal/tip/total).
 - **Scan a business card** → set `Camera.Analyzer = new BusinessCardAnalyzer()` and handle `DocumentDetected` (`BusinessCard` — name/title/company + `.Emails` / `.Phones` / website).
-- **Scan a driver's license / health card** → set `Camera.Analyzer` to `DriversLicenseAnalyzer` (deterministic AAMVA) or `HealthCardAnalyzer` from `.Camera.Documents`.
+- **Scan a driver's license / health card** → set `Camera.Analyzer` to `DriversLicenseAnalyzer` (deterministic AAMVA) or `HealthCardAnalyzer` from `.Analysis.Documents`.
 - **Scan a passport** → `PassportAnalyzer` (deterministic MRZ); **read a credit card** → `CreditCardAnalyzer` (brand+number deterministic).
-- **Parse a free-form or unknown document with AI** → `Camera.Analyzer = new AiDocumentAnalyzer(chatClient)` from `.Camera.Ai` (detects presence, then sends one frame to a Microsoft.Extensions.AI `IChatClient`). On Blazor, assign a `DocumentAnalyzer` and drive it with `AiDocumentScanner`. Use a strongly-typed `AiDocumentAnalyzer<T>` when you have a fixed schema.
+- **Parse a free-form or unknown document with AI** → `Camera.Analyzer = new AiDocumentAnalyzer(chatClient)` from `.Analysis.Ai` (detects presence, then sends one frame to a Microsoft.Extensions.AI `IChatClient`). On Blazor, assign a `DocumentAnalyzer` and drive it with `AiDocumentScanner`. Use a strongly-typed `AiDocumentAnalyzer<T>` when you have a fixed schema.
 - **Offer a choice of detectors** → build them once, assign the chosen one to `Camera.Analyzer` (only one runs at a time).
 - **Apply a live colour grade** → set `Filter` (or add the matching `CameraEffects.*` to `Effects`).
 - **Apply a comic / sketch / blur look** → add `CameraEffects.Comic` (or `Sketch`/`Posterize`/`Pixelate`/`Blur`) to `Effects` — procedural, offline, live on the preview.
 - **Ship your own look** → add a `ColorEffect` (matrix, works everywhere) or an `INativeEffect` with a `NativeEffectDescriptor` (per-backend GPU program) to `Effects`.
 - **Stick something on the user's face** → `FaceAnalyzer { DetectLandmarks = true }` + a `FaceMaskEffect` in `Effects`.
 - **Draw a watermark / timestamp into preview, photos and video** → add a `DelegateDrawEffect` to `Effects` (the older recording-only `VideoRecordingOptions.Overlay` still works).
-- **"Redraw my photo as a comic" like the App Store apps** → add an `AiPhotoStylizer` (`.Camera.Ai`) to `Effects`; pair it with `CameraEffects.Comic` for a matching live viewfinder.
+- **"Redraw my photo as a comic" like the App Store apps** → add an `AiPhotoStylizer` (`.Analysis.Ai`) to `Effects`; pair it with `CameraEffects.Comic` for a matching live viewfinder.
 - **Pick a specific lens / webcam** → `GetAvailableCamerasAsync()` + `CameraId`.

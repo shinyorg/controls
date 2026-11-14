@@ -339,3 +339,13 @@ first (a stub `IViewHandler` assigned to `element.Handler` is enough).
 - `CommandParameter` for `SeekCommand`: bare numbers are seconds, colon-separated values are clock times.
 - Don't offer a PiP or volume control unconditionally; gate on `Capabilities`, or just let the built-in
   transport bar do it.
+
+## Analyzers (frames + audio) — see media-analysis.md
+- `Analyzer` (content property, any `FrameAnalyzer` from `Shiny.Maui.Controls.Analysis.*`) runs over the playing
+  video; `Scan()`/`ScanCommand` arm it; boxes drawn by the element (`ShowAnalysisOverlay`), `OverlaysChanged`.
+- `AudioAnalyzer` (property element) — e.g. `shiny:SpeechCaptionAnalyzer` + `media:CaptionView` bound to
+  `Position`. Decodable local sources are transcribed ahead of playback (timed captions).
+- Blazor: `Analyzer` (`BarcodeAnalyzer`/`DocumentAnalyzer` from `Shiny.Blazor.Controls.Analysis`), `AudioAnalyzer`,
+  `CrossOrigin="anonymous"` for remote media, `ChildContent` for a `<CaptionView>`, `ScanAsync()`,
+  `BarcodesDetected`/`DocumentDetected`/`OverlaysChanged`/`OnAnalysisError`.
+- Not supported on Windows/Linux backends — guard with `Capabilities.HasFlag(MediaPlaybackCapabilities.FrameAnalysis)`.

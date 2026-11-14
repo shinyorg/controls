@@ -138,6 +138,7 @@ public static class Catalog
         [
             new("camera", "Camera", "◉", "Preview, capture and pluggable frame analysis"),
             new("mediaelement", "Media Element", "▶", "Audio and video with a themed transport bar"),
+            new("mediaanalysis", "Media Analysis", "⌘", "Barcodes and speech captions over a playing video"),
             new("videotext", "Video Text", "Ⓣ", "A looping video playing inside the letters"),
             new("shinyimage", "Shiny Image", "🖼", "Placeholder, download progress and error artwork"),
             new("imageviewer", "Image Viewer", "▣", "Pinch, pan and double-tap zoom"),

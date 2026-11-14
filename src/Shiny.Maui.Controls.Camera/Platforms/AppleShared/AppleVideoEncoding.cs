@@ -83,9 +83,9 @@ sealed class AppleJpegEncoderSession(VideoEncoderSettings settings, Action<Encod
         return true;
     }
 
-    public ValueTask EncodeAsync(CameraFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
+    public ValueTask EncodeAsync(VideoFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
     {
-        if (frame is not AppleCameraFrame apple)
+        if (frame is not AppleVideoFrame apple)
             return default;
 
         using var scaled = AppleVideoContext.Scaled(apple.PixelBuffer, width, height);
@@ -184,9 +184,9 @@ sealed class AppleH264EncoderSession : IVideoEncoderSession
             && height == this.height
             && next with { JpegQuality = 0 } == this.settings with { JpegQuality = 0 };
 
-    public ValueTask EncodeAsync(CameraFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
+    public ValueTask EncodeAsync(VideoFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
     {
-        if (frame is not AppleCameraFrame apple)
+        if (frame is not AppleVideoFrame apple)
             return default;
 
         var target = this.session.GetPixelBufferPool()?.CreatePixelBuffer()

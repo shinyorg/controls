@@ -203,6 +203,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
                 this.ConfigureSession();
                 if (this.session is { Running: false })
                     this.session.StartRunning();
+                this.SyncAudioCapture();
             }
             catch (Exception ex)
             {
@@ -253,7 +254,9 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
         // Anything to composite (effects or a legacy overlay) -> owned AVAssetWriter path; nothing to composite
         // -> fast native AVCaptureMovieFileOutput path.
         var chain = this.VirtualView.EffectChain;
-        if (options.Overlay != null || !chain.IsEmpty)
+        // an attached audio analyzer is reading the session's own audio output: record through the same path so
+        // the two share it instead of competing for the microphone
+        if (options.Overlay != null || !chain.IsEmpty || this.AudioPipeline.HasAnalyzer)
         {
             var recorder = new AppleVideoOverlayRecorder(
                 path,
@@ -307,13 +310,14 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
 
 
     // Add an AVCaptureAudioDataOutput feeding the overlay recorder's AVAssetWriter (burn-in path only).
-    void EnsureAudioDataOutput(AppleVideoOverlayRecorder recorder)
+    void EnsureAudioDataOutput(AppleVideoOverlayRecorder? recorder)
     {
         if (this.session == null)
             return;
 
         this.audioDelegate ??= new AppleAudioDelegate();
-        this.audioDelegate.Recorder = recorder;
+        if (recorder != null)
+            this.audioDelegate.Recorder = recorder;
 
         if (this.audioDataOutput == null)
         {
@@ -328,6 +332,71 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
             this.audioDataOutput?.SetSampleBufferDelegate(this.audioDelegate, this.videoQueue);
         }
     }
+
+
+    // Open the session's microphone for an attached audio analyzer, or stop feeding it. The mic input and audio output
+    // are added on first use and kept, like a recording's: removing them mid-session reconfigures the capture.
+    partial void OnAudioAnalyzerSynced() => this.OnSessionQueue(this.SyncAudioCapture, "The microphone could not be opened for audio analysis");
+
+    void SyncAudioCapture()
+    {
+        if (!this.AudioPipeline.HasAnalyzer)
+        {
+            if (this.audioDelegate != null)
+                this.audioDelegate.Analysis = null;
+
+            // A microphone opened only for analysis is closed again (and the OS recording indicator with it) unless a
+            // recording has started using it since; one a recording added stays, as it always has.
+            var recording = this.overlayRecorder != null || this.movieOutput is { Recording: true };
+            if (this.audioOpenedForAnalysis && !recording && this.session != null)
+            {
+                this.session.BeginConfiguration();
+                if (this.audioDataOutput != null)
+                {
+                    this.session.RemoveOutput(this.audioDataOutput);
+                    this.audioDataOutput.Dispose();
+                    this.audioDataOutput = null;
+                }
+                if (this.audioInput != null)
+                {
+                    this.session.RemoveInput(this.audioInput);
+                    this.audioInput.Dispose();
+                    this.audioInput = null;
+                }
+                this.session.CommitConfiguration();
+            }
+            this.audioOpenedForAnalysis = false;
+            return;
+        }
+
+        if (this.session == null)
+            return; // ConfigureSession calls back in once the session exists
+
+        if (AVCaptureDevice.GetAuthorizationStatus(AVAuthorizationMediaType.Audio) == AVAuthorizationStatus.NotDetermined)
+        {
+            AVCaptureDevice.RequestAccessForMediaType(AVAuthorizationMediaType.Audio, granted =>
+            {
+                if (granted)
+                    this.OnSessionQueue(this.SyncAudioCapture, "The microphone could not be opened for audio analysis");
+            });
+            return;
+        }
+
+        if (AVCaptureDevice.GetAuthorizationStatus(AVAuthorizationMediaType.Audio) != AVAuthorizationStatus.Authorized)
+        {
+            this.MainThread(() => this.MaybeVirtualView?.OnCameraError("Microphone access was denied, so the audio analyzer receives no audio."));
+            return;
+        }
+
+        if (this.audioInput == null)
+            this.audioOpenedForAnalysis = true;
+        this.EnsureAudioInput();
+        this.EnsureAudioDataOutput(null);
+        if (this.audioDelegate != null)
+            this.audioDelegate.Analysis = this.AudioPipeline;
+    }
+
+    bool audioOpenedForAnalysis;
 
 
     static partial void MapFacing(CameraViewHandler handler, CameraView view)
@@ -751,7 +820,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
     /// <remarks>
     /// <para>
     /// Without this the output delivers whatever macOS defaults to, which is a packed YCbCr format
-    /// rather than the BGRA every consumer of <see cref="AppleCameraFrame"/> assumes.
+    /// rather than the BGRA every consumer of <see cref="AppleVideoFrame"/> assumes.
     /// <c>ToCGImage</c> then builds a <c>CGBitmapContext</c> over the buffer with 32-bit BGRA
     /// parameters, the sizes do not describe the pixels, and construction fails with
     /// "handle is null" on every single frame.

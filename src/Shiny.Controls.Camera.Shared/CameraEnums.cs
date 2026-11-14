@@ -28,23 +28,6 @@ public enum CameraFlashMode
 }
 
 
-/// <summary>The pixel layout of a <see cref="CameraFrame"/>'s native buffer.</summary>
-public enum CameraFrameFormat
-{
-    /// <summary>Unknown/unspecified.</summary>
-    Unknown,
-
-    /// <summary>32-bit BGRA (Apple 32BGRA, Windows BGRA8).</summary>
-    Bgra32,
-
-    /// <summary>Planar YUV 4:2:0 (Android YUV_420_888); plane 0 is luminance.</summary>
-    Yuv420,
-
-    /// <summary>Single 8-bit luminance plane.</summary>
-    Grayscale8
-}
-
-
 /// <summary>How the lens chooses what to focus on.</summary>
 public enum CameraFocusMode
 {

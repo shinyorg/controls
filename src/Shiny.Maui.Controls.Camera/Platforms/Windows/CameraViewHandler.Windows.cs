@@ -12,7 +12,7 @@ namespace Shiny.Maui.Controls.Camera;
 
 // Windows (WinUI 3). CaptureElement does not exist in WinUI 3, so preview and analysis are both driven
 // from one MediaFrameReader: each frame is shown via a SoftwareBitmapSource and (when analyzers are
-// present) wrapped into a WindowsCameraFrame for the pipeline.
+// present) wrapped into a WindowsVideoFrame for the pipeline.
 public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICameraViewController
 {
     MediaCapture? capture;
@@ -170,7 +170,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICamera
         // pipeline copy (synchronous), then keep a copy for preview + still capture. WantsFrame rather than
         // HasAnalyzer so the copy is skipped outright on a frame the analyzer's cadence would discard.
         if (this.Pipeline.WantsFrame())
-            this.Pipeline.Process(new WindowsCameraFrame(bitmap, mirrored: false), default);
+            this.Pipeline.Process(new WindowsVideoFrame(bitmap, mirrored: false), default);
 
         var display = SoftwareBitmap.Convert(bitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
 
@@ -380,6 +380,18 @@ public partial class CameraViewHandler : ViewHandler<CameraView, WGrid>, ICamera
         await this.recording.FinishAsync();
         this.recording = null;
         return new CameraVideo(this.recordingPath ?? string.Empty);
+    }
+
+
+    readonly WindowsMicrophoneTap microphone = new();
+
+    // Open the microphone for an attached audio analyzer, close it when there is none.
+    partial void OnAudioAnalyzerSynced()
+    {
+        if (this.AudioPipeline.HasAnalyzer)
+            _ = this.microphone.StartAsync(this.AudioPipeline, message => this.MaybeVirtualView?.Dispatcher.Dispatch(() => this.MaybeVirtualView?.OnCameraError(message)));
+        else
+            this.microphone.Stop();
     }
 
 

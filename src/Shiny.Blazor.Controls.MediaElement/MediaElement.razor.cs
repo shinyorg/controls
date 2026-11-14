@@ -192,7 +192,10 @@ public partial class MediaElement : IAsyncDisposable
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
+        {
+            await this.StartPendingFrameAnalysisAsync().ConfigureAwait(true);
             return;
+        }
 
         var imported = await this.JS
             .InvokeAsync<IJSObjectReference>("import", "./_content/Shiny.Blazor.Controls.MediaElement/mediaelement.js")
@@ -258,6 +261,8 @@ public partial class MediaElement : IAsyncDisposable
             await this.module.InvokeVoidAsync("setObjectFit", this.mediaEl, ToObjectFit(this.Aspect)).ConfigureAwait(true);
         }
 
+        await this.ApplyAnalysisAsync().ConfigureAwait(true);
+
         // Applied last: setting the source kicks off a load (and possibly autoplay), and everything above
         // should already be in force when the first frame arrives.
         if (this.appliedSource != this.Source)
@@ -272,6 +277,7 @@ public partial class MediaElement : IAsyncDisposable
             this.VideoWidth = 0;
             this.VideoHeight = 0;
             await this.module.InvokeVoidAsync("setSource", this.mediaEl, this.Source, this.AutoPlay).ConfigureAwait(true);
+            await this.OnSourceChangedForAnalysisAsync().ConfigureAwait(true);
         }
 
         await this.ApplyMediaSessionAsync().ConfigureAwait(true);
@@ -674,6 +680,7 @@ public partial class MediaElement : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         this.disposed = true;
+        await this.DisposeAnalysisAsync().ConfigureAwait(true);
         this.autoHideCts?.Cancel();
         this.autoHideCts?.Dispose();
         this.autoHideCts = null;

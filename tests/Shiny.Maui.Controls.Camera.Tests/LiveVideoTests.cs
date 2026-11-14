@@ -232,13 +232,13 @@ public class RemoteVideoViewTests
 
 public class VideoEncoderTests
 {
-    sealed class FakeFrame(int width, int height, int rotation = 0, bool mirrored = false) : CameraFrame
+    sealed class FakeFrame(int width, int height, int rotation = 0, bool mirrored = false) : VideoFrame
     {
         public override int Width => width;
         public override int Height => height;
         public override int Rotation => rotation;
         public override bool IsMirrored => mirrored;
-        public override CameraFrameFormat Format => CameraFrameFormat.Grayscale8;
+        public override VideoFrameFormat Format => VideoFrameFormat.Grayscale8;
         protected override byte[] MaterializeLuminance() => new byte[width * height];
     }
 
@@ -255,7 +255,7 @@ public class VideoEncoderTests
         public bool CanEncode(VideoEncoderSettings next, int w, int h)
             => w == this.Width && h == this.Height && next with { JpegQuality = 0 } == this.Settings with { JpegQuality = 0 };
 
-        public ValueTask EncodeAsync(CameraFrame frame, int w, int h, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
+        public ValueTask EncodeAsync(VideoFrame frame, int w, int h, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
         {
             this.Forced.Add(forceKeyFrame);
             this.Timestamps.Add(timestamp);
@@ -490,7 +490,7 @@ public class VideoEncoderTests
     sealed class ThrowingSession : IVideoEncoderSession
     {
         public bool CanEncode(VideoEncoderSettings settings, int width, int height) => true;
-        public ValueTask EncodeAsync(CameraFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
+        public ValueTask EncodeAsync(VideoFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
             => throw new InvalidOperationException("codec reclaimed");
         public void Dispose() { }
     }

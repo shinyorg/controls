@@ -1,6 +1,6 @@
 using Microsoft.Maui.Graphics;
 using Shiny.Controls.Camera;
-using Shiny.Maui.Controls.Camera.Face;
+using Shiny.Maui.Controls.Analysis.Face;
 using Shouldly;
 using Xunit;
 

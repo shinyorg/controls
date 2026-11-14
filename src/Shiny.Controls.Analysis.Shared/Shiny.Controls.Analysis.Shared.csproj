@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <RootNamespace>Shiny.Controls.Analysis</RootNamespace>
+        <Description>Shared contracts for Shiny frame and audio analysis, used by CameraView and MediaElement alike (IFrameAnalyzer, VideoFrame, IAudioAnalyzer, AudioFrame, OverlayBox, CoordinateTransform, the analyzer result types).</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Graphics" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Analysis" />
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Camera" />
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.MediaElement" />
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.Camera" />
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.MediaElement" />
+    </ItemGroup>
+</Project>

@@ -1,11 +1,11 @@
 using Microsoft.Maui.Graphics;
 using Shiny.Controls.Camera;
-using Shiny.Maui.Controls.Camera.Barcode;
+using Shiny.Maui.Controls.Analysis.Barcode;
 using Shouldly;
 using Xunit;
 using ZXing;
 using ZxFormat = ZXing.BarcodeFormat;
-using BarcodeFormat = Shiny.Controls.Camera.BarcodeFormat;
+using BarcodeFormat = Shiny.Controls.Analysis.BarcodeFormat;
 
 namespace Shiny.Maui.Controls.Camera.Tests;
 
@@ -113,14 +113,14 @@ public class BarcodeScannerTests
         return new LumFrame(lum);
     }
 
-    sealed class LumFrame(byte[] luminance) : CameraFrame
+    sealed class LumFrame(byte[] luminance) : VideoFrame
     {
         public bool Mirrored { get; set; }
         public override int Width => W;
         public override int Height => H;
         public override int Rotation => 0;
         public override bool IsMirrored => this.Mirrored;
-        public override CameraFrameFormat Format => CameraFrameFormat.Grayscale8;
+        public override VideoFrameFormat Format => VideoFrameFormat.Grayscale8;
         protected override byte[] MaterializeLuminance() => luminance;
     }
 }

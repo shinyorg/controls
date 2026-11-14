@@ -14,7 +14,7 @@ public class CameraPipelineTests
     [Fact]
     public void Null_clears_and_a_new_list_replaces()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         IReadOnlyList<OverlayBox> latest = [];
         pipeline.OnOverlays = (boxes, _, _, _) => latest = boxes;
 
@@ -36,7 +36,7 @@ public class CameraPipelineTests
     [Fact]
     public void Swapping_the_analyzer_clears_prior_boxes()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         IReadOnlyList<OverlayBox> latest = [new OverlayBox(new RectF(0, 0, 1, 1))];
         pipeline.OnOverlays = (boxes, _, _, _) => latest = boxes;
 
@@ -53,7 +53,7 @@ public class CameraPipelineTests
     [Fact]
     public void Scan_window_is_surfaced_to_the_overlay()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         RectF? window = null;
         pipeline.OnOverlays = (_, w, _, _) => window = w;
 
@@ -72,7 +72,7 @@ public class CameraPipelineTests
     [Fact]
     public void Scan_window_reticle_gets_correct_dims_on_the_first_frame_without_a_detection()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         RectF? window = null;
         int w = 0, h = 0;
         pipeline.OnOverlays = (_, win, iw, ih) => { window = win; w = iw; h = ih; };
@@ -90,7 +90,7 @@ public class CameraPipelineTests
     [Fact]
     public void Disabled_analyzer_is_skipped_its_boxes_cleared_and_resumes_on_enable()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         IReadOnlyList<OverlayBox> latest = [];
         pipeline.OnOverlays = (boxes, _, _, _) => latest = boxes;
 
@@ -120,7 +120,7 @@ public class CameraPipelineTests
     [Fact]
     public void OnActiveChanged_fires_on_set_and_on_enabled_toggle()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var fires = 0;
         pipeline.OnActiveChanged = () => fires++;
 
@@ -143,7 +143,7 @@ public class CameraPipelineTests
 
         public override string Id => id;
 
-        public override ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+        public override ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
         {
             this.Calls++;
             return new(new[] { box });
@@ -155,7 +155,7 @@ public class CameraPipelineTests
     sealed class QuietAnalyzer(string id) : FrameAnalyzer
     {
         public override string Id => id;
-        public override ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+        public override ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
             => new((IReadOnlyList<OverlayBox>?)null);
     }
 
@@ -165,7 +165,7 @@ public class CameraPipelineTests
     [Fact]
     public void Assigning_attaches_and_clearing_detaches()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var analyzer = new LifecycleAnalyzer("l");
 
         pipeline.SetAnalyzer(analyzer);
@@ -179,7 +179,7 @@ public class CameraPipelineTests
     [Fact]
     public void Swapping_detaches_the_outgoing_analyzer_and_attaches_the_new_one()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var a = new LifecycleAnalyzer("a");
         var b = new LifecycleAnalyzer("b");
 
@@ -195,7 +195,7 @@ public class CameraPipelineTests
     public void Reassigning_the_same_analyzer_does_not_cycle_it()
     {
         // re-mapping Analyzer (e.g. a handler re-sync) must not close and re-open a detector for nothing
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var analyzer = new LifecycleAnalyzer("l");
 
         pipeline.SetAnalyzer(analyzer);
@@ -208,7 +208,7 @@ public class CameraPipelineTests
     [Fact]
     public void Disabling_detaches_and_enabling_reattaches()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var analyzer = new LifecycleAnalyzer("l");
         pipeline.SetAnalyzer(analyzer);
 
@@ -228,7 +228,7 @@ public class CameraPipelineTests
     [Fact]
     public void An_analyzer_assigned_while_disabled_is_not_attached_until_enabled()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var analyzer = new LifecycleAnalyzer("l") { IsEnabled = false };
 
         pipeline.SetAnalyzer(analyzer);
@@ -246,7 +246,7 @@ public class CameraPipelineTests
     [Fact]
     public async Task A_detach_during_a_pass_is_deferred_until_the_pass_completes()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var gate = new TaskCompletionSource<IReadOnlyList<OverlayBox>?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var analyzer = new LifecycleAnalyzer("l", gate.Task);
         pipeline.SetAnalyzer(analyzer);
@@ -264,7 +264,7 @@ public class CameraPipelineTests
     [Fact]
     public async Task Reattaching_before_an_in_flight_pass_completes_cancels_the_deferred_detach()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var gate = new TaskCompletionSource<IReadOnlyList<OverlayBox>?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var analyzer = new LifecycleAnalyzer("l", gate.Task);
         pipeline.SetAnalyzer(analyzer);
@@ -284,8 +284,8 @@ public class CameraPipelineTests
     [Fact]
     public void An_analyzer_shared_by_two_cameras_detaches_only_when_both_let_go()
     {
-        var first = new CameraPipeline();
-        var second = new CameraPipeline();
+        var first = new FrameAnalysisPipeline();
+        var second = new FrameAnalysisPipeline();
         var analyzer = new LifecycleAnalyzer("l");
 
         first.SetAnalyzer(analyzer);
@@ -303,7 +303,7 @@ public class CameraPipelineTests
     [Fact]
     public void A_throwing_lifecycle_hook_does_not_break_the_pipeline()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var analyzer = new LifecycleAnalyzer("l") { Throw = true };
         IReadOnlyList<OverlayBox> latest = [];
         pipeline.OnOverlays = (boxes, _, _, _) => latest = boxes;
@@ -320,7 +320,7 @@ public class CameraPipelineTests
     public void An_interface_only_analyzer_runs_without_implementing_the_hooks()
     {
         // backward compatibility: OnAttached/OnDetached are default interface members
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var a = new OverlayBox(new RectF(0, 0, 1, 1));
         IReadOnlyList<OverlayBox> latest = [];
         pipeline.OnOverlays = (boxes, _, _, _) => latest = boxes;
@@ -355,7 +355,7 @@ public class CameraPipelineTests
 
         public override string Id => id;
 
-        public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+        public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
         {
             if (gate is not null)
                 return await gate.ConfigureAwait(false);
@@ -384,13 +384,13 @@ public class CameraPipelineTests
 
     [Fact]
     public void No_analyzer_wants_no_frame()
-        => new CameraPipeline().WantsFrame().ShouldBeFalse();
+        => new FrameAnalysisPipeline().WantsFrame().ShouldBeFalse();
 
 
     [Fact]
     public void An_analyzer_that_wants_every_frame_is_asked_for_every_frame()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         pipeline.SetAnalyzer(new ScriptedAnalyzer("x"));
 
         pipeline.WantsFrame().ShouldBeTrue();
@@ -404,7 +404,7 @@ public class CameraPipelineTests
     [Fact]
     public void A_declined_frame_is_never_built()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var analyzer = new CadencedAnalyzer("c") { Wanted = false };
         pipeline.SetAnalyzer(analyzer);
 
@@ -418,7 +418,7 @@ public class CameraPipelineTests
     [Fact]
     public async Task A_pass_in_flight_declines_the_next_frame()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         var gate = new TaskCompletionSource<IReadOnlyList<OverlayBox>?>();
         pipeline.SetAnalyzer(new BlockingAnalyzer("b", gate.Task));
 
@@ -442,7 +442,7 @@ public class CameraPipelineTests
     [Fact]
     public void A_throwing_analyzer_is_treated_as_wanting_the_frame()
     {
-        var pipeline = new CameraPipeline();
+        var pipeline = new FrameAnalysisPipeline();
         pipeline.SetAnalyzer(new ThrowingGateAnalyzer("t"));
 
         pipeline.WantsFrame().ShouldBeTrue();
@@ -456,7 +456,7 @@ public class CameraPipelineTests
 
         public bool WantsFrame() => this.Wanted;
 
-        public ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+        public ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
             => new((IReadOnlyList<OverlayBox>?)null);
     }
 
@@ -465,7 +465,7 @@ public class CameraPipelineTests
     {
         public string Id { get; } = id;
 
-        public async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+        public async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
             => await gate.ConfigureAwait(false);
     }
 
@@ -476,7 +476,7 @@ public class CameraPipelineTests
 
         public bool WantsFrame() => throw new InvalidOperationException("analyzer is broken");
 
-        public ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+        public ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
             => new((IReadOnlyList<OverlayBox>?)null);
     }
 
@@ -487,18 +487,18 @@ public class CameraPipelineTests
 
         public string Id { get; } = id;
 
-        public ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+        public ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
             => new(this.queue.Count > 0 ? this.queue.Dequeue() : null);
     }
 
 
-    sealed class FakeFrame : CameraFrame
+    sealed class FakeFrame : VideoFrame
     {
         public override int Width => 8;
         public override int Height => 8;
         public override int Rotation => 0;
         public override bool IsMirrored => false;
-        public override CameraFrameFormat Format => CameraFrameFormat.Grayscale8;
+        public override VideoFrameFormat Format => VideoFrameFormat.Grayscale8;
         protected override byte[] MaterializeLuminance() => new byte[this.Width * this.Height];
     }
 }

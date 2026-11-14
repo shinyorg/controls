@@ -118,7 +118,7 @@ sealed class AndroidJpegEncoderSession(VideoEncoderSettings settings, Action<Enc
         return true;
     }
 
-    public ValueTask EncodeAsync(CameraFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
+    public ValueTask EncodeAsync(VideoFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
     {
         if (frame is not AndroidCameraFrame android)
             return default;
@@ -247,7 +247,7 @@ sealed class AndroidH264EncoderSession : IVideoEncoderSession
             && height == this.height
             && next with { JpegQuality = 0 } == this.settings with { JpegQuality = 0 };
 
-    public ValueTask EncodeAsync(CameraFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
+    public ValueTask EncodeAsync(VideoFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
     {
         if (frame is not AndroidCameraFrame android)
             return default;

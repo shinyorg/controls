@@ -55,3 +55,31 @@ Plays local and remote **audio and video** on iOS, Android, Windows, macOS AppKi
 
 Blazor mirrors all of it as `[Parameter]`s with `On*` `EventCallback`s, and adds `Poster`. Its video size is
 exposed as the `VideoWidth`/`VideoHeight` ints the browser reports, with `OnVideoSizeChanged`. **Linux** ships separately as `Shiny.Maui.Controls.MediaElement.Linux` — there is no Linux target framework, so the GTK4 backend can't live in the main package — and is registered with `UseShinyMediaElementGtk()` instead of `UseShinyMediaElement()`; decoding needs `gtk4-media-gstreamer` (Fedora/Arch) or `libgtk-4-media-gstreamer` (Debian/Ubuntu) installed.
+
+## Analyzers — OCR, barcodes and captions over what plays
+
+`MediaElement` takes the same analyzers a `CameraView` does. `Analyzer` (an `IFrameAnalyzer`, and the content
+property) runs over the decoded video — `OcrAnalyzer`, `BarcodeAnalyzer`, `FaceAnalyzer`, `MotionAnalyzer`, the
+document analyzers — with its boxes drawn over the picture (`ShowAnalysisOverlay`), mapped for `Aspect` and kept
+in fullscreen; `Scan()` / `ScanCommand` arm it. `AudioAnalyzer` (an `IAudioAnalyzer`) hears the audio as it
+plays; pair a `SpeechCaptionAnalyzer` with a `CaptionView` for captions, which a decodable local source gets
+transcribed **ahead of playback** so they line up with the picture.
+
+```xml
+<Grid>
+    <media:MediaElement x:Name="Player" Source="talk.mp4">
+        <media:OcrAnalyzer />
+        <media:MediaElement.AudioAnalyzer>
+            <shiny:SpeechCaptionAnalyzer x:Name="Captions" />
+        </media:MediaElement.AudioAnalyzer>
+    </media:MediaElement>
+    <media:CaptionView Source="{x:Reference Captions}"
+                       Position="{Binding Source={x:Reference Player}, Path=Position}"
+                       VerticalOptions="End" Margin="16,0,16,72" />
+</Grid>
+```
+
+iOS, Mac Catalyst, macOS, Android and Blazor (barcode/document frames; CORS for remote media). Not Windows or
+Linux yet — check `Capabilities` for `FrameAnalysis` / `AudioAnalysis` / `SourceAudioAnalysis`. A custom backend
+opts in through `IMediaPlayerBackend.SetAnalysisSink` and `DecodeAudio`. Full details, platform notes and the
+migration table: [Media analysis](media-analysis.md).

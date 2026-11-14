@@ -249,7 +249,7 @@ sealed class AppleVideoOverlayRecorder
         // scratch surface, drawn on there, and converted back — two GPU passes on top of the CPU blend.
         // That is a worse trade than never leaving BGRA, which is exactly why CameraCaptureFormat.Yuv420 is
         // documented as being for layer-composited overlays and is not the default.
-        if (AppleCameraFrame.IsBiplanarFormat(pixelBuffer.PixelFormatType))
+        if (AppleVideoFrame.IsBiplanarFormat(pixelBuffer.PixelFormatType))
         {
             this.DrawViaScratch(pixelBuffer, pts);
             return;

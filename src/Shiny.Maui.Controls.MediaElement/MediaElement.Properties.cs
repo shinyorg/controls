@@ -75,7 +75,12 @@ public partial class MediaElement
     /// <summary>How the video image is scaled into the control. Default <see cref="MediaAspect.AspectFit"/>.</summary>
     public static readonly BindableProperty AspectProperty = BindableProperty.Create(
         nameof(Aspect), typeof(MediaAspect), typeof(MediaElement), MediaAspect.AspectFit,
-        propertyChanged: (b, _, v) => ((MediaElement)b).backend?.SetAspect((MediaAspect)v));
+        propertyChanged: (b, _, v) =>
+        {
+            var self = (MediaElement)b;
+            self.backend?.SetAspect((MediaAspect)v);
+            self.ApplyOverlayScaling();
+        });
 
     /// <summary>Keep the display awake while playing. Default <c>false</c>.</summary>
     public static readonly BindableProperty KeepScreenOnProperty = BindableProperty.Create(

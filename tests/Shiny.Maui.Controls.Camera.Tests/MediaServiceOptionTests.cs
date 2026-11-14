@@ -1,6 +1,6 @@
 using Shiny.Controls.Camera;
-using Shiny.Maui.Controls.Camera.Barcode;
-using Shiny.Maui.Controls.Camera.Documents;
+using Shiny.Maui.Controls.Analysis.Barcode;
+using Shiny.Maui.Controls.Analysis.Documents;
 using Shiny.Maui.Controls.Camera.Media;
 using Shouldly;
 using Xunit;
@@ -108,7 +108,7 @@ public class MediaServiceOptionTests
         var analyzer = new BarcodeAnalyzer();
         var emitted = new List<DetectedBarcode>();
 
-        var request = new MediaScanRequest<DetectedBarcode>
+        var request = new FrameScanRequest<DetectedBarcode>
         {
             Analyzer = analyzer,
             Subscribe = emit => analyzer.OnDetected = args =>
@@ -153,7 +153,7 @@ public class MediaServiceOptionTests
         var analyzer = new CreditCardAnalyzer();
         CreditCard? emitted = null;
 
-        var request = new MediaScanRequest<CreditCard>
+        var request = new FrameScanRequest<CreditCard>
         {
             Analyzer = analyzer,
             Subscribe = emit => analyzer.OnDetected = args =>
@@ -171,10 +171,10 @@ public class MediaServiceOptionTests
     }
 
 
-    static MediaScanRequest<DetectedBarcode> BuildBarcodeRequest()
+    static FrameScanRequest<DetectedBarcode> BuildBarcodeRequest()
     {
         var analyzer = new BarcodeAnalyzer();
-        return new MediaScanRequest<DetectedBarcode>
+        return new FrameScanRequest<DetectedBarcode>
         {
             Analyzer = analyzer,
             Subscribe = _ => { },

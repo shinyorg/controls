@@ -1,4 +1,4 @@
-using Shiny.Maui.Controls.Camera.Barcode;
+using Shiny.Maui.Controls.Analysis.Barcode;
 
 namespace Sample.Features.Camera;
 

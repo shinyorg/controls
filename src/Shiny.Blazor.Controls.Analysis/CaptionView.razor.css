@@ -1,0 +1,16 @@
+.shiny-captions {
+    position: absolute;
+    left: 50%;
+    bottom: var(--shiny-captions-bottom, 64px);
+    transform: translateX(-50%);
+    max-width: calc(100% - 32px);
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: var(--shiny-captions-background, rgba(0, 0, 0, 0.67));
+    color: var(--shiny-captions-color, #fff);
+    font-size: var(--shiny-captions-font-size, 18px);
+    line-height: 1.35;
+    text-align: center;
+    pointer-events: none;
+    z-index: 3;
+}

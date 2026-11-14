@@ -29,7 +29,7 @@ public partial class CameraView : IAsyncDisposable
     /// The single in-browser frame analyzer (null = no analysis). Assign a <see cref="BarcodeAnalyzer"/> to scan
     /// barcodes; swap it freely. Mirrors the MAUI <c>CameraView.Analyzer</c> property.
     /// </summary>
-    [Parameter] public CameraAnalyzer? Analyzer { get; set; }
+    [Parameter] public FrameAnalyzer? Analyzer { get; set; }
 
     /// <summary>Draw detection bounding boxes on the overlay canvas.</summary>
     [Parameter] public bool ShowOverlay { get; set; } = true;
@@ -104,6 +104,7 @@ public partial class CameraView : IAsyncDisposable
         // permission prompt for as long as the user takes to answer it. Applying after would leave the preview
         // unfiltered for that whole window, then pop the effect in once permission lands.
         await this.ApplyFilterAsync();
+        await this.ApplyAudioAnalyzerAsync();
 
         if (this.AutoStart)
             await this.StartAsync();
@@ -111,7 +112,7 @@ public partial class CameraView : IAsyncDisposable
 
 
     string appliedFilterKey = "none";
-    CameraAnalyzer? appliedAnalyzer;
+    FrameAnalyzer? appliedAnalyzer;
     bool appliedOverlay;
     CameraFacing appliedFacing;
     string? appliedCameraId;
@@ -122,6 +123,7 @@ public partial class CameraView : IAsyncDisposable
             return;
 
         await this.ApplyFilterAsync();   // CSS filter — applied live without a restart (no-op when unchanged)
+        await this.ApplyAudioAnalyzerAsync();
 
         // Analyzer / ShowOverlay / Facing / CameraId are read by the JS `start` call, so changing them
         // re-acquires the stream. Re-apply by restarting while running (matches MAUI's live toggling).
@@ -427,6 +429,7 @@ public partial class CameraView : IAsyncDisposable
             return;
 
         this.disposed = true;
+        await this.StopAudioAsync();
         this.pendingScan?.TrySetCanceled();
         this.pendingDocument?.TrySetCanceled();
         try

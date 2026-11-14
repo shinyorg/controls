@@ -178,7 +178,7 @@ public partial class VideoEncoder : FrameAnalyzer
 
     /// <inheritdoc/>
     /// <remarks>Never returns overlay boxes: the encoder draws nothing on the preview.</remarks>
-    public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(CameraFrame frame, CancellationToken ct)
+    public override async ValueTask<IReadOnlyList<OverlayBox>?> AnalyzeAsync(VideoFrame frame, CancellationToken ct)
     {
         if (this.FrameEncoded is null)
             return null;

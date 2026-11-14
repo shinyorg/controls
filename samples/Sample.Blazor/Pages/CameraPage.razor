@@ -3,6 +3,8 @@
 @using Shiny.Blazor.Controls.Camera
 @using Shiny.Blazor.Controls.Camera.Ai
 @using Shiny.Controls.Camera
+@using Shiny.Controls.Analysis
+@using Shiny.Blazor.Controls.Analysis
 
 <PageTitle>Camera</PageTitle>
 
@@ -184,7 +186,7 @@
     enum DetectorMode { Barcode, Document }
     DetectorMode mode = DetectorMode.Barcode;
     bool scanArea;
-    CameraAnalyzer? analyzer = new BarcodeAnalyzer();
+    FrameAnalyzer? analyzer = new BarcodeAnalyzer();
     bool showBoxes = true;
     bool continuous;
 

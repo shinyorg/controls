@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android;$(BaseTargetFramework)-maccatalyst;$(BaseTargetFramework)-macos</TargetFrameworks>
+        <!-- Windows packaging (MakePri) only runs on Windows; add the Windows TFM only there so the solution still builds on macOS/Linux. -->
+        <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <UseMaui>true</UseMaui>
+        <IsAotCompatible>true</IsAotCompatible>
+        <SingleProject>true</SingleProject>
+        <RootNamespace>Shiny.Maui.Controls.Analysis.Documents</RootNamespace>
+        <Description>Structured document analyzers for the Shiny CameraView and MediaElement — each document type (Invoice, Receipt, BusinessCard, DriversLicense, HealthCard, CreditCard, Passport) is its own analyzer with a strongly-typed event. Driver's licenses (AAMVA PDF417), passports (MRZ) and credit cards (IIN + Luhn) are parsed deterministically; invoices/receipts/business cards/health cards via OCR + swappable rules.</Description>
+        <PackageTags>maui camera document invoice receipt businesscard contact driverslicense aamva healthcard creditcard passport mrz ocr pdf417</PackageTags>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Maui.Controls.Analysis.Ocr\Shiny.Maui.Controls.Analysis.Ocr.csproj" />
+        <ProjectReference Include="..\Shiny.Maui.Controls.Analysis.Barcode\Shiny.Maui.Controls.Analysis.Barcode.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
+        <Using Include="Shiny.Maui.Controls.Analysis" />
+    </ItemGroup>
+</Project>

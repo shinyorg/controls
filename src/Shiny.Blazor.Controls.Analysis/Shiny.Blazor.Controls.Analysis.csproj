@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <RootNamespace>Shiny.Blazor.Controls.Analysis</RootNamespace>
+        <Description>In-browser frame and audio analysis shared by the Shiny Blazor CameraView and MediaElement: the frame analyzer descriptors (barcode via the native BarcodeDetector, document presence), the AudioWorklet tap that feeds an IAudioAnalyzer, whole-source audio decoding, and the CaptionView component.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <SupportedPlatform Include="browser" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.Analysis.Shared\Shiny.Controls.Analysis.Shared.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.Camera" />
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.MediaElement" />
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.Camera.Tests" />
+    </ItemGroup>
+</Project>

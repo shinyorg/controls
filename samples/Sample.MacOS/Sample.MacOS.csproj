@@ -52,6 +52,11 @@
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Agents\Shiny.Maui.Controls.Agents.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MermaidDiagrams\Shiny.Maui.Controls.MermaidDiagrams.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MediaElement\Shiny.Maui.Controls.MediaElement.csproj" />
+        <!-- the analyzers the Media Analysis page runs over a playing video -->
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Analysis.Ocr\Shiny.Maui.Controls.Analysis.Ocr.csproj" />
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Analysis.Barcode\Shiny.Maui.Controls.Analysis.Barcode.csproj" />
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Analysis.Face\Shiny.Maui.Controls.Analysis.Face.csproj" />
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Analysis.Motion\Shiny.Maui.Controls.Analysis.Motion.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Office\Shiny.Maui.Controls.Office.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.FloorPlan\Shiny.Maui.Controls.FloorPlan.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Keyframe\Shiny.Maui.Controls.Keyframe.csproj" />

@@ -38,7 +38,7 @@ public partial class RemoteVideoView
 
 /// <summary>
 /// JPEG through WIC's <see cref="BitmapEncoder"/>, scaling in the same pass. The frame is a managed BGRA copy
-/// already (see <see cref="WindowsCameraFrame"/>), so it stays valid across the encoder's awaits.
+/// already (see <see cref="WindowsVideoFrame"/>), so it stays valid across the encoder's awaits.
 /// </summary>
 sealed class WindowsJpegEncoderSession(VideoEncoderSettings settings, Action<EncodedVideoFrame> sink) : IVideoEncoderSession
 {
@@ -53,9 +53,9 @@ sealed class WindowsJpegEncoderSession(VideoEncoderSettings settings, Action<Enc
         return true;
     }
 
-    public async ValueTask EncodeAsync(CameraFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
+    public async ValueTask EncodeAsync(VideoFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct)
     {
-        if (frame is not WindowsCameraFrame windows)
+        if (frame is not WindowsVideoFrame windows)
             return;
 
         using var stream = new InMemoryRandomAccessStream();

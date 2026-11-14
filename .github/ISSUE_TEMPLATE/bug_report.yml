@@ -21,12 +21,13 @@ body:
         - Shiny.Maui.Controls (core)
         - Shiny.Maui.Controls.Barcodes
         - Shiny.Maui.Controls.Camera
-        - Shiny.Maui.Controls.Camera.Ai
-        - Shiny.Maui.Controls.Camera.Barcode
-        - Shiny.Maui.Controls.Camera.Documents
-        - Shiny.Maui.Controls.Camera.Face
-        - Shiny.Maui.Controls.Camera.Motion
-        - Shiny.Maui.Controls.Camera.Ocr
+        - Shiny.Maui.Controls.Analysis
+        - Shiny.Maui.Controls.Analysis.Ai
+        - Shiny.Maui.Controls.Analysis.Barcode
+        - Shiny.Maui.Controls.Analysis.Documents
+        - Shiny.Maui.Controls.Analysis.Face
+        - Shiny.Maui.Controls.Analysis.Motion
+        - Shiny.Maui.Controls.Analysis.Ocr
         - Shiny.Maui.Controls.Desktop (tray icon / docking / quick entry window / hotkeys)
         - Shiny.Maui.Controls.Diagram
         - Shiny.Maui.Controls.FloorPlan
@@ -47,6 +48,7 @@ body:
         - Shiny.Maui.Controls.Themes.Terminal
         # --- Blazor ---
         - Shiny.Blazor.Controls (core)
+        - Shiny.Blazor.Controls.Analysis
         - Shiny.Blazor.Controls.Barcodes
         - Shiny.Blazor.Controls.Camera
         - Shiny.Blazor.Controls.Camera.Ai
@@ -65,6 +67,7 @@ body:
         - Shiny.Blazor.Controls.Themes.Terminal
         # --- Shared / internal ---
         - Shiny.Controls.AgentUI.Shared
+        - Shiny.Controls.Analysis.Shared
         - Shiny.Controls.Barcodes.Shared
         - Shiny.Controls.BarcodeReader.Shared
         - Shiny.Controls.Camera.Shared

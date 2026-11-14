@@ -1,7 +1,7 @@
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Shiny.Controls.Camera;
-using Shiny.Maui.Controls.Camera.Motion;
+using Shiny.Maui.Controls.Analysis.Motion;
 using Shouldly;
 using Xunit;
 
@@ -210,23 +210,23 @@ public class MotionAnalyzerTests
         events.Count.ShouldBe(1);
     }
 
-    sealed class FakeLumFrame(byte[] luminance) : CameraFrame
+    sealed class FakeLumFrame(byte[] luminance) : VideoFrame
     {
         public override int Width => W;
         public override int Height => H;
         public override int Rotation => 0;
         public override bool IsMirrored => false;
-        public override CameraFrameFormat Format => CameraFrameFormat.Grayscale8;
+        public override VideoFrameFormat Format => VideoFrameFormat.Grayscale8;
         protected override byte[] MaterializeLuminance() => luminance;
     }
 
-    sealed class SizedLumFrame(byte[] luminance, int width, int height) : CameraFrame
+    sealed class SizedLumFrame(byte[] luminance, int width, int height) : VideoFrame
     {
         public override int Width => width;
         public override int Height => height;
         public override int Rotation => 0;
         public override bool IsMirrored => false;
-        public override CameraFrameFormat Format => CameraFrameFormat.Grayscale8;
+        public override VideoFrameFormat Format => VideoFrameFormat.Grayscale8;
         protected override byte[] MaterializeLuminance() => luminance;
     }
 }

@@ -21,4 +21,8 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MediaElement\Shiny.Maui.Controls.MediaElement.csproj"/>
     </ItemGroup>
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
+        <Using Include="Shiny.Maui.Controls.Analysis" />
+    </ItemGroup>
 </Project>

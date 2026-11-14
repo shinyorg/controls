@@ -20,7 +20,7 @@ namespace Shiny.Blazor.Controls.Camera.Media;
 public sealed class MediaScanRequest<T>
 {
     /// <summary>The analyzer assigned to the modal's camera. Its scan window and box toggle come from the <see cref="MediaScanOptions"/>.</summary>
-    public required CameraAnalyzer Analyzer { get; init; }
+    public required FrameAnalyzer Analyzer { get; init; }
 
     /// <summary>
     /// Wait for the next batch of results from the started camera. Called in a loop; honour the token (it fires

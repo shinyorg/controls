@@ -23,7 +23,7 @@ namespace Shiny.Maui.Controls.Media;
 /// figure for the scrubber, and the <see cref="MediaSession"/> that the background notification and the
 /// lock screen are built from.
 /// </remarks>
-class AndroidMediaPlayerBackend : IMediaPlayerBackend
+partial class AndroidMediaPlayerBackend : IMediaPlayerBackend
 {
     readonly Context context;
     readonly IExoPlayer player;
@@ -41,7 +41,11 @@ class AndroidMediaPlayerBackend : IMediaPlayerBackend
     public AndroidMediaPlayerBackend()
     {
         this.context = Android.App.Application.Context;
-        this.player = new ExoPlayerBuilder(this.context).Build()!;
+
+        // the audio tee for analysis is built into the sink here: ExoPlayer only builds its audio sink with the
+        // player, so it cannot be added later. It does nothing while no analyzer wants audio.
+        this.audioTee = new AnalysisAudioTee(this);
+        this.player = new ExoPlayerBuilder(this.context, new AnalysisRenderersFactory(this.context, this.audioTee)).Build()!;
         this.player.PlayWhenReady = false;
 
         this.listener = new AndroidPlayerListener(
@@ -63,7 +67,10 @@ class AndroidMediaPlayerBackend : IMediaPlayerBackend
             var capabilities = MediaPlaybackCapabilities.BackgroundAudio
                 | MediaPlaybackCapabilities.PlaybackRate
                 | MediaPlaybackCapabilities.Volume
-                | MediaPlaybackCapabilities.BufferProgress;
+                | MediaPlaybackCapabilities.BufferProgress
+                | MediaPlaybackCapabilities.FrameAnalysis
+                | MediaPlaybackCapabilities.AudioAnalysis
+                | MediaPlaybackCapabilities.SourceAudioAnalysis;
 
             if (OperatingSystem.IsAndroidVersionAtLeast(26)
                 && this.context.PackageManager?.HasSystemFeature(PackageManager.FeaturePictureInPicture) == true)
@@ -164,6 +171,9 @@ class AndroidMediaPlayerBackend : IMediaPlayerBackend
             .SetMediaMetadata(this.BuildMetadata())!
             .Build()!;
 
+        this.currentItem = item;
+        this.ApplyAnalysisEffects();
+        this.analysisSink?.OnDiscontinuity(TimeSpan.Zero);
         this.player.SetMediaItem(item);
         this.player.Prepare();
         return Task.CompletedTask;
@@ -210,10 +220,15 @@ class AndroidMediaPlayerBackend : IMediaPlayerBackend
     {
         this.player.Pause();
         this.player.SeekTo(0);
+        this.analysisSink?.OnDiscontinuity(TimeSpan.Zero);
         this.SetState(MediaElementState.Stopped);
     }
 
-    public void Seek(TimeSpan position) => this.player.SeekTo((long)position.TotalMilliseconds);
+    public void Seek(TimeSpan position)
+    {
+        this.player.SeekTo((long)position.TotalMilliseconds);
+        this.analysisSink?.OnDiscontinuity(position);
+    }
 
     // ExoPlayer has no mute flag — muting is volume 0 — so the pre-mute level has to be remembered here,
     // or unmuting would restore full volume regardless of where the user had left the slider.

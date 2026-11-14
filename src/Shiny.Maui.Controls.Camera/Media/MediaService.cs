@@ -252,7 +252,7 @@ public class MediaService(MediaServiceOptions options) : IMediaService
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<T> ScanAsync<T>(
-        MediaScanRequest<T> request,
+        FrameScanRequest<T> request,
         MediaScanOptions? options = null,
         [EnumeratorCancellation] CancellationToken ct = default
     )

@@ -3,7 +3,7 @@
 [← All Shiny Controls](../../README.md)
 
 **MAUI:** ships in `Shiny.Maui.Controls.Camera`, registered by `UseShinyCamera()`. The `Scan…` extensions
-come from the analyzer add-ons (`.Camera.Barcode`, `.Camera.Ocr`, `.Camera.Documents`, `.Camera.Face`) —
+come from the analyzer add-ons (`.Analysis.Barcode`, `.Analysis.Ocr`, `.Analysis.Documents`, `.Analysis.Face`) —
 install the ones you need and the matching verbs appear on the service.
 
 **Blazor:** ships in `Shiny.Blazor.Controls.Camera`, registered by `AddShinyMediaService()` and drawn by a
@@ -210,10 +210,10 @@ var text = await media.ScanTextStringAsync();
 
 | Package | Verbs |
 |---|---|
-| `.Camera.Barcode` | `ScanBarcodeAsync`, `ScanBarcodesAsync` |
-| `.Camera.Ocr` | `ScanTextAsync`, `ScanTextStringAsync`, `ScanTextBlocksAsync` |
-| `.Camera.Documents` | `ScanCreditCard(s)Async`, `ScanDriversLicense(s)Async`, `ScanPassport(s)Async`, `ScanHealthCard(s)Async`, `ScanReceipt(s)Async`, `ScanInvoice(s)Async`, `ScanBusinessCard(s)Async`, and the generic `ScanDocumentsAsync<TDocument>(analyzer, …)` |
-| `.Camera.Face` | `DetectFaceAsync`, `DetectFacesAsync` |
+| `.Analysis.Barcode` | `ScanBarcodeAsync`, `ScanBarcodesAsync` |
+| `.Analysis.Ocr` | `ScanTextAsync`, `ScanTextStringAsync`, `ScanTextBlocksAsync` |
+| `.Analysis.Documents` | `ScanCreditCard(s)Async`, `ScanDriversLicense(s)Async`, `ScanPassport(s)Async`, `ScanHealthCard(s)Async`, `ScanReceipt(s)Async`, `ScanInvoice(s)Async`, `ScanBusinessCard(s)Async`, and the generic `ScanDocumentsAsync<TDocument>(analyzer, …)` |
+| `.Analysis.Face` | `DetectFaceAsync`, `DetectFacesAsync` |
 
 ### Duplicate filtering
 

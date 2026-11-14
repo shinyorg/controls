@@ -18,10 +18,10 @@ analyzer).
 ```bash
 dotnet add package Shiny.Maui.Controls.Camera
 # add only the analyzers whose Scan… verbs you need
-dotnet add package Shiny.Maui.Controls.Camera.Barcode
-dotnet add package Shiny.Maui.Controls.Camera.Ocr
-dotnet add package Shiny.Maui.Controls.Camera.Documents
-dotnet add package Shiny.Maui.Controls.Camera.Face
+dotnet add package Shiny.Maui.Controls.Analysis.Barcode
+dotnet add package Shiny.Maui.Controls.Analysis.Ocr
+dotnet add package Shiny.Maui.Controls.Analysis.Documents
+dotnet add package Shiny.Maui.Controls.Analysis.Face
 ```
 
 ```csharp
@@ -36,7 +36,7 @@ builder
 ```
 
 Namespaces: `Shiny.Maui.Controls.Camera.Media` (service + options + results), plus
-`Shiny.Maui.Controls.Camera.Barcode` / `.Ocr` / `.Documents` / `.Face` for the `Scan…` extensions.
+`Shiny.Maui.Controls.Analysis.Barcode` / `.Ocr` / `.Documents` / `.Face` for the `Scan…` extensions.
 
 Inject it like any service:
 
@@ -126,10 +126,10 @@ var faces    = await media.DetectFaceAsync();
 
 | Package | Singular | Plural |
 |---|---|---|
-| `.Camera.Barcode` | `ScanBarcodeAsync` | `ScanBarcodesAsync` |
-| `.Camera.Ocr` | `ScanTextAsync`, `ScanTextStringAsync` | `ScanTextBlocksAsync` |
-| `.Camera.Documents` | `ScanCreditCardAsync`, `ScanDriversLicenseAsync`, `ScanPassportAsync`, `ScanHealthCardAsync`, `ScanReceiptAsync`, `ScanInvoiceAsync`, `ScanBusinessCardAsync` | the same names pluralized, plus generic `ScanDocumentsAsync<TDocument>(analyzer, …)` |
-| `.Camera.Face` | `DetectFaceAsync` | `DetectFacesAsync` |
+| `.Analysis.Barcode` | `ScanBarcodeAsync` | `ScanBarcodesAsync` |
+| `.Analysis.Ocr` | `ScanTextAsync`, `ScanTextStringAsync` | `ScanTextBlocksAsync` |
+| `.Analysis.Documents` | `ScanCreditCardAsync`, `ScanDriversLicenseAsync`, `ScanPassportAsync`, `ScanHealthCardAsync`, `ScanReceiptAsync`, `ScanInvoiceAsync`, `ScanBusinessCardAsync` | the same names pluralized, plus generic `ScanDocumentsAsync<TDocument>(analyzer, …)` |
+| `.Analysis.Face` | `DetectFaceAsync` | `DetectFacesAsync` |
 
 `filterDuplicates` defaults to `true` (`false` for faces) and **wins over**
 `MediaScanOptions.FilterDuplicates` when both are given.
@@ -221,7 +221,7 @@ builder.Services.AddShinyMediaService(o => { o.CompressionQuality = 85; o.MaxDim
 Namespaces: `Shiny.Blazor.Controls.Camera.Media` (service, options, results, barcode + document-image
 verbs), `Shiny.Blazor.Controls.Camera.Ai` (AI document verbs), `Shiny.Controls.Camera` (`DetectedBarcode`,
 `BarcodeFormat`, `AiDocument`). In a page that also imports `Shiny.Controls.Barcodes`, qualify
-`Shiny.Controls.Camera.BarcodeFormat`, because both namespaces define it.
+`Shiny.Controls.Analysis.BarcodeFormat`, because both namespaces define it.
 
 | Member | Returns | Notes |
 |---|---|---|

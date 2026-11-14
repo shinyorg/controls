@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<shiny:ShinyContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             xmlns:media="http://shiny.net/maui/media"
+             x:Class="Sample.Features.Media.MediaAnalysisPage"
+             Title="Media Analysis">
+
+    <shiny:ShinyContentPage.PageContent>
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="14">
+
+                <Label Text="Analyzing what a MediaElement plays"
+                       FontSize="22"
+                       FontAttributes="Bold" />
+                <Label Text="The same analyzers a CameraView runs — OCR, barcodes, faces, motion — fed from the video, plus speech captions from its audio. A local clip is transcribed ahead of playback so the captions line up; a remote stream is captioned live."
+                       FontSize="13"
+                       TextColor="Gray" />
+
+                <!-- the player and its captions share one cell; the captions sit over the transport bar -->
+                <Grid HeightRequest="240">
+                    <media:MediaElement x:Name="Player"
+                                        Source="speech.mp4"
+                                        Aspect="AspectFit">
+                        <media:MediaElement.AudioAnalyzer>
+                            <shiny:SpeechCaptionAnalyzer x:Name="Captions" IsEnabled="False" />
+                        </media:MediaElement.AudioAnalyzer>
+                    </media:MediaElement>
+                    <media:CaptionView Source="{x:Reference Captions}"
+                                       Position="{Binding Source={x:Reference Player}, Path=Position}"
+                                       VerticalOptions="End"
+                                       Margin="16,0,16,56" />
+                </Grid>
+
+                <Label Text="Source" FontAttributes="Bold" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Local clip" Clicked="OnLocalClicked" />
+                    <Button Text="Remote trailer" Clicked="OnRemoteClicked" />
+                </HorizontalStackLayout>
+
+                <Label Text="Frame analyzer" FontAttributes="Bold" />
+                <Picker x:Name="AnalyzerPicker" SelectedIndexChanged="OnAnalyzerChanged">
+                    <Picker.ItemsSource>
+                        <x:Array Type="{x:Type x:String}">
+                            <x:String>None</x:String>
+                            <x:String>Text (OCR)</x:String>
+                            <x:String>Barcodes</x:String>
+                            <x:String>Faces</x:String>
+                            <x:String>Motion</x:String>
+                        </x:Array>
+                    </Picker.ItemsSource>
+                </Picker>
+                <Label x:Name="FrameResult"
+                       FontSize="12"
+                       TextColor="Gray"
+                       LineBreakMode="WordWrap" />
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="Speech captions" FontAttributes="Bold" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding Source={x:Reference Captions}, Path=IsEnabled}" />
+                </Grid>
+                <Label x:Name="CaptionStatus"
+                       FontSize="12"
+                       TextColor="Gray"
+                       Text="Off. On Apple this uses the on-device speech recognizer (a real device — the simulator has no model); on Android 13+ the platform recognizer; elsewhere register an ISpeechToTextProvider." />
+
+                <Label Text="Transcript" FontAttributes="Bold" />
+                <Label Text="{Binding Source={x:Reference Captions}, Path=Transcript}"
+                       FontSize="13"
+                       LineBreakMode="WordWrap" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </shiny:ShinyContentPage.PageContent>
+</shiny:ShinyContentPage>

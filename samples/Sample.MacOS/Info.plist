@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- the Media Analysis page: SpeechCaptionAnalyzer asks for speech recognition; without the key macOS kills the app -->
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app uses speech recognition for voice input and live captions</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app uses the microphone for speech recognition</string>
+</dict>
+</plist>

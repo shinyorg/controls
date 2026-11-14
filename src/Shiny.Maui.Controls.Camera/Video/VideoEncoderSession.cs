@@ -37,5 +37,5 @@ interface IVideoEncoderSession : IDisposable
     /// deliver the result to the sink (now or later). The frame is only valid until the returned task
     /// completes, and on Apple only until the first await, so read it synchronously.
     /// </summary>
-    ValueTask EncodeAsync(CameraFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct);
+    ValueTask EncodeAsync(VideoFrame frame, int width, int height, TimeSpan timestamp, bool forceKeyFrame, CancellationToken ct);
 }

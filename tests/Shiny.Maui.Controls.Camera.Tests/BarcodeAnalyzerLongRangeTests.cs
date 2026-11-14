@@ -1,22 +1,22 @@
 using Shiny.Controls.BarcodeReader.Tests;
 using Shiny.Controls.Camera;
-using Shiny.Maui.Controls.Camera.Barcode;
+using Shiny.Maui.Controls.Analysis.Barcode;
 using Shouldly;
 using Xunit;
 using ZxFormat = ZXing.BarcodeFormat;
-using BarcodeFormat = Shiny.Controls.Camera.BarcodeFormat;
+using BarcodeFormat = Shiny.Controls.Analysis.BarcodeFormat;
 
 namespace Shiny.Maui.Controls.Camera.Tests;
 
 public class BarcodeAnalyzerLongRangeTests
 {
-    sealed class SceneFrame(SyntheticBarcode.Scene scene, int rotation = 0) : CameraFrame
+    sealed class SceneFrame(SyntheticBarcode.Scene scene, int rotation = 0) : VideoFrame
     {
         public override int Width => scene.Width;
         public override int Height => scene.Height;
         public override int Rotation => rotation;
         public override bool IsMirrored => false;
-        public override CameraFrameFormat Format => CameraFrameFormat.Grayscale8;
+        public override VideoFrameFormat Format => VideoFrameFormat.Grayscale8;
         protected override byte[] MaterializeLuminance() => scene.Pixels;
     }
 

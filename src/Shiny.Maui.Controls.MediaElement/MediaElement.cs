@@ -71,6 +71,7 @@ public partial class MediaElement : ContentView
             Children = { this.surface }
         };
 
+        this.BuildAnalysisOverlay();
         this.BuildTransportBar();
         this.Content = this.rootGrid;
 
@@ -193,6 +194,7 @@ public partial class MediaElement : ContentView
         // playback deliberately does NOT keep it alive here — backgrounding the app doesn't disconnect
         // handlers, so reaching this point means the page itself is gone.
         this.StopTimers();
+        this.DisconnectAnalysis();
 
         if (this.backend is null)
             return;
@@ -215,6 +217,7 @@ public partial class MediaElement : ContentView
 
         this.ApplyBackendSettings();
         this.ApplyTimerInterval();
+        this.ConnectAnalysis();
 
         // A mirror inherits a player that's already loaded; only the owner opens sources.
         if (this.mirrorOwner is null && this.Source is not null && this.backend.State == MediaElementState.None)
@@ -304,6 +307,7 @@ public partial class MediaElement : ContentView
                 return;
 
             this.ApplyBackendSettings();
+            this.OnSourceOpenedForAnalysis(source);
 
             if (source is not null && this.AutoPlay)
                 this.backend.Play();

@@ -38,6 +38,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Controls.MediaElement.Shared\Shiny.Controls.MediaElement.Shared.csproj" />
+        <!-- frame and audio analyzers (OCR, barcodes, captions...) are shared with CameraView -->
+        <ProjectReference Include="..\Shiny.Maui.Controls.Analysis\Shiny.Maui.Controls.Analysis.csproj" />
         <!-- The transport bar is built from Shiny's own Slider and theme tokens so it matches the rest of the suite. -->
         <ProjectReference Include="..\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj" />
     </ItemGroup>
@@ -80,6 +82,8 @@
         <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer" />
         <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Dash" />
         <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Hls" />
+        <!-- the GL readback effect that hands decoded frames to a frame analyzer -->
+        <PackageReference Include="Xamarin.AndroidX.Media3.Effect" />
         <PackageReference Include="Xamarin.AndroidX.Media3.Session" />
         <PackageReference Include="Xamarin.AndroidX.Media3.UI" />
     </ItemGroup>

@@ -17,7 +17,7 @@ public enum MediaSessionKind
 /// </summary>
 public sealed class MediaSession
 {
-    internal MediaSession(MediaSessionKind kind, MediaCameraOptions options, CameraAnalyzer? analyzer = null)
+    internal MediaSession(MediaSessionKind kind, MediaCameraOptions options, FrameAnalyzer? analyzer = null)
     {
         this.Kind = kind;
         this.Options = options;
@@ -39,7 +39,7 @@ public sealed class MediaSession
     public MediaCameraOptions Options { get; }
 
     /// <summary>The analyzer on the camera — scans only.</summary>
-    public CameraAnalyzer? Analyzer { get; }
+    public FrameAnalyzer? Analyzer { get; }
 
     public CameraFacing Facing { get; internal set; }
     public string? CameraId { get; internal set; }

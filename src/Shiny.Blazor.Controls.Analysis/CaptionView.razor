@@ -1,0 +1,9 @@
+@namespace Shiny.Blazor.Controls.Analysis
+@implements IDisposable
+
+@if (!string.IsNullOrWhiteSpace(text))
+{
+    <div class="shiny-captions @CssClass" style="@Style" aria-live="polite">
+        <span class="shiny-captions-text">@text</span>
+    </div>
+}

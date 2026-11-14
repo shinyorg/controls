@@ -12,7 +12,15 @@
            playsinline
            preload="metadata"
            poster="@Poster"
+           crossorigin="@CrossOrigin"
            @onclick="OnPictureClickedAsync"></video>
+
+    @if (Analyzer is not null && ShowAnalysisOverlay)
+    {
+        <canvas @ref="overlayEl" class="shiny-media-overlay" aria-hidden="true"></canvas>
+    }
+
+    @ChildContent
 
     @if (CurrentState is MediaElementState.Opening or MediaElementState.Buffering)
     {

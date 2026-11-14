@@ -18,5 +18,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Controls.Camera.Shared\Shiny.Controls.Camera.Shared.csproj" />
+        <ProjectReference Include="..\Shiny.Controls.Analysis.Shared\Shiny.Controls.Analysis.Shared.csproj" />
+        <!-- frame analyzer descriptors, the JS detection helpers and the audio tap, shared with MediaElement -->
+        <ProjectReference Include="..\Shiny.Blazor.Controls.Analysis\Shiny.Blazor.Controls.Analysis.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
+        <Using Include="Shiny.Blazor.Controls.Analysis" />
     </ItemGroup>
 </Project>

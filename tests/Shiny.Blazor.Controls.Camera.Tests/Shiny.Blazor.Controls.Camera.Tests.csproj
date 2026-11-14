@@ -21,4 +21,7 @@
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Camera\Shiny.Blazor.Controls.Camera.csproj"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
+    </ItemGroup>
 </Project>

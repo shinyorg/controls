@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android;$(BaseTargetFramework)-maccatalyst;$(BaseTargetFramework)-macos</TargetFrameworks>
+        <!-- Windows packaging (MakePri) only runs on Windows; add the Windows TFM only there so the solution still builds on macOS/Linux. -->
+        <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <UseMaui>true</UseMaui>
+        <IsAotCompatible>true</IsAotCompatible>
+        <SingleProject>true</SingleProject>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <RootNamespace>Shiny.Maui.Controls.Analysis</RootNamespace>
+        <Description>The frame and audio analysis pipeline shared by the Shiny CameraView and MediaElement: FrameAnalyzer and AudioAnalyzer base classes, the per-platform VideoFrame types (CVPixelBuffer, android.media.Image / GPU readback, SoftwareBitmap), the analysis overlay and the CaptionView. Analyzer packages (barcode, OCR, face, motion, documents, AI, speech captions) build on this and work on either host.</Description>
+        <PackageTags>maui analysis analyzer camera mediaelement video audio ocr barcode captions</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Controls.Analysis.Shared\Shiny.Controls.Analysis.Shared.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Camera" />
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.MediaElement" />
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.MediaElement.Linux" />
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Camera.Tests" />
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.MediaElement.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Remove="Platforms/**/*.cs" />
+        <None Include="Platforms/**/*.cs" />
+    </ItemGroup>
+
+    <!-- Apple: CVPixelBuffer frames, shared by iOS, MacCatalyst and macOS AppKit -->
+    <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'ios' Or '$(TargetPlatformIdentifier)' == 'maccatalyst' Or '$(TargetPlatformIdentifier)' == 'macos'">
+        <Compile Include="Platforms/Apple/**/*.cs" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android'">
+        <Compile Include="Platforms/Android/**/*.cs" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows'">
+        <Compile Include="Platforms/Windows/**/*.cs" />
+    </ItemGroup>
+
+    <Target Name="_ReincludeNonMauiPlatforms"
+            BeforeTargets="_MauiRemovePlatformCompileItems"
+            Condition="'$(SingleProject)' == 'true'">
+        <ItemGroup>
+            <Compile Update="Platforms/Apple/**/*.cs"
+                     Condition="'$(TargetPlatformIdentifier)' == 'ios' Or '$(TargetPlatformIdentifier)' == 'maccatalyst' Or '$(TargetPlatformIdentifier)' == 'macos'">
+                <ExcludeFromCurrentConfiguration>false</ExcludeFromCurrentConfiguration>
+            </Compile>
+        </ItemGroup>
+    </Target>
+</Project>

@@ -12,9 +12,13 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj"/>
+        <!-- SpeechCaptionAnalyzer is an audio analyzer: it runs on MediaElement and CameraView alike -->
+        <ProjectReference Include="..\Shiny.Maui.Controls.Analysis\Shiny.Maui.Controls.Analysis.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Shiny.Speech"/>
+        <!-- ISpeechToTextProvider: the cloud / Whisper engines a caption analyzer can be pointed at -->
+        <PackageReference Include="Shiny.Speech.Cloud"/>
     </ItemGroup>
 </Project>

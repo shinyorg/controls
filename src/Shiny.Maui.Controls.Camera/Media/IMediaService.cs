@@ -30,7 +30,7 @@ namespace Shiny.Maui.Controls.Camera.Media;
 ///     await photo.SaveAsync(Path.Combine(FileSystem.AppDataDirectory, "pod.jpg"));
 /// </code>
 /// </remarks>
-public interface IMediaService
+public interface IMediaService : IFrameScanService<MediaScanOptions>
 {
     /// <summary>
     /// False where there is no camera to present — the bare <c>net10.0</c> head, or before the app has a
@@ -105,5 +105,5 @@ public interface IMediaService
     /// Shiny does not ship one for.
     /// </para>
     /// </remarks>
-    IAsyncEnumerable<T> ScanAsync<T>(MediaScanRequest<T> request, MediaScanOptions? options = null, CancellationToken ct = default);
+    new IAsyncEnumerable<T> ScanAsync<T>(FrameScanRequest<T> request, MediaScanOptions? options = null, CancellationToken ct = default);
 }

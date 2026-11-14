@@ -14,7 +14,7 @@ namespace Shiny.Maui.Controls.Media;
 /// that outlives any view: <see cref="SetOutput"/> just re-points the layer, which is what makes
 /// fullscreen and background audio work without re-buffering.
 /// </summary>
-class AppleMediaPlayerBackend : IMediaPlayerBackend
+partial class AppleMediaPlayerBackend : IMediaPlayerBackend
 {
     readonly AVPlayer player = new();
     readonly AppleNowPlaying nowPlaying;
@@ -73,7 +73,10 @@ class AppleMediaPlayerBackend : IMediaPlayerBackend
             var capabilities = MediaPlaybackCapabilities.BackgroundAudio
                 | MediaPlaybackCapabilities.PlaybackRate
                 | MediaPlaybackCapabilities.Volume
-                | MediaPlaybackCapabilities.BufferProgress;
+                | MediaPlaybackCapabilities.BufferProgress
+                | MediaPlaybackCapabilities.FrameAnalysis
+                | MediaPlaybackCapabilities.AudioAnalysis
+                | MediaPlaybackCapabilities.SourceAudioAnalysis;
 
 #if IOS || MACCATALYST
             // macOS AVKit can do PiP too, but the AppKit MAUI host is preview-quality and untested here,
@@ -178,6 +181,7 @@ class AppleMediaPlayerBackend : IMediaPlayerBackend
 
         var asset = AVAsset.FromUrl(url);
         this.item = AVPlayerItem.FromAsset(asset);
+        this.OnItemCreated(this.item, asset);
 
         this.statusObserver = this.item.AddObserver(
             "status", NSKeyValueObservingOptions.New, _ => this.OnMain(this.OnItemStatusChanged));
@@ -203,6 +207,7 @@ class AppleMediaPlayerBackend : IMediaPlayerBackend
         switch (this.item.Status)
         {
             case AVPlayerItemStatus.ReadyToPlay:
+                this.OnItemReady(this.item);
                 this.Duration = ToTimeSpan(this.item.Duration);
                 this.UpdateVideoSize();
                 this.UpdateBuffered();
@@ -225,6 +230,7 @@ class AppleMediaPlayerBackend : IMediaPlayerBackend
             {
                 this.player.Seek(CMTime.Zero);
                 this.player.Play();
+                this.analysisSink?.OnDiscontinuity(TimeSpan.Zero);
                 return;
             }
 
@@ -300,6 +306,7 @@ class AppleMediaPlayerBackend : IMediaPlayerBackend
     {
         this.player.Pause();
         this.player.Seek(CMTime.Zero);
+        this.analysisSink?.OnDiscontinuity(TimeSpan.Zero);
         this.SetState(MediaElementState.Stopped);
         this.PublishNowPlaying();
     }
@@ -310,6 +317,7 @@ class AppleMediaPlayerBackend : IMediaPlayerBackend
         // to the nearest keyframe, which on a sparse-keyframe stream can be seconds away.
         var time = CMTime.FromSeconds(position.TotalSeconds, 600);
         this.player.Seek(time, CMTime.Zero, CMTime.Zero);
+        this.analysisSink?.OnDiscontinuity(position);
         this.PublishNowPlaying();
     }
 
@@ -545,6 +553,7 @@ class AppleMediaPlayerBackend : IMediaPlayerBackend
 
     void TeardownItem()
     {
+        this.TeardownAnalysis();
         this.statusObserver?.Dispose();
         this.statusObserver = null;
         this.loadedRangesObserver?.Dispose();

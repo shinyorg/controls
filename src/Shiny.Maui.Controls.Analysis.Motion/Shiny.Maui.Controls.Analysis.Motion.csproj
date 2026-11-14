@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android;$(BaseTargetFramework)-maccatalyst;$(BaseTargetFramework)-macos</TargetFrameworks>
+        <!-- Windows packaging (MakePri) only runs on Windows; add the Windows TFM only there so the solution still builds on macOS/Linux. -->
+        <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <UseMaui>true</UseMaui>
+        <IsAotCompatible>true</IsAotCompatible>
+        <SingleProject>true</SingleProject>
+        <RootNamespace>Shiny.Maui.Controls.Analysis.Motion</RootNamespace>
+        <Description>Motion-detection analyzer for the Shiny CameraView and MediaElement — pure managed luminance frame-differencing, no native dependencies.</Description>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Maui.Controls.Analysis\Shiny.Maui.Controls.Analysis.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <Using Include="Shiny.Controls.Analysis" />
+        <Using Include="Shiny.Maui.Controls.Analysis" />
+    </ItemGroup>
+</Project>

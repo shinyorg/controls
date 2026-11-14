@@ -45,7 +45,7 @@ sealed class MacVideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     public Func<bool>? WantFrames;
-    public Action<AppleCameraFrame>? OnFrame;
+    public Action<AppleVideoFrame>? OnFrame;
     public volatile bool Mirrored;
 
     /// <summary>Whether the analyzer is handed the filtered frame - see CameraView.AnalyzerSeesEffects.</summary>
@@ -92,21 +92,21 @@ sealed class MacVideoFrameDelegate : AVCaptureVideoDataOutputSampleBufferDelegat
                         && chain.Length > 0
                         && this.RenderForAnalyzer(chain, pixelBuffer) is { } effected)
                     {
-                        this.OnFrame(AppleCameraFrame.Wrap(effected, rotation: 0, mirrored: this.Mirrored));
+                        this.OnFrame(AppleVideoFrame.Wrap(effected, rotation: 0, mirrored: this.Mirrored));
                         recorder?.AppendVideo(sampleBuffer);
                         return;
                     }
 
                     // Same rule as iOS: borrow only when no recorder is going to composite into this buffer.
-                    // See AppleCameraFrame's remarks for why sharing it with one corrupts the analysis.
+                    // See AppleVideoFrame's remarks for why sharing it with one corrupts the analysis.
                     if (recorder == null)
                     {
-                        this.OnFrame(AppleCameraFrame.Borrow(sampleBuffer, pixelBuffer, rotation: 0, mirrored: this.Mirrored));
+                        this.OnFrame(AppleVideoFrame.Borrow(sampleBuffer, pixelBuffer, rotation: 0, mirrored: this.Mirrored));
                         handedOff = true;
                     }
                     else
                     {
-                        this.OnFrame(AppleCameraFrame.Copy(pixelBuffer, rotation: 0, mirrored: this.Mirrored));
+                        this.OnFrame(AppleVideoFrame.Copy(pixelBuffer, rotation: 0, mirrored: this.Mirrored));
                     }
                 }
 

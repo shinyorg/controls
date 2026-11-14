@@ -5,14 +5,16 @@
 
     Omitted, because the csproj excludes them from this head: CameraPage, ChatPage, ChatTemplatePage, DocumentSessionPage.
 
-    The MenuItem section headers do not render in the flyout on this head today — they are
-    kept because they document the grouping and ordering, and cost nothing if it gains
-    support. A FlyoutItem holding several ShellContents titles each one, or the group
-    repeats the same label once per route.
+    The flyout is the native AppKit source-list sidebar (MacOSShell.UseNativeSidebar): each section is one
+    titled FlyoutItem, which the sidebar shows as a collapsible group, and every page carries an SF Symbol
+    (MacOSShell.SystemImage). The FlyoutItems have no Route of their own, so their routes stay implicit and
+    Shell.GoToAsync("//route") still finds a page by its own route.
 -->
 <shiny:ShinyShell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:shiny="clr-namespace:Shiny;assembly=Shiny.Maui.Shell"
+       xmlns:macos="clr-namespace:Microsoft.Maui.Platforms.MacOS.Platform;assembly=Microsoft.Maui.Platforms.MacOS"
+       macos:MacOSShell.UseNativeSidebar="True"
        xmlns:autocomplete="clr-namespace:Sample.Features.AutoComplete;assembly=Sample.MacOS"
        xmlns:badge="clr-namespace:Sample.Features.Badge;assembly=Sample.MacOS"
        xmlns:avatars="clr-namespace:Sample.Features.Avatars;assembly=Sample.MacOS"
@@ -86,357 +88,259 @@
        FlyoutBehavior="Locked"
        FlyoutWidth="220">
 
-    <MenuItem Text="GET STARTED" IsEnabled="False" />
-
-    <FlyoutItem Title="Home">
-        <ShellContent ContentTemplate="{DataTemplate home:HomePage}" Route="home" />
+    <FlyoutItem Title="Get Started" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Home" Route="home" ContentTemplate="{DataTemplate home:HomePage}"
+                      macos:MacOSShell.SystemImage="house" />
     </FlyoutItem>
 
-    <MenuItem Text="LAYOUT &amp; COLLECTIONS" IsEnabled="False" />
-
-    <FlyoutItem Title="Expander">
-        <FlyoutItem.FlyoutIcon>
-            <FontImageSource Glyph="&#x25BE;" Size="20"
-                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
-        </FlyoutItem.FlyoutIcon>
-        <ShellContent ContentTemplate="{DataTemplate expanders:ExpanderPage}" Route="expander" />
+    <FlyoutItem Title="Layout &amp; Collections" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Expander" Route="expander" ContentTemplate="{DataTemplate expanders:ExpanderPage}"
+                      macos:MacOSShell.SystemImage="chevron.down.square" />
+        <ShellContent Title="Carousel Gallery" Route="carouselgallery" ContentTemplate="{DataTemplate carouselgallery:CarouselGalleryPage}"
+                      macos:MacOSShell.SystemImage="photo.on.rectangle" />
+        <ShellContent Title="Cover Flow" Route="coverflow" ContentTemplate="{DataTemplate coverflow:CoverFlowPage}"
+                      macos:MacOSShell.SystemImage="rectangle.stack" />
+        <ShellContent Title="Flex Layout" Route="flexlayout" ContentTemplate="{DataTemplate flex:FlexLayoutPage}"
+                      macos:MacOSShell.SystemImage="rectangle.3.group" />
+        <ShellContent Title="Yoga Layout" Route="yogalayout" ContentTemplate="{DataTemplate yoga:YogaLayoutPage}"
+                      macos:MacOSShell.SystemImage="square.grid.3x1.below.line.grid.1x2" />
+        <ShellContent Title="Staggered Grid" Route="staggeredgrid" ContentTemplate="{DataTemplate staggeredgrid:StaggeredGridPage}"
+                      macos:MacOSShell.SystemImage="square.grid.3x3.square" />
+        <ShellContent Title="Virtualized Grid" Route="virtualizedgrid" ContentTemplate="{DataTemplate virtualizedgrid:VirtualizedGridPage}"
+                      macos:MacOSShell.SystemImage="square.grid.2x2" />
+        <ShellContent Title="Parallax Collection" Route="parallaxcollectionview" ContentTemplate="{DataTemplate parallax:ParallaxCollectionViewPage}"
+                      macos:MacOSShell.SystemImage="rectangle.on.rectangle.angled" />
+        <ShellContent Title="Tree View" Route="treeview" ContentTemplate="{DataTemplate treeview:TreeViewPage}"
+                      macos:MacOSShell.SystemImage="list.bullet.indent" />
+        <ShellContent Title="Data Grid" Route="datagrid" ContentTemplate="{DataTemplate datagrid:DataGridPage}"
+                      macos:MacOSShell.SystemImage="tablecells" />
+        <ShellContent Title="Tree Data Grid" Route="treedatagrid" ContentTemplate="{DataTemplate datagrid:TreeDataGridPage}"
+                      macos:MacOSShell.SystemImage="tablecells.badge.ellipsis" />
+        <ShellContent Title="Docking" Route="docking" ContentTemplate="{DataTemplate docking:DockingPage}"
+                      macos:MacOSShell.SystemImage="rectangle.split.3x1" />
+        <ShellContent Title="Ribbon" Route="ribbon" ContentTemplate="{DataTemplate ribbon:RibbonPage}"
+                      macos:MacOSShell.SystemImage="menubar.rectangle" />
     </FlyoutItem>
 
-    <FlyoutItem Title="Carousel Gallery">
-        <ShellContent ContentTemplate="{DataTemplate carouselgallery:CarouselGalleryPage}" Route="carouselgallery" />
-    </FlyoutItem>
-    <FlyoutItem Title="Cover Flow">
-        <ShellContent ContentTemplate="{DataTemplate coverflow:CoverFlowPage}" Route="coverflow" />
-    </FlyoutItem>
-    <FlyoutItem Title="Flex Layout">
-        <ShellContent ContentTemplate="{DataTemplate flex:FlexLayoutPage}" Route="flexlayout" />
-    </FlyoutItem>
-    <FlyoutItem Title="Yoga Layout">
-        <ShellContent ContentTemplate="{DataTemplate yoga:YogaLayoutPage}" Route="yogalayout" />
-    </FlyoutItem>
-    <FlyoutItem Title="Staggered Grid">
-        <ShellContent ContentTemplate="{DataTemplate staggeredgrid:StaggeredGridPage}" Route="staggeredgrid" />
-    </FlyoutItem>
-    <FlyoutItem Title="Virtualized Grid">
-        <ShellContent ContentTemplate="{DataTemplate virtualizedgrid:VirtualizedGridPage}" Route="virtualizedgrid" />
-    </FlyoutItem>
-    <FlyoutItem Title="Parallax Collection">
-        <ShellContent ContentTemplate="{DataTemplate parallax:ParallaxCollectionViewPage}" Route="parallaxcollectionview" />
-    </FlyoutItem>
-    <FlyoutItem Title="Tree View">
-        <ShellContent ContentTemplate="{DataTemplate treeview:TreeViewPage}" Route="treeview" />
-    </FlyoutItem>
-    <FlyoutItem Title="Data Grid">
-        <ShellContent Title="Data Grid" ContentTemplate="{DataTemplate datagrid:DataGridPage}" Route="datagrid" />
-        <ShellContent Title="Tree Data Grid" ContentTemplate="{DataTemplate datagrid:TreeDataGridPage}" Route="treedatagrid" />
-    </FlyoutItem>
-    <FlyoutItem Title="Docking">
-        <ShellContent ContentTemplate="{DataTemplate docking:DockingPage}" Route="docking" />
+    <FlyoutItem Title="Table View" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Basic" Route="basic" ContentTemplate="{DataTemplate tv:BasicSettingsPage}"
+                      macos:MacOSShell.SystemImage="list.bullet.rectangle" />
+        <ShellContent Title="Dynamic" Route="dynamic" ContentTemplate="{DataTemplate tv:DynamicSectionsPage}"
+                      macos:MacOSShell.SystemImage="list.bullet.clipboard" />
+        <ShellContent Title="Drag &amp; Sort" Route="dragsort" ContentTemplate="{DataTemplate tv:DragSortPage}"
+                      macos:MacOSShell.SystemImage="arrow.up.arrow.down" />
+        <ShellContent Title="Picker" Route="picker" ContentTemplate="{DataTemplate tv:PickerDemoPage}"
+                      macos:MacOSShell.SystemImage="filemenu.and.selection" />
+        <ShellContent Title="Styling" Route="styling" ContentTemplate="{DataTemplate tv:StylingPage}"
+                      macos:MacOSShell.SystemImage="paintbrush" />
     </FlyoutItem>
 
-    <FlyoutItem Title="Ribbon">
-        <ShellContent ContentTemplate="{DataTemplate ribbon:RibbonPage}" Route="ribbon" />
+    <FlyoutItem Title="Panels &amp; Overlays" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Navigation Page" Route="navigationpage" ContentTemplate="{DataTemplate navpage:NavigationDemoPage}"
+                      macos:MacOSShell.SystemImage="arrow.turn.up.left" />
+        <ShellContent Title="Floating Panel" Route="sheet" ContentTemplate="{DataTemplate fp:SheetPage}"
+                      macos:MacOSShell.SystemImage="rectangle.bottomhalf.inset.filled" />
+        <ShellContent Title="Header Peek" Route="minimizedsheetstandalone" ContentTemplate="{DataTemplate fp:MinimizedSheetStandalonePage}"
+                      macos:MacOSShell.SystemImage="rectangle.bottomhalf.inset.filled" />
+        <ShellContent Title="Bottom Tabs" Route="minimizedsheet" ContentTemplate="{DataTemplate fp:MinimizedSheetPage}"
+                      macos:MacOSShell.SystemImage="rectangle.bottomhalf.inset.filled" />
+        <ShellContent Title="Music Browse" Route="musicbrowse" ContentTemplate="{DataTemplate fp:MusicBrowsePage}"
+                      macos:MacOSShell.SystemImage="music.note" />
+        <ShellContent Title="Music Library" Route="musiclibrary" ContentTemplate="{DataTemplate fp:MusicLibraryPage}"
+                      macos:MacOSShell.SystemImage="music.note" />
+        <ShellContent Title="Top Panel" Route="topsheet" ContentTemplate="{DataTemplate fp:TopSheetPage}"
+                      macos:MacOSShell.SystemImage="rectangle.bottomhalf.inset.filled" />
+        <ShellContent Title="Dual Panels" Route="dualpanel" ContentTemplate="{DataTemplate fp:DualPanelPage}"
+                      macos:MacOSShell.SystemImage="rectangle.bottomhalf.inset.filled" />
+        <ShellContent Title="Overlay" Route="overlay" ContentTemplate="{DataTemplate overlay:OverlayPage}"
+                      macos:MacOSShell.SystemImage="square.on.square" />
+        <ShellContent Title="Frosted Glass" Route="frostedglass" ContentTemplate="{DataTemplate glass:FrostedGlassPage}"
+                      macos:MacOSShell.SystemImage="drop" />
     </FlyoutItem>
 
-    <MenuItem Text="TABLE VIEW" IsEnabled="False" />
-
-    <FlyoutItem Title="Basic">
-        <ShellContent ContentTemplate="{DataTemplate tv:BasicSettingsPage}" Route="basic" />
-    </FlyoutItem>
-    <FlyoutItem Title="Dynamic">
-        <ShellContent ContentTemplate="{DataTemplate tv:DynamicSectionsPage}" Route="dynamic" />
-    </FlyoutItem>
-    <FlyoutItem Title="Drag &amp; Sort">
-        <ShellContent ContentTemplate="{DataTemplate tv:DragSortPage}" Route="dragsort" />
-    </FlyoutItem>
-    <FlyoutItem Title="Picker">
-        <ShellContent ContentTemplate="{DataTemplate tv:PickerDemoPage}" Route="picker" />
-    </FlyoutItem>
-    <FlyoutItem Title="Styling">
-        <ShellContent ContentTemplate="{DataTemplate tv:StylingPage}" Route="styling" />
-    </FlyoutItem>
-
-    <MenuItem Text="PANELS &amp; OVERLAYS" IsEnabled="False" />
-
-    <FlyoutItem Title="Navigation Page">
-        <ShellContent ContentTemplate="{DataTemplate navpage:NavigationDemoPage}" Route="navigationpage" />
-    </FlyoutItem>
-    <FlyoutItem Title="Floating Panel">
-        <ShellContent ContentTemplate="{DataTemplate fp:SheetPage}" Route="sheet" />
-    </FlyoutItem>
-    <FlyoutItem Title="Header Peek">
-        <ShellContent ContentTemplate="{DataTemplate fp:MinimizedSheetStandalonePage}" Route="minimizedsheetstandalone" />
-    </FlyoutItem>
-    <FlyoutItem Title="Bottom Tabs">
-        <ShellContent Title="Bottom Tabs" ContentTemplate="{DataTemplate fp:MinimizedSheetPage}" Route="minimizedsheet" />
-        <ShellContent Title="Music Browse" ContentTemplate="{DataTemplate fp:MusicBrowsePage}" Route="musicbrowse" />
-        <ShellContent Title="Music Library" ContentTemplate="{DataTemplate fp:MusicLibraryPage}" Route="musiclibrary" />
-    </FlyoutItem>
-    <FlyoutItem Title="Top Panel">
-        <ShellContent ContentTemplate="{DataTemplate fp:TopSheetPage}" Route="topsheet" />
-    </FlyoutItem>
-    <FlyoutItem Title="Dual Panels">
-        <ShellContent ContentTemplate="{DataTemplate fp:DualPanelPage}" Route="dualpanel" />
-    </FlyoutItem>
-    <FlyoutItem Title="Overlay">
-        <ShellContent ContentTemplate="{DataTemplate overlay:OverlayPage}" Route="overlay" />
-    </FlyoutItem>
-    <FlyoutItem Title="Frosted Glass">
-        <ShellContent ContentTemplate="{DataTemplate glass:FrostedGlassPage}" Route="frostedglass" />
+    <FlyoutItem Title="Input" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Text Entry" Route="textentry" ContentTemplate="{DataTemplate textentry:TextEntryPage}"
+                      macos:MacOSShell.SystemImage="character.cursor.ibeam" />
+        <ShellContent Title="AutoComplete" Route="autocomplete" ContentTemplate="{DataTemplate autocomplete:AutoCompletePage}"
+                      macos:MacOSShell.SystemImage="text.magnifyingglass" />
+        <ShellContent Title="Color Picker" Route="colorpicker" ContentTemplate="{DataTemplate colorpicker:ColorPickerPage}"
+                      macos:MacOSShell.SystemImage="filemenu.and.selection" />
+        <ShellContent Title="Country &amp; Address" Route="countryaddress" ContentTemplate="{DataTemplate countryaddress:CountryAddressPage}"
+                      macos:MacOSShell.SystemImage="mappin.and.ellipse" />
+        <ShellContent Title="Duration Picker" Route="durationpicker" ContentTemplate="{DataTemplate pickers:DurationPickerPage}"
+                      macos:MacOSShell.SystemImage="filemenu.and.selection" />
+        <ShellContent Title="Font Picker" Route="fontpicker" ContentTemplate="{DataTemplate pickers:FontPickerPage}"
+                      macos:MacOSShell.SystemImage="filemenu.and.selection" />
+        <ShellContent Title="Slider" Route="slider" ContentTemplate="{DataTemplate slider:SliderPage}"
+                      macos:MacOSShell.SystemImage="slider.horizontal.3" />
+        <ShellContent Title="Range Slider" Route="rangeslider" ContentTemplate="{DataTemplate slider:RangeSliderPage}"
+                      macos:MacOSShell.SystemImage="slider.horizontal.3" />
+        <ShellContent Title="Range Pickers" Route="rangepickers" ContentTemplate="{DataTemplate rangepickers:RangePickersPage}"
+                      macos:MacOSShell.SystemImage="arrow.left.and.right" />
+        <ShellContent Title="Tag Entry" Route="tagentry" ContentTemplate="{DataTemplate tags:TagEntryPage}"
+                      macos:MacOSShell.SystemImage="brain" />
+        <ShellContent Title="Chip Group" Route="chipgroup" ContentTemplate="{DataTemplate chips:ChipGroupPage}"
+                      macos:MacOSShell.SystemImage="tag" />
+        <ShellContent Title="Security Pin" Route="securitypin" ContentTemplate="{DataTemplate securitypin:SecurityPinPage}"
+                      macos:MacOSShell.SystemImage="lock.rectangle" />
+        <ShellContent Title="Security Pin" Route="passwordstrength" ContentTemplate="{DataTemplate pwstrength:PasswordStrengthPage}"
+                      macos:MacOSShell.SystemImage="lock" />
+        <ShellContent Title="Signature Pad" Route="signaturepad" ContentTemplate="{DataTemplate sigpad:SignaturePadPage}"
+                      macos:MacOSShell.SystemImage="signature" />
+        <ShellContent Title="On-Screen Keyboard" Route="onscreenkeyboard" ContentTemplate="{DataTemplate osk:OnScreenKeyboardPage}"
+                      macos:MacOSShell.SystemImage="keyboard" />
+        <ShellContent Title="Keyboard Shortcuts" Route="keyboardshortcuts" ContentTemplate="{DataTemplate kbshortcuts:KeyboardShortcutsPage}"
+                      macos:MacOSShell.SystemImage="keyboard" />
     </FlyoutItem>
 
-    <MenuItem Text="INPUT" IsEnabled="False" />
-
-    <FlyoutItem Title="Text Entry">
-        <ShellContent ContentTemplate="{DataTemplate textentry:TextEntryPage}" Route="textentry" />
-    </FlyoutItem>
-    <FlyoutItem Title="AutoComplete">
-        <ShellContent ContentTemplate="{DataTemplate autocomplete:AutoCompletePage}" Route="autocomplete" />
-    </FlyoutItem>
-    <FlyoutItem Title="Color Picker">
-        <ShellContent ContentTemplate="{DataTemplate colorpicker:ColorPickerPage}" Route="colorpicker" />
-    </FlyoutItem>
-    <FlyoutItem Title="Country &amp; Address">
-        <ShellContent ContentTemplate="{DataTemplate countryaddress:CountryAddressPage}" Route="countryaddress" />
-    </FlyoutItem>
-    <FlyoutItem Title="Duration Picker">
-        <ShellContent ContentTemplate="{DataTemplate pickers:DurationPickerPage}" Route="durationpicker" />
-    </FlyoutItem>
-    <FlyoutItem Title="Font Picker">
-        <ShellContent ContentTemplate="{DataTemplate pickers:FontPickerPage}" Route="fontpicker" />
-    </FlyoutItem>
-    <FlyoutItem Title="Slider">
-        <ShellContent ContentTemplate="{DataTemplate slider:SliderPage}" Route="slider" />
-    </FlyoutItem>
-    <FlyoutItem Title="Range Slider">
-        <ShellContent ContentTemplate="{DataTemplate slider:RangeSliderPage}" Route="rangeslider" />
-    </FlyoutItem>
-    <FlyoutItem Title="Range Pickers">
-        <ShellContent ContentTemplate="{DataTemplate rangepickers:RangePickersPage}" Route="rangepickers" />
-    </FlyoutItem>
-    <FlyoutItem Title="Tag Entry">
-        <ShellContent ContentTemplate="{DataTemplate tags:TagEntryPage}" Route="tagentry" />
-    </FlyoutItem>
-    <FlyoutItem Title="Chip Group">
-        <ShellContent ContentTemplate="{DataTemplate chips:ChipGroupPage}" Route="chipgroup" />
-    </FlyoutItem>
-    <FlyoutItem Title="Security Pin">
-        <ShellContent ContentTemplate="{DataTemplate securitypin:SecurityPinPage}" Route="securitypin" />
-        <ShellContent ContentTemplate="{DataTemplate pwstrength:PasswordStrengthPage}" Route="passwordstrength" />
-    </FlyoutItem>
-    <FlyoutItem Title="Signature Pad">
-        <ShellContent ContentTemplate="{DataTemplate sigpad:SignaturePadPage}" Route="signaturepad" />
-    </FlyoutItem>
-    <FlyoutItem Title="On-Screen Keyboard">
-        <ShellContent ContentTemplate="{DataTemplate osk:OnScreenKeyboardPage}" Route="onscreenkeyboard" />
+    <FlyoutItem Title="Actions &amp; Navigation" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="ShinyButton" Route="buttons" ContentTemplate="{DataTemplate buttons:ButtonsPage}"
+                      macos:MacOSShell.SystemImage="button.horizontal" />
+        <ShellContent Title="Button Group" Route="buttongroup" ContentTemplate="{DataTemplate btngroup:ButtonGroupPage}"
+                      macos:MacOSShell.SystemImage="button.horizontal" />
+        <ShellContent Title="FAB &amp; FabMenu" Route="fab" ContentTemplate="{DataTemplate fab:FabPage}"
+                      macos:MacOSShell.SystemImage="plus.circle" />
+        <ShellContent Title="State View" Route="stateview" ContentTemplate="{DataTemplate wizard:StateViewPage}"
+                      macos:MacOSShell.SystemImage="square.stack" />
+        <ShellContent Title="Wizard" Route="wizard" ContentTemplate="{DataTemplate wizard:WizardPage}"
+                      macos:MacOSShell.SystemImage="wand.and.stars" />
+        <ShellContent Title="Walkthrough" Route="walkthrough" ContentTemplate="{DataTemplate walkthrough:WalkthroughPage}"
+                      macos:MacOSShell.SystemImage="figure.walk" />
+        <ShellContent Title="Tooltip" Route="tooltip" ContentTemplate="{DataTemplate walkthrough:TooltipPage}"
+                      macos:MacOSShell.SystemImage="text.bubble" />
     </FlyoutItem>
 
-    <FlyoutItem Title="Keyboard Shortcuts">
-        <ShellContent ContentTemplate="{DataTemplate kbshortcuts:KeyboardShortcutsPage}" Route="keyboardshortcuts" />
+    <FlyoutItem Title="Status &amp; Feedback" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Pills" Route="pills" ContentTemplate="{DataTemplate pills:PillPage}"
+                      macos:MacOSShell.SystemImage="capsule" />
+        <ShellContent Title="Notch" Route="notch" ContentTemplate="{DataTemplate notch:NotchPage}"
+                      macos:MacOSShell.SystemImage="capsule.portrait" />
+        <ShellContent Title="Badge" Route="badge" ContentTemplate="{DataTemplate badge:BadgePage}"
+                      macos:MacOSShell.SystemImage="app.badge" />
+        <ShellContent Title="Avatar" Route="avatar" ContentTemplate="{DataTemplate avatars:AvatarPage}"
+                      macos:MacOSShell.SystemImage="person.crop.circle" />
+        <ShellContent Title="Toast" Route="toast" ContentTemplate="{DataTemplate toast:ToastPage}"
+                      macos:MacOSShell.SystemImage="text.bubble" />
+        <ShellContent Title="Dialogs" Route="dialogs" ContentTemplate="{DataTemplate dialogs:DialogsPage}"
+                      macos:MacOSShell.SystemImage="exclamationmark.bubble" />
+        <ShellContent Title="Feedback" Route="feedback" ContentTemplate="{DataTemplate feedback:FeedbackPage}"
+                      macos:MacOSShell.SystemImage="hand.tap" />
+        <ShellContent Title="Progress Bar" Route="progressbar" ContentTemplate="{DataTemplate progressbar:ProgressBarPage}"
+                      macos:MacOSShell.SystemImage="chart.bar.fill" />
+        <ShellContent Title="Gauge" Route="gauge" ContentTemplate="{DataTemplate gauges:GaugePage}"
+                      macos:MacOSShell.SystemImage="gauge.with.needle" />
+        <ShellContent Title="Skeleton" Route="skeleton" ContentTemplate="{DataTemplate skeleton:SkeletonPage}"
+                      macos:MacOSShell.SystemImage="rectangle.dashed" />
     </FlyoutItem>
 
-    <MenuItem Text="ACTIONS &amp; NAVIGATION" IsEnabled="False" />
-
-    <FlyoutItem Title="ShinyButton">
-        <ShellContent ContentTemplate="{DataTemplate buttons:ButtonsPage}" Route="buttons" />
-    </FlyoutItem>
-    <FlyoutItem Title="Button Group">
-        <ShellContent ContentTemplate="{DataTemplate btngroup:ButtonGroupPage}" Route="buttongroup" />
-    </FlyoutItem>
-    <FlyoutItem Title="FAB &amp; FabMenu">
-        <ShellContent ContentTemplate="{DataTemplate fab:FabPage}" Route="fab" />
-    </FlyoutItem>
-    <FlyoutItem Title="State View">
-        <ShellContent ContentTemplate="{DataTemplate wizard:StateViewPage}" Route="stateview" />
-    </FlyoutItem>
-    <FlyoutItem Title="Wizard">
-        <ShellContent ContentTemplate="{DataTemplate wizard:WizardPage}" Route="wizard" />
-    </FlyoutItem>
-    <FlyoutItem Title="Walkthrough">
-        <ShellContent ContentTemplate="{DataTemplate walkthrough:WalkthroughPage}" Route="walkthrough" />
-    </FlyoutItem>
-    <FlyoutItem Title="Tooltip">
-        <ShellContent ContentTemplate="{DataTemplate walkthrough:TooltipPage}" Route="tooltip" />
+    <FlyoutItem Title="Animation" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Confetti" Route="confetti" ContentTemplate="{DataTemplate confetti:ConfettiPage}"
+                      macos:MacOSShell.SystemImage="party.popper" />
+        <ShellContent Title="Scratch Card" Route="scratchcard" ContentTemplate="{DataTemplate scratchcard:ScratchCardPage}"
+                      macos:MacOSShell.SystemImage="hand.draw" />
+        <ShellContent Title="Border Animations" Route="borderanimations" ContentTemplate="{DataTemplate borderanimations:BorderAnimationsPage}"
+                      macos:MacOSShell.SystemImage="square.dashed" />
+        <ShellContent Title="Animated Backgrounds" Route="animatedbackgrounds" ContentTemplate="{DataTemplate animatedbackgrounds:AnimatedBackgroundsPage}"
+                      macos:MacOSShell.SystemImage="circle.hexagongrid" />
+        <ShellContent Title="Keyframe" Route="keyframe" ContentTemplate="{DataTemplate keyframe:KeyframePage}"
+                      macos:MacOSShell.SystemImage="timeline.selection" />
+        <ShellContent Title="Motion Icons" Route="motionicons" ContentTemplate="{DataTemplate motionicons:MotionIconsPage}"
+                      macos:MacOSShell.SystemImage="sparkles" />
     </FlyoutItem>
 
-    <MenuItem Text="STATUS &amp; FEEDBACK" IsEnabled="False" />
-
-    <FlyoutItem Title="Pills">
-        <ShellContent ContentTemplate="{DataTemplate pills:PillPage}" Route="pills" />
-    </FlyoutItem>
-    <FlyoutItem Title="Notch">
-        <ShellContent ContentTemplate="{DataTemplate notch:NotchPage}" Route="notch" />
-    </FlyoutItem>
-    <FlyoutItem Title="Badge">
-        <ShellContent ContentTemplate="{DataTemplate badge:BadgePage}" Route="badge" />
-    </FlyoutItem>
-    <FlyoutItem Title="Avatar">
-        <ShellContent ContentTemplate="{DataTemplate avatars:AvatarPage}" Route="avatar" />
-    </FlyoutItem>
-    <FlyoutItem Title="Toast">
-        <ShellContent ContentTemplate="{DataTemplate toast:ToastPage}" Route="toast" />
-    </FlyoutItem>
-    <FlyoutItem Title="Dialogs">
-        <ShellContent ContentTemplate="{DataTemplate dialogs:DialogsPage}" Route="dialogs" />
-    </FlyoutItem>
-    <FlyoutItem Title="Feedback">
-        <ShellContent ContentTemplate="{DataTemplate feedback:FeedbackPage}" Route="feedback" />
-    </FlyoutItem>
-    <FlyoutItem Title="Progress Bar">
-        <ShellContent ContentTemplate="{DataTemplate progressbar:ProgressBarPage}" Route="progressbar" />
-    </FlyoutItem>
-    <FlyoutItem Title="Gauge">
-        <ShellContent ContentTemplate="{DataTemplate gauges:GaugePage}" Route="gauge" />
-    </FlyoutItem>
-    <FlyoutItem Title="Skeleton">
-        <ShellContent ContentTemplate="{DataTemplate skeleton:SkeletonPage}" Route="skeleton" />
+    <FlyoutItem Title="Media" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Media Element" Route="mediaelement" ContentTemplate="{DataTemplate mediaelement:MediaElementPage}"
+                      macos:MacOSShell.SystemImage="play.rectangle" />
+        <ShellContent Title="Media Analysis" Route="mediaanalysis" ContentTemplate="{DataTemplate mediaelement:MediaAnalysisPage}"
+                      macos:MacOSShell.SystemImage="waveform.and.magnifyingglass" />
+        <ShellContent Title="Video Text" Route="videotext" ContentTemplate="{DataTemplate mediaelement:VideoTextPage}"
+                      macos:MacOSShell.SystemImage="textformat.size" />
+        <ShellContent Title="Shiny Image" Route="shinyimage" ContentTemplate="{DataTemplate images:ImagesPage}"
+                      macos:MacOSShell.SystemImage="photo" />
+        <ShellContent Title="Image Viewer" Route="imageviewer" ContentTemplate="{DataTemplate imgviewer:ImageViewerPage}"
+                      macos:MacOSShell.SystemImage="photo" />
+        <ShellContent Title="Image Gallery" Route="imagegallery" ContentTemplate="{DataTemplate imgviewer:ImageGalleryPage}"
+                      macos:MacOSShell.SystemImage="photo" />
+        <ShellContent Title="Image Editor" Route="imageeditor" ContentTemplate="{DataTemplate imgeditor:ImageEditorPage}"
+                      macos:MacOSShell.SystemImage="photo" />
+        <ShellContent Title="Media Picker" Route="mediapicker" ContentTemplate="{DataTemplate mediapicker:MediaPickerPage}"
+                      macos:MacOSShell.SystemImage="photo.badge.plus" />
     </FlyoutItem>
 
-    <MenuItem Text="ANIMATION" IsEnabled="False" />
-    <FlyoutItem Title="Confetti">
-        <ShellContent ContentTemplate="{DataTemplate confetti:ConfettiPage}" Route="confetti" />
-    </FlyoutItem>
-    <FlyoutItem Title="Scratch Card">
-        <ShellContent ContentTemplate="{DataTemplate scratchcard:ScratchCardPage}" Route="scratchcard" />
-    </FlyoutItem>
-    <FlyoutItem Title="Border Animations">
-        <ShellContent ContentTemplate="{DataTemplate borderanimations:BorderAnimationsPage}" Route="borderanimations" />
-    </FlyoutItem>
-    <FlyoutItem Title="Animated Backgrounds">
-        <ShellContent ContentTemplate="{DataTemplate animatedbackgrounds:AnimatedBackgroundsPage}" Route="animatedbackgrounds" />
+    <FlyoutItem Title="Scheduler" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Calendar" Route="calendar" ContentTemplate="{DataTemplate scheduler:CalendarPage}"
+                      macos:MacOSShell.SystemImage="calendar" />
+        <ShellContent Title="Agenda" Route="agenda" ContentTemplate="{DataTemplate scheduler:AgendaPage}"
+                      macos:MacOSShell.SystemImage="list.bullet.below.rectangle" />
+        <ShellContent Title="Calendar Picker" Route="agendacalendarpicker" ContentTemplate="{DataTemplate scheduler:AgendaCalendarPickerPage}"
+                      macos:MacOSShell.SystemImage="filemenu.and.selection" />
+        <ShellContent Title="Event List" Route="calendarlist" ContentTemplate="{DataTemplate scheduler:CalendarListPage}"
+                      macos:MacOSShell.SystemImage="calendar" />
     </FlyoutItem>
 
-    <FlyoutItem Title="Keyframe">
-        <ShellContent ContentTemplate="{DataTemplate keyframe:KeyframePage}" Route="keyframe" />
-    </FlyoutItem>
-    <FlyoutItem Title="Motion Icons">
-        <ShellContent ContentTemplate="{DataTemplate motionicons:MotionIconsPage}" Route="motionicons" />
-    </FlyoutItem>
-
-    <MenuItem Text="MEDIA" IsEnabled="False" />
-
-    <FlyoutItem Title="Media Element">
-        <ShellContent ContentTemplate="{DataTemplate mediaelement:MediaElementPage}" Route="mediaelement" />
-    </FlyoutItem>
-    <FlyoutItem Title="Video Text">
-        <ShellContent ContentTemplate="{DataTemplate mediaelement:VideoTextPage}" Route="videotext" />
-    </FlyoutItem>
-    <FlyoutItem Title="Shiny Image">
-        <ShellContent ContentTemplate="{DataTemplate images:ImagesPage}" Route="shinyimage" />
-    </FlyoutItem>
-    <FlyoutItem Title="Image Viewer">
-        <ShellContent ContentTemplate="{DataTemplate imgviewer:ImageViewerPage}" Route="imageviewer" />
-    </FlyoutItem>
-    <FlyoutItem Title="Image Gallery">
-        <ShellContent ContentTemplate="{DataTemplate imgviewer:ImageGalleryPage}" Route="imagegallery" />
-    </FlyoutItem>
-    <FlyoutItem Title="Image Editor">
-        <ShellContent ContentTemplate="{DataTemplate imgeditor:ImageEditorPage}" Route="imageeditor" />
-    </FlyoutItem>
-    <FlyoutItem Title="Media Picker">
-        <ShellContent ContentTemplate="{DataTemplate mediapicker:MediaPickerPage}" Route="mediapicker" />
+    <FlyoutItem Title="AI &amp; Agents" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Agent View" Route="agent-view" ContentTemplate="{DataTemplate agents:AgentViewPage}"
+                      macos:MacOSShell.SystemImage="brain" />
+        <ShellContent Title="A2UI Gallery" Route="a2ui-gallery" ContentTemplate="{DataTemplate agents:A2UIGalleryPage}"
+                      macos:MacOSShell.SystemImage="square.on.square.dashed" />
     </FlyoutItem>
 
-    <MenuItem Text="SCHEDULER" IsEnabled="False" />
-
-    <FlyoutItem Title="Calendar">
-        <ShellContent ContentTemplate="{DataTemplate scheduler:CalendarPage}" Route="calendar" />
-    </FlyoutItem>
-    <FlyoutItem Title="Agenda">
-        <ShellContent ContentTemplate="{DataTemplate scheduler:AgendaPage}" Route="agenda" />
-    </FlyoutItem>
-    <FlyoutItem Title="Calendar Picker">
-        <ShellContent ContentTemplate="{DataTemplate scheduler:AgendaCalendarPickerPage}" Route="agendacalendarpicker" />
-    </FlyoutItem>
-    <FlyoutItem Title="Event List">
-        <ShellContent ContentTemplate="{DataTemplate scheduler:CalendarListPage}" Route="calendarlist" />
+    <FlyoutItem Title="Content" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Markdown Viewer" Route="markdownview" ContentTemplate="{DataTemplate markdown:MarkdownViewPage}"
+                      macos:MacOSShell.SystemImage="text.document" />
+        <ShellContent Title="Markdown Editor" Route="markdowneditor" ContentTemplate="{DataTemplate markdown:MarkdownEditorPage}"
+                      macos:MacOSShell.SystemImage="text.document" />
     </FlyoutItem>
 
-    <MenuItem Text="AI &amp; AGENTS" IsEnabled="False" />
-
-    <FlyoutItem Title="Agent View">
-        <ShellContent ContentTemplate="{DataTemplate agents:AgentViewPage}" Route="agent-view" />
-    </FlyoutItem>
-    <FlyoutItem Title="A2UI Gallery">
-        <ShellContent ContentTemplate="{DataTemplate agents:A2UIGalleryPage}" Route="a2ui-gallery" />
+    <FlyoutItem Title="Floor Plan" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Editor" Route="floorplan" ContentTemplate="{DataTemplate floorplan:FloorPlanPage}"
+                      macos:MacOSShell.SystemImage="map" />
+        <ShellContent Title="Seating Chart" Route="seatingchart" ContentTemplate="{DataTemplate floorplan:SeatingChartPage}"
+                      macos:MacOSShell.SystemImage="map" />
     </FlyoutItem>
 
-    <MenuItem Text="CONTENT" IsEnabled="False" />
-
-    <FlyoutItem Title="Markdown Viewer">
-        <ShellContent ContentTemplate="{DataTemplate markdown:MarkdownViewPage}" Route="markdownview" />
-    </FlyoutItem>
-    <FlyoutItem Title="Markdown Editor">
-        <ShellContent ContentTemplate="{DataTemplate markdown:MarkdownEditorPage}" Route="markdowneditor" />
-    </FlyoutItem>
-
-    <MenuItem Text="FLOOR PLAN" IsEnabled="False" />
-
-    <FlyoutItem Title="Editor">
-        <ShellContent ContentTemplate="{DataTemplate floorplan:FloorPlanPage}" Route="floorplan" />
-    </FlyoutItem>
-    <FlyoutItem Title="Seating Chart">
-        <ShellContent ContentTemplate="{DataTemplate floorplan:SeatingChartPage}" Route="seatingchart" />
+    <FlyoutItem Title="Office" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Spreadsheet" Route="spreadsheet" ContentTemplate="{DataTemplate office:SpreadsheetPage}"
+                      macos:MacOSShell.SystemImage="tablecells" />
+        <ShellContent Title="Document" Route="documentviewer" ContentTemplate="{DataTemplate office:DocumentViewerPage}"
+                      macos:MacOSShell.SystemImage="doc.text" />
+        <ShellContent Title="Doc Editor" Route="documenteditor" ContentTemplate="{DataTemplate office:DocumentEditorPage}"
+                      macos:MacOSShell.SystemImage="doc.text" />
+        <ShellContent Title="Slides" Route="slideviewer" ContentTemplate="{DataTemplate office:SlideViewerPage}"
+                      macos:MacOSShell.SystemImage="rectangle.on.rectangle" />
+        <ShellContent Title="Slide Editor" Route="slideeditor" ContentTemplate="{DataTemplate office:SlideEditorPage}"
+                      macos:MacOSShell.SystemImage="rectangle.on.rectangle" />
+        <ShellContent Title="Notebook" Route="notebook" ContentTemplate="{DataTemplate office:NotebookEditorPage}"
+                      macos:MacOSShell.SystemImage="book" />
     </FlyoutItem>
 
-    <MenuItem Text="OFFICE" IsEnabled="False" />
-
-    <FlyoutItem Title="Spreadsheet">
-        <ShellContent ContentTemplate="{DataTemplate office:SpreadsheetPage}" Route="spreadsheet" />
-    </FlyoutItem>
-    <FlyoutItem Title="Document">
-        <ShellContent ContentTemplate="{DataTemplate office:DocumentViewerPage}" Route="documentviewer" />
-    </FlyoutItem>
-    <FlyoutItem Title="Doc Editor">
-        <ShellContent ContentTemplate="{DataTemplate office:DocumentEditorPage}" Route="documenteditor" />
-    </FlyoutItem>
-    <FlyoutItem Title="Slides">
-        <ShellContent ContentTemplate="{DataTemplate office:SlideViewerPage}" Route="slideviewer" />
-    </FlyoutItem>
-    <FlyoutItem Title="Slide Editor">
-        <ShellContent ContentTemplate="{DataTemplate office:SlideEditorPage}" Route="slideeditor" />
-    </FlyoutItem>
-    <FlyoutItem Title="Notebook">
-        <ShellContent ContentTemplate="{DataTemplate office:NotebookEditorPage}" Route="notebook" />
+    <FlyoutItem Title="Diagrams" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="Flowchart" Route="flowchart" ContentTemplate="{DataTemplate diagrams:BasicFlowchartPage}"
+                      macos:MacOSShell.SystemImage="point.3.connected.trianglepath.dotted" />
+        <ShellContent Title="Directions" Route="directions" ContentTemplate="{DataTemplate diagrams:DirectionsPage}"
+                      macos:MacOSShell.SystemImage="point.3.connected.trianglepath.dotted" />
+        <ShellContent Title="Themes" Route="themes" ContentTemplate="{DataTemplate diagrams:ThemesPage}"
+                      macos:MacOSShell.SystemImage="point.3.connected.trianglepath.dotted" />
+        <ShellContent Title="Subgraphs" Route="subgraphs" ContentTemplate="{DataTemplate diagrams:SubgraphsPage}"
+                      macos:MacOSShell.SystemImage="point.3.connected.trianglepath.dotted" />
+        <ShellContent Title="Editor" Route="editor" ContentTemplate="{DataTemplate diagrams:InteractiveEditorPage}"
+                      macos:MacOSShell.SystemImage="point.3.connected.trianglepath.dotted" />
     </FlyoutItem>
 
-    <MenuItem Text="DIAGRAMS" IsEnabled="False" />
-
-    <FlyoutItem Title="Flowchart">
-        <ShellContent ContentTemplate="{DataTemplate diagrams:BasicFlowchartPage}" Route="flowchart" />
-    </FlyoutItem>
-    <FlyoutItem Title="Directions">
-        <ShellContent ContentTemplate="{DataTemplate diagrams:DirectionsPage}" Route="directions" />
-    </FlyoutItem>
-    <FlyoutItem Title="Themes">
-        <ShellContent ContentTemplate="{DataTemplate diagrams:ThemesPage}" Route="themes" />
-    </FlyoutItem>
-    <FlyoutItem Title="Subgraphs">
-        <ShellContent ContentTemplate="{DataTemplate diagrams:SubgraphsPage}" Route="subgraphs" />
-    </FlyoutItem>
-    <FlyoutItem Title="Editor">
-        <ShellContent ContentTemplate="{DataTemplate diagrams:InteractiveEditorPage}" Route="editor" />
+    <FlyoutItem Title="Barcodes" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="QR Code" Route="qrcode" ContentTemplate="{DataTemplate barcodes:QRCodePage}"
+                      macos:MacOSShell.SystemImage="qrcode" />
+        <ShellContent Title="Barcode Gallery" Route="barcodegallery" ContentTemplate="{DataTemplate barcodes:BarcodeGalleryPage}"
+                      macos:MacOSShell.SystemImage="barcode" />
     </FlyoutItem>
 
-    <MenuItem Text="BARCODES" IsEnabled="False" />
-
-    <FlyoutItem Title="QR Code">
-        <ShellContent ContentTemplate="{DataTemplate barcodes:QRCodePage}" Route="qrcode" />
-    </FlyoutItem>
-    <FlyoutItem Title="Barcode Gallery">
-        <ShellContent ContentTemplate="{DataTemplate barcodes:BarcodeGalleryPage}" Route="barcodegallery" />
-    </FlyoutItem>
-
-    <MenuItem Text="DESKTOP" IsEnabled="False" />
-
-    <FlyoutItem Title="System Tray">
-        <ShellContent ContentTemplate="{DataTemplate trayicon:TrayIconPage}" Route="trayicon" />
-    </FlyoutItem>
-    <FlyoutItem Title="File Drop">
-        <ShellContent ContentTemplate="{DataTemplate filedrop:FileDropPage}" Route="filedrop" />
-    </FlyoutItem>
-    <FlyoutItem Title="Quick Entry">
-        <ShellContent ContentTemplate="{DataTemplate quickentry:QuickEntryPage}" Route="quickentry" />
+    <FlyoutItem Title="Desktop" FlyoutDisplayOptions="AsMultipleItems" Shell.TabBarIsVisible="False">
+        <ShellContent Title="System Tray" Route="trayicon" ContentTemplate="{DataTemplate trayicon:TrayIconPage}"
+                      macos:MacOSShell.SystemImage="menubar.arrow.up.rectangle" />
+        <ShellContent Title="File Drop" Route="filedrop" ContentTemplate="{DataTemplate filedrop:FileDropPage}"
+                      macos:MacOSShell.SystemImage="macwindow" />
+        <ShellContent Title="Quick Entry" Route="quickentry" ContentTemplate="{DataTemplate quickentry:QuickEntryPage}"
+                      macos:MacOSShell.SystemImage="character.cursor.ibeam" />
     </FlyoutItem>
 
 </shiny:ShinyShell>

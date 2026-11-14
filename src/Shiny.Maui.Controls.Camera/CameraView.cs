@@ -12,8 +12,11 @@ namespace Shiny.Maui.Controls.Camera;
 /// (Windows).
 /// </summary>
 [ContentProperty(nameof(Analyzer))]
-public partial class CameraView : View
+public partial class CameraView : View, IZoomableAnalysisHost
 {
+    AnalysisSourceKind IAnalysisHost.SourceKind => AnalysisSourceKind.Camera;
+    bool IAnalysisHost.IsLive => true;
+
     /// <summary>
     /// The single frame analyzer run against each frame (null = no analysis). Assign or swap it at any time —
     /// the running session picks up the change. It's the content property, so it can be declared inline in XAML.
@@ -32,6 +35,43 @@ public partial class CameraView : View
     {
         this.ScanCommand = new Command(this.Scan);
         this.InitializeEffects();
+    }
+
+    /// <summary>
+    /// The audio analyzer fed the camera's microphone (null = none) — a <c>SpeechCaptionAnalyzer</c> for live
+    /// captions, or your own <see cref="IAudioAnalyzer"/>; the same analyzers a <c>MediaElement</c> takes. Assign or
+    /// swap it at any time. While one is attached and enabled the microphone is open (and the OS shows its
+    /// recording indicator); microphone permission is requested when it is first needed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// On Apple the audio comes from the capture session itself, so it coexists with recording: while an audio
+    /// analyzer is attached, recordings are written through the same AVAssetWriter path burn-in overlays use,
+    /// which shares the session's audio rather than competing with it for the microphone. On Android it is read
+    /// with <c>AudioRecord</c>; a recording with audio at the same time depends on the device allowing two
+    /// captures. On Windows it is read with <c>AudioGraph</c>.
+    /// </para>
+    /// <para>Positions are time since the analyzer's audio started.</para>
+    /// </remarks>
+    public static readonly BindableProperty AudioAnalyzerProperty = BindableProperty.Create(
+        nameof(AudioAnalyzer), typeof(IAudioAnalyzer), typeof(CameraView), propertyChanged: OnAudioAnalyzerChanged);
+
+    /// <inheritdoc cref="AudioAnalyzerProperty"/>
+    public IAudioAnalyzer? AudioAnalyzer
+    {
+        get => (IAudioAnalyzer?)this.GetValue(AudioAnalyzerProperty);
+        set => this.SetValue(AudioAnalyzerProperty, value);
+    }
+
+    static void OnAudioAnalyzerChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        var view = (CameraView)bindable;
+        if (oldValue is Shiny.Maui.Controls.Analysis.AudioAnalyzer previous && ReferenceEquals(previous.Host, view))
+            previous.Host = null;
+        if (newValue is Shiny.Maui.Controls.Analysis.AudioAnalyzer next)
+            next.Host = view;
+        if (newValue is BindableObject bo)
+            SetInheritedBindingContext(bo, view.BindingContext);
     }
 
     static void OnAnalyzerChanged(BindableObject bindable, object oldValue, object newValue)
@@ -74,6 +114,8 @@ public partial class CameraView : View
         base.OnBindingContextChanged();
         if (this.Analyzer is BindableObject analyzer)
             SetInheritedBindingContext(analyzer, this.BindingContext);
+        if (this.AudioAnalyzer is BindableObject audio)
+            SetInheritedBindingContext(audio, this.BindingContext);
     }
 
     /// <summary>Raised on the UI thread when a still photo has been captured.</summary>

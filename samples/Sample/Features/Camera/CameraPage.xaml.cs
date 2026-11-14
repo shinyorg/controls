@@ -2,14 +2,16 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Graphics;
+using Shiny.Controls.Analysis;
 using Shiny.Controls.Camera;
+using Shiny.Maui.Controls.Analysis;
 using Shiny.Maui.Controls;
 using Shiny.Maui.Controls.Camera;
-using Shiny.Maui.Controls.Camera.Ai;
-using Shiny.Maui.Controls.Camera.Barcode;
-using Shiny.Maui.Controls.Camera.Documents;
-using Shiny.Maui.Controls.Camera.Face;
-using Shiny.Maui.Controls.Camera.Motion;
+using Shiny.Maui.Controls.Analysis.Ai;
+using Shiny.Maui.Controls.Analysis.Barcode;
+using Shiny.Maui.Controls.Analysis.Documents;
+using Shiny.Maui.Controls.Analysis.Face;
+using Shiny.Maui.Controls.Analysis.Motion;
 
 namespace Sample.Features.Camera;
 
