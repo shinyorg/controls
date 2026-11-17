@@ -83,7 +83,7 @@ public class TabsTests : UITest
         await Select(3);
         await Select(0);
         await WaitForStatus("Selected Home (index 0).");
-        await Driver.Tap(automationId: "tab-center");
+        await Driver.Tap(automationId: "TabsDemoPage_TabBar_Center");
 
         await WaitForStatus("Centre button pressed.");
         await AssertNoAppErrors();

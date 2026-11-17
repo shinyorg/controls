@@ -149,9 +149,13 @@ public static class JonRules
                     for (let i = 0; a && i < 8; i++, a = a.parentElement) {
                         if (!set.has(a) || !border(a, side)) continue;
                         // content scrolling past that edge only lines up with it by chance
+                        // - including when the container is itself the scroller (a list whose rows
+                        // run on below its bottom edge)
                         let scrolled = false;
-                        for (let b = el.parentElement; b && b !== a; b = b.parentElement)
+                        for (let b = el.parentElement; b; b = b.parentElement) {
                             if (scrolls(b, side === 'Top' || side === 'Bottom' ? 'y' : 'x')) { scrolled = true; break; }
+                            if (b === a) break;
+                        }
                         if (scrolled) break;
                         const ar = a.getBoundingClientRect();
                         const bw = border(a, side);

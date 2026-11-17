@@ -9,7 +9,8 @@ public class WizardTests : UITest
 {
     const string Wizard = "DemoWizard";
     const string Status = "WizardStatusLabel";
-    const string Next = "WizardNextButton";
+    // the sample names its wizard DemoWizard, so its buttons are <id>_Next / _Back / _Cancel
+    const string Next = "DemoWizard_Next";
 
     async Task OpenAtStart()
     {
@@ -72,7 +73,7 @@ public class WizardTests : UITest
         await Driver.WaitForProperty(Status, "Text", "On step: Fulfilment");
         await Driver.WaitForProperty(Wizard, "StepNumber", "2");
 
-        await Driver.Tap(automationId: "WizardBackButton");
+        await Driver.Tap(automationId: "DemoWizard_Back");
         await Driver.WaitForProperty(Wizard, "CurrentStep", "Account");
         await Driver.WaitForProperty(Wizard, "IsFirstStep", "True");
         await AssertNoAppErrors();
@@ -125,7 +126,7 @@ public class WizardTests : UITest
     public async Task Cancel_Runs_CancelledCommand()
     {
         await OpenAtStart();
-        await Driver.Tap(automationId: "WizardCancelButton");
+        await Driver.Tap(automationId: "DemoWizard_Cancel");
         await Driver.WaitForProperty(Status, "Text", "Cancelled — nothing was submitted.");
         await AssertNoAppErrors();
     }

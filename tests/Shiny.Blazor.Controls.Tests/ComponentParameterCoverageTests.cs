@@ -26,13 +26,17 @@ namespace Shiny.Blazor.Controls.Tests;
 /// </remarks>
 public class ComponentParameterCoverageTests(ITestOutputHelper output)
 {
-    /// <summary>A <c>[Parameter]</c> declaration, in a <c>.razor</c> code block or a code-behind.</summary>
+    /// <summary>
+    /// A <c>[Parameter]</c> declaration, in a <c>.razor</c> code block or a code-behind. The generic part of the
+    /// type is matched lazily up to the name, so a type with a space in it
+    /// (<c>Expression&lt;Func&lt;TItem, TProperty&gt;&gt;</c>) still yields its name.
+    /// </summary>
     static readonly Regex ParameterDeclaration = new(
-        @"\[Parameter[^\]]*\]\s*(?:public\s+)?[^\s;{]+(?:<[^>]*>)?\??\s+(\w+)\s*\{",
+        @"\[Parameter[^\]]*\]\s*(?:public\s+)?(?:required\s+)?[\w\.]+(?:<.*?>)?(?:\[\])?\??\s+(\w+)\s*\{",
         RegexOptions.Compiled);
 
     static readonly Regex ClassDeclaration = new(
-        @"\bpublic\s+(?:sealed\s+|abstract\s+|partial\s+)*class\s+(\w+)\s*(?:<[^>]*>)?\s*(?::\s*([^\{]+))?",
+        @"\bpublic\s+(?:sealed\s+|abstract\s+|partial\s+)*class\s+(\w+)\s*(?:<([^>]*)>)?\s*(?::\s*([^\{]+))?",
         RegexOptions.Compiled);
 
     static readonly Regex Inherits = new(@"^@inherits\s+([\w\.<>]+)", RegexOptions.Compiled | RegexOptions.Multiline);
@@ -160,10 +164,18 @@ public class ComponentParameterCoverageTests(ITestOutputHelper output)
                 if (Splats.IsMatch(text))
                     declared.Splats = true;
 
-                if (!m.Groups[2].Success)
+                // A generic class's type parameters are set like parameters in markup (TItem="..."), the
+                // same as a .razor @typeparam.
+                if (m.Groups[2].Success)
+                {
+                    foreach (var typeParameter in m.Groups[2].Value.Split(',').Select(t => t.Trim()).Where(t => t.Length > 0))
+                        declared.Parameters.Add(typeParameter);
+                }
+
+                if (!m.Groups[3].Success)
                     continue;
 
-                var first = Simple(m.Groups[2].Value.Split(',')[0]);
+                var first = Simple(m.Groups[3].Value.Split(',')[0]);
 
                 // Interfaces first in a base list are common and are never the base type.
                 if (first.Length > 1 && char.IsUpper(first[0]) && !(first[0] == 'I' && char.IsUpper(first[1])))

@@ -85,7 +85,7 @@ public partial class SignatureView : ContentView
         this.border = new Border
         {
             StrokeThickness = 1,
-            StrokeShape = new RoundRectangle { CornerRadius = 8 },
+            StrokeShape = new RoundRectangle().WithCornerRadius(ShinyThemeKeys.Shape.CornerSmallRadius),
             Padding = 0,
             Content = new Grid
             {

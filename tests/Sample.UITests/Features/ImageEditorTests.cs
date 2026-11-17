@@ -63,11 +63,11 @@ public class ImageEditorTests : UITest
         await OpenPage();
         await Driver.WaitForProperty("PhotoEditor", "CurrentToolMode", "Move");
 
-        await Driver.Tap(automationId: "ImageEditorToolDraw");
+        await Driver.Tap(automationId: "PhotoEditor_Tool_Draw");
         await Driver.WaitForProperty("PhotoEditor", "CurrentToolMode", "Draw");
 
         // pressing the tool in hand returns to Move (the ribbon is rebuilt, so look it up again)
-        await Driver.Tap(automationId: "ImageEditorToolDraw");
+        await Driver.Tap(automationId: "PhotoEditor_Tool_Draw");
         await Driver.WaitForProperty("PhotoEditor", "CurrentToolMode", "Move");
         await AssertNoAppErrors();
     }
@@ -84,7 +84,7 @@ public class ImageEditorTests : UITest
 
         // the ribbon is rebuilt for the new tool, so its Rectangle toggle now reads as the tool in hand
 
-        await Driver.Tap(automationId: "ImageEditorToolRectangle");
+        await Driver.Tap(automationId: "PhotoEditor_Tool_Rectangle");
         await Driver.WaitForProperty("PhotoEditor", "CurrentToolMode", "Move");
         await AssertNoAppErrors();
     }

@@ -50,21 +50,6 @@ public partial class PageTransitionHost
     PageTransition? pendingOutgoing;
 
 
-    string MergedStyle
-    {
-        get
-        {
-            var own = "view-transition-name:shiny-page;";
-            return this.AdditionalAttributes?.TryGetValue("style", out var style) == true
-                ? own + style
-                : own;
-        }
-    }
-
-    IReadOnlyDictionary<string, object>? OtherAttributes
-        => this.AdditionalAttributes?.Where(a => a.Key != "style").ToDictionary(a => a.Key, a => a.Value);
-
-
     internal void Register(PageTransition page) => this.registered.Add(page);
     internal void Unregister(PageTransition page) => this.registered.Remove(page);
 

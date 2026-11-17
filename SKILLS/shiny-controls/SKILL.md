@@ -1346,6 +1346,8 @@ All of these services are registered **Scoped**, never Singleton — they hold p
 
 ## Setup
 
+The packages target **.NET 11** (`net11.0`, MAUI 11, Blazor 11). Generated projects need the .NET 11 SDK, Android `SupportedOSPlatformVersion` **24** or higher and Mac Catalyst **17.0** or higher (iOS 15.0).
+
 ### .NET MAUI
 
 1. Install the NuGet package
@@ -1700,6 +1702,7 @@ When generating code with Shiny.Maui.Controls:
 - Use `Mode=TwoWay` for `MarkdownEditor.Markdown` (editor content)
 - Use `Mode=OneWay` (default) for display-only properties (`Title`, `Description`, `ValueText` on LabelCell, `Text` on PillView, `Source` on ImageViewer, `Markdown` on MarkdownView)
 - Commands use default `Mode=OneWay`
+- A binding path that reads a member of a struct-typed read-only property (`Path=VideoSize.Width` on MediaElement) must say `Mode=OneWay`: MAUI 11's compiled XAML otherwise generates a setter through the read-only property and the page does not compile
 - RadioCell selection binds at section level: `shiny:RadioCell.SelectedValue="{Binding Prop, Mode=TwoWay}"`
 
 ### 4. Styling (MAUI)

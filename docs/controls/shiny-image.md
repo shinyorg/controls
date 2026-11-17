@@ -41,7 +41,7 @@ exactly the cases where a percentage would be a lie.
 | RingSize, RingColor, RingTrackColor, ProgressTextColor, ShowProgressText | — | Ring appearance; colours fall back to theme tokens |
 | CacheEnabled, CacheDuration | bool, TimeSpan? | Per-image cache participation and expiry override (MAUI) |
 | DisableProgress | bool | Blazor: skip the streamed fetch and let the browser load the URL directly |
-| State, Progress, IsLoading, LoadError | read-only | The live load state |
+| State, Progress, IsLoading, LoadError | read-only | The live load state. A progress report the service raised before it returned is dropped if it arrives after the load finished, so a loaded image never falls back to `Downloading` |
 | ImageLoaded / ImageFailed | event / EventCallback | Completion callbacks (plus `ImageLoadedCommand` / `ImageFailedCommand` on MAUI) |
 | SvgTintColor | Color? | MAUI: what `currentColor` resolves to in an SVG. Ignored by rasters and by artwork with its own colours |
 | ReloadAsync() | method | Re-fetch, skipping the cache — and, for SVG, re-parse |

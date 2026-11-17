@@ -165,7 +165,7 @@ itself.
 | `Position` | TimeSpan | 0 | two-way; read back every `PositionUpdateInterval`, assigning it seeks |
 | `Duration` | TimeSpan | 0 | read-only; zero until opened, and for live streams |
 | `CurrentState` | `MediaElementState` | None | None / Opening / Buffering / Playing / Paused / Stopped / Failed |
-| `VideoSize` | `Size` | 0 x 0 | MAUI only — read-only pixel size of the video track; zero for audio-only. Blazor splits it into `VideoWidth`/`VideoHeight` ints |
+| `VideoSize` | `Size` | 0 x 0 | MAUI only — read-only pixel size of the video track; zero for audio-only. Bind a member with `Mode=OneWay` (`{Binding Source={x:Reference Player}, Path=VideoSize.Width, Mode=OneWay}`) or MAUI 11's compiled XAML fails to build. Blazor splits it into `VideoWidth`/`VideoHeight` ints |
 | `BufferedProgress` | double | 0 | 0..1; the scrubber's secondary track |
 | `Aspect` | `MediaAspect` | AspectFit | AspectFit / AspectFill / Fill |
 | `KeepScreenOn` | bool | false | inhibit display sleep while playing |

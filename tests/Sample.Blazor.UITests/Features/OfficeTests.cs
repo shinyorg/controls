@@ -323,9 +323,17 @@ public class DocumentEditorTests : BlazorTest
     [Test]
     public async Task Save_Is_Handed_To_The_Host()
     {
+        // Save goes to the registered document store. On Chromium a new file would open the system save
+        // dialog, which nothing can drive; hiding the File System Access picker takes the path Safari and
+        // Firefox always take - a download - in every browser.
+        await Page.AddInitScriptAsync("window.showSaveFilePicker = undefined;");
         await Open("document-editor");
-        await Page.Locator(".office-titlebar").GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync();
-        await Expect(PageStatus).ToContainTextAsync("Saved \"Quarterly Report\"");
+
+        var download = await Page.RunAndWaitForDownloadAsync(() =>
+            Page.Locator(".office-titlebar").GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync());
+
+        await Assert.That(download.SuggestedFilename).StartsWith("Quarterly Report");
+        await Assert.That(download.SuggestedFilename).EndsWith(".docx");
         await AssertNoConsoleErrors();
     }
 

@@ -215,7 +215,21 @@ public partial class ShinyImage : ContentView, IDisposable
 
         // Progress<T> captures the sync context at construction. Building it here - on the UI thread,
         // where every load starts - is what makes the ring update without a manual dispatch.
-        var progress = new Progress<ImageLoadProgress>(this.SetProgress);
+        //
+        // Its reports are posted, not run inline, so one the service raised before it returned can
+        // arrive after the load has finished (or, with no sync context, on another thread at the same
+        // moment) and put a finished image back to Downloading with its spinner showing. The gate drops
+        // anything that arrives once the service call is over.
+        var gate = new object();
+        var serviceDone = false;
+        var progress = new Progress<ImageLoadProgress>(p =>
+        {
+            lock (gate)
+            {
+                if (!serviceDone && this.StillWanted(uri, token))
+                    this.SetProgress(p);
+            }
+        });
 
         var request = new ImageRequest(uri)
         {
@@ -236,6 +250,12 @@ public partial class ShinyImage : ContentView, IDisposable
         catch (Exception ex)
         {
             result = ImageResult.Fail(ex);
+        }
+        finally
+        {
+            // a report already applying finishes first; anything later is stale
+            lock (gate)
+                serviceDone = true;
         }
 
         if (!this.StillWanted(uri, token))

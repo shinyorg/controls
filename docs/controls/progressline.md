@@ -42,7 +42,7 @@ With nothing reported, the line **trickles**: it decelerates toward `TrickleCeil
 | PulseEnabled | bool | false | Shimmer sheen along the fill |
 | AnimateProgress / ProgressAnimationDuration / ProgressAnimationEasing | bool / int / Easing | true / 250 / CubicOut | Fill slide, as on `ProgressBar` |
 | IsActive | bool | true | The animated show/hide switch (not `IsVisible`) |
-| FadeDuration | int | 200 | Length of the `IsActive` fade in ms |
+| FadeDuration | int | 200 | Length of the `IsActive` fade in ms. A line that is not on screen yet (no handler, or `IsActive` set by an implicit `Style`) switches straight to the end state instead of fading |
 | Dock | bool | true | **MAUI** - relocate onto the page edge; `False` keeps it inline |
 | AutoInset | bool | true | **MAUI** - offset past the nav/tab bar and safe area |
 | Offset | Thickness/string | 0 | Extra distance from the edge, on top of `AutoInset` |

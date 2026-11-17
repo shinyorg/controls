@@ -2,12 +2,14 @@
 @implements IAsyncDisposable
 
 @*
-    view-transition-name makes this element its own group in the browser's view transition, so the
-    routed page animates and the chrome around it (app bar, nav panel) stays where it is. The style is
-    merged with a caller's own rather than splatted over it, which would drop the name.
+    page-transitions.js gives this element view-transition-name: shiny-page for the length of a
+    transition, which makes the routed page its own group so it animates while the chrome around it
+    (app bar, nav panel) stays where it is. Only for the length of one: a view-transition-name also
+    makes the element a stacking context, and left on it would trap every overlay on the page - a FAB
+    menu's, a sheet's or a modal's backdrop - under the app layout's panels.
 *@
 <CascadingValue Value="this" IsFixed="true">
-    <div class="shiny-page-transition @Class" style="@MergedStyle" @attributes="OtherAttributes">
+    <div class="shiny-page-transition @Class" data-shiny-page-transition @attributes="AdditionalAttributes">
         @ChildContent
     </div>
 </CascadingValue>

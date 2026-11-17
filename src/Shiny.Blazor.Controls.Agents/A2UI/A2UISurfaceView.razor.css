@@ -48,9 +48,9 @@
     min-height: 20px;
     border-radius: var(--shiny-shape-corner-small, 6px);
     background: linear-gradient(90deg,
-        var(--shiny-color-surface-container, #EEF1F5) 25%,
+        var(--shiny-color-surface-container, #E8EEF6) 25%,
         var(--shiny-color-surface-container-high, #E2E6EA) 50%,
-        var(--shiny-color-surface-container, #EEF1F5) 75%);
+        var(--shiny-color-surface-container, #E8EEF6) 75%);
     background-size: 200% 100%;
     animation: a2ui-shimmer 1.2s linear infinite;
 }
@@ -66,7 +66,7 @@
 
 ::deep .a2ui-unsupported {
     padding: var(--shiny-spacing-2, 8px);
-    border: var(--shiny-border-thin, 1px) dashed var(--shiny-color-outline, #74777F);
+    border: var(--shiny-border-thin, 1px) dashed var(--shiny-color-outline, #6C788D);
     border-radius: var(--shiny-shape-corner-small, 6px);
     color: var(--shiny-color-on-surface-variant, #3B475B);
     font-size: var(--shiny-type-body-small-size, 12px);
@@ -265,7 +265,7 @@
     width: 100%;
     min-height: 38px;
     padding: var(--shiny-spacing-2, 8px) var(--shiny-spacing-3, 12px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #74777F);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #6C788D);
     border-radius: var(--shiny-shape-corner-small, 6px);
     background: var(--shiny-color-surface-container-lowest, #FFFFFF);
     color: var(--shiny-color-on-surface, #161C23);
@@ -278,12 +278,12 @@
     border-color: transparent;
 }
 
-::deep .a2ui-input[aria-invalid="true"] { border-color: var(--shiny-color-error, #BA1A1A); }
+::deep .a2ui-input[aria-invalid="true"] { border-color: var(--shiny-color-error, #C20014); }
 ::deep .a2ui-input--multiline { resize: vertical; }
 
 ::deep .a2ui-error {
     font-size: var(--shiny-type-body-small-size, 12px);
-    color: var(--shiny-color-error, #BA1A1A);
+    color: var(--shiny-color-error, #C20014);
 }
 
 ::deep .a2ui-hint {
@@ -315,7 +315,7 @@
     min-height: 38px;
     padding: 0 var(--shiny-spacing-4, 16px);
     border-radius: var(--shiny-shape-corner-large, 18px);
-    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #74777F);
+    border: var(--shiny-border-thin, 1px) solid var(--shiny-color-outline, #6C788D);
     background: transparent;
     color: var(--shiny-color-primary, #0055D9);
     font: inherit;

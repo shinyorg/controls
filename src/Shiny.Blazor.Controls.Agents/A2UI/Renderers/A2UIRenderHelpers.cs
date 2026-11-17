@@ -10,12 +10,12 @@ static class A2UIRenderHelpers
     /// <summary>A catalog tone as a theme colour (with a fallback for pages without a theme).</summary>
     public static string ToneColor(string? tone) => tone switch
     {
-        "good" or "success" => "var(--shiny-color-success, #2E7D32)",
-        "warning" => "var(--shiny-color-warning, #B26A00)",
-        "caution" => "var(--shiny-color-caution, #C77700)",
-        "danger" or "critical" => "var(--shiny-color-error, #BA1A1A)",
+        "good" or "success" => "var(--shiny-color-success, #00711C)",
+        "warning" => "var(--shiny-color-warning, #9C4500)",
+        "caution" => "var(--shiny-color-caution, #B42800)",
+        "danger" or "critical" => "var(--shiny-color-error, #C20014)",
         "info" => "var(--shiny-color-primary, #0055D9)",
-        _ => "var(--shiny-color-outline, #74777F)"
+        _ => "var(--shiny-color-outline, #6C788D)"
     };
 
     public static string Invariant(double value) => value.ToString(CultureInfo.InvariantCulture);

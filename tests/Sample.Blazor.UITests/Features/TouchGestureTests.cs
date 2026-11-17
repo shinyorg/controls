@@ -93,7 +93,8 @@ public class TouchGestureTests : BlazorTest
     {
         await Open("signaturepad");
         await Page.GetByRole(AriaRole.Button, new() { Name = "Capture Signature" }).ClickAsync();
-        var canvas = Page.Locator(".shiny-sigpad-canvas");
+        // the pad hosts a SignatureView (2.5.0), so the ink surface is its canvas
+        var canvas = Page.Locator(".shiny-sigpad-canvas-host .shiny-sigview-canvas");
         await Expect(canvas).ToBeInViewportAsync();
         await Page.WaitForTimeoutAsync(600); // the sheet slides up
 

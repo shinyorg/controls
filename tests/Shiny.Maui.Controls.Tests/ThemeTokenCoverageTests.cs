@@ -51,6 +51,7 @@ public class ThemeTokenCoverageTests(ITestOutputHelper output)
         // Every one of these colours is a public property a caller can bind to a theme token.
         ["ShineBorder.cs"] = "the default shine gradient is the effect's identity; ShineColors is the caller's to set",
         ["BorderBeam.cs"] = "the default beam gradient is the effect's identity; ColorFrom/ColorTo are the caller's to set",
+        ["ScratchCard.cs"] = "the default cover is a silver scratch-off foil and its label is inked for contrast on that foil, not the theme; Cover is the caller's to replace",
         ["AuroraEffect.cs"] = "the default aurora palette is the effect itself",
         ["BubblesEffect.cs"] = "the default bubble palette is the effect itself",
         ["DotPatternEffect.cs"] = "the dot colour is the pattern itself",

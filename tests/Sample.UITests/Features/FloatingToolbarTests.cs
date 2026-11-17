@@ -42,8 +42,8 @@ public class FloatingToolbarTests : UITest
         await OpenPage();
 
         await OpenBarOver("CardOne");
-        // items are stamped toolbar-item-{Text} and tap through a recognizer Command
-        await Driver.Tap(automationId: "toolbar-item-Cut");
+        // the card toolbar has an id, so its items are CardToolbar_Item_<index> (Cut 0, Copy 1); they tap through a recognizer Command
+        await Driver.Tap(automationId: "CardToolbar_Item_0");
 
         await Driver.WaitUntil(async () =>
             (await Driver.GetProperty("Text", automationId: "LastActionLabel"))?.StartsWith("Cut on ") == true,
@@ -58,7 +58,7 @@ public class FloatingToolbarTests : UITest
         await OpenPage();
         await OpenBarOver("CardTwo");
 
-        await Driver.Tap(automationId: "toolbar-item-Copy");
+        await Driver.Tap(automationId: "CardToolbar_Item_1");
 
         await Driver.WaitForProperty("CardToolbar", "IsOpen", "False");
         await AssertNoAppErrors();

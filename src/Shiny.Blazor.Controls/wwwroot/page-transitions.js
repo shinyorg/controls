@@ -10,6 +10,7 @@
 
 const STYLE_ID = 'shiny-page-transitions-style';
 const HERO_ATTR = 'data-shiny-hero';
+const HOST_ATTR = 'data-shiny-page-transition';
 const SAFETY_MS = 2500;
 
 let pending = null;
@@ -38,6 +39,7 @@ export function begin() {
     if (pending)
         release(pending, false);
 
+    namePage();
     const used = nameHeroes();
     const pointer = lastPointer;
 
@@ -52,6 +54,7 @@ export function begin() {
                 return update;
             });
         } catch {
+            clearPage();
             clearHeroes();
             captured(false);
             return;
@@ -177,7 +180,26 @@ function cleanup() {
     root.removeAttribute('data-shiny-vt-oldtop');
     for (const name of ['duration', 'x', 'y', 'old', 'new', 'ax', 'ay', 'zin', 'zout', 'fx', 'fy', 'turn', 'cx', 'cy', 'r'])
         root.style.removeProperty(`--shiny-vt-${name}`);
+    clearPage();
     clearHeroes();
+}
+
+
+/**
+ * Names the page host for this transition only. A view-transition-name makes its element a stacking
+ * context, so left on permanently it would keep every overlay inside the page (backdrops, sheets,
+ * modals) beneath the app layout's panels. Only the first host takes the name: names must be unique.
+ */
+function namePage() {
+    const host = document.querySelector(`[${HOST_ATTR}]`);
+    if (host)
+        host.style.viewTransitionName = 'shiny-page';
+}
+
+
+function clearPage() {
+    for (const el of document.querySelectorAll(`[${HOST_ATTR}]`))
+        el.style.viewTransitionName = '';
 }
 
 

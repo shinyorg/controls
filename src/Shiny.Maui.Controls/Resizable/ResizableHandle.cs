@@ -45,7 +45,7 @@ public class ResizableHandle : ContentView
         this.grip = new Border
         {
             StrokeThickness = 1,
-            StrokeShape = new RoundRectangle { CornerRadius = 3 },
+            StrokeShape = new RoundRectangle().WithCornerRadius(ShinyThemeKeys.Shape.CornerExtraSmallRadius),
             Padding = 0,
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center,
@@ -81,13 +81,16 @@ public class ResizableHandle : ContentView
         };
 
         SemanticProperties.SetDescription(this, "Resize handle");
+
+        // an implicit Style is applied before this body runs; replay what it set now the fields exist
+        StyleGuard.MarkReady(this, typeof(ResizableHandle));
     }
 
     internal ResizablePanelGroup? Group { get; set; }
 
     public static readonly BindableProperty WithHandleProperty = BindableProperty.Create(
         nameof(WithHandle), typeof(bool), typeof(ResizableHandle), false,
-        propertyChanged: (b, _, n) => ((ResizableHandle)b).grip.IsVisible = (bool)n);
+        propertyChanged: (b, _, n) => StyleGuard.WhenReady<ResizableHandle>(b, ctrl => ctrl.grip.IsVisible = (bool)n));
 
     /// <summary>Shows a grip in the middle of the line. The handle drags either way; this is only the cue.</summary>
     public bool WithHandle
@@ -98,7 +101,7 @@ public class ResizableHandle : ContentView
 
     public static readonly BindableProperty LineColorProperty = BindableProperty.Create(
         nameof(LineColor), typeof(Color), typeof(ResizableHandle), null,
-        propertyChanged: (b, _, _) => ((ResizableHandle)b).ApplyLineColor());
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady<ResizableHandle>(b, ctrl => ctrl.ApplyLineColor()));
 
     /// <summary>Leave unset to follow the theme's outline-variant colour (primary while hovered or dragged).</summary>
     public Color? LineColor

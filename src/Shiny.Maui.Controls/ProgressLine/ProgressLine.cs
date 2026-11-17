@@ -411,7 +411,10 @@ public partial class ProgressLine : ContentView, IDisposable
     {
         this.AbortAnimation(FadeAnimationName);
 
-        if (this.FadeDuration <= 0)
+        // No handler yet (an implicit Style replayed at the end of the constructor, or a line toggled
+        // before it is on screen): there is nothing to fade and no animation manager to run one, so
+        // go straight to the end state.
+        if (this.FadeDuration <= 0 || this.Handler is null)
         {
             this.Opacity = active ? 1 : 0;
             this.IsVisible = active;

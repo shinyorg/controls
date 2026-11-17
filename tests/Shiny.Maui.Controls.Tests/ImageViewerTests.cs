@@ -34,13 +34,19 @@ public class ImageViewerTests
     };
 
 
-    static async Task WaitFor(Func<bool> condition)
+    // Up to five seconds: it returns as soon as the condition holds, and a loaded test host (the whole
+    // suite running in parallel) can take well over a second to finish a load.
+    static async Task WaitFor(Func<bool> condition, Func<string>? describe = null)
     {
-        for (var i = 0; i < 100 && !condition(); i++)
+        for (var i = 0; i < 500 && !condition(); i++)
             await Task.Delay(10);
 
-        condition().ShouldBeTrue("the load never settled");
+        condition().ShouldBeTrue("the load never settled" + (describe is null ? "" : ": " + describe()));
     }
+
+    static string Describe(ImageViewer viewer) =>
+        $"State={viewer.State} IsLoading={viewer.IsLoading} Progress={viewer.Progress.State} " +
+        $"thumbnail State={viewer.thumbnailImage.State} IsLoading={viewer.thumbnailImage.IsLoading} Progress={viewer.thumbnailImage.Progress.State}";
 
 
     [Fact]
@@ -51,11 +57,33 @@ public class ImageViewerTests
 
         viewer.Uri = Uri;
 
-        await WaitFor(() => viewer.State == ImageLoadState.Loaded);
+        // State, IsLoading and Progress are mirrored one property at a time as the thumbnail sets them,
+        // and the load completes off the test's thread, so wait for all of them rather than the first.
+        await WaitFor(() => viewer.State == ImageLoadState.Loaded && !viewer.IsLoading && viewer.Progress.State == ImageLoadState.Loaded, () => Describe(viewer));
 
         service.Requested.ShouldBe([Uri]);
         viewer.IsLoading.ShouldBeFalse();
         viewer.LoadError.ShouldBeNull();
+        viewer.Progress.State.ShouldBe(ImageLoadState.Loaded);
+    }
+
+
+    [Fact]
+    public async Task AProgressReportArrivingAfterTheLoadIsIgnored()
+    {
+        var service = new StubImageService();
+        var viewer = Build(service);
+
+        viewer.Uri = Uri;
+        await WaitFor(() => viewer.State == ImageLoadState.Loaded && !viewer.IsLoading, () => Describe(viewer));
+
+        // Progress<T> posts its reports, so one the service raised before returning can be delivered
+        // after the load finished. It must not put a loaded image back to Downloading with a spinner.
+        service.LastProgress!.Report(new ImageLoadProgress(ImageLoadState.Downloading, 1, 4));
+        await Task.Delay(200);
+
+        viewer.State.ShouldBe(ImageLoadState.Loaded);
+        viewer.IsLoading.ShouldBeFalse();
         viewer.Progress.State.ShouldBe(ImageLoadState.Loaded);
     }
 
@@ -90,7 +118,8 @@ public class ImageViewerTests
         viewer.ImageFailed += (_, e) => failure = e;
 
         viewer.Uri = Uri;
-        await WaitFor(() => viewer.State == ImageLoadState.Failed);
+        // the error and the event land after State, from the load's own thread
+        await WaitFor(() => viewer.State == ImageLoadState.Failed && viewer.LoadError is not null && failure is not null);
 
         viewer.LoadError.ShouldBeOfType<HttpRequestException>();
         failure.ShouldNotBeNull();
@@ -240,6 +269,9 @@ public class ImageViewerTests
         public List<string> Requested { get; } = [];
         public Exception? Error { get; init; }
 
+        /// <summary>The progress the last request was given, so a test can report through it late.</summary>
+        public IProgress<ImageLoadProgress>? LastProgress { get; private set; }
+
         public Task<ImageResult> GetAsync(
             ImageRequest request,
             IProgress<ImageLoadProgress>? progress = null,
@@ -247,6 +279,7 @@ public class ImageViewerTests
         )
         {
             this.Requested.Add(request.Uri);
+            this.LastProgress = progress;
 
             if (this.Error is not null)
                 return Task.FromResult(ImageResult.Fail(this.Error));

@@ -23,5 +23,6 @@
 
     <ItemGroup>
         <Using Include="Shiny.Controls.Analysis" />
+        <Using Include="Shiny.Blazor.Controls.Analysis" />
     </ItemGroup>
 </Project>

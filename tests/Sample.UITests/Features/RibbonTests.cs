@@ -79,7 +79,7 @@ public class RibbonTests : UITest
         await OpenRibbon();
         try
         {
-            await Driver.Tap("RibbonApplicationButton");
+            await Driver.Tap("SampleRibbon_ApplicationButton");
             await WaitForLog("File");
         }
         finally
