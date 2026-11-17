@@ -672,6 +672,29 @@ It reuses the document delivery model — `DocumentDetected` event, `DocumentDet
 
 `ScanAsync` awaits `CameraView.RequestDocumentImageAsync` (the gated "next steadily-present document → cropped JPEG") then sends it to the `IChatClient`. Give the scanner context-backed `SerializerOptions` for trim/AOT-safe WASM (the non-generic `AiDocumentScanner` does this for you).
 
+#### On-device model: `FoundationModelsChatClient` (Apple, `Shiny.Maui.Controls.Analysis.Ai`)
+
+`FoundationModelsChatClient` is an `IChatClient` over Apple's on-device Foundation Models (Apple Intelligence) — offline, keyless, free per call. Pass it anywhere an `IChatClient` goes, `AiDocumentAnalyzer` included. Text needs iOS / Mac Catalyst / macOS 26; image input (`DataContent` with an `image/*` type) and the Vision tools need 27. It exists on every TFM so shared code compiles; off Apple it reports `UnsupportedPlatform` and throws `PlatformNotSupportedException`. **Always gate on `IsAvailable` and fall back** to a cloud client:
+
+```csharp
+using Shiny.Maui.Controls.Analysis.Ai;
+
+builder.Services.AddSingleton<IChatClient>(_ =>
+{
+    if (!FoundationModelsChatClient.IsAvailable)        // Availability says why: DeviceNotEligible, AppleIntelligenceNotEnabled, ModelNotReady, UnsupportedOperatingSystem, UnsupportedPlatform
+        return cloudChatClient;
+    FoundationModelsChatClient.Prewarm();               // the first request otherwise pays a multi-second cold start
+    return new FoundationModelsChatClient(new()
+    {
+        UseOcrTool = false,           // Vision OCRTool — dense/small text; ~1s extra per call; not in the iOS Simulator
+        UseBarcodeReaderTool = false, // Vision BarcodeReaderTool
+        UseCase = FoundationModelsUseCase.General   // or ContentTagging
+    });
+});
+```
+
+`GetResponseAsync<T>` uses guided generation (the schema constrains the reply). Unions and recursive types can't be expressed, so for those it falls back to asking for JSON in the instructions. System messages + `ChatOptions.Instructions` become instructions; `Temperature` / `MaxOutputTokens` are honoured; history, streaming and cancellation work (a structured reply streams as one final update). **Not supported:** `ChatOptions.Tools` (`AIFunction`s) → `NotSupportedException`; remote `UriContent` images → `NotSupportedException` (pass bytes). Failures throw `FoundationModelsException` with a `Kind` (`GuardrailViolation`, `ContextSizeExceeded`, `UnsupportedLanguage`, `Refusal`, `RateLimited`, `BadRequest`, `Unavailable`, `Other`).
+
 ### Capture & stop on detection ("scan then freeze")
 
 There's no declarative capture/stop flag — do it explicitly inside the analyzer's `OnDetected`. Arm with
@@ -1005,7 +1028,7 @@ Blazor mirrors the MAUI single-analyzer shape: assign a typed **`Analyzer`** (to
 - Custom analyzers should derive from `FrameAnalyzer` (not implement `IFrameAnalyzer` directly) so delivery marshals to the UI thread, they get `IsEnabled` + `ShowBoundingBox` + arming, and their `Command`/`OnDetected` bind in XAML. Deliver a confirmed result with `Deliver(args, raiseEvent, command, onDetected)` — it's gated by arming (does nothing while disarmed), consumes the arm so a lingering detection won't re-fire, and re-arms when `onDetected` returns `true`. Expose your own typed `OnDetected` (`Func<TArgs, Task<bool>>`) bindable property and pass it through. Return boxes via `ResolveOverlay(args, OverlayProvider, () => defaultBoxes)` (independent of arming — boxes always draw; suppressed only when `ShowBoundingBox` is `false`).
 - All analyzers live under the single `xmlns:cam="http://shiny.net/maui/camera"` prefix; declare the **one** active analyzer inside `<cam:CameraView>` (content property = `Analyzer`). Bind results with `…Command="{Binding …}"`; the analyzer inherits the camera's `BindingContext`. To offer several detectors, build them once and assign the chosen one to `Camera.Analyzer` (see the sample).
 - Invoice/health-card parsing is **best-effort rules** — swap accuracy in via a custom `IDocumentParser<T>`. Driver's-license parsing is deterministic (AAMVA).
-- **AI document scanner** (`AiDocumentAnalyzer` / Blazor `AiDocumentScanner`) needs an `IChatClient` (a **vision** model) supplied by the consumer — it ships images, not text. It detects presence cheaply every frame but only calls the model **while armed + the document is steady** (one call per document), so it stays cost-efficient. For trim/AOT, pass `SerializerOptions` built from a `JsonSerializerContext` for your `TDocument` (the built-in `AiDocument` already is). MAUI encoding is native per platform; **inert on bare `net10.0`** (no encoder).
+- **AI document scanner** (`AiDocumentAnalyzer` / Blazor `AiDocumentScanner`) needs an `IChatClient` (a **vision** model) supplied by the consumer — it ships images, not text. On MAUI Apple targets prefer `FoundationModelsChatClient` (on-device, offline) when `FoundationModelsChatClient.IsAvailable`, with a cloud client as the fallback; never call it without that check, and never pass it `AIFunction` tools. It detects presence cheaply every frame but only calls the model **while armed + the document is steady** (one call per document), so it stays cost-efficient. For trim/AOT, pass `SerializerOptions` built from a `JsonSerializerContext` for your `TDocument` (the built-in `AiDocument` already is). MAUI encoding is native per platform; **inert on bare `net10.0`** (no encoder).
 - Use `QRCodeView`/`BarcodeView` from `Shiny.Maui.Controls.Barcodes` to *render* (generate) a code; use the CameraView `BarcodeAnalyzer` to *scan* one. They are different packages for different jobs.
 
 ## Common Pitfalls
@@ -1089,7 +1112,7 @@ sealed class HudOverlay : ICompositedVideoOverlayRenderer
 - **Scan a business card** → set `Camera.Analyzer = new BusinessCardAnalyzer()` and handle `DocumentDetected` (`BusinessCard` — name/title/company + `.Emails` / `.Phones` / website).
 - **Scan a driver's license / health card** → set `Camera.Analyzer` to `DriversLicenseAnalyzer` (deterministic AAMVA) or `HealthCardAnalyzer` from `.Analysis.Documents`.
 - **Scan a passport** → `PassportAnalyzer` (deterministic MRZ); **read a credit card** → `CreditCardAnalyzer` (brand+number deterministic).
-- **Parse a free-form or unknown document with AI** → `Camera.Analyzer = new AiDocumentAnalyzer(chatClient)` from `.Analysis.Ai` (detects presence, then sends one frame to a Microsoft.Extensions.AI `IChatClient`). On Blazor, assign a `DocumentAnalyzer` and drive it with `AiDocumentScanner`. Use a strongly-typed `AiDocumentAnalyzer<T>` when you have a fixed schema.
+- **Parse a free-form or unknown document with AI** → `Camera.Analyzer = new AiDocumentAnalyzer(chatClient)` from `.Analysis.Ai` (detects presence, then sends one frame to a Microsoft.Extensions.AI `IChatClient`). On Blazor, assign a `DocumentAnalyzer` and drive it with `AiDocumentScanner`. Use a strongly-typed `AiDocumentAnalyzer<T>` when you have a fixed schema. For an offline, keyless model on Apple Intelligence devices, pass `new FoundationModelsChatClient()` (gate on `IsAvailable`).
 - **Offer a choice of detectors** → build them once, assign the chosen one to `Camera.Analyzer` (only one runs at a time).
 - **Apply a live colour grade** → set `Filter` (or add the matching `CameraEffects.*` to `Effects`).
 - **Apply a comic / sketch / blur look** → add `CameraEffects.Comic` (or `Sketch`/`Posterize`/`Pixelate`/`Blur`) to `Effects` — procedural, offline, live on the preview.

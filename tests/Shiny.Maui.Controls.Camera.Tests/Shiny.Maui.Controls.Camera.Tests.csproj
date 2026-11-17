@@ -25,6 +25,7 @@
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Analysis.Documents\Shiny.Maui.Controls.Analysis.Documents.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Analysis.Face\Shiny.Maui.Controls.Analysis.Face.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Analysis.Barcode\Shiny.Maui.Controls.Analysis.Barcode.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Analysis.Ai\Shiny.Maui.Controls.Analysis.Ai.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -8,8 +8,8 @@
         <IsAotCompatible>true</IsAotCompatible>
         <SingleProject>true</SingleProject>
         <RootNamespace>Shiny.Maui.Controls.Analysis.Ai</RootNamespace>
-        <Description>AI add-ons for the Shiny CameraView and MediaElement. Document scanning: cheaply detects that a document is present in a frame (Apple Vision segmentation / managed edge detection), then ships just that one frame to a Microsoft.Extensions.AI IChatClient for structured data extraction — so the model only runs on real documents, not every frame. Photo stylization: redraws a captured still through a Microsoft.Extensions.AI IImageGenerator (comic, watercolour, pixel art, …) as a CameraView capture effect. Works with any IChatClient / IImageGenerator (Azure OpenAI, OpenAI, Ollama, …) and any strongly-typed payload via MEAI structured output.</Description>
-        <PackageTags>maui camera document scanner ai llm openai chatclient imagegenerator stylize comic microsoft.extensions.ai ocr vision structured-output</PackageTags>
+        <Description>AI add-ons for the Shiny CameraView and MediaElement. Document scanning: cheaply detects that a document is present in a frame (Apple Vision segmentation / managed edge detection), then ships just that one frame to a Microsoft.Extensions.AI IChatClient for structured data extraction — so the model only runs on real documents, not every frame. Photo stylization: redraws a captured still through a Microsoft.Extensions.AI IImageGenerator (comic, watercolour, pixel art, …) as a CameraView capture effect. Works with any IChatClient / IImageGenerator (Azure OpenAI, OpenAI, Ollama, …) and any strongly-typed payload via MEAI structured output. On Apple, FoundationModelsChatClient is an IChatClient over the on-device Apple Intelligence model (Foundation Models), so it all runs offline with no key.</Description>
+        <PackageTags>maui camera document scanner ai llm openai chatclient imagegenerator stylize comic microsoft.extensions.ai ocr vision structured-output apple-intelligence foundation-models on-device</PackageTags>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
         <!--
             MEAI001: Microsoft.Extensions.AI's IImageGenerator is still marked evaluation-only. AiPhotoStylizer
@@ -18,7 +18,30 @@
             the same suppression in their own project until the API ships stable.
         -->
         <NoWarn>$(NoWarn);MEAI001</NoWarn>
+        <!-- FoundationModelsChatClient calls the Swift bridge through function pointers -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
+
+    <!--
+        The C ABI over Apple's Swift-only Foundation Models framework, behind FoundationModelsChatClient. Prebuilt and
+        committed (zipped, so a Windows checkout keeps the framework symlinks intact), because CI packs on Windows and
+        cannot compile Swift: rebuild with Native/build.sh after editing the .swift file. FoundationModels is weak-linked, so apps below iOS / macOS 26 still load it.
+    -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
+        <!-- only binding projects carry a NativeReference through to the app (as the .resources sidecar); there is no API definition -->
+        <IsBindingProject>true</IsBindingProject>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'ios' Or '$(TargetPlatformIdentifier)' == 'maccatalyst' Or '$(TargetPlatformIdentifier)' == 'macos'">
+        <ObjcBindingApiDefinition Include="Native\ApiDefinition.cs" />
+        <NativeReference Include="Native\ShinyFoundationModels.xcframework.zip">
+            <Kind>Framework</Kind>
+            <SmartLink>false</SmartLink>
+        </NativeReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Camera.Tests" />
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Controls.Camera.Shared\Shiny.Controls.Camera.Shared.csproj" />
@@ -28,6 +51,7 @@
 
     <ItemGroup>
         <Compile Remove="Platforms/**/*.cs" />
+        <Compile Remove="Native/**/*.cs" />
         <None Include="Platforms/**/*.cs" />
     </ItemGroup>
 

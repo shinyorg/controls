@@ -115,9 +115,18 @@ public static class MauiProgram
         // shared app-session list of documents lifted by the camera's document analyzers
         builder.Services.AddSingleton<Sample.Features.Camera.DocumentSessionStore>();
 
-        // the "AI Document" camera detector ships frames to an IChatClient; the sample registers an offline
-        // stand-in so it runs without keys. Swap in a real vision client (Azure OpenAI / OpenAI / Ollama) here.
-        builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient, Sample.Features.Camera.SampleVisionChatClient>();
+        // the "AI Document" camera detector ships frames to an IChatClient. On an Apple Intelligence device
+        // (iOS / Mac Catalyst / macOS 27) that is the on-device model, offline and keyless; everywhere else an
+        // offline stand-in returns a canned result. Swap in a real vision client (Azure OpenAI / OpenAI / Ollama) here.
+        builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(_ =>
+        {
+            if (!Shiny.Maui.Controls.Analysis.Ai.FoundationModelsChatClient.IsAvailable)
+                return new Sample.Features.Camera.SampleVisionChatClient();
+
+            // the first request otherwise pays the model's cold start; this resolves as the camera page builds its analyzers
+            Shiny.Maui.Controls.Analysis.Ai.FoundationModelsChatClient.Prewarm();
+            return new Shiny.Maui.Controls.Analysis.Ai.FoundationModelsChatClient();
+        });
         // offline stand-in for an image-to-image model, so the "AI stylize" capture effect demos without a key
         builder.Services.AddSingleton<Microsoft.Extensions.AI.IImageGenerator, Sample.Features.Camera.SampleImageGenerator>();
 
