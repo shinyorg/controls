@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'v*'
+      - main
     paths:
       - 'samples/Sample.Blazor/**'
       - 'src/Shiny.Blazor.Controls*/**'
@@ -34,8 +34,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0   # Nerdbank.GitVersioning needs full history
 
       # pinned to 10.0.404 (SDK and workload set), the same as global.json — the workload commands
       # below take the set from global.json's workloadVersion and must not pass --version (the SDK rejects both)

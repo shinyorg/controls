@@ -26,6 +26,8 @@
         <RepositoryType>git</RepositoryType>
         <CI Condition="'$(GITHUB_ACTIONS)' == 'true'">true</CI>
         <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+        <!-- releases stamp the version from the git tag (release.yml passes -p:Version); everything else is a dev build -->
+        <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -36,10 +38,6 @@
         <PublishRepositoryUrl>True</PublishRepositoryUrl>
         <EmbedUntrackedSources>True</EmbedUntrackedSources>
     </PropertyGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"/>
-    </ItemGroup>
 
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)nuget.png" Pack="true" PackagePath="icon.png" />

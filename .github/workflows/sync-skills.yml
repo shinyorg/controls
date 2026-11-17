@@ -3,7 +3,7 @@ name: Sync Skills
 on:
   push:
     branches:
-      - 'v*'
+      - main
     paths:
       - 'SKILLS/**'
   workflow_dispatch:

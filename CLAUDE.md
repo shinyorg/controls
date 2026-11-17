@@ -55,6 +55,10 @@ Things that get spotted as bugs straight away, so check every new control (and a
 
 *More to come — add new items here as they are found.*
 
+## Releasing
+
+`main` is the default branch (`v1`/`v2` are kept as they are). Pushes and PRs to `main` only build (`build.yml`); nothing reaches NuGet until a release is tagged. To release, push a tag `vX.Y.Z` (or `vX.Y.Z-beta.N` for a prerelease) on a `main` commit, or run the **Release** workflow by hand with the version — `release.yml` builds every package with `-p:Version` from the tag, pushes them to NuGet and creates the GitHub release. There is no `version.json` / Nerdbank.GitVersioning: untagged builds are `0.0.0-dev`.
+
 ## Supported platforms
 
 These are the platforms the issue templates offer and that features should be reasoned about against:

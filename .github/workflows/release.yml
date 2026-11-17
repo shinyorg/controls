@@ -1,0 +1,83 @@
+name: Release
+
+# Push a tag like v2.6.0 (or v2.6.0-beta.1 for a prerelease) to build every package at that version, push them to
+# NuGet and publish a GitHub release. Or run it by hand with a version, which creates the v<version> tag on the
+# commit it built. Toolchain pins match build.yml - bump them together.
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 2.6.0 or 2.6.0-beta.1) - creates the v<version> tag'
+        required: true
+
+permissions:
+  id-token: write   # required for NuGet trusted publishing (OIDC)
+  contents: write   # creates the GitHub release (and the tag, when run by hand)
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ inputs.version }}"
+        else
+          VERSION="${GITHUB_REF_NAME#v}"
+        fi
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+          echo "Version '$VERSION' must look like 2.6.0 or 2.6.0-beta.1"; exit 1
+        fi
+        echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+        echo "TAG=v$VERSION" >> "$GITHUB_ENV"
+        if [[ "$VERSION" == *-* ]]; then echo "PRERELEASE=--prerelease" >> "$GITHUB_ENV"; fi
+
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    # same pins as build.yml - see the note there
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+          dotnet-version: '10.0.404'
+
+    - name: Install workloads
+      run: dotnet workload install maui macos
+
+    - name: Build
+      run: dotnet build Build.slnf /restore -m -property:Configuration=Release -property:Version="$VERSION"
+
+    - name: Post NuGet Artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: nuget-artifacts
+        path: '**/*.nupkg'
+
+    - name: NuGet Login (OIDC)
+      id: nuget-login
+      uses: NuGet/login@v1
+      with:
+        user: aritchie
+
+    # --skip-duplicate so a re-run after a partial failure pushes only what is missing
+    - name: Publish NuGets
+      shell: pwsh
+      run: dotnet nuget push **\*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate
+
+    - name: GitHub Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: >
+        gh release create "$TAG"
+        --repo "${{ github.repository }}"
+        --title "Shiny Controls $VERSION"
+        --notes "Release notes: https://shinylib.net/controls/release-notes/"
+        --generate-notes
+        --target "$GITHUB_SHA"
+        $PRERELEASE
