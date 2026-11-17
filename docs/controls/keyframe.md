@@ -75,7 +75,7 @@ scene.Animation = TimelineBuilder
 - **The XAML property registry is explicit, not reflective** — `Property="Opacity"` resolves through hand-registered delegates in `AnimatableProperties`, because reflection and compiled `Expression` both work in the emulator and break under Native AOT. Register your own with `AnimatableProperties.Register(...)`.
 - **Layout-affecting properties are the perf cliff.** `WidthRequest`, `HeightRequest`, `Margin` and `Padding` run a full measure/arrange every frame; they work, and `AnimatableProperty.InvalidatesLayout` flags them, but prefer transform and opacity where you have the choice.
 - Everything ticks in managed code on the UI thread today. Transform and opacity tracks map 1:1 onto `CAKeyframeAnimation` / `ObjectAnimator` / `ScalarKeyFrameAnimation`, so **native compositor offload** is the design's biggest remaining perf win — but it isn't written yet.
-- **It runs on every head.** Because nothing here touches a platform SDK — the clock is an `IDispatcherTimer`, the view is a `GraphicsView` — the package ships a single `net10.0` target that iOS, Android, Windows, MacCatalyst, macOS AppKit and Linux GTK4 heads all consume.
+- **It runs on every head.** Because nothing here touches a platform SDK — the clock is an `IDispatcherTimer`, the view is a `GraphicsView` — the package ships a single `net11.0` target that iOS, Android, Windows, MacCatalyst, macOS AppKit and Linux GTK4 heads all consume.
 
 ## Offscreen export (optional package)
 

@@ -4,7 +4,7 @@
              XAML source generator needs; on this head the untagged copy wins, nothing is generated,
              and InitializeComponent / every x:Name field goes missing. -->
         <DevFlowXamlSourceMapsEnabled>false</DevFlowXamlSourceMapsEnabled>
-        <!-- Linux head is a plain net10.0 console-style app. Do NOT set UseMaui=true here;
+        <!-- Linux head is a plain net11.0 console-style app. Do NOT set UseMaui=true here;
              the Microsoft.Maui.Platforms.Linux.Gtk4 package brings its own MAUI hosting wiring. -->
         <TargetFramework>$(BaseTargetFramework)</TargetFramework>
         <OutputType>Exe</OutputType>
@@ -41,7 +41,7 @@
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MermaidDiagrams\Shiny.Maui.Controls.MermaidDiagrams.csproj" />
         <!-- The GTK4 backend is its own package: there is no Linux TFM, so it can't live in the main one. -->
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MediaElement.Linux\Shiny.Maui.Controls.MediaElement.Linux.csproj" />
-        <!-- SpeechAddins has no plain net10.0 TFM: Shiny.Speech's net10.0 asset only implements the
+        <!-- SpeechAddins has no plain net11.0 TFM: Shiny.Speech's net11.0 asset only implements the
              browser engine, so there is nothing behind it on GTK. Chat & speech pages are excluded below. -->
     </ItemGroup>
 
@@ -53,7 +53,7 @@
     <ItemGroup>
         <!-- Linux additionally excludes DrawingCanvas + FloatingPanel feature: they rely on
              Microsoft.Maui.Graphics platform types (PlatformBitmapExportContext) that aren't
-             available on plain net10.0.
+             available on plain net11.0.
              Keyframe is excluded for now — Shiny.Maui.Controls.Keyframe isn't referenced by this head.
              FloorPlan and Office are excluded for the same reason SkiaSharp is absent here: SkiaSharp.Views.Maui
              ships no GTK4 asset, so the canvas has no platform view on this head at all. -->

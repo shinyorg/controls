@@ -11,7 +11,7 @@ using AWidget = Android.Widget;
 
 namespace Shiny.Maui.Controls.Camera;
 
-// Android (CameraX). Included only for the net10.0-android TFM.
+// Android (CameraX). Included only for the net11.0-android TFM.
 public partial class CameraViewHandler : ViewHandler<CameraView, AWidget.FrameLayout>, ICameraViewController
 {
     PreviewView? previewView;

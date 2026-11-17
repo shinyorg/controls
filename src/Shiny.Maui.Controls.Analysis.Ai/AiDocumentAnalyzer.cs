@@ -155,7 +155,7 @@ public class AiDocumentAnalyzer<TDocument> : FrameAnalyzer
                 if (jpeg is { Length: > 0 })
                     _ = this.ShipAsync(jpeg, ct);
                 else
-                    Interlocked.Exchange(ref this.inFlight, 0); // encode unsupported (bare net10.0) — stay armed, no-op
+                    Interlocked.Exchange(ref this.inFlight, 0); // encode unsupported (bare net11.0) — stay armed, no-op
             }
             else
             {

@@ -6,7 +6,7 @@ An improved `TabbedPage`: motion icons in the tabs, per-tab badges, an animated 
 
 > **Blazor note.** `Shiny.Blazor.Controls` has a `ShinyTabBar` component, but it is a *different*, simpler control with its own API (see below) — not the other half of this one.
 
-Nothing in it touches a platform SDK, so it renders on every MAUI head, **including AppKit (`net10.0-macos`) and GTK4**, where MAUI's own `TabbedPage` does not go.
+Nothing in it touches a platform SDK, so it renders on every MAUI head, **including AppKit (`net11.0-macos`) and GTK4**, where MAUI's own `TabbedPage` does not go.
 
 ```xml
 <shiny:ShinyTabbedPage x:Class="MyApp.MainTabs" Transition="Slide" IndicatorStyle="Pill">

@@ -6,7 +6,7 @@ namespace Shiny.Maui.Controls.Analysis.Ocr;
 /// <summary>
 /// Reusable native text recognizer used by <see cref="OcrAnalyzer"/> and the document analyzers. Recognizes
 /// text in a frame via the platform OCR engine (Apple Vision, Android MLKit, Windows.Media.Ocr; empty on
-/// bare net10.0), returning blocks in normalized upright image space.
+/// bare net11.0), returning blocks in normalized upright image space.
 /// </summary>
 /// <remarks>
 /// OCR is the expensive step, so it runs <b>once per frame</b> no matter how many analyzers need it: the
@@ -47,7 +47,7 @@ public partial class TextRecognizer
     /// Detect a document in the frame, deskew it (perspective-correct), and OCR the flattened crop — far more
     /// accurate for angled cards/IDs than whole-frame OCR. Falls back to whole-frame OCR (with a null
     /// <see cref="RecognizedDocument.Quad"/>) when no document is found or the platform has no rectifier (only
-    /// Apple Vision today; Android/Windows/bare net10.0 fall back). Shared once per frame like
+    /// Apple Vision today; Android/Windows/bare net11.0 fall back). Shared once per frame like
     /// <see cref="RecognizeAsync(VideoFrame, CancellationToken)"/>.
     /// </summary>
     public Task<RecognizedDocument> RecognizeDocumentAsync(VideoFrame frame, CancellationToken ct)

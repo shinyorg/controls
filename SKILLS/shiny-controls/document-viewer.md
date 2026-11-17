@@ -10,7 +10,7 @@ later phase. They ship in the same packages as the spreadsheet:
 | `Shiny.Maui.Controls.Office` | `DocumentView`, `SlideView` for MAUI |
 | `Shiny.Blazor.Controls.Office` | `<DocumentView>`, `<SlideView>` for Blazor **WebAssembly** |
 
-Same two constraints as the spreadsheet: **MAUI needs `UseShinyOffice()`** (it registers SkiaSharp, plus the AppKit canvas on `net10.0-macos`), and **Blazor is WASM-only**.
+Same two constraints as the spreadsheet: **MAUI needs `UseShinyOffice()`** (it registers SkiaSharp, plus the AppKit canvas on `net11.0-macos`), and **Blazor is WASM-only**.
 On Blazor the container needs an **explicit height** or the canvas collapses to zero.
 
 ## Fonts

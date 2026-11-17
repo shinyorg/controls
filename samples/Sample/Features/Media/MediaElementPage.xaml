@@ -56,9 +56,9 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="Video size: " FontAttributes="Bold" />
-                                    <Span Text="{Binding Source={x:Reference Player}, Path=VideoSize.Width, StringFormat='{0:0}'}" />
+                                    <Span Text="{Binding Source={x:Reference Player}, Path=VideoSize.Width, Mode=OneWay, StringFormat='{0:0}'}" />
                                     <Span Text=" x " />
-                                    <Span Text="{Binding Source={x:Reference Player}, Path=VideoSize.Height, StringFormat='{0:0}'}" />
+                                    <Span Text="{Binding Source={x:Reference Player}, Path=VideoSize.Height, Mode=OneWay, StringFormat='{0:0}'}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>

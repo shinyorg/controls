@@ -9,7 +9,7 @@ namespace Shiny.Maui.Controls.Desktop.KeyboardShortcuts;
 
 /// <summary>
 /// GTK 4 key source for keyboard shortcuts — and the do-nothing implementation everywhere else this
-/// package's <c>net10.0</c> asset is used.
+/// package's <c>net11.0</c> asset is used.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -52,7 +52,7 @@ static unsafe class KeyboardShortcutPlatform
         }
         catch (DllNotFoundException ex)
         {
-            // The net10.0 asset running somewhere that is not a GTK4 session.
+            // The net11.0 asset running somewhere that is not a GTK4 session.
             System.Diagnostics.Debug.WriteLine($"[Shiny.KeyboardShortcuts] GTK 4 is not available: {ex.Message}");
             return null;
         }

@@ -201,7 +201,7 @@ public class VideoTextTests : MediaTestBase
     [Fact]
     public void Without_a_mask_the_text_is_shown_as_a_label()
     {
-        // the plain net10.0 target (Linux head, and this test host) has no masked output
+        // the plain net11.0 target (Linux head, and this test host) has no masked output
         VideoText.IsMaskSupported.ShouldBeFalse();
 
         var text = new VideoText { Text = "OCEAN", FallbackTextColor = Colors.Teal, FontSize = 40 };

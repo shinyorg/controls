@@ -109,9 +109,8 @@ public class CellTapGestureTests
         var cell = new CustomCell { LongCommand = new Command(() => ran++) };
 
         var doubleTap = cell.GestureRecognizers.OfType<TapGestureRecognizer>().Single(x => x.NumberOfTapsRequired == 2);
-        // SendTapped is internal; the platform heads reach it the same way.
-        var sendTapped = typeof(TapGestureRecognizer).GetMethod("SendTapped", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        sendTapped.Invoke(doubleTap, sendTapped.GetParameters().Length == 1 ? [cell] : [cell, null]);
+        // the call the platform heads make when a tap lands (public as of MAUI 11)
+        doubleTap.SendTapped(cell, null);
 
         ran.ShouldBe(1);
     }

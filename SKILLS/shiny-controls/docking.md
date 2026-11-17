@@ -4,10 +4,10 @@ A Visual-Studio-style window-docking system for desktop apps — dockable tool w
 
 | Package | Use when |
 |---|---|
-| **`Shiny.Maui.Controls.Desktop`** (`Shiny.Maui.Controls.Desktop.Docking` namespace) | .NET MAUI desktop apps. Combined with the [Tray Icon](./tray-icon.md) feature in the same package since both share the desktop TFM matrix (`net10.0;-windows;-maccatalyst;-macos` + Linux GTK4 path) |
+| **`Shiny.Maui.Controls.Desktop`** (`Shiny.Maui.Controls.Desktop.Docking` namespace) | .NET MAUI desktop apps. Combined with the [Tray Icon](./tray-icon.md) feature in the same package since both share the desktop TFM matrix (`net11.0;-windows;-maccatalyst;-macos` + Linux GTK4 path) |
 | **`Shiny.Blazor.Controls`** (`Shiny.Blazor.Controls.Docking` namespace) | Blazor apps — **no add-on package**, docking is part of the main Blazor package. WASM-supported in v1; Blazor Server / `BlazorWebView` will be supported as the contracts stabilize |
 
-Mobile (iOS / Android) is **out of scope by design**. Tear-off floating windows on macOS Catalyst are limited to in-app floating — native AppKit (`net10.0-macos`) and Windows get full tear-off via `NSPanel` / `AppWindow`; native GTK4 windows on Linux.
+Mobile (iOS / Android) is **out of scope by design**. Tear-off floating windows on macOS Catalyst are limited to in-app floating — native AppKit (`net11.0-macos`) and Windows get full tear-off via `NSPanel` / `AppWindow`; native GTK4 windows on Linux.
 
 ## Setup (.NET MAUI)
 

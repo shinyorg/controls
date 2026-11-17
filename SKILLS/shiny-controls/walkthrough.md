@@ -178,7 +178,7 @@ Same surface, with these differences:
 `RememberRunKey` is what makes onboarding onboarding. Behind it:
 
 - MAUI: `IWalkthroughStore`, defaulting to `Preferences`. Assign `Walkthrough.Store` at startup to put the
-  flag somewhere shared instead. On the plain `net10.0` head (AppKit, GTK4) `Preferences` is unavailable,
+  flag somewhere shared instead. On the plain `net11.0` head (AppKit, GTK4) `Preferences` is unavailable,
   so it falls back to memory — once per launch rather than persisted.
 - Blazor: `IWalkthroughStore` in DI, defaulting to `localStorage`. Register your own with
   `AddShinyWalkthrough<T>()`.

@@ -996,7 +996,7 @@ public class ShinyTabBarTests
 
     /// <summary>
     /// Runs <paramref name="test"/> as though the head had Liquid Glass. The test host is plain
-    /// net10.0, where the real answer is permanently false — and every consequence of glass is gated
+    /// net11.0, where the real answer is permanently false — and every consequence of glass is gated
     /// on that answer, so without the seam none of them could be asserted.
     /// </summary>
     static void WithGlass(Action test)

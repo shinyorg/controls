@@ -15,12 +15,12 @@ namespace Shiny.Maui.Controls.Office;
 /// <summary>
 /// An <see cref="NSView"/> that hands out a Skia surface to draw into — the AppKit half of
 /// <see cref="MacOSSKCanvasViewHandler"/>, and the reason the Office controls and FloorPlanView render on
-/// <c>net10.0-macos</c> at all.
+/// <c>net11.0-macos</c> at all.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>SkiaSharp.Views.Maui</c> ships no <c>net10.0-macos</c> asset, so the AppKit head resolves its
-/// plain <c>net10.0</c> build — where <c>SKCanvasViewHandler.CreatePlatformView()</c> throws
+/// <c>SkiaSharp.Views.Maui</c> ships no <c>net11.0-macos</c> asset, so the AppKit head resolves its
+/// plain <c>net11.0</c> build — where <c>SKCanvasViewHandler.CreatePlatformView()</c> throws
 /// <see cref="NotImplementedException"/>. Every Office control is an <c>SKCanvasView</c>, so all five
 /// of them came up blank on that head. This is the missing platform view.
 /// </para>

@@ -17,7 +17,7 @@
    editing unusable. Also, SkiaSharp on WASM forces native relinking, so consumers need the
    `wasm-tools` workload installed.
 2. **MAUI needs `UseShinyOffice()`** in `MauiProgram`, or the canvas never renders. It calls
-   `UseSkiaSharp()` for you and, on the macOS AppKit head (`net10.0-macos`), registers the Skia canvas
+   `UseSkiaSharp()` for you and, on the macOS AppKit head (`net11.0-macos`), registers the Skia canvas
    SkiaSharp does not ship for that head — without it every Office control renders blank there.
 
 ```csharp

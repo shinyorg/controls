@@ -265,7 +265,7 @@ static class OfficeMenus
     /// and the Blazor picker use, so all three agree on what an image is.
     /// </para>
     /// <para>
-    /// AppKit is handled by hand because MAUI Essentials has no FilePicker for <c>net10.0-macos</c> -
+    /// AppKit is handled by hand because MAUI Essentials has no FilePicker for <c>net11.0-macos</c> -
     /// it covers iOS, Android, WinUI and Mac Catalyst. The call there threw, the catch above swallowed
     /// it, and the Picture button did nothing at all with no error to explain why.
     /// </para>

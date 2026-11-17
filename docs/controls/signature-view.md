@@ -77,7 +77,7 @@ void OnSubmit(object? sender, EventArgs e)
 | A stroke was kept | `StrokeCompleted` event / `StrokeCompletedCommand` | `StrokeCompleted` (`EventCallback<int>`, the stroke count) |
 | The surface was emptied | `Cleared` event / `ClearedCommand` | `Cleared` |
 
-`ExportToPng` returns `Stream.Null` on a plain `net10.0` backend that registers no `IBitmapExportService`; iOS, Mac Catalyst and Android draw natively. Blazor strokes are stored relative to the surface, so they follow it when it resizes.
+`ExportToPng` returns `Stream.Null` on a plain `net11.0` backend that registers no `IBitmapExportService`; iOS, Mac Catalyst and Android draw natively. Blazor strokes are stored relative to the surface, so they follow it when it resizes.
 
 ### Automation ids (MAUI)
 

@@ -13,7 +13,7 @@ namespace Shiny.Maui.Controls.Infrastructure;
 /// accessibility state (the traits on iOS, the accessibility delegate on Android) and would undo it.
 /// </para>
 /// <para>
-/// Only the three platform heads get it. The net10.0 build serves Mac Catalyst, AppKit and GTK4, whose
+/// Only the three platform heads get it. The net11.0 build serves Mac Catalyst, AppKit and GTK4, whose
 /// heads bring their own content-view handlers; registering MAUI's stub one over theirs would leave the
 /// control with no native view at all.
 /// </para>

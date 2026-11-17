@@ -18,7 +18,7 @@ MAUI registers its Skia surface through one call:
 builder.UseMauiApp<App>().UseShinyControls().UseShinyOffice();
 ```
 
-`UseShinyOffice()` calls `UseSkiaSharp()` for you and, on the macOS AppKit head (`net10.0-macos`), adds
+`UseShinyOffice()` calls `UseSkiaSharp()` for you and, on the macOS AppKit head (`net11.0-macos`), adds
 the Skia canvas SkiaSharp itself does not ship — it has no `-macos` target, so that head falls back to a
 handler whose `CreatePlatformView()` throws and every Office control came up blank. Elsewhere the two
 calls are equivalent.
@@ -215,7 +215,7 @@ indistinguishable from one that has lost its data.
 **Constraints.** Blazor is **WebAssembly only** (a Server round-trip per keystroke is unusable, and
 SkiaSharp on WASM needs the `wasm-tools` workload — without it `libSkiaSharp` is never linked into the
 runtime and the app fails in the browser, so `Shiny.Blazor.Controls.Office` fails the build up front
-with `SHINY0001` instead; bypass with `ShinySkipWasmToolsCheck=true`). MAUI requires `UseShinyOffice()` (which registers SkiaSharp, plus the AppKit canvas on `net10.0-macos`). Inserting and
+with `SHINY0001` instead; bypass with `ShinySkipWasmToolsCheck=true`). MAUI requires `UseShinyOffice()` (which registers SkiaSharp, plus the AppKit canvas on `net11.0-macos`). Inserting and
 deleting rows and columns rewrites references across formulas, defined names, merged cells, conditional
 formatting, data validation, hyperlinks, notes, the AutoFilter, tables and charts (anchors and series).
 Chart, dialog and macro sheets are preserved on save but have no tab: the grid has nothing to draw for

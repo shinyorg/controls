@@ -12,7 +12,7 @@ public static class MauiAppBuilderExtensions
     /// <para>
     /// Call this instead of <c>UseSkiaSharp()</c>; it calls that itself. On iOS, Android, Mac Catalyst
     /// and Windows the two are equivalent, so an app already calling <c>UseSkiaSharp()</c> loses
-    /// nothing by switching. On <c>net10.0-macos</c> it is the difference between the spreadsheet,
+    /// nothing by switching. On <c>net11.0-macos</c> it is the difference between the spreadsheet,
     /// document and slide controls rendering and a blank page: SkiaSharp has no AppKit target, and its
     /// fallback handler throws <see cref="NotImplementedException"/> where the platform view should be.
     /// See <c>MacOSSKCanvasViewHandler</c>.

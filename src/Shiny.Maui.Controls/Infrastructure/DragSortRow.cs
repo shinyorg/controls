@@ -100,7 +100,7 @@ sealed partial class DragSortRow : Grid
 
 
     // Implemented per platform where the enclosing scroller has to be told to keep its
-    // hands off the gesture. No-op on the plain net10.0 and Windows builds.
+    // hands off the gesture. No-op on the plain net11.0 and Windows builds.
     partial void HookPlatformScrollLock();
 
     // Reorders the native view among its siblings. Implemented on the platforms that must

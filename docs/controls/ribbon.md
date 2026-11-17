@@ -437,7 +437,7 @@ properties, and both flip with light/dark. `AccentColor`, `HeaderBackgroundColor
   API, with Escape and a click-away both closing the panel. On MAUI it is the shared page overlay,
   in a layer that ignores the safe area so a dropdown opens directly under its button on an
   edge-to-edge page.
-- **macOS AppKit (`net10.0-macos`)**: every tab's body is created up front and switched with
+- **macOS AppKit (`net11.0-macos`)**: every tab's body is created up front and switched with
   `IsVisible`, so tab switching, collapsing and group folding all work. Each body sits in a horizontal
   scroller that sizes itself to its groups, because that head's `ScrollView` handler reports no height of
   its own - before 2.5.0 a horizontal `ScrollView` measured 0 tall there and the ribbon showed its tab

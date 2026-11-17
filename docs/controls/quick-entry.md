@@ -118,7 +118,7 @@ The popup's default content, and an ordinary control in its own right — put it
 
 It speaks `Response`, the plain-text half of the answer. A rich answer set through `ResponseContent` is a view with no text to read, so give the tool a `TextSelector` to pull the words out of what you rendered.
 
-MAUI needs `AddSpeechServices()` (or `AddTextToSpeech()`) registered — the tool resolves its engine from DI and no-ops otherwise. The package targets iOS, Android, Mac Catalyst, macOS (AppKit) and Windows; there is no plain `net10.0` target, so the GTK/Linux head cannot reference it (`Shiny.Speech`'s `net10.0` assembly implements only the browser engine). Blazor needs nothing registered but does need a WebAssembly host — the synthesiser is the browser's own.
+MAUI needs `AddSpeechServices()` (or `AddTextToSpeech()`) registered — the tool resolves its engine from DI and no-ops otherwise. The package targets iOS, Android, Mac Catalyst, macOS (AppKit) and Windows; there is no plain `net11.0` target, so the GTK/Linux head cannot reference it (`Shiny.Speech`'s `net11.0` assembly implements only the browser engine). Blazor needs nothing registered but does need a WebAssembly host — the synthesiser is the browser's own.
 
 The dropdown sizes itself to whatever is in it — the popup grows and shrinks to match — unless you set `DropdownHeight`, which pins it and scrolls instead (what you want for a list that changes length as the user types and would otherwise make the popup jump under the pointer).
 

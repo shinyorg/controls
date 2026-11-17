@@ -2,7 +2,7 @@ namespace Shiny.Controls.Camera;
 
 /// <summary>
 /// A plain 32-bit BGRA pixel buffer handed to a managed effect pass. This is the portable fallback used for
-/// <b>still images</b> wherever a platform has no GPU path for an effect (Windows, the bare <c>net10.0</c>
+/// <b>still images</b> wherever a platform has no GPU path for an effect (Windows, the bare <c>net11.0</c>
 /// head, Android below the shader API level).
 /// </summary>
 /// <remarks>

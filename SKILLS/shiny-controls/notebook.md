@@ -8,7 +8,7 @@ Two controls on both hosts, in the same packages as the other Office editors:
 | `NotebookEditorView` | `NotebookEditor` plus the ribbon, the section tabs and the page list |
 
 Same two constraints as everything else in these packages: **MAUI needs `UseShinyOffice()`** (it
-registers SkiaSharp, plus the AppKit canvas on `net10.0-macos`), **Blazor is WASM-only**, and on
+registers SkiaSharp, plus the AppKit canvas on `net11.0-macos`), **Blazor is WASM-only**, and on
 Blazor the container needs an **explicit height**.
 
 ## Create or open

@@ -410,7 +410,7 @@ public class DiskImageCache
     /// </summary>
     /// <remarks>
     /// <c>FileSystem.CacheDirectory</c> throws <c>NotImplementedInReferenceAssembly</c> on the bare
-    /// net10.0 head - which is the one the macOS AppKit and Linux GTK4 app heads build against - so
+    /// net11.0 head - which is the one the macOS AppKit and Linux GTK4 app heads build against - so
     /// it cannot simply be called. The fallback keeps image caching working on those heads instead
     /// of taking the control down at first use.
     /// </remarks>

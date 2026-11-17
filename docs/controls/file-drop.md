@@ -11,7 +11,7 @@ This is deliberately not `DropGestureRecognizer`. That one is per-view, is unimp
 | MAUI (`Shiny.Maui.Controls.Desktop`) | Windows (WinUI), macOS (AppKit + Mac Catalyst), Linux (GTK4) | Real file paths |
 | Blazor (`Shiny.Blazor.Controls`) | WebAssembly, Server, Hybrid | Bytes — the browser gives no path |
 
-On iOS, Android, and anywhere else the `net10.0` asset lands, the service still resolves, `IsSupported` is `false` and nothing fires — so shared code needs no `#if`.
+On iOS, Android, and anywhere else the `net11.0` asset lands, the service still resolves, `IsSupported` is `false` and nothing fires — so shared code needs no `#if`.
 
 ## MAUI
 

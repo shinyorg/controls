@@ -113,7 +113,7 @@ internal sealed class SignaturePadDrawable : IDrawable
     }
 
     /// <param name="exportService">
-    /// Draws the bitmap on targets without a built-in platform context (plain <c>net10.0</c>, which
+    /// Draws the bitmap on targets without a built-in platform context (plain <c>net11.0</c>, which
     /// browser and desktop backends run on). Ignored on iOS, Mac Catalyst and Android.
     /// </param>
     public Stream ExportToPng(int width, int height, IBitmapExportService? exportService = null)

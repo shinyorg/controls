@@ -10,7 +10,7 @@ namespace Shiny.Maui.Controls.Desktop.Tests;
 /// The X11 half of the hotkey key tables. Each platform keeps its own table because the codes are
 /// unrelated — Carbon uses positional key codes, Win32 uses virtual keys, X11 uses keysym names —
 /// and a typo in any of them shows up as a hotkey that silently never fires. This is the table that
-/// compiles on the plain <c>net10.0</c> target, so it is the one a headless test can reach.
+/// compiles on the plain <c>net11.0</c> target, so it is the one a headless test can reach.
 /// </summary>
 public class HotKeyMappingTests
 {

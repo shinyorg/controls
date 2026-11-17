@@ -10,7 +10,7 @@
         <RootNamespace>Shiny.Maui.Controls.Analysis.Ai</RootNamespace>
         <Description>AI add-ons for the Shiny CameraView and MediaElement. Document scanning: cheaply detects that a document is present in a frame (Apple Vision segmentation / managed edge detection), then ships just that one frame to a Microsoft.Extensions.AI IChatClient for structured data extraction — so the model only runs on real documents, not every frame. Photo stylization: redraws a captured still through a Microsoft.Extensions.AI IImageGenerator (comic, watercolour, pixel art, …) as a CameraView capture effect. Works with any IChatClient / IImageGenerator (Azure OpenAI, OpenAI, Ollama, …) and any strongly-typed payload via MEAI structured output. On Apple, FoundationModelsChatClient is an IChatClient over the on-device Apple Intelligence model (Foundation Models), so it all runs offline with no key.</Description>
         <PackageTags>maui camera document scanner ai llm openai chatclient imagegenerator stylize comic microsoft.extensions.ai ocr vision structured-output apple-intelligence foundation-models on-device</PackageTags>
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <!--
             MEAI001: Microsoft.Extensions.AI's IImageGenerator is still marked evaluation-only. AiPhotoStylizer
             is built on it deliberately — it is the provider-agnostic image-to-image abstraction, and the

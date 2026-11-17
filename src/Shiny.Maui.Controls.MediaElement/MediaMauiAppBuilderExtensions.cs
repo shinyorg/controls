@@ -12,7 +12,7 @@ public static class MediaMauiAppBuilderExtensions
     /// alongside <c>UseShinyControls()</c> in your MAUI program.
     /// </summary>
     /// <remarks>
-    /// On the plain <c>net10.0</c> target — which is what the GTK4 Linux head builds against — this is a
+    /// On the plain <c>net11.0</c> target — which is what the GTK4 Linux head builds against — this is a
     /// no-op: there is no Linux target framework, so that backend ships separately. Call
     /// <c>UseShinyMediaElementGtk()</c> from <c>Shiny.Maui.Controls.MediaElement.Linux</c> there instead.
     /// </remarks>

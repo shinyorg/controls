@@ -9,7 +9,7 @@ There is **no Blazor equivalent yet** — Blazor has the simpler `ShinyTabBar` c
 `<ShinyTabbedPage>` in Razor.
 
 Nothing here touches a platform SDK, so it renders on every MAUI head — including AppKit
-(`net10.0-macos`) and GTK4, where MAUI's own `TabbedPage` does not go.
+(`net11.0-macos`) and GTK4, where MAUI's own `TabbedPage` does not go.
 
 ## Two hosts, one bar
 

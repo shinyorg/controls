@@ -32,7 +32,7 @@ public interface ICameraEffect
 
 /// <summary>
 /// An effect expressed as a colour matrix — the cheapest kind, and the only kind honoured on <i>every</i>
-/// platform and surface including Windows and the bare <c>net10.0</c> head.
+/// platform and surface including Windows and the bare <c>net11.0</c> head.
 /// </summary>
 public interface IColorEffect : ICameraEffect
 {

@@ -9,7 +9,7 @@
         <SingleProject>true</SingleProject>
         <RootNamespace>Shiny.Maui.Controls.Analysis.Ocr</RootNamespace>
         <Description>Text-recognition (OCR) analyzer for the Shiny CameraView and MediaElement, with a pluggable IDocumentAnalyzer hook for invoice/label field extraction. Apple Vision, Android MLKit, Windows.Media.Ocr.</Description>
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
     </PropertyGroup>
 
     <ItemGroup>

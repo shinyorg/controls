@@ -10,7 +10,7 @@
         <SingleProject>true</SingleProject>
         <RootNamespace>Shiny.Maui.Controls.Analysis.Motion</RootNamespace>
         <Description>Motion-detection analyzer for the Shiny CameraView and MediaElement — pure managed luminance frame-differencing, no native dependencies.</Description>
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
     </PropertyGroup>
 
     <ItemGroup>

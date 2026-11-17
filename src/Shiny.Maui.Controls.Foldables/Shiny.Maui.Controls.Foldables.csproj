@@ -6,18 +6,16 @@
         <SingleProject>true</SingleProject>
         <RootNamespace>Shiny.Maui.Controls.Foldables</RootNamespace>
         <!-- Jetpack WindowManager's Java adapter (androidx.window:window-java) needs API 23+. -->
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <Description>Fold and hinge posture for Shiny.Maui.Controls: built-in providers for Android foldables (Jetpack WindowManager) and iPhone Duo (iOS 27.1 UIHinge and reserved regions), so FlyoutView snaps to the fold, dialogs, overlays and toasts move off it, and FloatingPanel gains a tabletop detent.</Description>
         <PackageTags>maui foldable fold hinge posture tabletop book dual-screen iphone-duo pixel-fold windowmanager controls</PackageTags>
     </PropertyGroup>
 
     <!--
-        The iPhone Duo provider. UIHinge, UIHingeInteraction and UIView.GetReservedRegions (iOS 27.1) are not
-        in the 26.0 bindings a plain net10.0-ios library builds against by default, so float to the newest
-        bindings the installed workload has (CI pins the workload set to one with 27.2).
+        The iPhone Duo provider. UIHinge, UIHingeInteraction and UIView.GetReservedRegions (iOS 27.1) are in the
+        iOS 27.2 bindings net11.0-ios builds against (the workload set global.json pins).
     -->
     <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
-        <UseFloatingTargetPlatformVersion>true</UseFloatingTargetPlatformVersion>
         <DefineConstants>$(DefineConstants);SHINY_UIHINGE</DefineConstants>
     </PropertyGroup>
 

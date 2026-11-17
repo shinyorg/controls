@@ -100,7 +100,7 @@ Events: MAUI `StrokeCompleted`, `Cleared` (+ `StrokeCompletedCommand`, `ClearedC
 - It is scroll-safe: a stroke holds an enclosing ScrollView off (MAUI) / the canvas is `touch-action:none` (Blazor). It can sit inside a `ScrollView` or a scrolling page — that is the intended use.
 - Bind a Submit button's `IsEnabled` to `HasSignature` (MAUI `{Binding HasSignature, Source={x:Reference ...}}`, Blazor `@bind-HasSignature`).
 - Export scales the ink uniformly to fit the export size and centres it (letterboxed with the paper colour); the placeholder and line are never exported.
-- `ExportToPng` returns `Stream.Null` on plain `net10.0` without an `IBitmapExportService`.
+- `ExportToPng` returns `Stream.Null` on plain `net11.0` without an `IBitmapExportService`.
 - On MAUI, give it a height (`HeightRequest` or a `*` row); on Blazor use `Height` (`100%` to fill a sized parent).
 
 ### Automation ids (MAUI)

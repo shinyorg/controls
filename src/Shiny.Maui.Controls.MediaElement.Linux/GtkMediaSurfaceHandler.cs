@@ -8,7 +8,7 @@ namespace Shiny.Maui.Controls.Media.Gtk;
 /// </summary>
 /// <remarks>
 /// A separate handler type from the one in the main package because the GTK backend has no target
-/// framework of its own — it lives on the plain <c>net10.0</c> build, where the main package
+/// framework of its own — it lives on the plain <c>net11.0</c> build, where the main package
 /// deliberately registers nothing.
 /// </remarks>
 public class GtkMediaSurfaceHandler : GtkViewHandler<MediaSurface, global::Gtk.Picture>

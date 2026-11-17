@@ -264,7 +264,7 @@ clickable, and the control feels wrong for a reason nobody can point at.
 | **MAUI** | iOS, Android, Mac Catalyst, macOS (AppKit), Windows |
 | **Blazor** | WebAssembly, Server, Hybrid |
 
-On the `net10.0-macos` (AppKit) head, `SkiaSharp.Views.Maui` ships no macOS asset, so the stock canvas handler throws on that head;
+On the `net11.0-macos` (AppKit) head, `SkiaSharp.Views.Maui` ships no macOS asset, so the stock canvas handler throws on that head;
 `UseShinyFloorPlan()` registers a replacement there, so nothing else is needed.
 
 ## Demo

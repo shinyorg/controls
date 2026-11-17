@@ -425,7 +425,7 @@ public partial class RangeSlider : ContentView
         this.upperThumbContent = null;
 
         // Built here rather than left to the next draw: UpdateVisuals does nothing until the track has
-        // been given a width, and on net10.0-macos a view added after the page has laid out is never
+        // been given a width, and on net11.0-macos a view added after the page has laid out is never
         // realized. XAML sets the template before the first layout, so this is the moment to use it.
         this.UpdateThumbContent();
         this.UpdateVisuals();
@@ -434,7 +434,7 @@ public partial class RangeSlider : ContentView
 
     /// <summary>
     /// Realizes each thumb's template once and rebinds it afterwards. Rebuilding per draw would throw the
-    /// content away on every pixel of a drag, and on net10.0-macos a view added after the page has laid
+    /// content away on every pixel of a drag, and on net11.0-macos a view added after the page has laid
     /// out is never realized at all — so the one that survives the drag is the one built first.
     /// </summary>
     void UpdateThumbContent()

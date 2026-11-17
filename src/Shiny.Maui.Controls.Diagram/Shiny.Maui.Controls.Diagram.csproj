@@ -10,7 +10,7 @@
              is how the Windows build gets type-checked from a Mac:
 
                  dotnet restore -p:ForceWindowsTfm=true
-                 dotnet build -p:ForceWindowsTfm=true -f net10.0-windows10.0.19041.0 -t:Compile
+                 dotnet build -p:ForceWindowsTfm=true -f net11.0-windows10.0.19041.0 -t:Compile
 
              A full build still dies in MakePri.exe, which is packaging rather than this code. -->
         <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>

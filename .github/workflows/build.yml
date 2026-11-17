@@ -30,14 +30,14 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v7
 
-    # SDK and workload set pinned to 10.0.404, the same as global.json: its net10.0-ios/-maccatalyst packs
+    # SDK 11.0.100 and workload set 11.0.100.1, the same as global.json: its net11.0-ios/-maccatalyst packs
     # match Xcode 27.2 and carry the iOS 27.2 bindings Shiny.Maui.Controls.Foldables compiles against
     # (UIHinge). setup-dotnet's `workloads:` always takes the latest, so the workloads are installed by hand.
     # No --version here: the SDK rejects it when global.json already sets workloadVersion, and takes the set from there.
     - name: Setup .NET
       uses: actions/setup-dotnet@v6
       with:
-          dotnet-version: '10.0.404'
+          dotnet-version: '11.0.100'
 
     - name: Install workloads
       run: dotnet workload install maui macos

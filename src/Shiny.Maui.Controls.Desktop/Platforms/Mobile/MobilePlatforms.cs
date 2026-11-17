@@ -3,11 +3,11 @@ using Shiny.Maui.Controls.QuickEntry;
 using MauiWindow = Microsoft.Maui.Controls.Window;
 
 // The android and ios assets of this package. There is no desktop window on a phone, so every
-// desktop-only service reports itself unsupported and does nothing - the same answers the net10.0
+// desktop-only service reports itself unsupported and does nothing - the same answers the net11.0
 // (Linux) asset gave on a phone at runtime, without compiling the GTK interop into a mobile app.
 //
 // These targets exist so an Android/iOS app referencing this package gets *this* build, which
-// references core's android/ios asset. Without them the app also received core's net10.0 assembly,
+// references core's android/ios asset. Without them the app also received core's net11.0 assembly,
 // and on a clean Android build the Java stub scanner read that copy ("Found 0 Java types"): every
 // Java.Lang.Object subclass in core - CarouselGallery's RecyclerView adapter, StaggeredGrid's,
 // FrostedGlassView's pre-draw listener - then crashed with "no Java peer type found".

@@ -34,7 +34,7 @@ public enum MediaPermissionStatus
     /// <summary>Policy (MDM, parental controls, a disabled feature) forbids it. Asking again will not help.</summary>
     Restricted,
 
-    /// <summary>There is no such capability on this platform — e.g. the bare <c>net10.0</c> head, which has no camera.</summary>
+    /// <summary>There is no such capability on this platform — e.g. the bare <c>net11.0</c> head, which has no camera.</summary>
     Unsupported
 }
 
@@ -70,7 +70,7 @@ public enum MediaScanEndReason
     /// <summary>Camera permission was refused, so the modal never opened.</summary>
     PermissionDenied,
 
-    /// <summary>There was no window to present the modal on (the bare <c>net10.0</c> head, or before the app has one).</summary>
+    /// <summary>There was no window to present the modal on (the bare <c>net11.0</c> head, or before the app has one).</summary>
     CameraUnavailable
 }
 

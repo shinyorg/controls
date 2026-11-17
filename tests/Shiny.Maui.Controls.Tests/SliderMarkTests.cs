@@ -176,7 +176,7 @@ public class SliderMarkTests
     [Fact]
     public void AMarkIsDrawnAsSoonAsItIsAddedRatherThanAtTheFirstLayout()
     {
-        // net10.0-macos never realizes a child added after the page has laid out, so the views have to
+        // net11.0-macos never realizes a child added after the page has laid out, so the views have to
         // exist by the time XAML has finished populating the collection.
         var slider = new Slider();
         slider.Marks.Add(new SliderMark { Value = 50, Text = "Half" });

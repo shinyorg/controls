@@ -426,7 +426,7 @@ internal class TreeNodeView : Grid
         }
     }
 #else
-    // Plain net10.0 serves Mac Catalyst, the AppKit (macOS) host and the GTK4 (Linux)
+    // Plain net11.0 serves Mac Catalyst, the AppKit (macOS) host and the GTK4 (Linux)
     // host. Catalyst's Drag/DropGestureRecognizers are broken (dotnet/maui#23627) and
     // the labs hosts don't implement them at all, so the drag is driven by a pan
     // gesture and the TreeView resolves the drop target from row geometry.

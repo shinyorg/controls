@@ -23,7 +23,7 @@ static partial class GlassSurface
     /// <remarks>
     /// The decisions worth testing are on the MAUI side: whether the fill goes transparent, whether
     /// the shadow comes off, whether the content is allowed to run under the bar. All of them are
-    /// gated on the platform answer, and the test host is plain <c>net10.0</c>, where that answer is
+    /// gated on the platform answer, and the test host is plain <c>net11.0</c>, where that answer is
     /// permanently false. Without a seam here none of it could be asserted at all.
     /// </remarks>
     internal static bool? SupportOverride { get; set; }

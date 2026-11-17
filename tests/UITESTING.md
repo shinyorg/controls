@@ -65,7 +65,7 @@ SHINY_UITEST_PLATFORM=windows dotnet run --project tests/Sample.UITests
 
 Filter with TUnit's tree filter: `-- --treenode-filter "/*/*/SliderTests/*"`. Results — screenshots per route,
 and a screenshot + error log for every failed test — land in
-`tests/Sample.UITests/bin/Debug/net10.0/uitest-results/<platform>/`.
+`tests/Sample.UITests/bin/Debug/net11.0/uitest-results/<platform>/`.
 
 Tests run one at a time (there is one UI). If a test crashes the app, the next test relaunches it, so one
 crash fails one test.

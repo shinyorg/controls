@@ -9,7 +9,7 @@
             from a Mac — otherwise nothing type-checks Platforms/Windows until someone opens the repo on
             Windows, and it silently rots. Pair it with -t:Compile, which stops before packaging:
 
-                dotnet build -p:ForceWindowsTfm=true -f net10.0-windows10.0.19041.0 -t:Compile
+                dotnet build -p:ForceWindowsTfm=true -f net11.0-windows10.0.19041.0 -t:Compile
 
             A full build (packaging included) still requires Windows.
         -->
@@ -21,7 +21,7 @@
         <RootNamespace>Shiny.Maui.Controls.Media</RootNamespace>
         <AssemblyName>Shiny.Maui.Controls.MediaElement</AssemblyName>
         <!-- Media3 (androidx.media3.exoplayer) requires Android API 23+ -->
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <Description>Cross-platform .NET MAUI MediaElement (iOS, Android, Windows, macOS AppKit; Linux GTK4 via the companion .Linux package) playing local and remote audio/video with a themed, per-element-toggleable transport bar (play/pause, seek scrubber, volume, fullscreen), background audio with OS lock-screen controls, and Picture-in-Picture.</Description>
         <PackageTags>maui mediaelement video audio player avplayer exoplayer media3 background-audio picture-in-picture</PackageTags>
     </PropertyGroup>
@@ -46,7 +46,7 @@
 
     <!--
         Manage Platforms/** includes ourselves so we can (a) share one AppleShared folder across iOS,
-        MacCatalyst and macOS and (b) support net10.0-macos AppKit, which MAUI's SingleProject strips.
+        MacCatalyst and macOS and (b) support net11.0-macos AppKit, which MAUI's SingleProject strips.
         Mirrors src/Shiny.Maui.Controls.Camera.
     -->
     <ItemGroup>

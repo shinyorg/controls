@@ -98,4 +98,4 @@ On MAUI, "reduced motion" means:
 
 - **MAUI**: the attached trigger installs the page's overlay layer when the view loads, not on the first tap. Installing it re-parents the page's content, which would flash if it happened during the tap.
 - **MAUI**: a burst fired at a page that hasn't been laid out yet waits for the first layout before it starts. If the page leaves the screen, the burst is cleared and the page can be collected.
-- **MAUI on AppKit** (`net10.0-macos`): AppKit never realizes a view added after layout, so the canvas may not paint there.
+- **MAUI on AppKit** (`net11.0-macos`): AppKit never realizes a view added after layout, so the canvas may not paint there.

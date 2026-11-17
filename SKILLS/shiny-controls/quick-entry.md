@@ -24,7 +24,7 @@ the page's `OverlayHost` backdrop with everything else that uses one — a popup
 panel dims the page once, not twice — and inherits the blur, the close-on-backdrop-tap and the
 show/hide worker. A page with no host gets one installed automatically.
 
-> **macOS AppKit note.** The in-app overlay does not paint on the `net10.0-macos` head. Re-parenting a
+> **macOS AppKit note.** The in-app overlay does not paint on the `net11.0-macos` head. Re-parenting a
 > `ContentPage`'s `Content` at runtime — which every in-app overlay in this library does, Toast and
 > Dialogs included — does not re-render there, so the page goes blank or the layer never appears. It
 > is a pre-existing limitation of that head rather than anything specific to quick entry. `Auto`
@@ -266,7 +266,7 @@ public class MyTool : PromptTool, IPromptAwareTool
 
 `Speak()`, `Stop()` and `StopAsync()` are callable directly. Register the engine with `AddSpeechServices()` (or `AddTextToSpeech()`) — the tool resolves it from DI and no-ops when nothing is registered.
 
-`Shiny.Maui.Controls.SpeechAddins` targets iOS, Android, Mac Catalyst, macOS (AppKit) and Windows. There is no plain `net10.0` target, so the GTK/Linux head cannot reference it — `Shiny.Speech`'s `net10.0` assembly implements only the browser engine, so there would be nothing behind it. Resolve the tool by name if a page is shared with that head.
+`Shiny.Maui.Controls.SpeechAddins` targets iOS, Android, Mac Catalyst, macOS (AppKit) and Windows. There is no plain `net11.0` target, so the GTK/Linux head cannot reference it — `Shiny.Speech`'s `net11.0` assembly implements only the browser engine, so there would be nothing behind it. Resolve the tool by name if a page is shared with that head.
 
 ```csharp
 prompt.TrailingTools!.Add(new PromptTextToSpeechTool { AutoSpeak = true });

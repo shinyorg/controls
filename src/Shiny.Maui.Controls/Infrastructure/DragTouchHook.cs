@@ -39,7 +39,7 @@ sealed partial class DragTouchHook
 
     /// <summary>
     /// Keeps the enclosing scroller off the gesture that is already in flight. No-op on the plain
-    /// net10.0 and Windows builds, where the scroller does not fight the child for it.
+    /// net11.0 and Windows builds, where the scroller does not fight the child for it.
     /// </summary>
     public void LockScroller(bool locked) => this.SetPlatformScrollLock(locked);
 

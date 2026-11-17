@@ -165,7 +165,7 @@ public sealed class IosAppHost : AppHost
     public override string ProjectPath => Path.Combine("samples", "Sample", "Sample.csproj");
     protected override string AgentPlatform => "iOS";
 
-    public override Task BuildAsync() => BuildProject("net10.0-ios");
+    public override Task BuildAsync() => BuildProject("net11.0-ios");
 
     public override async Task LaunchAsync()
     {
@@ -330,10 +330,10 @@ public sealed class AndroidAppHost : AppHost
         // Optional isolated output, so an Android build never shares src/*/obj with another head building at once.
         if (ArtifactsPath is string artifacts)
             install += $" --artifacts-path {ProcessRunner.Quote(artifacts)}";
-        await BuildProject("net10.0-android", install);
+        await BuildProject("net11.0-android", install);
 
         // A clean build once shipped an app that crashed on every page with a core Java peer: the sample
-        // got core's net10.0 assembly through Shiny.Maui.Controls.Desktop (then without an Android TFM),
+        // got core's net11.0 assembly through Shiny.Maui.Controls.Desktop (then without an Android TFM),
         // the Java stub scanner read that copy ("Found 0 Java types"), and CarouselAdapter,
         // StaggeredGridAdapter, BlurPreDrawListener ... died with "no Java peer type found". Desktop now
         // has android/ios assets, so this should never happen; if it does, fail here, loudly, rather than
@@ -342,7 +342,7 @@ public sealed class AndroidAppHost : AppHost
         if (emptyScans.Count > 0)
             throw new InvalidOperationException(
                 "The Android build scanned Shiny.Maui.Controls as having no Java types, so every Android adapter/listener " +
-                "in it would crash with \"no Java peer type found\". Something is handing the Android head core's net10.0 " +
+                "in it would crash with \"no Java peer type found\". Something is handing the Android head core's net11.0 " +
                 "assembly again (a reference without an Android TFM). Empty scans:\n" + String.Join("\n", emptyScans)
             );
     }
@@ -352,7 +352,7 @@ public sealed class AndroidAppHost : AppHost
     {
         var root = ArtifactsPath is string artifacts
             ? Path.Combine(artifacts, "obj", "Sample")
-            : Path.Combine(ProjectDirectory, "obj", UITestSettings.Configuration, "net10.0-android");
+            : Path.Combine(ProjectDirectory, "obj", UITestSettings.Configuration, "net11.0-android");
         if (!Directory.Exists(root))
             return [];
 
@@ -587,7 +587,7 @@ public sealed class MacOSAppHost : DesktopAppHost
     protected override string AgentPlatform => "macOS";
     protected override string ProcessName => "Sample.MacOS";
 
-    public override Task BuildAsync() => BuildProject("net10.0-macos");
+    public override Task BuildAsync() => BuildProject("net11.0-macos");
 
     // Running the bundle's binary directly (rather than `open`) keeps stdout — ShellHandler prints
     // navigation failures there, and on AppKit those are otherwise invisible.
@@ -625,7 +625,7 @@ public sealed class LinuxAppHost : DesktopAppHost
     protected override string AgentPlatform => "Linux";
     protected override string ProcessName => "Sample.Linux";
 
-    public override Task BuildAsync() => BuildProject("net10.0");
+    public override Task BuildAsync() => BuildProject("net11.0");
 
     protected override string ExecutablePath()
         => Path.Combine(Path.GetDirectoryName(FindOutput("Sample.Linux.dll"))!, "Sample.Linux");
@@ -680,7 +680,7 @@ public sealed class LinuxAppHost : DesktopAppHost
 
 public sealed class WindowsAppHost : DesktopAppHost
 {
-    const string Tfm = "net10.0-windows10.0.19041.0";
+    const string Tfm = "net11.0-windows10.0.19041.0";
 
     public override string ProjectPath => Path.Combine("samples", "Sample", "Sample.csproj");
     protected override string AgentPlatform => "WinUI";

@@ -3,7 +3,7 @@
     <PropertyGroup>
         <!-- iOS and Android get a native multi-touch platform view (a stick and a button held at once,
              touches that miss every element fall through to the game beneath). Every other target -
-             Mac Catalyst, Windows, and the plain net10.0 build the AppKit and GTK heads use - runs the
+             Mac Catalyst, Windows, and the plain net11.0 build the AppKit and GTK heads use - runs the
              stock GraphicsView handler, which reports one pointer: enough for a mouse. -->
         <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android;$(BaseTargetFramework)-maccatalyst</TargetFrameworks>
         <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>

@@ -131,7 +131,7 @@ public class DockTabStrip : ContentView
         LineHeightFor(maxFontSize) + TabPadding.VerticalThickness;
 
     // The strip must not rely on the ScrollView measuring its content. On the AppKit head
-    // (net10.0-macos) ScrollViewHandler has no GetDesiredSize override, so the NSScrollView reports
+    // (net11.0-macos) ScrollViewHandler has no GetDesiredSize override, so the NSScrollView reports
     // its FittingSize instead of the tabs' height; the Auto row then collapses to whatever the
     // collapse button happens to need, and the handler arranges the document view at that smaller
     // height - clipping the top and bottom of every tab title. A minimum height derived from the

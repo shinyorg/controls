@@ -10,7 +10,7 @@ These are **not** global hotkeys. For keys that fire while the app is in the bac
 - **Modifiers match exactly.** Never emit `Alt="false"` style flags; leaving a modifier out already means "not held".
 - On MAUI, emit `<shiny:KeyboardShortcuts.Shortcuts>` with `<shiny:KeyboardShortcut>` children. There is **no** `<KeyboardEvents>` and **no** `Keyboard.Shortcuts`; MAUI's own `Microsoft.Maui.Keyboard` class would clash.
 - On MAUI, bind `Command` (+ `CommandParameter`); `ReleasedCommand` is for key-up. On Blazor, use the `OnPressed` / `OnReleased` **EventCallbacks**, never an `Action` parameter.
-- AppKit (`net10.0-macos`), Linux GTK4 and Mac Catalyst need `.UseShinyDesktop()` from `Shiny.Maui.Controls.Desktop` **in addition to** `UseShinyControls()`. It always registers the key sources, so no `cfg` option is needed. Without it, shortcuts are declared but never fire (`IKeyboardShortcutService.IsSupported` is false). Windows, Android and iOS need nothing beyond core.
+- AppKit (`net11.0-macos`), Linux GTK4 and Mac Catalyst need `.UseShinyDesktop()` from `Shiny.Maui.Controls.Desktop` **in addition to** `UseShinyControls()`. It always registers the key sources, so no `cfg` option is needed. Without it, shortcuts are declared but never fire (`IKeyboardShortcutService.IsSupported` is false). Windows, Android and iOS need nothing beyond core.
 - **Never emit `UseDesktopKeyboardShortcuts()`.** It was removed. `UseShinyDesktop()` replaces it.
 - Blazor razor files need `@using Shiny.Controls.Keyboard` for `KeyModifiers` / `TextInputBehavior`.
 - Plain-key shortcuts (`J`, `?`, `Space`, arrows) are **not** delivered while a text field has focus (`TextInput="Auto"`). Only set `TextInput="Always"` when the user really wants that.

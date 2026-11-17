@@ -13,7 +13,7 @@ namespace Shiny.Maui.Controls.Desktop.Notch;
 /// display without one, Windows, Linux — it is a floating island centred at the top of the screen.
 /// </para>
 /// <para>
-/// macOS AppKit (<c>net10.0-macos</c>), Windows and Linux (GTK4, the <c>net10.0</c> asset) only. The
+/// macOS AppKit (<c>net11.0-macos</c>), Windows and Linux (GTK4, the <c>net11.0</c> asset) only. The
 /// type does not exist on Android, iOS or Mac Catalyst, so shared code guards it with
 /// <c>#if !ANDROID &amp;&amp; !IOS &amp;&amp; !MACCATALYST</c>; put an in-app <see cref="NotchView"/> on the page
 /// there instead. Under a Linux Wayland session the compositor decides where the window goes and how

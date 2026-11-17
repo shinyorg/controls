@@ -20,7 +20,7 @@ namespace Shiny.Maui.Controls.MotionIcons;
 /// </summary>
 /// <remarks>
 /// <para>Compiled into core's iOS asset, and linked into <c>Shiny.Maui.Controls.Desktop</c> for
-/// macOS (AppKit) and Mac Catalyst, which only get core's <c>net10.0</c> asset.</para>
+/// macOS (AppKit) and Mac Catalyst, which only get core's <c>net11.0</c> asset.</para>
 /// <para>The layer tree mirrors <see cref="MotionSceneBuilder"/>'s scene exactly: one root layer for
 /// the icon as a whole, one shape layer per part, each the size of the viewBox with its anchor on
 /// the part's origin, transformed translate-then-rotate-then-scale. That is what makes a part land on

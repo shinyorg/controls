@@ -7,7 +7,7 @@
             anyway, which is how Platforms/Windows gets *compile*-verified off Windows:
 
                 dotnet restore -p:ForceWindowsTfm=true
-                dotnet build -p:ForceWindowsTfm=true -f net10.0-windows10.0.19041.0 -t:Compile
+                dotnet build -p:ForceWindowsTfm=true -f net11.0-windows10.0.19041.0 -t:Compile
 
             A full build still fails in MakePri.exe on a non-Windows host; -t:Compile stops before it.
             Since this package took a ProjectReference on Shiny.Maui.Controls, that reference drags
@@ -16,11 +16,11 @@
             compile here with project references off.
 
                 dotnet build ../Shiny.Maui.Controls -p:ForceWindowsTfm=true -p:ProduceReferenceAssembly=false \
-                    -f net10.0-windows10.0.19041.0 -t:Compile
-                cp ../Shiny.Maui.Controls/obj/Debug/net10.0-windows10.0.19041.0/Shiny.Maui.Controls.dll \
-                    ../Shiny.Maui.Controls/bin/Debug/net10.0-windows10.0.19041.0/
+                    -f net11.0-windows10.0.19041.0 -t:Compile
+                cp ../Shiny.Maui.Controls/obj/Debug/net11.0-windows10.0.19041.0/Shiny.Maui.Controls.dll \
+                    ../Shiny.Maui.Controls/bin/Debug/net11.0-windows10.0.19041.0/
                 dotnet build -p:ForceWindowsTfm=true -p:ProduceReferenceAssembly=false \
-                    -f net10.0-windows10.0.19041.0 -t:Compile -p:BuildProjectReferences=false
+                    -f net11.0-windows10.0.19041.0 -t:Compile -p:BuildProjectReferences=false
         -->
         <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -37,7 +37,7 @@
         <!--
             The quick entry contracts, the PromptView control and the in-app presentation all live in
             the core package now; this add-on supplies the native-window presentation of the same
-            thing. Core has no macos/maccatalyst TFM, so those targets resolve its net10.0 asset —
+            thing. Core has no macos/maccatalyst TFM, so those targets resolve its net11.0 asset —
             which is fine, because nothing quick entry needs from it touches a platform SDK.
         -->
         <ProjectReference Include="..\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj" />
@@ -63,7 +63,7 @@
     <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'maccatalyst'">
         <Compile Include="Platforms/MacCatalyst/**/*.cs" />
         <!-- The GameController keyboard source core compiles for iOS. Core has no Catalyst target, so
-             its net10.0 asset is what Catalyst gets — this links the same file in instead. -->
+             its net11.0 asset is what Catalyst gets — this links the same file in instead. -->
         <Compile Include="../Shiny.Maui.Controls/KeyboardShortcuts/GameControllerKeySource.cs" Link="KeyboardShortcuts/GameControllerKeySource.cs" />
     </ItemGroup>
 
@@ -84,7 +84,7 @@
     <!--
         Phones have no desktop window, so these assets only report every service unsupported. They
         exist so an Android/iOS app gets core's android/ios asset through this package: with only the
-        net10.0 asset, an Android app also received core's net10.0 assembly, the Java stub scanner read
+        net11.0 asset, an Android app also received core's net11.0 assembly, the Java stub scanner read
         it on a clean build, and every Java peer in core (CarouselGallery's adapter, ...) crashed with
         "no Java peer type found".
     -->

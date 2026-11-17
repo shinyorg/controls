@@ -245,6 +245,6 @@ Keyed on `ElementType` **exactly** — a base-type registration does not cover s
 
 MAUI: iOS, Android, Mac Catalyst, macOS (AppKit), Windows. Blazor: WASM, Server, Hybrid.
 
-On `net10.0-macos` (AppKit), `SkiaSharp.Views.Maui` ships no macOS asset, so the stock canvas handler throws on that head;
+On `net11.0-macos` (AppKit), `SkiaSharp.Views.Maui` ships no macOS asset, so the stock canvas handler throws on that head;
 `UseShinyFloorPlan()` registers a replacement there, so nothing else is needed. Do not tell users they need
 `Shiny.Maui.Controls.Office` for it - that was true before 2.1.

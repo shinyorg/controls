@@ -83,5 +83,5 @@ is doing. See [Styling & theming](styling.md#dark-mode).
 
 ## Target frameworks
 
-The MAUI package targets the same frameworks as core (`net10.0`, `net10.0-ios`, `net10.0-android`, and Windows when
+The MAUI package targets the same frameworks as core (`net11.0`, `net11.0-ios`, `net11.0-android`, and Windows when
 built on Windows), so a platform app always gets core's platform assembly through it.

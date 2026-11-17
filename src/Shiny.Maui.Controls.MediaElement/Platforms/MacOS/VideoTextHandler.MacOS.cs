@@ -10,7 +10,7 @@ partial class VideoTextHandler : ViewHandler<VideoTextSurface, VideoTextPlatform
 {
     protected override VideoTextPlatformView CreatePlatformView() => new();
 
-    // MAUI arranges nothing for a custom view on net10.0-macos; without this the view stays 0x0 — see MediaPlayerNSView
+    // MAUI arranges nothing for a custom view on net11.0-macos; without this the view stays 0x0 — see MediaPlayerNSView
     public override void PlatformArrange(Rect frame)
     {
         base.PlatformArrange(frame);

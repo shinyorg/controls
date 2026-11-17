@@ -5,7 +5,7 @@ namespace Shiny.Maui.Controls.Analysis.Ai;
 
 /// <summary>
 /// Dependency-free document-presence detector used wherever there's no native rectangle detector (Android,
-/// Windows, bare net10.0). It only answers "is a document-shaped bright region filling much of the frame, and
+/// Windows, bare net11.0). It only answers "is a document-shaped bright region filling much of the frame, and
 /// where?" — it does <b>not</b> read text. That's the whole point of the AI scanner: this cheap gate runs
 /// every frame, and the expensive model call only fires once a document is actually present. Operates on the
 /// frame's cached 8-bit luminance plane (no color copy), downscales it, Otsu-thresholds, takes the largest

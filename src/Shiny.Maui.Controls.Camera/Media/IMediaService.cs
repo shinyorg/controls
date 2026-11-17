@@ -33,7 +33,7 @@ namespace Shiny.Maui.Controls.Camera.Media;
 public interface IMediaService : IFrameScanService<MediaScanOptions>
 {
     /// <summary>
-    /// False where there is no camera to present — the bare <c>net10.0</c> head, or before the app has a
+    /// False where there is no camera to present — the bare <c>net11.0</c> head, or before the app has a
     /// window. Gallery picking may still work when this is false.
     /// </summary>
     bool IsCameraSupported { get; }

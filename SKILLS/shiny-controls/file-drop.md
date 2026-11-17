@@ -4,10 +4,10 @@ Window-level file drop: files dragged from Finder / Explorer / Files onto the **
 
 | Host | Package | Platforms | Payload |
 | --- | --- | --- | --- |
-| MAUI | `Shiny.Maui.Controls.Desktop` | Windows (WinUI), macOS AppKit (`net10.0-macos`), Mac Catalyst, Linux (GTK4) | Real file paths |
+| MAUI | `Shiny.Maui.Controls.Desktop` | Windows (WinUI), macOS AppKit (`net11.0-macos`), Mac Catalyst, Linux (GTK4) | Real file paths |
 | Blazor | `Shiny.Blazor.Controls` (core) | WebAssembly, Server, Hybrid | Bytes only — the browser gives no path |
 
-On iOS, Android, and anywhere else the MAUI package's `net10.0` asset lands, `IFileDropService` still resolves, `IsSupported` is `false`, `AttachTo` is a no-op and no event ever fires. **Never wrap consuming code in `#if`** — that is exactly the case this design removes.
+On iOS, Android, and anywhere else the MAUI package's `net11.0` asset lands, `IFileDropService` still resolves, `IsSupported` is `false`, `AttachTo` is a no-op and no event ever fires. **Never wrap consuming code in `#if`** — that is exactly the case this design removes.
 
 ## Not `DropGestureRecognizer`
 

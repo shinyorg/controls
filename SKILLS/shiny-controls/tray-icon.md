@@ -5,7 +5,7 @@ The tray icon API ships in the **`Shiny.Maui.Controls.Desktop`** add-on package 
 Supported platforms:
 
 - **Windows** — `Shell_NotifyIcon`
-- **macOS AppKit** — `NSStatusBar.SystemStatusBar` (native macOS app, `net10.0-macos`)
+- **macOS AppKit** — `NSStatusBar.SystemStatusBar` (native macOS app, `net11.0-macos`)
 - **MacCatalyst** — bridges to AppKit at runtime via the Objective-C runtime
 - **Linux** — `libayatana-appindicator3` + GTK 3 (native dependency must be installed: `libayatana-appindicator3-1`, `libgtk-3-0`)
 
@@ -246,7 +246,7 @@ The timer is owned by `TrayIconBase` and is disposed automatically on `Dispose()
 - `ShowNotification` uses `NSUserNotificationCenter` — modern apps should consider migrating to `UNUserNotificationCenter` but the older API still works.
 
 ### macOS AppKit
-- Uses native MAUI bindings on `net10.0-macos`. Cleanest of the four implementations.
+- Uses native MAUI bindings on `net11.0-macos`. Cleanest of the four implementations.
 - Click events route via `NSStatusItem.Button.Activated`; left vs right is distinguished by inspecting `NSApplication.SharedApplication.CurrentEvent`.
 - On macOS, **primary (left) click opens the menu** when one is assigned. To get a left-click event handler that doesn't open the menu, don't call `SetMenu` and use `ShowMenu()` from within your handler instead.
 - `KeyEquivalent` + modifier mask on `NSMenuItem` is dispatched natively by AppKit when your app is in the foreground.

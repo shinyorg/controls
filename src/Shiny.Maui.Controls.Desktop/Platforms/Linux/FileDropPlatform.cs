@@ -8,7 +8,7 @@ namespace Shiny.Maui.Controls.Desktop.FileDrop;
 
 /// <summary>
 /// GTK 4 backing for window-level file drop — and the do-nothing implementation everywhere else
-/// this package's <c>net10.0</c> asset is used.
+/// this package's <c>net11.0</c> asset is used.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -48,7 +48,7 @@ static unsafe class FileDropPlatform
         }
         catch (DllNotFoundException ex)
         {
-            // Reaching here means the net10.0 asset is running somewhere that is not a GTK4 session.
+            // Reaching here means the net11.0 asset is running somewhere that is not a GTK4 session.
             host.LogError("GTK 4 is not available, so file drop was not attached", ex);
             return null;
         }

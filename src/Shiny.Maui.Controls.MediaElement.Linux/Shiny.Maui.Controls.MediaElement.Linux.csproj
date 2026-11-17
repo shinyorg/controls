@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <!--
-            Plain net10.0, and deliberately NOT UseMaui: there is no Linux target framework, so the GTK4
+            Plain net11.0, and deliberately NOT UseMaui: there is no Linux target framework, so the GTK4
             head builds against the base TFM. That's also why this backend can't live in the main
             MediaElement package — referencing GirCore there would drag GTK into every non-platform
-            consumer (unit tests, tooling) of that package's net10.0 target.
+            consumer (unit tests, tooling) of that package's net11.0 target.
         -->
         <TargetFramework>$(BaseTargetFramework)</TargetFramework>
         <IsAotCompatible>true</IsAotCompatible>

@@ -7,7 +7,7 @@ namespace Shiny.Maui.Controls.Analysis.Face;
 
 /// <summary>
 /// Detects faces in each frame (Apple Vision on iOS/macOS, Android MLKit, Windows.Media.FaceAnalysis;
-/// a no-op on bare net10.0). Raises <see cref="FacesDetected"/> with the located faces and draws a box
+/// a no-op on bare net11.0). Raises <see cref="FacesDetected"/> with the located faces and draws a box
 /// around each. The per-platform <c>AnalyzeAsync</c> builds the <see cref="DetectedFace"/> list and calls
 /// <see cref="Report"/>, which raises the event (on the UI thread) and produces the overlay boxes.
 /// </summary>

@@ -8,7 +8,7 @@ public static class GtkMediaMauiAppBuilderExtensions
 {
     /// <summary>
     /// Register the Shiny <see cref="MediaElement"/> for the GTK4 Linux head. Call this <b>instead of</b>
-    /// <c>UseShinyMediaElement()</c>, which is a no-op on the plain <c>net10.0</c> target the GTK host
+    /// <c>UseShinyMediaElement()</c>, which is a no-op on the plain <c>net11.0</c> target the GTK host
     /// builds against.
     /// </summary>
     /// <remarks>

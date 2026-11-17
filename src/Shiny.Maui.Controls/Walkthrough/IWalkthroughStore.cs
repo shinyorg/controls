@@ -25,7 +25,7 @@ public interface IWalkthroughStore
 /// The default store, backed by MAUI's <see cref="Microsoft.Maui.Storage.Preferences"/>.
 /// </summary>
 /// <remarks>
-/// Preferences is a platform API, so on the plain <c>net10.0</c> build — the one the AppKit and GTK4
+/// Preferences is a platform API, so on the plain <c>net11.0</c> build — the one the AppKit and GTK4
 /// heads use — it throws <c>NotImplementedInReferenceAssemblyException</c>. That is caught once and the
 /// store falls back to memory for the rest of the process: the walkthrough still runs once per launch
 /// rather than repeating within a session, and an app on those heads that wants real persistence

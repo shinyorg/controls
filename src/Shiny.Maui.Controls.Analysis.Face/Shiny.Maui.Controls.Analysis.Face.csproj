@@ -9,7 +9,7 @@
         <SingleProject>true</SingleProject>
         <RootNamespace>Shiny.Maui.Controls.Analysis.Face</RootNamespace>
         <Description>Face-detection analyzer for the Shiny CameraView and MediaElement — Apple Vision (iOS/macOS), Android MLKit, Windows.Media.FaceAnalysis — plus the FaceMaskEffect camera effect.</Description>
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
     </PropertyGroup>
 
     <ItemGroup>

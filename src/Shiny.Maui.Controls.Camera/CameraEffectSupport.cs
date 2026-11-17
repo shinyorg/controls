@@ -50,7 +50,7 @@ static class CameraEffectSupport
 
 #else
 
-    // Windows and the bare net10.0 head: stills go through the managed pixel path, the preview is untouched.
+    // Windows and the bare net11.0 head: stills go through the managed pixel path, the preview is untouched.
     const bool FiltersPreview = false;
 
     static bool HasNativeProgram(NativeEffectDescriptor? d) => d?.Managed is not null;

@@ -273,11 +273,11 @@ static unsafe class QuickEntryPlatform
     /// <summary>
     /// GirCore wraps every GObject in a <see cref="SafeHandle"/> exposed as <c>Handle</c>. Reading it
     /// reflectively keeps this package off a GirCore package reference — which would otherwise be
-    /// dragged into the plain <c>net10.0</c> build for every consumer, Linux or not. Failure just
+    /// dragged into the plain <c>net11.0</c> build for every consumer, Linux or not. Failure just
     /// means no native styling, never a crash.
     /// </summary>
     [UnconditionalSuppressMessage("Trimming", "IL2075",
-        Justification = "The GTK4 MAUI head is a plain net10.0 app that is not trimmed, and a missing Handle property degrades to an undecorated-only popup rather than failing.")]
+        Justification = "The GTK4 MAUI head is a plain net11.0 app that is not trimmed, and a missing Handle property degrades to an undecorated-only popup rather than failing.")]
     internal static IntPtr GetNativeHandleForGlow(object? platformWindow) => GetNativeHandle(platformWindow);
 
     // The GTK window type belongs to the app's GTK4 head, which this package does not reference, so

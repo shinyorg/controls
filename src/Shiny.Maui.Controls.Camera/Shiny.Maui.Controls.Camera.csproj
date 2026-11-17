@@ -10,7 +10,7 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <RootNamespace>Shiny.Maui.Controls.Camera</RootNamespace>
         <!-- CameraX (androidx.lifecycle.runtime) requires Android API 23+ -->
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <Description>Cross-platform .NET MAUI CameraView (iOS, Android, Windows, macOS AppKit) with live preview, zoom/torch/lens control, photo capture and a pluggable frame-analysis pipeline (barcode, face, motion, OCR) that draws bounding boxes on the preview.</Description>
         <PackageTags>maui camera cameraview barcode face ocr motion preview avfoundation camerax</PackageTags>
     </PropertyGroup>
@@ -33,7 +33,7 @@
 
     <!--
         Manage Platforms/** includes ourselves so we can (a) share one Apple folder across iOS +
-        MacCatalyst and (b) support net10.0-macos AppKit, which MAUI's SingleProject strips.
+        MacCatalyst and (b) support net11.0-macos AppKit, which MAUI's SingleProject strips.
         Mirrors src/Shiny.Maui.Controls.Desktop.
     -->
     <ItemGroup>

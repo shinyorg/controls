@@ -56,7 +56,7 @@ internal sealed record NativeMotionRequest(
 /// Where a platform plugs in its compositor-driven player.
 /// </summary>
 /// <remarks>
-/// Core's iOS asset sets this itself. macOS (AppKit) and Mac Catalyst get core's <c>net10.0</c>
+/// Core's iOS asset sets this itself. macOS (AppKit) and Mac Catalyst get core's <c>net11.0</c>
 /// asset, which cannot touch Core Animation, so <c>Shiny.Maui.Controls.Desktop</c> sets it when it
 /// loads. Unset — Android, Windows, Linux, tests — every play stays on the managed ticker.
 /// </remarks>

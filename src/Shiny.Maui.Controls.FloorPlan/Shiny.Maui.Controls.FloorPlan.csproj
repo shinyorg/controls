@@ -4,9 +4,9 @@
         <!--
             The view is an SKCanvasView and the engine is portable: iOS, Android, Mac Catalyst and
             Windows all resolve SkiaSharp's own platform assets through the app's reference to it, so
-            the plain net10.0 build serves them.
+            the plain net11.0 build serves them.
 
-            net10.0-macos (AppKit) is the exception. SkiaSharp.Views.Maui ships no macos asset, so that
+            net11.0-macos (AppKit) is the exception. SkiaSharp.Views.Maui ships no macos asset, so that
             head's SKCanvasViewHandler throws where the platform view should be and the plan came up
             blank. The AppKit handler is compiled in from Shiny.Maui.Controls.Office (one source, an
             internal copy here) and UseShinyFloorPlan registers it.

@@ -148,7 +148,7 @@ public partial class SignatureView : ContentView
     /// <see cref="SignatureBackgroundColor"/>. The placeholder and signature line are never exported.
     /// </summary>
     /// <remarks>
-    /// <see cref="Stream.Null"/> on a plain <c>net10.0</c> backend that registers no
+    /// <see cref="Stream.Null"/> on a plain <c>net11.0</c> backend that registers no
     /// <see cref="IBitmapExportService"/>.
     /// </remarks>
     public Stream ExportToPng(int? width = null, int? height = null)

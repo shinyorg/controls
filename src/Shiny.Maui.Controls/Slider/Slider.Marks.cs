@@ -112,7 +112,7 @@ public partial class Slider
 
     /// <summary>
     /// Recreates the mark views. This runs as the collection is populated — for XAML, before the first
-    /// layout — because on net10.0-macos a child added after the page has laid out is never realized.
+    /// layout — because on net11.0-macos a child added after the page has laid out is never realized.
     /// </summary>
     void RebuildMarks()
     {

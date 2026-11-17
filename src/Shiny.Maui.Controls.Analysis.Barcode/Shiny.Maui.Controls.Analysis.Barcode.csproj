@@ -9,8 +9,8 @@
         <IsAotCompatible>true</IsAotCompatible>
         <SingleProject>true</SingleProject>
         <RootNamespace>Shiny.Maui.Controls.Analysis.Barcode</RootNamespace>
-        <Description>Barcode/QR analyzer for the Shiny CameraView and MediaElement. Reads codes with the native scanner — Apple Vision (iOS/macOS) and Android MLKit, with the managed ZXing.Net decoder on Windows and bare net10.0 — and has a LongRange mode for codes across a room: it locates codes first, reads 1D codes with a blur-tolerant managed decoder, hands 2D codes to the native scanner as enlarged crops, tracks codes across frames and (on a camera) can zoom in on codes too small to read.</Description>
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <Description>Barcode/QR analyzer for the Shiny CameraView and MediaElement. Reads codes with the native scanner — Apple Vision (iOS/macOS) and Android MLKit, with the managed ZXing.Net decoder on Windows and bare net11.0 — and has a LongRange mode for codes across a room: it locates codes first, reads 1D codes with a blur-tolerant managed decoder, hands 2D codes to the native scanner as enlarged crops, tracks codes across frames and (on a camera) can zoom in on codes too small to read.</Description>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
     </PropertyGroup>
 
     <ItemGroup>
@@ -23,7 +23,7 @@
         <PackageReference Include="Xamarin.Google.MLKit.BarcodeScanning" />
     </ItemGroup>
 
-    <!-- no camera-based native scanner on Windows (or bare net10.0): decode the luminance plane with ZXing.Net -->
+    <!-- no camera-based native scanner on Windows (or bare net11.0): decode the luminance plane with ZXing.Net -->
     <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows' Or '$(TargetPlatformIdentifier)' == ''">
         <PackageReference Include="ZXing.Net" />
     </ItemGroup>

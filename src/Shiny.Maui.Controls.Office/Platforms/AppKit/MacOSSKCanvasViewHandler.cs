@@ -17,7 +17,7 @@ namespace Shiny.Maui.Controls.Office;
 /// <remarks>
 /// <para>
 /// <c>SkiaSharp.Views.Maui.Core</c> multi-targets iOS, Mac Catalyst, Android and Windows but not
-/// <c>net10.0-macos</c>, so AppKit resolves its plain <c>net10.0</c> build. That build's
+/// <c>net11.0-macos</c>, so AppKit resolves its plain <c>net11.0</c> build. That build's
 /// <c>SKCanvasViewHandler</c> compiles but its <c>CreatePlatformView()</c> throws
 /// <see cref="NotImplementedException"/> — which the macOS <c>ShellHandler</c> swallows, leaving the
 /// page blank with nothing in the log beyond "The method or operation is not implemented."

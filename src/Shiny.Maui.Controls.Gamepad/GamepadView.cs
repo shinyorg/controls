@@ -84,7 +84,7 @@ public partial class GamepadView : GraphicsView
         }
         catch
         {
-            // the plain net10.0 build has no Essentials implementation behind the interface
+            // the plain net11.0 build has no Essentials implementation behind the interface
         }
         return pad;
     }
@@ -229,7 +229,7 @@ public partial class GamepadView : GraphicsView
         }
         catch
         {
-            // no haptic engine (simulators, desktops, the plain net10.0 build)
+            // no haptic engine (simulators, desktops, the plain net11.0 build)
         }
     }
 

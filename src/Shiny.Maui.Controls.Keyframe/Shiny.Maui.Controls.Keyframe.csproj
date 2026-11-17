@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <!-- Nothing here touches a platform SDK: the clock is an IDispatcherTimer, the view is a
-             GraphicsView, and the animated properties are BindableProperties. A single net10.0 TFM
+             GraphicsView, and the animated properties are BindableProperties. A single net11.0 TFM
              therefore serves every head — including the AppKit (macos) and GTK4 (linux) heads,
              which cannot consume ios/android/maccatalyst assets. -->
         <TargetFrameworks>$(BaseTargetFramework)</TargetFrameworks>

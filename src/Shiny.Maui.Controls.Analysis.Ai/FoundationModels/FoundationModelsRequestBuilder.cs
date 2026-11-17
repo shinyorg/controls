@@ -33,7 +33,7 @@ sealed record FoundationModelsRequest(FoundationModelsPayload Payload, List<Read
 partial class FoundationModelsJsonContext : JsonSerializerContext;
 
 
-// Maps MEAI messages and options onto the bridge's request. Platform-neutral so it is unit tested on net10.0.
+// Maps MEAI messages and options onto the bridge's request. Platform-neutral so it is unit tested on net11.0.
 static class FoundationModelsRequestBuilder
 {
     public static FoundationModelsRequest Build(

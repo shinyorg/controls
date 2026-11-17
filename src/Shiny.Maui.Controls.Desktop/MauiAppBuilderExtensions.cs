@@ -80,7 +80,7 @@ public static class DesktopMauiAppBuilderExtensions
         // Phones have no tray: the factory throws on use, so guard tray code with a platform check.
         services.TryAddSingleton<ITrayIconFactory, UnsupportedTrayIconFactory>();
 #else
-        // net10.0 fallback — Linux at runtime, otherwise unsupported.
+        // net11.0 fallback — Linux at runtime, otherwise unsupported.
         services.TryAddSingleton<ITrayIconFactory>(_ =>
         {
             if (OperatingSystem.IsLinux())
@@ -103,7 +103,7 @@ public static class DesktopMauiAppBuilderExtensions
         // Phones have no global hotkeys.
         services.TryAddSingleton<IGlobalHotKeyService, UnsupportedGlobalHotKeyService>();
 #else
-        // net10.0 fallback — Linux at runtime, otherwise unsupported.
+        // net11.0 fallback — Linux at runtime, otherwise unsupported.
         services.TryAddSingleton<IGlobalHotKeyService>(sp =>
         {
             if (OperatingSystem.IsLinux())
@@ -124,7 +124,7 @@ public static class DesktopMauiAppBuilderExtensions
 #if MACOS || MACCATALYST
         Shiny.Maui.Controls.KeyboardShortcutManager.PlatformAttach = Shiny.Maui.Controls.Desktop.KeyboardShortcuts.KeyboardShortcutPlatform.Attach;
 #elif !WINDOWS && !ANDROID && !IOS
-        // net10.0 asset — Linux at runtime, otherwise nothing to attach.
+        // net11.0 asset — Linux at runtime, otherwise nothing to attach.
         if (OperatingSystem.IsLinux())
             Shiny.Maui.Controls.KeyboardShortcutManager.PlatformAttach = Shiny.Maui.Controls.Desktop.KeyboardShortcuts.KeyboardShortcutPlatform.Attach;
 #endif
@@ -166,7 +166,7 @@ public class ShinyDesktopConfiguration(IServiceCollection services)
     /// The popup, <c>PromptView</c> and the in-app presentation live in <c>Shiny.Maui.Controls</c> and
     /// work without this. Opt-in because it changes what the app does: with
     /// <see cref="QuickEntryPresentation.Auto"/> (the default) the core service picks this window over
-    /// the in-app overlay. On Mac Catalyst, and anywhere this package's <c>net10.0</c> asset runs
+    /// the in-app overlay. On Mac Catalyst, and anywhere this package's <c>net11.0</c> asset runs
     /// without being a desktop, the presenters report themselves unsupported and the overlay stays.
     /// </remarks>
     public ShinyDesktopConfiguration UseQuickEntryWindow()
@@ -192,7 +192,7 @@ public class ShinyDesktopConfiguration(IServiceCollection services)
     /// </summary>
     /// <remarks>
     /// On a platform without window-level file drop (iOS, Android, and any host that reaches this
-    /// package's <c>net10.0</c> asset without being Linux) the service still resolves,
+    /// package's <c>net11.0</c> asset without being Linux) the service still resolves,
     /// <see cref="IFileDropService.IsSupported"/> is false and nothing fires.
     /// </remarks>
     public ShinyDesktopConfiguration UseFileDrop(Action<FileDropOptions>? configure = null)

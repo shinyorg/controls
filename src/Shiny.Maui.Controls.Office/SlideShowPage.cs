@@ -464,7 +464,7 @@ class SlideShowPage : ContentPage
         }
         catch (Exception)
         {
-            // Not every head has a display to keep awake (the plain net10.0 build, a headless test).
+            // Not every head has a display to keep awake (the plain net11.0 build, a headless test).
         }
     }
 }

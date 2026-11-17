@@ -50,7 +50,7 @@ builder.Services.AddShinyGamepad();
 8. Haptics: `ButtonHapticFeedback` (default true) for non-directional buttons,
    `DirectionalHapticFeedback` (default false) for d-pad directions. There is no single
    `HapticFeedback` property.
-9. There is no MAUI multi-touch on Mac Catalyst/Windows/net10.0 — one pointer only. Don't promise
+9. There is no MAUI multi-touch on Mac Catalyst/Windows/net11.0 — one pointer only. Don't promise
    two-thumb play there.
 
 ## Overlay (MAUI)

@@ -217,7 +217,7 @@ bar?.OpenMenu(NavBarSide.Right);
   panels still float above the bar.
 - **iOS swipe-back keeps working.** UIKit disables the edge-swipe pop whenever the bar is hidden, so
   the page puts it back deliberately; `EnableSwipeBackGesture="False"` opts out.
-- **macOS AppKit (`net10.0-macos`) caveats.** The bar itself, the items, the badges and the back
+- **macOS AppKit (`net11.0-macos`) caveats.** The bar itself, the items, the badges and the back
   button all render — the wrapper is installed before the page is ever presented, which is what
   avoids the re-parent problem that affects the app-wide Flyout install there. Two things do not:
   the **overflow menu** paints nothing (it is added to a page overlay layer on the tap that opens it,

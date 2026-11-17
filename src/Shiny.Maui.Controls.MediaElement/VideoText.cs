@@ -178,7 +178,7 @@ public class VideoText : ContentView
 
     /// <summary>
     /// Whether this build draws the text as a video mask. <c>false</c> on Windows and on the plain
-    /// <c>net10.0</c> target the Linux head runs on, where the text is shown in <see cref="FallbackTextColor"/>.
+    /// <c>net11.0</c> target the Linux head runs on, where the text is shown in <see cref="FallbackTextColor"/>.
     /// </summary>
     public static bool IsMaskSupported =>
 #if ANDROID || IOS || MACCATALYST || MACOS

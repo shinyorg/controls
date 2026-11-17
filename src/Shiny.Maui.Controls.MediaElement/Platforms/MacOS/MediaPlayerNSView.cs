@@ -16,7 +16,7 @@ namespace Shiny.Maui.Controls.Media;
 /// </para>
 /// <para>
 /// ⚠️ <b>The handler has to place this view itself.</b> MAUI's generic <c>ViewHandler</c> arranges nothing on
-/// <c>net10.0-macos</c>: the platform view keeps a zero frame while MAUI's own layout says 1028x220, so the video drew
+/// <c>net11.0-macos</c>: the platform view keeps a zero frame while MAUI's own layout says 1028x220, so the video drew
 /// into a 0x0 rectangle — playing, ready for display, and invisible. <see cref="ApplyArrangedFrame"/> is called from
 /// each handler's <c>PlatformArrange</c> (the CameraView's macOS handler works around the same thing).
 /// </para>

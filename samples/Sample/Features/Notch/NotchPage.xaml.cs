@@ -25,7 +25,7 @@ public partial class NotchPage : ContentPage
         SampleSourceCode.Attach(this);
         this.OnRecording(this, EventArgs.Empty);
 
-        // The notch window exists on macOS, Windows and Linux (this file's net10.0 build is the GTK head).
+        // The notch window exists on macOS, Windows and Linux (this file's net11.0 build is the GTK head).
 #if !ANDROID && !IOS && !MACCATALYST
         this.DesktopSection.IsVisible = true;
 #endif

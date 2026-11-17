@@ -12,7 +12,7 @@
             there. ForceWindowsTfm=true adds it anyway, which is how Platforms/Windows gets
             *compile*-verified off Windows:
 
-                dotnet build -p:ForceWindowsTfm=true -f net10.0-windows10.0.19041.0 -t:Compile
+                dotnet build -p:ForceWindowsTfm=true -f net11.0-windows10.0.19041.0 -t:Compile
         -->
         <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -29,8 +29,8 @@
     </ItemGroup>
 
     <!--
-        The AppKit head only. SkiaSharp.Views.Maui has no net10.0-macos target, so that head falls back
-        to the plain net10.0 build whose SKCanvasViewHandler throws where the platform view should be -
+        The AppKit head only. SkiaSharp.Views.Maui has no net11.0-macos target, so that head falls back
+        to the plain net11.0 build whose SKCanvasViewHandler throws where the platform view should be -
         Platforms/AppKit supplies a real one, and MacOSViewHandler<,> is the base it has to derive from.
     -->
     <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'macos'">
@@ -48,7 +48,7 @@
     <!--
         Platforms/** is managed here rather than left to SingleProject, which knows only the folder
         names MAUI itself defines: one Apple folder serves iOS and Mac Catalyst instead of two copies
-        of the same UITextChecker code, and net10.0-macos (AppKit) is not a platform it strips for.
+        of the same UITextChecker code, and net11.0-macos (AppKit) is not a platform it strips for.
         Mirrors src/Shiny.Maui.Controls.Camera.
     -->
     <ItemGroup>

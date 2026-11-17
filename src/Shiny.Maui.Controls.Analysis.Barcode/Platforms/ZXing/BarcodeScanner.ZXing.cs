@@ -8,7 +8,7 @@ namespace Shiny.Maui.Controls.Analysis.Barcode;
 
 /// <summary>
 /// Barcode scanning via the managed ZXing.Net decoder — Windows (there is no camera-based native scanner) and
-/// the bare net10.0 target. Decodes the frame's luminance plane, so it works on any <see cref="VideoFrame"/>.
+/// the bare net11.0 target. Decodes the frame's luminance plane, so it works on any <see cref="VideoFrame"/>.
 /// </summary>
 public partial class BarcodeScanner
 {

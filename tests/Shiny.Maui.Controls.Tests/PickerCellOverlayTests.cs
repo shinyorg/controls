@@ -33,7 +33,7 @@ public class PickerCellOverlayTests
         picker.TextColor.ShouldBe(Colors.Transparent);
 
         // On the AppKit head TitleColor paints the PickerTitle heading inside the open dropdown, so it
-        // is left alone there. (The test host is the net10.0 build too, so on a Mac this runs that branch.)
+        // is left alone there. (The test host is the net11.0 build too, so on a Mac this runs that branch.)
         if (OperatingSystem.IsMacOS())
             picker.TitleColor.ShouldBeNull();
         else

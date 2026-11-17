@@ -156,7 +156,7 @@ static partial class MediaImaging
         => format == MediaImageFormat.Png ? "image/png" : "image/jpeg";
 
 #if !(ANDROID || IOS || MACCATALYST || MACOS || WINDOWS)
-    // Bare net10.0 (and the GTK head): no native codec to reach for. Best effort through PlatformImage,
+    // Bare net11.0 (and the GTK head): no native codec to reach for. Best effort through PlatformImage,
     // which neither rotates nor keeps metadata.
     static Task<MediaPhoto?> TranscodeAsync(byte[] source, MediaImageRequest request) => Task.Run<MediaPhoto?>(() =>
     {

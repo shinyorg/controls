@@ -186,7 +186,7 @@ Events: `ButtonChanged`, `AxisChanged`, `LayoutEdited` (Blazor: `OnButtonChanged
 
 ## Platform notes
 
-- **MAUI**: multi-touch and pass-through on iOS and Android. Mac Catalyst, Windows and the plain `net10.0` build read a single pointer and don't pass touches through.
+- **MAUI**: multi-touch and pass-through on iOS and Android. Mac Catalyst, Windows and the plain `net11.0` build read a single pointer and don't pass touches through.
 - **Blazor Server**: every pointer is a round trip, so the knob trails the thumb by the connection latency, as does every input the game reads. WebAssembly has no such cost.
 - **Browsers**: physical controllers stay invisible until the player presses a button on one (the W3C Gamepad API's anti-fingerprinting rule), so `HideWhenControllerConnected` takes effect on that first press.
 - A `VirtualGamepad` that has been disconnected stays disconnected. When a MAUI view is shown again it hands out a new instance with the same `GamepadId`, the same way a physical controller comes back as a new object after it reconnects.

@@ -94,7 +94,7 @@ public class MediaService(MediaServiceOptions options) : IMediaService
             }
             catch (NotImplementedException)
             {
-                return MediaPermissionStatus.Unsupported; // bare net10.0 reference assembly
+                return MediaPermissionStatus.Unsupported; // bare net11.0 reference assembly
             }
         });
 

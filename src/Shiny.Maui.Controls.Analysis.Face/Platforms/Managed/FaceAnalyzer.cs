@@ -2,7 +2,7 @@ using Shiny.Controls.Camera;
 
 namespace Shiny.Maui.Controls.Analysis.Face;
 
-/// <summary>No-op fallback for the platform-agnostic (net10.0) target; face detection requires a native backend.</summary>
+/// <summary>No-op fallback for the platform-agnostic (net11.0) target; face detection requires a native backend.</summary>
 public partial class FaceAnalyzer
 {
     /// <inheritdoc/>

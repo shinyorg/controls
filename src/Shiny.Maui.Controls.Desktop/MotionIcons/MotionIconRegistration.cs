@@ -8,7 +8,7 @@ namespace Shiny.Maui.Controls.Desktop.MotionIcons;
 /// Puts <c>MotionIconView</c> plays on Core Animation on macOS and Mac Catalyst.
 /// </summary>
 /// <remarks>
-/// Those heads get core's <c>net10.0</c> asset, which cannot reach Core Animation, so the player is
+/// Those heads get core's <c>net11.0</c> asset, which cannot reach Core Animation, so the player is
 /// compiled here and plugged into core's seam. A module initializer rather than a builder call:
 /// it is not a feature anyone should have to opt into, and any app with this package installed
 /// loads it through one of its <c>Use…</c> calls before the first page exists.

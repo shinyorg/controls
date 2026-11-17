@@ -9,7 +9,7 @@ namespace Shiny.Maui.Controls.Desktop.QuickEntry;
 /// borderless, floating above other applications, or able to take focus without activating the
 /// app — which is the entire premise of the popup. Bridging to AppKit (as the tray icon does)
 /// gets a native panel on screen but not the MAUI view hierarchy inside it, since the Catalyst
-/// handlers all build UIKit views. Run the AppKit head (<c>net10.0-macos</c>) for this feature.
+/// handlers all build UIKit views. Run the AppKit head (<c>net11.0-macos</c>) for this feature.
 /// </remarks>
 static class QuickEntryPlatform
 {

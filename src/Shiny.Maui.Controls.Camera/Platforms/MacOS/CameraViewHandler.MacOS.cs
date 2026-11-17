@@ -85,7 +85,7 @@ public partial class CameraViewHandler : ViewHandler<CameraView, NSView>, ICamer
         // Every arrange, not only the first. The view keeps whatever size it was given, so a preview
         // sized once is a preview that never follows the window again - and the first arrange is
         // rarely the final one, which showed up as a band of black under the picture.
-        // The whole frame, not just the size: MAUI's generic ViewHandler arranges nothing on net10.0-macos, so a
+        // The whole frame, not just the size: MAUI's generic ViewHandler arranges nothing on net11.0-macos, so a
         // view that only sets its size stays at (0,0) - stacked on its siblings at the top of the page. The AppKit
         // backend's containers are flipped, so MAUI's top-left rectangle is the frame as-is.
         if (this.PlatformView is { } host && frame is { Width: > 0, Height: > 0 })

@@ -9,7 +9,7 @@ using BarcodeFormat = Shiny.Controls.Analysis.BarcodeFormat;
 
 namespace Shiny.Maui.Controls.Camera.Tests;
 
-// The net10.0 target shares the Windows ZXing decoder, so these cover the Windows scan path.
+// The net11.0 target shares the Windows ZXing decoder, so these cover the Windows scan path.
 public class BarcodeScannerTests
 {
     const int W = 640;

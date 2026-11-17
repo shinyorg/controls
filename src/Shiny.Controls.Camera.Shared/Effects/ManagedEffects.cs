@@ -2,7 +2,7 @@ namespace Shiny.Controls.Camera;
 
 /// <summary>
 /// Portable CPU implementations of the spatial effects, used for <b>still images</b> on any backend that has
-/// no GPU path for them — Windows, the bare <c>net10.0</c> head, and Android below the shader API level.
+/// no GPU path for them — Windows, the bare <c>net11.0</c> head, and Android below the shader API level.
 /// </summary>
 /// <remarks>
 /// <para>

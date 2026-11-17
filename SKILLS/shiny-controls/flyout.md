@@ -262,7 +262,7 @@ Read-only: `EffectivePresentation`, `CurrentWidth`, `Host`. Event: `StateChanged
 - **Gestures**: swipe in from the edge to open (floating panels), tap or drag the scrim to close, drag
   the inner-edge handle to resize (pushing panels with `IsResizable`). There is deliberately no
   drag-from-inside-the-panel gesture — it fights the scrolling content the panel usually holds.
-- **macOS AppKit (`net10.0-macos`)**: `ShinyFlyout`'s declare-once install re-parents a page's content
+- **macOS AppKit (`net11.0-macos`)**: `ShinyFlyout`'s declare-once install re-parents a page's content
   at runtime, which does not re-render on that head (the same pre-existing limitation as Toast,
   Dialogs and the in-app Quick Entry). Use `ShinyFlyoutPage` or `FlyoutView` in the page's own markup
   there, which never re-parents anything.

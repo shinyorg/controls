@@ -3,13 +3,13 @@
     <!--
         Apple target frameworks cannot be built on Linux: the iOS, Mac Catalyst and macOS workloads do
         not exist there, so restoring any multi-targeted project (and everything that references one,
-        such as samples/Sample.Linux) failed with NETSDK1178. Keep only the frameworks Linux can build (net10.0, -android, and -windows when forced).
+        such as samples/Sample.Linux) failed with NETSDK1178. Keep only the frameworks Linux can build (net11.0, -android, and -windows when forced).
         This is evaluated after each project's own TargetFrameworks, so the projects keep listing what
         they ship, and macOS/Windows are untouched.
 
         The list is rebuilt from literal text on purpose. A string property function (Regex.Replace,
         Replace, Trim) returns its result escaped, so the ';' came back as %3B and MSBuild ran ONE inner
-        build with TargetFramework='net10.0;net10.0-android' - "cannot be referenced by a project that
+        build with TargetFramework='net11.0;net11.0-android' - "cannot be referenced by a project that
         targets .NETCoreApp".
     -->
     <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('linux')) And '$(TargetFrameworks)' != ''">

@@ -48,7 +48,7 @@ public class ScanViewModel(IMediaService media) { … }
 
 | Member | Returns | Notes |
 |---|---|---|
-| `IsCameraSupported` | `bool` | False on bare `net10.0` and before the app has a window |
+| `IsCameraSupported` | `bool` | False on bare `net11.0` and before the app has a window |
 | `Options` | `MediaServiceOptions` | Live; changing it affects later calls |
 | `RequestCameraPermissionAsync(includeMicrophone = false)` | `MediaPermissionStatus` | Weakest of the requested permissions; on macOS (AppKit) asked of AVFoundation |
 | `RequestGalleryPermissionAsync(forWrite = false)` | `MediaPermissionStatus` | `forWrite` asks for add-to-library, not read |
@@ -266,4 +266,4 @@ For credit cards, licenses, receipts and other documents on Blazor, generate a r
   calls in `MainThread.InvokeOnMainThreadAsync`.
 - Turn `AllowZoom` off for document and OCR scans — a zoomed frame is a cropped one.
 - Barcodes read everywhere the camera does — Apple Vision, Android ML Kit, and ZXing.Net on Windows. OCR is
-  a no-op on the bare `net10.0` head (no native engine), exactly as for `CameraView`.
+  a no-op on the bare `net11.0` head (no native engine), exactly as for `CameraView`.

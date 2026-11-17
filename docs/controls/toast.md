@@ -177,4 +177,4 @@ To turn it off (overlays still work, they install the wrapper the first time the
 builder.UseShinyControls(cfg => cfg.InstallPageOverlayBeforeRender = false);
 ```
 
-The AppKit (`net10.0-macos`) and GTK heads ship their own page handlers, so there the wrapper is always installed lazily.
+The AppKit (`net11.0-macos`) and GTK heads ship their own page handlers, so there the wrapper is always installed lazily.

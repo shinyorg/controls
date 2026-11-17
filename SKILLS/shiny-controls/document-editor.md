@@ -8,7 +8,7 @@ Two controls, on both hosts:
 | `DocumentEditorView` | `DocumentEditor` dressed as Word: the Office shell (title bar, ribbon, ruler, navigation + comments panes, status bar, File backstage) — on by default |
 
 Same packages as the viewers (`Shiny.Maui.Controls.Office` / `Shiny.Blazor.Controls.Office`), same two
-constraints: **MAUI needs `UseShinyOffice()`** (it registers SkiaSharp, plus the AppKit canvas on `net10.0-macos`), **Blazor is WASM-only**, and on Blazor the container needs
+constraints: **MAUI needs `UseShinyOffice()`** (it registers SkiaSharp, plus the AppKit canvas on `net11.0-macos`), **Blazor is WASM-only**, and on Blazor the container needs
 an **explicit height**.
 
 ## Open a document for editing

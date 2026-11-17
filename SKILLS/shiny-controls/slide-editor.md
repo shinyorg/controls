@@ -7,7 +7,7 @@ Two controls on both hosts, over the same packages as the viewers:
 | `SlideEditor` | the lone editing surface — canvas, selection, caret, typing. No chrome. |
 | `SlideEditorView` | `SlideEditor` inside PowerPoint's window — title bar, File backstage, the PowerPoint ribbon (Home · Insert · Design · Transitions · Animations · Slide Show · View + contextual tabs), ribbon actions and the Office status bar (`ShowShell="false"` drops back to ribbon + status line) |
 
-Same two constraints as everything else in these packages: **MAUI needs `UseShinyOffice()`** (it registers SkiaSharp, plus the AppKit canvas on `net10.0-macos`), **Blazor is
+Same two constraints as everything else in these packages: **MAUI needs `UseShinyOffice()`** (it registers SkiaSharp, plus the AppKit canvas on `net11.0-macos`), **Blazor is
 WASM-only**, and on Blazor the container needs an **explicit height**.
 
 ## Open a deck for editing

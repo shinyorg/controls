@@ -136,7 +136,7 @@ public class TextPickerCell : CellBase
         // The title is the hidden picker's placeholder on Android, iOS and Windows, so it gets the same
         // treatment. Not on the AppKit head: there TitleColor colours the PickerTitle heading at the top
         // of the open NSPopUpButton menu, and a transparent one leaves a blank row in the dropdown. (No
-        // -macos TFM; the AppKit head runs the net10.0 build, hence the runtime check.)
+        // -macos TFM; the AppKit head runs the net11.0 build, hence the runtime check.)
         if (!OperatingSystem.IsMacOS())
             hiddenPicker.TitleColor = Colors.Transparent;
         hiddenPicker.SelectedIndexChanged += (s, e) =>
@@ -183,7 +183,7 @@ public class TextPickerCell : CellBase
     /// On the AppKit head the picker is an NSPopUpButton spread over the cell, and Picker.Focus() only makes
     /// it first responder - it never opens the menu. A click that reaches the button does, so the cell keeps
     /// no recognizer there and the click goes straight to it. (The library has no -macos TFM; the AppKit head
-    /// runs the net10.0 build, hence the runtime check. Mac Catalyst reports IsMacCatalyst, not IsMacOS.)
+    /// runs the net11.0 build, hence the runtime check. Mac Catalyst reports IsMacCatalyst, not IsMacOS.)
     /// </summary>
     protected override bool NativeControlTakesClicks => OperatingSystem.IsMacOS();
 

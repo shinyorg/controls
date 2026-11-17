@@ -6,7 +6,7 @@ namespace Shiny.Maui.Controls.Analysis.Barcode;
 /// Reusable native barcode scanner used by <see cref="BarcodeAnalyzer"/> and the document analyzers (the
 /// driver's-license PDF417 read). Scans a frame with the platform engine — Apple Vision
 /// (<c>VNDetectBarcodesRequest</c>) on iOS/macOS, Android MLKit (<c>BarcodeScanning</c>) — returning the
-/// codes in normalized upright image space. Windows (and bare net10.0) has no camera-based native scanner, so
+/// codes in normalized upright image space. Windows (and bare net11.0) has no camera-based native scanner, so
 /// there the frame's luminance plane is decoded with the managed ZXing.Net reader instead.
 /// </summary>
 public partial class BarcodeScanner
