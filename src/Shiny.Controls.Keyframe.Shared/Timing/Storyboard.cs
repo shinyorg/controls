@@ -99,6 +99,13 @@ public sealed class Storyboard : IAnimationNode
     }
 
     /// <inheritdoc />
+    public void Release()
+    {
+        foreach (var entry in entries)
+            entry.Node.Release();
+    }
+
+    /// <inheritdoc />
     public bool Evaluate(TimeSpan time)
     {
         var allFinished = true;

@@ -1,0 +1,7 @@
+/* Auto reduced motion: a state change snaps when the user asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+    .shiny-motion-auto {
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+    }
+}

@@ -35,6 +35,9 @@ public sealed class Player : IDisposable
     /// <summary>Current lifecycle state.</summary>
     public PlaybackState State { get; private set; } = PlaybackState.Idle;
 
+    /// <summary>The node's whole length, delays included; <see cref="TimeSpan.MaxValue"/> when it loops forever.</summary>
+    public TimeSpan Duration => node.TotalDuration;
+
     /// <summary>Current position within the node.</summary>
     public TimeSpan Position { get; private set; }
 
@@ -58,6 +61,14 @@ public sealed class Player : IDisposable
     /// </summary>
     public bool RestoreOnStop { get; set; }
 
+    /// <summary>
+    /// What <see cref="Play"/> does when the user has asked for reduced motion. The default,
+    /// <see cref="ReducedMotionBehavior.Auto"/>, jumps straight to the end state when
+    /// <see cref="MotionPolicy.IsReducedMotion"/> says so. Seeking is direct manipulation and is
+    /// never affected: a scrubbed player follows the finger whatever the setting.
+    /// </summary>
+    public ReducedMotionBehavior ReducedMotion { get; set; }
+
     /// <summary>Raised when playback reaches the end (or, at a negative rate, the beginning).</summary>
     public event EventHandler? Finished;
 
@@ -71,11 +82,31 @@ public sealed class Player : IDisposable
 
         node.CaptureBaselines();
         Position = TimeSpan.Zero;
+
+        if (MotionPolicy.ShouldSkip(ReducedMotion))
+        {
+            SkipToEnd();
+            return;
+        }
+
         State = PlaybackState.Running;
 
         node.Evaluate(Position);
         Subscribe();
         clock.Start();
+    }
+
+    /// <summary>
+    /// The reduced-motion path: land on the end state without animating. A looping animation has no
+    /// end, so it shows its opening pose and stays there — the resting state, for every decorative
+    /// loop worth honouring the setting for.
+    /// </summary>
+    void SkipToEnd()
+    {
+        var total = node.TotalDuration;
+        Position = total == TimeSpan.MaxValue || rate < 0d ? TimeSpan.Zero : total;
+        node.Evaluate(Position);
+        CompleteRun();
     }
 
     /// <summary>Resumes from the current position without recapturing baselines.</summary>
@@ -109,14 +140,19 @@ public sealed class Player : IDisposable
     }
 
     /// <summary>Stops and resets to the beginning, optionally restoring the captured baselines.</summary>
-    public void Stop()
+    public void Stop() => Stop(RestoreOnStop ? StopBehavior.Restore : StopBehavior.Hold);
+
+    /// <summary>Stops and resets to the beginning, doing the given thing with the values written.</summary>
+    public void Stop(StopBehavior behavior)
     {
         Unsubscribe();
         State = PlaybackState.Idle;
         Position = TimeSpan.Zero;
 
-        if (RestoreOnStop)
+        if (behavior == StopBehavior.Restore)
             node.RestoreBaselines();
+        else if (behavior == StopBehavior.Release)
+            node.Release();
 
         completion?.TrySetResult(false);
         completion = null;

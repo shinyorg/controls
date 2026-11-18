@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:kf="http://shiny.net/maui/keyframe"
+             xmlns:local="clr-namespace:Sample.Features.Keyframe"
+             x:Class="Sample.Features.Keyframe.ItemTransitionsPage"
+             x:DataType="local:ItemTransitionsPage"
+             Title="Item transitions"
+             AutomationId="ItemTransitionsPage">
+
+    <ContentPage.Resources>
+        <kf:Keyframes x:Key="FadeUp" Duration="0:0:0.4">
+            <kf:Track Property="Opacity">
+                <kf:Key Offset="0" Value="0" />
+                <kf:Key Offset="1" Value="1" />
+            </kf:Track>
+            <kf:Track Property="TranslationY">
+                <kf:Key Offset="0" Value="20" Easing="CubicOut" />
+                <kf:Key Offset="1" Value="0" />
+            </kf:Track>
+        </kf:Keyframes>
+
+        <kf:Keyframes x:Key="PopIn" Duration="0:0:0.5">
+            <kf:Track Property="Scale">
+                <kf:Key Offset="0" Value="0.6" Easing="spring(0.4, 12)" />
+                <kf:Key Offset="1" Value="1" />
+            </kf:Track>
+            <kf:Track Property="BackgroundColor">
+                <kf:Key Offset="0" Value="#FDE68A" />
+                <kf:Key Offset="1" Value="#00FDE68A" />
+            </kf:Track>
+        </kf:Keyframes>
+
+        <kf:Keyframes x:Key="SlideOut" Duration="0:0:0.25" Fill="Forwards">
+            <kf:Track Property="TranslationX">
+                <kf:Key Offset="0" />
+                <kf:Key Offset="1" Value="-400" Easing="CubicIn" />
+            </kf:Track>
+            <kf:Track Property="Opacity">
+                <kf:Key Offset="0" />
+                <kf:Key Offset="1" Value="0" />
+            </kf:Track>
+        </kf:Keyframes>
+    </ContentPage.Resources>
+
+    <!-- The list owns the scroll: it fills the star row, and nothing around it scrolls. -->
+    <Grid RowDefinitions="Auto,*" Padding="16" RowSpacing="12">
+        <HorizontalStackLayout Spacing="8">
+            <Button Text="Add" Clicked="OnAdd" />
+            <Button Text="Shuffle" Clicked="OnShuffle" />
+            <Label Text="Native animations off" VerticalOptions="Center" />
+            <Switch x:Name="NativeOff" IsToggled="True" Toggled="OnNativeToggled" />
+        </HorizontalStackLayout>
+
+        <CollectionView x:Name="List"
+                        Grid.Row="1"
+                        ItemsSource="{Binding Items}"
+                        kf:ItemTransitions.Mode="None"
+                        kf:ItemTransitions.Appear="{StaticResource FadeUp}"
+                        kf:ItemTransitions.Add="{StaticResource PopIn}"
+                        kf:ItemTransitions.Remove="{StaticResource SlideOut}"
+                        kf:ItemTransitions.Stagger="0:0:0.04">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                    <Grid ColumnDefinitions="*,Auto" Padding="12,10">
+                        <Label Text="{Binding .}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Remove" Clicked="OnRemove" CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

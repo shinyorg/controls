@@ -1,0 +1,220 @@
+@page "/keyframes"
+@using Shiny.Blazor.Controls.Keyframe
+@using Shiny.Controls.Keyframe
+
+<PageTitle>Keyframes</PageTitle>
+
+<h1>Keyframes</h1>
+
+<p>
+    The MAUI <code>Keyframes</code> / <code>Track</code> / <code>Key</code> model on the browser's Web Animations API -
+    the same property names, the same easing text (springs and bounces included) and a player you can scrub,
+    pause and reverse mid-flight. Package: <code>Shiny.Blazor.Controls.Keyframe</code>.
+</p>
+
+<section class="demo-section">
+    <h2>Pulse</h2>
+    <p>The MAUI docs' first example, unchanged: scale and colour, alternating, forever.</p>
+
+    <Keyframes Duration="TimeSpan.FromSeconds(1.2)" Iterations="Keyframes.Infinite" Direction="PlaybackDirection.Alternate" Fill="FillMode.Both">
+        <Track Property="Scale">
+            <Key Offset="0" Value="1" />
+            <Key Offset="0.5" Value="1.15" Easing="CubicOut" />
+            <Key Offset="1" Value="1" />
+        </Track>
+        <Track Property="BackgroundColor">
+            <Key Offset="0" Value="#2563EB" />
+            <Key Offset="1" Value="#EC4899" />
+        </Track>
+        <div class="kf-tile" data-testid="pulse">Pulse</div>
+    </Keyframes>
+</section>
+
+<section class="demo-section">
+    <h2>Player &amp; scrubbing</h2>
+    <p>
+        <code>AutoPlay="false"</code> and an <code>@@ref</code>: drag the slider to scrub (<code>SeekProgress</code>),
+        or play it and reverse in place with a negative rate. Transform parts on separate tracks compose.
+    </p>
+
+    <div class="kf-stage">
+        <Keyframes @ref="player" AutoPlay="false" Duration="TimeSpan.FromSeconds(2)" Fill="FillMode.Both"
+                   StateChanged="@(s => state = s)" Finished="@(() => finishedCount++)">
+            <Track Property="TranslationX">
+                <Key Offset="0" Value="0" Easing="CubicInOut" />
+                <Key Offset="1" Value="240" />
+            </Track>
+            <Track Property="TranslationY">
+                <Key Offset="0" Value="0" Easing="CubicOut" />
+                <Key Offset="0.5" Value="-60" Easing="CubicIn" />
+                <Key Offset="1" Value="0" />
+            </Track>
+            <Track Property="Spin">
+                <Key Offset="0" Value="0" />
+                <Key Offset="1" Value="360" />
+            </Track>
+            <div class="kf-ball" data-testid="scrub-ball"></div>
+        </Keyframes>
+    </div>
+
+    <input type="range" min="0" max="1" step="0.001" value="@progress" @oninput="ScrubAsync" class="kf-slider" data-testid="scrubber" aria-label="Progress" />
+
+    <div class="kf-buttons">
+        <button type="button" @onclick="() => player!.Play()">Play</button>
+        <button type="button" @onclick="() => player!.Pause()">Pause</button>
+        <button type="button" @onclick="() => player!.Resume()">Resume</button>
+        <button type="button" @onclick="ReverseAsync">Reverse</button>
+        <button type="button" @onclick="() => player!.Stop(restore: true)">Stop</button>
+        <button type="button" @onclick="() => player!.Finish()">Finish</button>
+        <button type="button" @onclick="PlayAndWaitAsync">PlayAsync</button>
+    </div>
+    <div class="state" data-testid="player-state">State: @state · rate @rate · finished @finishedCount× @playAsyncResult</div>
+</section>
+
+<section class="demo-section">
+    <h2>Easing</h2>
+    <p>Named curves, <code>cubic-bezier()</code>, <code>steps()</code> - and <code>spring()</code> / <code>bouncy()</code>, which CSS has no name for, sampled into <code>linear()</code>.</p>
+
+    @foreach (var curve in curves)
+    {
+        <div class="kf-lane">
+            <code>@curve</code>
+            <Keyframes Duration="TimeSpan.FromSeconds(1.4)" Iterations="Keyframes.Infinite" IterationDelay="TimeSpan.FromMilliseconds(600)" Direction="PlaybackDirection.Alternate" Fill="FillMode.Both" Class="kf-lane-track">
+                <PropertyTrack Property="TranslationX">
+                    <Key Offset="0" Value="0" Easing="@curve" />
+                    <Key Offset="1" Value="220" />
+                </PropertyTrack>
+                <div class="kf-dot"></div>
+            </Keyframes>
+        </div>
+    }
+    <p class="state">Each lane also has <code>IterationDelay</code> (600ms): the Web Animations API has none, so it is baked into the keyframes.</p>
+</section>
+
+<section class="demo-section">
+    <h2>Spec style &amp; live values</h2>
+    <p>
+        <code>&lt;KeyFrame Cue="60%"&gt;&lt;Setter .../&gt;</code> mixes with tracks. The first key has no
+        <code>Value</code>, so pressing <em>Nudge</em> mid-flight carries on from where it is instead of snapping.
+    </p>
+
+    <Keyframes @ref="nudge" AutoPlay="false" Duration="TimeSpan.FromMilliseconds(900)" Fill="FillMode.Forwards">
+        <KeyFrame Cue="0%">
+            <Setter Property="Rotation" />
+        </KeyFrame>
+        <KeyFrame Cue="60%" Easing="spring(0.35, 14)">
+            <Setter Property="Rotation" Value="@TargetText" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+            <Setter Property="Rotation" Value="@TargetText" />
+        </KeyFrame>
+        <div class="kf-tile kf-needle" data-testid="nudge">⬆</div>
+    </Keyframes>
+    <div class="kf-buttons">
+        <button type="button" @onclick="NudgeAsync">Nudge</button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Reduced motion</h2>
+    <p>
+        Every animation honours <code>prefers-reduced-motion</code> by default (<code>ReducedMotion="Auto"</code>):
+        a one-shot jumps to its end and a loop holds its first frame. <code>Play</code> opts out for motion that
+        carries meaning; <code>Instant</code> never animates.
+    </p>
+    <div class="kf-row">
+        @foreach (var mode in Enum.GetValues<ReducedMotionBehavior>())
+        {
+            <div class="kf-cell">
+                <Keyframes Duration="TimeSpan.FromSeconds(1)" Iterations="Keyframes.Infinite" ReducedMotion="mode" Direction="PlaybackDirection.Alternate">
+                    <PropertyTrack Property="Scale">
+                        <Key Offset="0" Value="0.8" Easing="SinInOut" />
+                        <Key Offset="1" Value="1.1" />
+                    </PropertyTrack>
+                    <div class="kf-dot kf-dot-lg"></div>
+                </Keyframes>
+                <code>@mode</code>
+            </div>
+        }
+    </div>
+    <p class="state">Reduced motion is @(reduced ? "on" : "off") in this browser.</p>
+</section>
+
+<style>
+    .kf-tile { width: 120px; height: 120px; border-radius: 20px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; background: #2563EB; }
+    .kf-needle { width: 72px; height: 72px; font-size: 32px; background: #7C3AED; }
+    .kf-stage { height: 110px; padding-top: 70px; overflow: hidden; }
+    .kf-ball { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #22D3EE, #6366F1); }
+    .kf-slider { width: 100%; max-width: 320px; }
+    .kf-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .kf-buttons button { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--shiny-color-outline-variant, #E5E7EB); background: transparent; color: inherit; cursor: pointer; }
+    .kf-lane { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); align-items: center; gap: 12px; margin: 6px 0; }
+    .kf-lane code { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kf-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--shiny-color-primary, #4F46E5); }
+    .kf-dot-lg { width: 48px; height: 48px; }
+    .kf-row { display: flex; flex-wrap: wrap; gap: 24px; }
+    .kf-cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+</style>
+
+@code {
+    Keyframes? player;
+    Keyframes? nudge;
+    PlaybackState state;
+    double progress;
+    double rate = 1;
+    int finishedCount;
+    string playAsyncResult = "";
+    double target;
+    string TargetText => target.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    bool reduced;
+
+    static readonly string[] curves =
+    [
+        "Linear",
+        "CubicOut",
+        "Emphasized",
+        "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "steps(6)",
+        "spring(0.3, 12)",
+        "bouncy(0.4)",
+        "BounceOut"
+    ];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && player is not null)
+        {
+            reduced = await player.IsReducedMotionAsync();
+            StateHasChanged();
+        }
+    }
+
+    async Task ScrubAsync(ChangeEventArgs e)
+    {
+        progress = double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var p) ? p : 0;
+        await player!.SeekProgress(progress);
+    }
+
+    async Task ReverseAsync()
+    {
+        rate = -rate;
+        await player!.SetRate(rate);
+        if (state != PlaybackState.Running)
+            await player.Resume();
+    }
+
+    async Task PlayAndWaitAsync()
+    {
+        playAsyncResult = "· PlayAsync running…";
+        var completed = await player!.PlayAsync();
+        playAsyncResult = completed ? "· PlayAsync → true (ran to the end)" : "· PlayAsync → false (stopped)";
+    }
+
+    async Task NudgeAsync()
+    {
+        target += 120;
+        await Task.Yield(); // lets the new Value render before playing
+
+        await nudge!.Play();
+    }
+}

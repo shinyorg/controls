@@ -1,11 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <!-- Nothing here touches a platform SDK: the clock is an IDispatcherTimer, the view is a
-             GraphicsView, and the animated properties are BindableProperties. A single net11.0 TFM
-             therefore serves every head — including the AppKit (macos) and GTK4 (linux) heads,
-             which cannot consume ios/android/maccatalyst assets. -->
-        <TargetFrameworks>$(BaseTargetFramework)</TargetFrameworks>
+        <!-- The engine, XAML and views are platform-neutral, so the plain net11.0 build serves every
+             head — including the AppKit (macos) and GTK4 (linux) heads, which cannot consume
+             ios/android/maccatalyst assets and tick on a dispatcher timer. The platform TFMs exist
+             for the parts that genuinely need a platform: the vsync frame clock (CADisplayLink,
+             Choreographer, CompositionTarget.Rendering), the reduced-motion query, and switching off a
+             collection view's native item animations. -->
+        <TargetFrameworks>$(BaseTargetFramework);$(BaseTargetFramework)-ios;$(BaseTargetFramework)-android;$(BaseTargetFramework)-maccatalyst</TargetFrameworks>
+        <TargetFrameworks Condition="'$(ForceWindowsTfm)' == 'true' Or $([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <UseMaui>true</UseMaui>
         <SingleProject>true</SingleProject>
         <IsAotCompatible>true</IsAotCompatible>
@@ -18,8 +22,8 @@
         <NoWarn>$(NoWarn);NU1507</NoWarn>
         <MauiXamlInflator>SourceGen</MauiXamlInflator>
         <RootNamespace>Shiny.Maui.Controls.Keyframe</RootNamespace>
-        <Description>Declarative keyframe animation for .NET MAUI — XAML timelines with CSS easing syntax, seekable/reversible playback, storyboards, and a drawable scene view.</Description>
-        <PackageTags>maui shiny keyframe animation timeline easing storyboard xaml</PackageTags>
+        <Description>Declarative animation for .NET MAUI — XAML keyframe timelines with CSS easing syntax (springs included), seekable/reversible playback, choreographed storyboards, trigger actions, animated visual-state transitions, implicit property transitions, item transitions, Keyframe page transitions, reduced motion by default, a vsync clock, and an animation layer that never breaks bindings, styles or visual states.</Description>
+        <PackageTags>maui shiny keyframe animation timeline easing storyboard xaml transitions visualstate spring</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
@@ -28,6 +32,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Shiny.Controls.Keyframe.Shared\Shiny.Controls.Keyframe.Shared.csproj" />
+        <!-- For the page-transition animator seam, so Keyframes can drive a push or a pop. -->
+        <ProjectReference Include="..\Shiny.Maui.Controls\Shiny.Maui.Controls.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Maui.Controls.Keyframe.Tests" />
     </ItemGroup>
 
     <ItemGroup>

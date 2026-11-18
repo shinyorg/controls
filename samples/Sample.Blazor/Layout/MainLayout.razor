@@ -2,6 +2,7 @@
 @inherits LayoutComponentBase
 @using Shiny.Blazor.Controls
 @using Shiny.Blazor.Controls.Theming
+@using Shiny.Blazor.Controls.Keyframe
 @inject NavigationManager Nav
 @inject IShinyThemeService Theme
 @implements IDisposable
@@ -92,6 +93,34 @@
             <div class="content-inner">
                 @* Pages animate between each other here; each says how it arrives with <PageTransition />. *@
                 <PageTransitionHost>
+                    @* A transition built from keyframes (Shiny.Blazor.Controls.Keyframe), picked by name -
+                       see the Page Transitions demo. *@
+                    <CustomPageTransition Name="drop">
+                        <Enter>
+                            <Keyframes Easing="BackOut">
+                                <Track Property="TranslationY">
+                                    <Key Offset="0" Value="-60%" />
+                                    <Key Offset="1" Value="0" />
+                                </Track>
+                                <Track Property="Rotation">
+                                    <Key Offset="0" Value="-6" />
+                                    <Key Offset="1" Value="0" />
+                                </Track>
+                            </Keyframes>
+                        </Enter>
+                        <Exit>
+                            <Keyframes>
+                                <Track Property="Opacity">
+                                    <Key Offset="0" Value="1" />
+                                    <Key Offset="1" Value="0" />
+                                </Track>
+                                <Track Property="Scale">
+                                    <Key Offset="0" Value="1" />
+                                    <Key Offset="1" Value="0.9" />
+                                </Track>
+                            </Keyframes>
+                        </Exit>
+                    </CustomPageTransition>
                     @Body
                 </PageTransitionHost>
                 <SourceCodePanel Dark="@dark" />

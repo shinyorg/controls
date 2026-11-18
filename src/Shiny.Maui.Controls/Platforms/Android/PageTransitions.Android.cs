@@ -116,7 +116,7 @@ public class ShinyShellItemRenderer(IShellContext shellContext) : ShellItemRende
         if (navSource == ShellNavigationSource.ShellSectionChanged &&
             this.sectionChanging &&
             PageTransition.IsEnabled &&
-            PageTransition.ShellItemTransition is not (PageTransitionType.Default or PageTransitionType.None))
+            PageTransition.ResolveTab(shellSection, true).Type is not (PageTransitionType.Default or PageTransitionType.None))
             animated = true;
 
         return base.HandleFragmentUpdate(navSource, shellSection, page, animated);
@@ -135,6 +135,7 @@ public class ShinyShellItemRenderer(IShellContext shellContext) : ShellItemRende
         var stack = section.Stack;
         Page? from = null, to = null;
         PageTransitionPlan plan;
+        IPageTransitionAnimator? animator = null;
 
         // For a push, page is the one arriving; for a pop it is the one leaving. Shell's stack has
         // already moved by now, with a null standing in for the section's root page.
@@ -143,30 +144,35 @@ public class ShinyShellItemRenderer(IShellContext shellContext) : ShellItemRende
             case ShellNavigationSource.Push:
                 to = page;
                 from = stack.Count > 2 ? stack[^2] : RootPage(section);
-                plan = PageTransition.Resolve(from, to, false);
+                (plan, animator) = PageTransition.ResolveTransition(from, to, false);
                 break;
 
             case ShellNavigationSource.Pop:
             case ShellNavigationSource.PopToRoot:
                 from = page;
                 to = navSource == ShellNavigationSource.PopToRoot || stack.Count <= 1 ? RootPage(section) : stack[^1];
-                plan = PageTransition.Resolve(from, to, true);
+                (plan, animator) = PageTransition.ResolveTransition(from, to, true);
                 break;
 
             case ShellNavigationSource.ShellSectionChanged:
                 var items = section.Parent is ShellItem item ? item.Items : null;
                 var forward = items is null || this.previousSection is null || items.IndexOf(section) >= items.IndexOf(this.previousSection);
-                plan = new PageTransitionPlan(
-                    PageTransition.ShellItemTransition,
-                    forward ? PageTransitionDirection.FromRight : PageTransitionDirection.FromLeft,
-                    false,
-                    PageTransition.Duration
-                );
+                plan = PageTransition.ResolveTab(section, forward);
                 break;
 
             default:
                 base.SetupAnimation(navSource, t, page);
                 return;
+        }
+
+        // A new navigation tears down a custom animator still running.
+        PageTransitionCancellation.Cancel();
+
+        if (animator is not null)
+        {
+            AndroidTransitions.Current = new AndroidTransitions.Pending(plan, from, to, [], animator);
+            t.SetCustomAnimations(AndroidTransitions.Marker, AndroidTransitions.Marker);
+            return;
         }
 
         if (plan.Type == PageTransitionType.NativeZoom)
@@ -187,7 +193,8 @@ public class ShinyShellItemRenderer(IShellContext shellContext) : ShellItemRende
             return;
         }
 
-        AndroidTransitions.Current = new AndroidTransitions.Pending(plan, from, to, PageTransition.FindHeroPairs(from, to));
+        var heroes = PageTransition.HeroesAllowed ? PageTransition.FindHeroPairs(from, to) : [];
+        AndroidTransitions.Current = new AndroidTransitions.Pending(plan, from, to, heroes);
         t.SetCustomAnimations(AndroidTransitions.Marker, AndroidTransitions.Marker);
     }
 
@@ -278,12 +285,31 @@ public class ShinyShellSectionRenderer : ShellSectionRenderer
 /// </summary>
 static class AndroidTransitions
 {
-    internal sealed record Pending(
-        PageTransitionPlan Plan,
-        Page? From,
-        Page? To,
-        IReadOnlyList<(VisualElement From, VisualElement To)> Heroes
-    );
+    internal sealed class Pending(
+        PageTransitionPlan plan,
+        Page? from,
+        Page? to,
+        IReadOnlyList<(VisualElement From, VisualElement To)> heroes,
+        IPageTransitionAnimator? animator = null
+    )
+    {
+        public PageTransitionPlan Plan { get; } = plan;
+        public Page? From { get; } = from;
+        public Page? To { get; } = to;
+        public IReadOnlyList<(VisualElement From, VisualElement To)> Heroes { get; } = heroes;
+        public IPageTransitionAnimator? Animator { get; } = animator;
+
+        /// <summary>The fragments' hold animations, which keep both pages up until the animator is done.</summary>
+        public List<AAnimation> Holds { get; } = new();
+        public bool AnimatorStarted { get; set; }
+        public bool AnimatorDone { get; set; }
+    }
+
+    /// <summary>
+    /// The longest a custom animator can hold a Shell navigation open. The hold is cut short as soon
+    /// as the animator's task completes.
+    /// </summary>
+    const long AnimatorHoldCap = 30_000;
 
     /// <summary>The transition the fragment transaction being run should animate.</summary>
     internal static Pending? Current;
@@ -311,6 +337,13 @@ static class AndroidTransitions
     {
         var plan = pending.Plan;
         var ms = (long)plan.Duration.TotalMilliseconds;
+
+        if (pending.Animator is not null)
+        {
+            DecorateForAnimator(set, view, pending, enter);
+            return;
+        }
+
         if (set.Animations is { Count: > 0 } existing)
             existing[0].Duration = ms;
 
@@ -482,6 +515,95 @@ static class AndroidTransitions
 
         if (incoming && pending.Heroes.Count > 0)
             HeroFlights.Start(view, pending.Heroes, ms);
+    }
+
+
+    /// <summary>
+    /// A custom animator: the fragments only hold (both pages stay up, untouched) and the animator
+    /// moves the MAUI pages. When its task completes the holds are shortened to end on the next frame,
+    /// which ends the fragment animations the normal way, so Shell completes the navigation as usual.
+    /// </summary>
+    static void DecorateForAnimator(AnimationSet set, AView view, Pending pending, bool enter)
+    {
+        if (set.Animations is { Count: > 0 } existing)
+        {
+            var hold = existing[0];
+            hold.Duration = pending.AnimatorDone ? 1 : AnimatorHoldCap;
+            pending.Holds.Add(hold);
+        }
+
+        if (!enter)
+            return;
+
+        if (view.Parent is AView host)
+            host.SetBackgroundColor(Surface(pending));
+
+        if (pending.AnimatorStarted)
+            return;
+
+        pending.AnimatorStarted = true;
+        void Go()
+        {
+            var density = view.Resources?.DisplayMetrics?.Density ?? 1f;
+            var plan = pending.Plan;
+            var context = new PageTransitionContext(
+                pending.From,
+                pending.To,
+                plan.IsPop,
+                false,
+                plan.Duration,
+                new Size(view.Width / density, view.Height / density)
+            )
+            {
+                Direction = plan.Direction
+            };
+            var token = PageTransitionCancellation.Begin();
+            _ = Run();
+
+            async Task Run()
+            {
+                try
+                {
+                    await PageTransitionHost.RunAnimatorAsync(pending.Animator!, context, token);
+                }
+                finally
+                {
+                    PageTransitionCancellation.End(token);
+                    ReleaseHolds(pending, view);
+                }
+            }
+        }
+
+        // The incoming page isn't laid out yet; start just before its first frame is drawn.
+        if (view.Width == 0)
+        {
+            EventHandler<ViewTreeObserver.PreDrawEventArgs>? handler = null;
+            handler = (_, e) =>
+            {
+                view.ViewTreeObserver!.PreDraw -= handler;
+                e.Handled = true;
+                Go();
+            };
+            view.ViewTreeObserver!.PreDraw += handler;
+        }
+        else
+        {
+            Go();
+        }
+    }
+
+
+    static void ReleaseHolds(Pending pending, AView view)
+    {
+        pending.AnimatorDone = true;
+        var now = AnimationUtils.CurrentAnimationTimeMillis();
+        foreach (var hold in pending.Holds)
+        {
+            // Not started yet (-1), or already cancelled: end on its first frame. Running: end now.
+            var started = hold.StartTime;
+            hold.Duration = started <= 0 ? 1 : Math.Max(1, now - started - hold.StartOffset);
+        }
+        (view.Parent as AView ?? view).Invalidate();
     }
 
 
@@ -743,6 +865,7 @@ sealed class PredictiveBackCallback(Shell shell, ComponentActivity activity) : O
 
     public override void HandleOnBackStarted(BackEventCompat backEvent)
     {
+        PageTransitionCancellation.Cancel();
         this.Reset();
         if (AndroidBackButton.HasActive)
             return;

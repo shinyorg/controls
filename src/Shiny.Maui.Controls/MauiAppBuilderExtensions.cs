@@ -346,20 +346,31 @@ public class ShinyControlConfiguration(IServiceCollection services)
     /// <param name="shellItemTransition">The transition between Shell tabs and flyout items. Default keeps the platform's.</param>
     /// <param name="fullScreenSwipeBack">iOS: swipe back from anywhere on the page, not just the left edge.</param>
     /// <param name="predictiveBack">Android 14+: preview the page underneath during the back gesture (needs <c>android:enableOnBackInvokedCallback="true"</c>).</param>
+    /// <param name="modalTransition">The transition for modal pages that set neither <c>PageTransition.Modal</c> nor a Push. Default uses <paramref name="defaultTransition"/>.</param>
+    /// <param name="reducedMotion">What transitions do when the OS asks for less motion: a short crossfade (the default), none at all, or ignore the setting.</param>
+    /// <param name="defaultAnimator">A custom transition for pages that set no transition of their own; it wins over <paramref name="defaultTransition"/>.</param>
     /// <remarks>
     /// This registers <c>ShinyShellRenderer</c> as the Shell handler on iOS and Android. An app
-    /// with its own ShellRenderer should derive it from <c>ShinyShellRenderer</c> instead.
+    /// with its own ShellRenderer should derive it from <c>ShinyShellRenderer</c> instead. On
+    /// Windows, macOS (AppKit), Mac Catalyst and Linux (GTK4) transitions run as managed property
+    /// animations on the pages; see <see cref="PageTransition"/> for what each head covers.
     /// </remarks>
     public ShinyControlConfiguration UsePageTransitions(
         PageTransitionType defaultTransition = PageTransitionType.Default,
         TimeSpan? duration = null,
         PageTransitionType shellItemTransition = PageTransitionType.Default,
         bool fullScreenSwipeBack = false,
-        bool predictiveBack = true
+        bool predictiveBack = true,
+        PageTransitionType modalTransition = PageTransitionType.Default,
+        PageTransitionReducedMotion reducedMotion = PageTransitionReducedMotion.Crossfade,
+        IPageTransitionAnimator? defaultAnimator = null
     )
     {
         this.PageTransitionsEnabled = true;
         PageTransition.DefaultTransition = defaultTransition;
+        PageTransition.DefaultModalTransition = modalTransition;
+        PageTransition.ReducedMotion = reducedMotion;
+        PageTransition.DefaultAnimator = defaultAnimator;
         PageTransition.ShellItemTransition = shellItemTransition;
         PageTransition.FullScreenSwipeBack = fullScreenSwipeBack;
         PageTransition.PredictiveBack = predictiveBack;

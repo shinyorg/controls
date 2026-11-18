@@ -75,8 +75,9 @@ static partial class PageTransitionInstaller
     /// </summary>
     static void PrepareModal(Page page, UIViewController vc)
     {
-        var push = PageTransition.ResolvePush(page);
-        if (!push.IsAnimated && !PageTransition.ResolvePop(page).IsAnimated)
+        // Anything set (a type, None, an animator, or a one-shot from PushModalAsync(page, ...)).
+        if (!PageTransition.ResolveTransition(null, page, false, true).IsSet &&
+            !PageTransition.ResolveTransition(page, null, true, true).IsSet)
             return;
 
         vc.TransitioningDelegate = ModalDelegate;
@@ -92,7 +93,11 @@ static partial class PageTransitionInstaller
     /// </summary>
     static void PrepareNativeZoom(Page page, UIViewController vc)
     {
-        if (!OperatingSystem.IsIOSVersionAtLeast(18) || PageTransition.ResolvePush(page).Type != PageTransitionType.NativeZoom)
+        if (!OperatingSystem.IsIOSVersionAtLeast(18))
+            return;
+
+        var resolution = PageTransition.ResolveTransition(null, page, false);
+        if (resolution.Animator is not null || resolution.Plan.Type != PageTransitionType.NativeZoom)
             return;
 
         var target = new WeakReference<Page>(page);
@@ -168,10 +173,9 @@ sealed class TouchOriginRecognizer : UIGestureRecognizer
 /// </summary>
 public class ShinyShellRenderer : ShellRenderer
 {
+    // MAUI's own transition (a crossfade) is kept for any item that resolves to Default.
     protected override IShellItemTransition CreateShellItemTransition()
-        => PageTransition.ShellItemTransition is PageTransitionType.Default
-            ? base.CreateShellItemTransition()
-            : new ShinyShellItemTransition();
+        => new ShinyShellItemTransition(base.CreateShellItemTransition());
 
 
     protected override IShellItemRenderer CreateShellItemRenderer(ShellItem item)
@@ -183,17 +187,15 @@ public class ShinyShellRenderer : ShellRenderer
             // ShouldSelectViewController rather than replacing it.
             tabs.GetAnimationControllerForTransition = (controller, from, to) =>
             {
-                if (!PageTransition.IsEnabled || PageTransition.ShellItemTransition is PageTransitionType.Default or PageTransitionType.None)
+                if (!PageTransition.IsEnabled)
                     return null!;
 
                 var vcs = controller.ViewControllers ?? [];
                 var forward = Array.IndexOf(vcs, to) >= Array.IndexOf(vcs, from);
-                var plan = new PageTransitionPlan(
-                    PageTransition.ShellItemTransition,
-                    forward ? PageTransitionDirection.FromRight : PageTransitionDirection.FromLeft,
-                    false,
-                    PageTransition.Duration
-                );
+                var plan = PageTransition.ResolveTab((to as ShellSectionRenderer)?.ShellSection, forward);
+                if (plan.Type is PageTransitionType.Default or PageTransitionType.None)
+                    return null!;
+
                 return new PageTransitionAnimator(plan, false, null, null);
             };
         }
@@ -203,17 +205,19 @@ public class ShinyShellRenderer : ShellRenderer
 
 
 /// <summary>Animates the switch between two Shell items (flyout items).</summary>
-sealed class ShinyShellItemTransition : IShellItemTransition
+sealed class ShinyShellItemTransition(IShellItemTransition platform) : IShellItemTransition
 {
     public Task Transition(IShellItemRenderer oldRenderer, IShellItemRenderer newRenderer)
     {
+        var plan = PageTransition.ResolveTab(newRenderer.ShellItem, true);
+        if (!PageTransition.IsEnabled || plan.Type == PageTransitionType.Default)
+            return platform.Transition(oldRenderer, newRenderer);
+
         var tcs = new TaskCompletionSource<bool>();
         var oldView = oldRenderer.ViewController.View!;
         var newView = newRenderer.ViewController.View!;
         var container = oldView.Superview!;
         oldView.Layer.RemoveAllAnimations();
-
-        var plan = new PageTransitionPlan(PageTransition.ShellItemTransition, PageTransitionDirection.FromRight, false, PageTransition.Duration);
 
         // iOS 26+: a tab bar inside a view whose alpha starts at 0 composites its Liquid Glass
         // icons at zero opacity and they never come back (why MAUI's own crossfade is a no-op
@@ -316,10 +320,21 @@ sealed class TransitionNavigationDelegate : UINavigationControllerDelegate
         if (!PageTransition.IsEnabled || operation is not (UINavigationControllerOperation.Push or UINavigationControllerOperation.Pop))
             return null!;
 
+        // A new navigation (or a swipe-back starting) tears down a custom animator still running.
+        PageTransitionCancellation.Cancel();
+
         var isPop = operation == UINavigationControllerOperation.Pop;
         var fromPage = FindPage(fromViewController, 0);
         var toPage = FindPage(toViewController, 0);
-        var plan = PageTransition.Resolve(fromPage, toPage, isPop);
+        var resolution = PageTransition.ResolveTransition(fromPage, toPage, isPop);
+        var plan = resolution.Plan;
+
+        var edgeActive = navigationController.InteractivePopGestureRecognizer?.State == UIGestureRecognizerState.Began;
+        var interactive = isPop && (edgeActive || fullScreen);
+
+        // A custom animator can't be scrubbed by a finger; a swipe-back falls back to the page's type.
+        if (resolution.Animator is { } animator && !interactive)
+            return new CustomPageTransitionAnimator(animator, plan, fromPage, toPage, false);
 
         if (plan.Type == PageTransitionType.NativeZoom)
         {
@@ -330,9 +345,6 @@ sealed class TransitionNavigationDelegate : UINavigationControllerDelegate
 
             plan = plan with { Type = PageTransitionType.Zoom };
         }
-
-        var edgeActive = navigationController.InteractivePopGestureRecognizer?.State == UIGestureRecognizerState.Began;
-        var interactive = isPop && (edgeActive || fullScreen);
 
         // A full-screen swipe needs an animator of ours even when the page asks for the platform's.
         if (plan.Type == PageTransitionType.Default && fullScreen)
@@ -480,23 +492,34 @@ sealed class ModalTransitionDelegate : UIViewControllerTransitioningDelegate
     )
     {
         var page = TransitionNavigationDelegate.FindPage(presented, 0);
-        return Animator(PageTransition.ResolvePush(page), null, page);
+        var presenter = PageTransition.VisiblePage(TransitionNavigationDelegate.FindPage(presenting, 0));
+        return Animator(PageTransition.ResolveTransition(presenter, page, false, true), presenter, page);
     }
 
 
     public override IUIViewControllerAnimatedTransitioning GetAnimationControllerForDismissedController(UIViewController dismissed)
     {
         var page = TransitionNavigationDelegate.FindPage(dismissed, 0);
-        return Animator(PageTransition.ResolvePop(page), page, null);
+        var presenter = PageTransition.VisiblePage(TransitionNavigationDelegate.FindPage(dismissed.PresentingViewController, 0));
+        return Animator(PageTransition.ResolveTransition(page, presenter, true, true), page, presenter);
     }
 
 
-    static IUIViewControllerAnimatedTransitioning Animator(PageTransitionPlan plan, Page? from, Page? to)
+    static IUIViewControllerAnimatedTransitioning Animator(PageTransitionResolution resolution, Page? from, Page? to)
     {
+        PageTransitionCancellation.Cancel();
+        if (resolution.Animator is { } animator)
+            return new CustomPageTransitionAnimator(animator, resolution.Plan, from, to, true);
+
+        var plan = resolution.Plan;
         if (plan.Type == PageTransitionType.NativeZoom)
             plan = plan with { Type = PageTransitionType.Zoom };
 
-        return plan.Type == PageTransitionType.Default ? null! : new PageTransitionAnimator(plan, false, from, to);
+        // The built-in modal transitions animate the modal alone (the presenter isn't in the
+        // container); heroes only fly between pages that are both in it.
+        return plan.Type == PageTransitionType.Default
+            ? null!
+            : new PageTransitionAnimator(plan, false, plan.IsPop ? from : null, plan.IsPop ? null : to);
     }
 }
 
@@ -527,7 +550,7 @@ sealed class PageTransitionAnimator(PageTransitionPlan plan, bool interactive, P
         if (toView is not null && toVc is not null)
             toView.Frame = context.GetFinalFrameForViewController(toVc);
 
-        var heroes = PageTransition.FindHeroPairs(fromPage, toPage);
+        var heroes = PageTransition.HeroesAllowed ? PageTransition.FindHeroPairs(fromPage, toPage) : [];
 
         // The reveal grows from the touch that started the navigation and remembers that point,
         // so the pop shrinks back into the same place.
@@ -553,6 +576,79 @@ sealed class PageTransitionAnimator(PageTransitionPlan plan, bool interactive, P
 
             context.CompleteTransition(!cancelled);
         });
+    }
+}
+
+
+/// <summary>
+/// A custom <see cref="IPageTransitionAnimator"/> as a UIKit transition: both pages go in the
+/// container (the incoming one above on a push, below on a pop), and the transition stays open until
+/// the animator's task completes.
+/// </summary>
+sealed class CustomPageTransitionAnimator(IPageTransitionAnimator animator, PageTransitionPlan plan, Page? fromPage, Page? toPage, bool isModal)
+    : UIViewControllerAnimatedTransitioning
+{
+    public override double TransitionDuration(IUIViewControllerContextTransitioning transitionContext)
+        => plan.Duration.TotalSeconds;
+
+
+    public override void AnimateTransition(IUIViewControllerContextTransitioning context)
+    {
+        var container = context.ContainerView;
+        var toVc = context.GetViewControllerForKey(UITransitionContext.ToViewControllerKey);
+        var fromView = context.GetViewFor(UITransitionContext.FromViewKey);
+        var toView = context.GetViewFor(UITransitionContext.ToViewKey);
+        if (fromView is null && toView is null)
+        {
+            fromView = context.GetViewControllerForKey(UITransitionContext.FromViewControllerKey)?.View;
+            toView = toVc?.View;
+        }
+
+        if (toView is not null)
+        {
+            if (toVc is not null)
+                toView.Frame = context.GetFinalFrameForViewController(toVc);
+
+            if (fromView is null || fromView.Superview != container)
+                container.AddSubview(toView);
+            else if (plan.IsPop)
+                container.InsertSubviewBelow(toView, fromView);
+            else
+                container.InsertSubviewAbove(toView, fromView);
+
+            // MAUI lays a page out from its view's layout pass, so the animator sees real bounds.
+            toView.LayoutIfNeeded();
+        }
+
+        var transition = new PageTransitionContext(
+            fromPage,
+            toPage,
+            plan.IsPop,
+            isModal,
+            plan.Duration,
+            new Size(container.Bounds.Width, container.Bounds.Height)
+        )
+        {
+            Direction = plan.Direction
+        };
+        var token = PageTransitionCancellation.Begin();
+        _ = Run();
+
+        async Task Run()
+        {
+            try
+            {
+                await PageTransitionHost.RunAnimatorAsync(animator, transition, token);
+            }
+            finally
+            {
+                PageTransitionCancellation.End(token);
+                var cancelled = context.TransitionWasCancelled;
+                if (cancelled && toView is not null)
+                    toView.RemoveFromSuperview();
+                context.CompleteTransition(!cancelled);
+            }
+        }
     }
 }
 

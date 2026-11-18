@@ -1,0 +1,161 @@
+@page "/itemtransitions"
+@using Shiny.Blazor.Controls.Keyframe
+@using Shiny.Controls.Keyframe
+
+<PageTitle>Item Transitions</PageTitle>
+
+<h1>Item Transitions</h1>
+
+<p>
+    A list whose items animate in, out and into their new places. A removed item stays on the page until its
+    exit has played; everything that shifts slides there (FLIP). <code>Mode="None"</code> is the off switch.
+</p>
+
+<section class="demo-section">
+    <h2>Presets</h2>
+
+    <div class="tg-controls">
+        <label>Mode
+            <select @bind="mode" data-testid="tg-mode">
+                @foreach (var m in Enum.GetValues<ItemTransitionMode>())
+                {
+                    <option value="@m">@m</option>
+                }
+            </select>
+        </label>
+        <label>Add
+            <select @bind="add" data-testid="tg-add">
+                @foreach (var p in Enum.GetValues<ItemTransition>())
+                {
+                    <option value="@p">@p</option>
+                }
+            </select>
+        </label>
+        <label>Remove
+            <select @bind="remove" data-testid="tg-remove">
+                @foreach (var p in Enum.GetValues<ItemTransition>())
+                {
+                    <option value="@p">@p</option>
+                }
+            </select>
+        </label>
+    </div>
+
+    <div class="tg-buttons">
+        <button type="button" data-testid="tg-add-item" @onclick="AddItem">Add</button>
+        <button type="button" data-testid="tg-add-three" @onclick="AddThree">Add three</button>
+        <button type="button" data-testid="tg-shuffle" @onclick="Shuffle">Shuffle</button>
+        <button type="button" data-testid="tg-sort" @onclick="Sort">Sort</button>
+    </div>
+
+    <TransitionGroup Items="items" Key="i => i.Id" Mode="mode" Appear="ItemTransition.FadeUp" Add="add" Remove="remove"
+                     Stagger="TimeSpan.FromMilliseconds(40)" Class="tg-list" data-testid="tg-list">
+        <ItemTemplate Context="item">
+            <div class="tg-item" style="border-left-color:@item.Color">
+                <span>@item.Title</span>
+                <button type="button" aria-label="@($"Remove {item.Title}")" @onclick="() => Remove(item)">✕</button>
+            </div>
+        </ItemTemplate>
+    </TransitionGroup>
+</section>
+
+<section class="demo-section">
+    <h2>Custom keyframes and a grid</h2>
+    <p>
+        <code>&lt;AddKeyframes&gt;</code> and <code>&lt;RemoveKeyframes&gt;</code> take any Keyframes. Moves work in any layout -
+        here a wrapping grid, shuffled.
+    </p>
+
+    <div class="tg-buttons">
+        <button type="button" data-testid="tg-grid-shuffle" @onclick="ShuffleTiles">Shuffle</button>
+        <button type="button" @onclick="AddTile">Add</button>
+        <button type="button" @onclick="RemoveTile">Remove</button>
+    </div>
+
+    <TransitionGroup Items="tiles" Key="t => t" MoveDuration="TimeSpan.FromMilliseconds(500)" Class="tg-grid">
+        <AddKeyframes>
+            <Keyframes Duration="TimeSpan.FromMilliseconds(500)">
+                <Track Property="Scale">
+                    <Key Offset="0" Value="0" Easing="spring(0.45, 12)" />
+                    <Key Offset="1" Value="1" />
+                </Track>
+                <Track Property="Rotation">
+                    <Key Offset="0" Value="-90" Easing="CubicOut" />
+                    <Key Offset="1" Value="0" />
+                </Track>
+            </Keyframes>
+        </AddKeyframes>
+        <RemoveKeyframes>
+            <Keyframes Duration="TimeSpan.FromMilliseconds(300)">
+                <Track Property="Scale">
+                    <Key Offset="0" Value="1" Easing="BackIn" />
+                    <Key Offset="1" Value="0" />
+                </Track>
+            </Keyframes>
+        </RemoveKeyframes>
+        <ItemTemplate Context="tile">
+            <div class="tg-tile" style="background:hsl(@(tile * 37 % 360) 70% 45%)">@tile</div>
+        </ItemTemplate>
+    </TransitionGroup>
+</section>
+
+<style>
+    .tg-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+    .tg-controls label { display: inline-flex; gap: 6px; align-items: center; }
+    .tg-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .tg-buttons button { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--shiny-color-outline-variant, #E5E7EB); background: transparent; color: inherit; cursor: pointer; }
+    .tg-list { display: flex; flex-direction: column; gap: 6px; max-width: 420px; }
+    .tg-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 10px; border-left: 4px solid; background: var(--shiny-color-surface-container, #F3F4F6); }
+    .tg-item button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 14px; }
+    .tg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; max-width: 480px; }
+    .tg-tile { height: 64px; border-radius: 12px; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+</style>
+
+@code {
+    record Item(int Id, string Title, string Color);
+
+    static readonly string[] titles = ["Write the spec", "Review the PR", "Fix the flaky test", "Update the docs", "Tag the release", "Reply to issues", "Plan the sprint", "Profile startup"];
+    static readonly string[] palette = ["#0E7490", "#7C3AED", "#B45309", "#15803D", "#BE123C", "#2563EB"];
+
+    ItemTransitionMode mode = ItemTransitionMode.Keyframes;
+    ItemTransition add = ItemTransition.FadeUp;
+    ItemTransition remove = ItemTransition.SlideRight;
+    int nextId = 4;
+    List<Item> items = [new(1, titles[0], palette[0]), new(2, titles[1], palette[1]), new(3, titles[2], palette[2])];
+    List<int> tiles = Enumerable.Range(1, 9).ToList();
+    int nextTile = 10;
+
+    Item NewItem()
+    {
+        var id = nextId++;
+        return new Item(id, titles[id % titles.Length], palette[id % palette.Length]);
+    }
+
+    void AddItem() => items = [.. items.Take(1), NewItem(), .. items.Skip(1)];
+
+    void AddThree() => items = [.. items, NewItem(), NewItem(), NewItem()];
+
+    void Remove(Item item) => items = items.Where(i => i != item).ToList();
+
+    void Shuffle() => items = items.OrderBy(_ => Random.Shared.Next()).ToList();
+
+    void Sort() => items = items.OrderBy(i => i.Title, StringComparer.Ordinal).ToList();
+
+    void ShuffleTiles() => tiles = tiles.OrderBy(_ => Random.Shared.Next()).ToList();
+
+    void AddTile()
+    {
+        var copy = tiles.ToList();
+        copy.Insert(Random.Shared.Next(copy.Count + 1), nextTile++);
+        tiles = copy;
+    }
+
+    void RemoveTile()
+    {
+        if (tiles.Count > 0)
+        {
+            var index = Random.Shared.Next(tiles.Count);
+            tiles = tiles.Where((_, i) => i != index).ToList();
+        }
+    }
+}

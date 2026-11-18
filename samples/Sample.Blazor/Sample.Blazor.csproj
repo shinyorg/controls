@@ -42,6 +42,7 @@
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.FloorPlan\Shiny.Blazor.Controls.FloorPlan.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Diagram\Shiny.Blazor.Controls.Diagram.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Gamepad\Shiny.Blazor.Controls.Gamepad.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Keyframe\Shiny.Blazor.Controls.Keyframe.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Themes.Ocean\Shiny.Blazor.Controls.Themes.Ocean.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Themes.Material\Shiny.Blazor.Controls.Themes.Material.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Blazor.Controls.Themes.Terminal\Shiny.Blazor.Controls.Themes.Terminal.csproj"/>

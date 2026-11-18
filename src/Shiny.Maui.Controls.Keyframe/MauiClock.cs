@@ -7,21 +7,23 @@ namespace Shiny.Maui.Controls.Keyframe;
 /// An <see cref="IClock"/> driven by the platform's frame signal.
 /// </summary>
 /// <remarks>
-/// <para><b>Why this uses a dispatcher timer rather than the platform display link.</b> MAUI's
-/// per-window <c>ITicker</c> exposes its callback as a single settable <c>Fire</c> property, and
-/// MAUI's own animation manager already owns it. Assigning to it appears to work — right up until
-/// it silently breaks every <c>FadeTo</c> in the app. Going through <c>IAnimationManager</c>
-/// instead does not help: resolving it from <c>MauiContext.Services</c> returns a fresh instance
-/// per call, and each new manager reassigns that same <c>Fire</c> callback, so animations end up
-/// fighting each other for the one frame signal. A dispatcher timer is the honest choice: it is
-/// not vsync-locked, but it is correct, and it leaves MAUI's own animations alone.</para>
+/// <para><b>The frame signal.</b> On iOS and Mac Catalyst this is a <c>CADisplayLink</c> that asks for the
+/// display's full rate (120 Hz on ProMotion, given <c>CADisableMinimumFrameDurationOnPhone</c> in the app's
+/// Info.plist), on Android the <c>Choreographer</c>, and on Windows <c>CompositionTarget.Rendering</c> — each
+/// with the platform's own frame timestamp. The AppKit and GTK heads, which consume the plain net11.0
+/// build, fall back to a dispatcher timer.</para>
+/// <para><b>Why not MAUI's ticker.</b> MAUI's per-window <c>ITicker</c> exposes its callback as a single
+/// settable <c>Fire</c> property that MAUI's own animation manager already owns. Assigning to it appears to
+/// work — right up until it silently breaks every <c>FadeTo</c> in the app. So this clock runs its own
+/// frame source, and leaves MAUI's animations alone. It also keeps ticking under Android's animator
+/// duration scale of 0, where a second <c>PlatformTicker</c> stops after two ticks.</para>
 /// <para><b>One clock per window.</b> <see cref="For"/> returns an instance shared across the
-/// dispatcher, so twenty animated views cost one timer rather than twenty. It runs only while
+/// dispatcher, so twenty animated views cost one frame source rather than twenty. It runs only while
 /// something is actually listening — subscribing the first handler starts it and removing the last
 /// one stops it, so a page of paused animations costs nothing.</para>
-/// <para>Deltas come from a <see cref="Stopwatch"/> rather than the nominal interval, so a dropped
-/// frame shows up as one larger step and the timeline stays on schedule. Assuming a fixed 16ms per
-/// tick makes every hitch permanently retard the animation.</para>
+/// <para>Deltas come from frame timestamps rather than the nominal interval, so a dropped frame shows up
+/// as one larger step and the timeline stays on schedule. Assuming a fixed 16ms per tick makes every
+/// hitch permanently retard the animation.</para>
 /// </remarks>
 public sealed class MauiClock : IClock, IDisposable
 {
@@ -32,26 +34,22 @@ public sealed class MauiClock : IClock, IDisposable
     // real gap would teleport every animation, so clamp it to a single frame.
     static readonly TimeSpan MaximumDelta = TimeSpan.FromMilliseconds(250);
 
-    readonly IDispatcherTimer timer;
-    readonly Stopwatch stopwatch = new();
+    readonly IFrameSource source;
     readonly bool isShared;
     readonly Lock gate = new();
 
     Action<TimeSpan>? handlers;
-    TimeSpan lastTimestamp;
+    TimeSpan? lastTimestamp;
     bool disposed;
 
     MauiClock(IDispatcher dispatcher, bool isShared)
     {
         this.isShared = isShared;
 
-        timer = dispatcher.CreateTimer();
-        timer.Interval = FallbackInterval;
-        timer.IsRepeating = true;
-        timer.Tick += (_, _) => OnFrame();
+        source = FrameSources.Create(dispatcher, FallbackInterval, OnFrame);
     }
 
-    /// <summary>Creates a clock driven by a dispatcher timer.</summary>
+    /// <summary>Creates an unshared clock on the dispatcher's thread, driven by the platform frame signal.</summary>
     public MauiClock(IDispatcher dispatcher)
         : this(dispatcher ?? throw new ArgumentNullException(nameof(dispatcher)), isShared: false) { }
 
@@ -153,10 +151,9 @@ public sealed class MauiClock : IClock, IDisposable
     void StartSource()
     {
         IsRunning = true;
-        lastTimestamp = TimeSpan.Zero;
-        stopwatch.Restart();
+        lastTimestamp = null;
 
-        timer.Start();
+        source.Start();
     }
 
     void StopSource()
@@ -165,12 +162,11 @@ public sealed class MauiClock : IClock, IDisposable
             return;
 
         IsRunning = false;
-        stopwatch.Stop();
 
-        timer.Stop();
+        source.Stop();
     }
 
-    void OnFrame()
+    void OnFrame(TimeSpan now)
     {
         Action<TimeSpan>? snapshot;
 
@@ -182,8 +178,15 @@ public sealed class MauiClock : IClock, IDisposable
             snapshot = handlers;
         }
 
-        var now = stopwatch.Elapsed;
-        var delta = now - lastTimestamp;
+        // The first frame after starting only establishes the timestamp origin; there is no
+        // previous frame to measure a delta against.
+        if (lastTimestamp is not { } previous)
+        {
+            lastTimestamp = now;
+            return;
+        }
+
+        var delta = now - previous;
         lastTimestamp = now;
 
         if (delta <= TimeSpan.Zero)

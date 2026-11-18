@@ -80,4 +80,55 @@ public class PageTransitionTests
         Resolve(push: PageTransitionType.Fade, duration: TimeSpan.FromMilliseconds(900)).DurationMs.ShouldBe(900);
         Resolve(push: PageTransitionType.Fade).DurationMs.ShouldBe(320);
     }
+
+
+    static readonly PageTransitionKeyframes EnterKeys = new(["shiny-vt-c-drop-enter-0"], "@keyframes shiny-vt-c-drop-enter-0 {}");
+    static readonly PageTransitionKeyframes ExitKeys = new(["shiny-vt-c-drop-exit-0", "shiny-vt-c-drop-exit-1"], "");
+
+
+    [Fact]
+    public void ACustomTransitionRunsExitOnTheOldPageAndEnterOnTheNew()
+    {
+        var plan = PageTransitionHost.ResolveCustom(new CustomPageTransitionDefinition("drop", EnterKeys, ExitKeys), isPop: false)!.Value;
+
+        plan.OldNames.ShouldBe("shiny-vt-c-drop-exit-0, shiny-vt-c-drop-exit-1");
+        plan.NewNames.ShouldBe("shiny-vt-c-drop-enter-0");
+        (plan.OldDirection, plan.NewDirection).ShouldBe(("normal", "normal"));
+    }
+
+
+    /// <summary>A push with no pop of its own goes back by playing the push backwards.</summary>
+    [Fact]
+    public void ACustomTransitionWithoutPopAnimationsReversesThePush()
+    {
+        var plan = PageTransitionHost.ResolveCustom(new CustomPageTransitionDefinition("drop", EnterKeys, ExitKeys), isPop: true)!.Value;
+
+        plan.OldNames.ShouldBe("shiny-vt-c-drop-enter-0");
+        plan.NewNames.ShouldBe("shiny-vt-c-drop-exit-0, shiny-vt-c-drop-exit-1");
+        (plan.OldDirection, plan.NewDirection).ShouldBe(("reverse", "reverse"));
+    }
+
+
+    [Fact]
+    public void ACustomTransitionsOwnPopAnimationsWin()
+    {
+        var popEnter = new PageTransitionKeyframes(["pe"], "");
+        var plan = PageTransitionHost.ResolveCustom(new CustomPageTransitionDefinition("drop", EnterKeys, null, PopEnter: popEnter), isPop: true)!.Value;
+
+        (plan.NewNames, plan.NewDirection).ShouldBe(("pe", "normal"));
+        (plan.OldNames, plan.OldDirection).ShouldBe(("shiny-vt-c-drop-enter-0", "reverse"));
+    }
+
+
+    [Fact]
+    public void AMissingCustomTransitionResolvesToNothing()
+        => PageTransitionHost.ResolveCustom(null, isPop: false).ShouldBeNull();
+
+
+    [Theory]
+    [InlineData(PageTransitionReducedMotion.Instant, "instant")]
+    [InlineData(PageTransitionReducedMotion.Crossfade, "crossfade")]
+    [InlineData(PageTransitionReducedMotion.Play, "play")]
+    public void ReducedMotionReachesTheScriptAsText(PageTransitionReducedMotion mode, string text)
+        => PageTransitionHost.ReducedMotionText(mode).ShouldBe(text);
 }

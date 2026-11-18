@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <IsAotCompatible>true</IsAotCompatible>
+        <!-- The repo uses several feeds without source mapping; NU1507 is a restore-config warning,
+             not a code-quality one (as in Shiny.Controls.Keyframe.Shared). -->
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Blazor.Controls.Keyframe</RootNamespace>
+        <Description>Declarative keyframe animation for Blazor on the Web Animations API - the same Keyframes / Track / Key model as Shiny.Maui.Controls.Keyframe, with a seekable player, choreography and stagger, animated visual-state transitions, implicit property transitions, list item transitions (enter, exit and FLIP moves), custom keyframe page transitions, spring and bounce easing, and reduced motion honoured by default.</Description>
+        <PackageTags>blazor shiny keyframe animation web-animations waapi transitions storyboard stagger spring easing reduced-motion</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <SupportedPlatform Include="browser" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- The timing model, the easing curves and their CSS form (EasingSyntax.ToCss), shared verbatim
+             with the MAUI package so a curve or a Timing reads the same on both hosts. -->
+        <ProjectReference Include="..\Shiny.Controls.Keyframe.Shared\Shiny.Controls.Keyframe.Shared.csproj"/>
+        <!-- For CustomPageTransition, which registers keyframe-built transitions with the core
+             PageTransitionHost. -->
+        <ProjectReference Include="..\Shiny.Blazor.Controls\Shiny.Blazor.Controls.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Blazor.Controls.Keyframe.Tests" />
+    </ItemGroup>
+
+</Project>

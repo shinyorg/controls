@@ -1,0 +1,38 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+@implements IDisposable
+
+@*
+    A page transition built from keyframes, registered with the PageTransitionHost it sits in. Each
+    part holds one Keyframes whose tracks animate that page's picture:
+
+        <PageTransitionHost>
+            <CustomPageTransition Name="drop">
+                <Enter>
+                    <Keyframes Easing="CubicOut">
+                        <Track Property="TranslationY"> <Key Offset="0" Value="-40" /> <Key Offset="1" Value="0" /> </Track>
+                        <Track Property="Opacity"> <Key Offset="0" Value="0" /> <Key Offset="1" Value="1" /> </Track>
+                    </Keyframes>
+                </Enter>
+                <Exit> ... </Exit>
+            </CustomPageTransition>
+            @Body
+        </PageTransitionHost>
+
+    Pages pick it with <PageTransition Custom="drop" />, one navigation with Nav.NavigateTo(uri, "drop").
+*@
+@if (Enter is not null)
+{
+    <CascadingValue TValue="IKeyframeContainer" Value="enter" IsFixed="true">@Enter</CascadingValue>
+}
+@if (Exit is not null)
+{
+    <CascadingValue TValue="IKeyframeContainer" Value="exit" IsFixed="true">@Exit</CascadingValue>
+}
+@if (PopEnter is not null)
+{
+    <CascadingValue TValue="IKeyframeContainer" Value="popEnter" IsFixed="true">@PopEnter</CascadingValue>
+}
+@if (PopExit is not null)
+{
+    <CascadingValue TValue="IKeyframeContainer" Value="popExit" IsFixed="true">@PopExit</CascadingValue>
+}

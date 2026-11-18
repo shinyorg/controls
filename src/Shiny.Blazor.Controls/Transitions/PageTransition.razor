@@ -21,6 +21,12 @@
     /// <summary>Overrides the host's duration for this page.</summary>
     [Parameter] public TimeSpan? Duration { get; set; }
 
+    /// <summary>
+    /// A custom transition registered with the host (Shiny.Blazor.Controls.Keyframe's CustomPageTransition, or
+    /// <see cref="PageTransitionHost.RegisterCustomTransition"/>), by name. Wins over Push and Pop.
+    /// </summary>
+    [Parameter] public string? Custom { get; set; }
+
     protected override void OnInitialized() => this.Host?.Register(this);
 
     public void Dispose() => this.Host?.Unregister(this);

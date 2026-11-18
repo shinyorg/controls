@@ -33,6 +33,23 @@
     </section>
 
     <section class="demo-section">
+        <h2>One-off and custom</h2>
+        <p>
+            <code>Nav.NavigateTo(uri, PageTransitionType.Flip)</code> overrides the pages' own transitions for
+            one navigation, and going back reverses it. <code>"drop"</code> is a
+            <code>&lt;CustomPageTransition&gt;</code> built from Keyframes in the layout
+            (Shiny.Blazor.Controls.Keyframe), generated as view-transition CSS.
+        </p>
+        <div class="transition-buttons">
+            <button type="button" class="transition-button" data-testid="oneoff-flip"
+                    @onclick="@(() => Nav.NavigateTo("pagetransitions/step/1/Default/Default", PageTransitionType.Flip))">Flip, just this once</button>
+            <button type="button" class="transition-button" data-testid="oneoff-drop"
+                    @onclick="@(() => Nav.NavigateTo("pagetransitions/step/1/Default/Default", "drop"))">Custom "drop"</button>
+            <a class="transition-button" href="pagetransitions/step/1/Drop/Default" data-testid="page-drop">A page that says Custom="drop"</a>
+        </div>
+    </section>
+
+    <section class="demo-section">
         <h2>Hero</h2>
         <p>Each card and the header on its detail page share a <code>data-shiny-hero</code> name, so the card flies into place.</p>
         <div class="hero-cards">

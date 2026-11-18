@@ -32,6 +32,25 @@ public static class Animate
             defaultValue: null,
             propertyChanged: OnKeyframesChanged);
 
+    /// <summary>
+    /// Attaches a <see cref="Keyframe.Choreography"/> — several animations on one clock, staggered or
+    /// sequenced — to a view. Plays on load like <see cref="KeyframesProperty"/>.
+    /// </summary>
+    public static readonly BindableProperty ChoreographyProperty =
+        BindableProperty.CreateAttached(
+            "Choreography",
+            typeof(Choreography),
+            typeof(Animate),
+            defaultValue: null,
+            propertyChanged: OnChoreographyChanged);
+
+    static readonly BindableProperty ChoreographyControllerProperty =
+        BindableProperty.CreateAttached(
+            "ChoreographyController",
+            typeof(AnimationController),
+            typeof(Animate),
+            defaultValue: null);
+
     /// <summary>Holds the live playback state for an element, so it can be paused, seeked or stopped.</summary>
     static readonly BindableProperty ControllerProperty =
         BindableProperty.CreateAttached(
@@ -54,6 +73,20 @@ public static class Animate
         target.SetValue(KeyframesProperty, value);
     }
 
+    /// <summary>Reads the attached choreography.</summary>
+    public static Choreography? GetChoreography(BindableObject target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return (Choreography?)target.GetValue(ChoreographyProperty);
+    }
+
+    /// <summary>Attaches a choreography.</summary>
+    public static void SetChoreography(BindableObject target, Choreography? value)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        target.SetValue(ChoreographyProperty, value);
+    }
+
     /// <summary>
     /// Gets the player driving an element's attached animation, for pausing, seeking or scrubbing.
     /// Returns null until the element has loaded and the animation has been built.
@@ -62,6 +95,52 @@ public static class Animate
     {
         ArgumentNullException.ThrowIfNull(target);
         return ((AnimationController?)target.GetValue(ControllerProperty))?.Player;
+    }
+
+    /// <summary>Gets the player driving an element's attached choreography.</summary>
+    public static Player? GetChoreographyPlayer(BindableObject target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ((AnimationController?)target.GetValue(ChoreographyControllerProperty))?.Player;
+    }
+
+    /// <summary>
+    /// Builds and plays a XAML-style definition against a view, returning the player. Playing the
+    /// same definition on the same view again replaces the earlier run, continuing from wherever
+    /// it got to; trigger actions and <see cref="StopAnimations"/> can reach it afterwards.
+    /// </summary>
+    public static Player Play(this VisualElement element, IAnimationDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        ArgumentNullException.ThrowIfNull(definition);
+        return AnimationRuns.Begin(element, definition);
+    }
+
+    /// <summary>Plays a definition and completes when it finishes (true) or is stopped or cancelled (false).</summary>
+    public static Task<bool> PlayAsync(this VisualElement element, IAnimationDefinition definition, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        ArgumentNullException.ThrowIfNull(definition);
+        return AnimationRuns.BeginAsync(element, definition, cancellationToken);
+    }
+
+    /// <summary>
+    /// Stops every definition started on the element by <see cref="Play(VisualElement, IAnimationDefinition)"/>
+    /// or a trigger action. <see cref="StopBehavior.Release"/>, the default, hands each property back to
+    /// its binding, style or visual state.
+    /// </summary>
+    public static void StopAnimations(this VisualElement element, StopBehavior behavior = StopBehavior.Release)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        AnimationRuns.StopAll(element, behavior);
+    }
+
+    /// <summary>The player running a definition on an element, if it has been started there.</summary>
+    public static Player? GetPlayer(this VisualElement element, IAnimationDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        ArgumentNullException.ThrowIfNull(definition);
+        return AnimationRuns.Find(element, definition);
     }
 
     /// <summary>
@@ -82,24 +161,30 @@ public static class Animate
     }
 
     static void OnKeyframesChanged(BindableObject bindable, object oldValue, object newValue)
+        => Attach(bindable, ControllerProperty, newValue as IAnimationDefinition, "Keyframes");
+
+    static void OnChoreographyChanged(BindableObject bindable, object oldValue, object newValue)
+        => Attach(bindable, ChoreographyControllerProperty, newValue as IAnimationDefinition, "Choreography");
+
+    static void Attach(BindableObject bindable, BindableProperty controllerProperty, IAnimationDefinition? definition, string name)
     {
         if (bindable is not VisualElement element)
             throw new InvalidOperationException(
-                $"Animate.Keyframes can only be attached to a {nameof(VisualElement)}, " +
+                $"Animate.{name} can only be attached to a {nameof(VisualElement)}, " +
                 $"but was attached to {bindable.GetType().Name}.");
 
         // Tear down whatever was running before, so reassigning the property does not leave an
         // orphaned player still writing to the view every frame.
-        if (element.GetValue(ControllerProperty) is AnimationController existing)
+        if (element.GetValue(controllerProperty) is AnimationController existing)
         {
             existing.Dispose();
-            element.SetValue(ControllerProperty, null);
+            element.SetValue(controllerProperty, null);
         }
 
-        if (newValue is not Keyframes keyframes)
+        if (definition is null)
             return;
 
-        element.SetValue(ControllerProperty, new AnimationController(element, keyframes));
+        element.SetValue(controllerProperty, new AnimationController(element, definition));
     }
 
     /// <summary>
@@ -109,12 +194,12 @@ public static class Animate
     sealed class AnimationController : IDisposable
     {
         readonly WeakReference<VisualElement> element;
-        readonly Keyframes keyframes;
+        readonly IAnimationDefinition keyframes;
 
         MauiClock? clock;
         bool disposed;
 
-        public AnimationController(VisualElement element, Keyframes keyframes)
+        public AnimationController(VisualElement element, IAnimationDefinition keyframes)
         {
             this.element = new WeakReference<VisualElement>(element);
             this.keyframes = keyframes;
@@ -158,32 +243,15 @@ public static class Animate
                 return;
             }
 
-            var timeline = keyframes.Build(target, name => FindByName(target, name));
+            var timeline = keyframes.Build(target, name => NameScope.Find(target, name));
 
             clock = MauiClock.For(target);
-            Player = new Player(timeline, clock) { Rate = keyframes.Speed };
+            Player = new Player(timeline, clock) { Rate = keyframes.Speed, ReducedMotion = keyframes.ReducedMotion };
 
             if (keyframes.AutoPlay)
                 Player.Play();
             else
                 timeline.CaptureBaselines();
-        }
-
-        static VisualElement? FindByName(VisualElement scope, string name)
-        {
-            // Walk outward until something in the tree knows the name. Names are registered on the
-            // page or view that declared them, which is usually an ancestor of the animated element.
-            Element? current = scope;
-
-            while (current is not null)
-            {
-                if (current is VisualElement candidate && candidate.FindByName(name) is VisualElement found)
-                    return found;
-
-                current = current.Parent;
-            }
-
-            return null;
         }
 
         public void Dispose()

@@ -1,0 +1,17 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+@inherits KeyframePlayerBase
+
+@*
+    Self: no element of its own - the Keyframes children animate their own elements, composed in time.
+    Children: one wrapper element, whose direct children each get the Keyframes template in turn.
+*@
+@if (ApplyTo == ChoreographyApplyTo.Children)
+{
+    <div @ref="element" class="@CssClass" style="@Style" @attributes="AdditionalAttributes">
+        <CascadingValue TValue="IKeyframeContainer" Value="this" IsFixed="true">@ChildContent</CascadingValue>
+    </div>
+}
+else
+{
+    <CascadingValue TValue="IKeyframeContainer" Value="this" IsFixed="true">@ChildContent</CascadingValue>
+}

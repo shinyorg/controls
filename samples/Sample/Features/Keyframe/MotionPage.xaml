@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:kf="http://shiny.net/maui/keyframe"
+             xmlns:local="clr-namespace:Sample.Features.Keyframe"
+             x:Class="Sample.Features.Keyframe.MotionPage"
+             x:DataType="local:MotionPage"
+             Title="Motion"
+             AutomationId="MotionPage">
+
+    <ContentPage.Resources>
+        <!-- The spec's own entrance, written the storyboard way: frames of ordinary Setters. -->
+        <kf:Keyframes x:Key="PopIn" Duration="0:0:0.45" Fill="Backwards">
+            <kf:KeyFrame Cue="0%">
+                <Setter Property="VisualElement.Opacity" Value="0" />
+                <Setter Property="VisualElement.Scale" Value="0.9" />
+            </kf:KeyFrame>
+            <kf:KeyFrame Cue="60%" Easing="CubicOut">
+                <Setter Property="VisualElement.Opacity" Value="1" />
+                <Setter Property="VisualElement.Scale" Value="1.05" />
+            </kf:KeyFrame>
+            <kf:KeyFrame Cue="100%" Easing="spring(0.4, 12)">
+                <Setter Property="VisualElement.Scale" Value="1" />
+            </kf:KeyFrame>
+        </kf:Keyframes>
+
+        <!-- A pulse that only runs while busy: started and stopped by a DataTrigger. -->
+        <kf:Keyframes x:Key="Pulse" Duration="0:0:0.6" Iterations="Infinite" Direction="Alternate" ReducedMotion="Play">
+            <kf:Track Property="Scale">
+                <kf:Key Offset="0" Easing="SinInOut" />
+                <kf:Key Offset="1" Value="1.08" />
+            </kf:Track>
+        </kf:Keyframes>
+
+        <kf:Keyframes x:Key="Shake" Duration="0:0:0.4">
+            <kf:Track Property="TranslationX">
+                <kf:Key Offset="0" Value="0" />
+                <kf:Key Offset="0.2" Value="-10" />
+                <kf:Key Offset="0.4" Value="10" />
+                <kf:Key Offset="0.6" Value="-6" />
+                <kf:Key Offset="0.8" Value="6" />
+                <kf:Key Offset="1" Value="0" />
+            </kf:Track>
+        </kf:Keyframes>
+    </ContentPage.Resources>
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="32">
+
+            <!-- 1. Staggered entrance: one template applied to every child, 70 ms apart. -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Choreography — staggered entrance" FontAttributes="Bold" />
+                <HorizontalStackLayout x:Name="Cards" Spacing="10">
+                    <kf:Animate.Choreography>
+                        <kf:Choreography ApplyTo="Children" Stagger="0:0:0.07">
+                            <kf:Keyframes Duration="0:0:0.5" Fill="Backwards">
+                                <kf:Track Property="Opacity">
+                                    <kf:Key Offset="0" Value="0" />
+                                    <kf:Key Offset="1" Value="1" />
+                                </kf:Track>
+                                <kf:Track Property="TranslationY">
+                                    <kf:Key Offset="0" Value="28" Easing="bouncy(0.3)" />
+                                    <kf:Key Offset="1" Value="0" />
+                                </kf:Track>
+                            </kf:Keyframes>
+                        </kf:Choreography>
+                    </kf:Animate.Choreography>
+                    <BoxView Color="#2563EB" WidthRequest="56" HeightRequest="56" CornerRadius="12" />
+                    <BoxView Color="#7C3AED" WidthRequest="56" HeightRequest="56" CornerRadius="12" />
+                    <BoxView Color="#DB2777" WidthRequest="56" HeightRequest="56" CornerRadius="12" />
+                    <BoxView Color="#EA580C" WidthRequest="56" HeightRequest="56" CornerRadius="12" />
+                    <BoxView Color="#16A34A" WidthRequest="56" HeightRequest="56" CornerRadius="12" />
+                </HorizontalStackLayout>
+                <Button Text="Replay" HorizontalOptions="Start" Clicked="OnReplayCards" />
+            </VerticalStackLayout>
+
+            <!-- 2. Animated visual states: MAUI's own Pressed and PointerOver now animate. -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Visual-state transitions — press and hover" FontAttributes="Bold" />
+                <Button Text="Press me" HorizontalOptions="Start" Padding="24,12">
+                    <kf:StateTransitions.Transitions>
+                        <kf:VisualTransition Duration="0:0:0.2" />
+                        <kf:VisualTransition To="Pressed" Duration="0:0:0.08" Easing="CubicOut" />
+                        <kf:VisualTransition From="Pressed" Duration="0:0:0.45" Easing="spring(0.35, 14)" />
+                    </kf:StateTransitions.Transitions>
+                    <VisualStateManager.VisualStateGroups>
+                        <VisualStateGroupList>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="#2563EB" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="#1D4ED8" />
+                                        <Setter Property="Scale" Value="1.04" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="#7C3AED" />
+                                        <Setter Property="Scale" Value="0.94" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateGroupList>
+                    </VisualStateManager.VisualStateGroups>
+                </Button>
+            </VerticalStackLayout>
+
+            <!-- 3. Custom states with a per-state animation and an error shake. -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Custom states — StateAnimation and a transition animation" FontAttributes="Bold" />
+                <Border x:Name="StatusCard" Padding="16" StrokeThickness="2" HorizontalOptions="Start" WidthRequest="240">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="14" />
+                    </Border.StrokeShape>
+                    <kf:StateTransitions.Transitions>
+                        <kf:VisualTransition Duration="0:0:0.3" Easing="EaseInOut" />
+                        <kf:VisualTransition To="Error" Duration="0:0:0.2" Animation="{StaticResource Shake}" />
+                        <kf:StateAnimation State="Busy" Animation="{StaticResource Pulse}" />
+                    </kf:StateTransitions.Transitions>
+                    <VisualStateManager.VisualStateGroups>
+                        <VisualStateGroupList>
+                            <VisualStateGroup x:Name="Status">
+                                <VisualState x:Name="Idle">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="#F1F5F9" />
+                                        <Setter Property="Stroke" Value="#CBD5E1" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Busy">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="#DBEAFE" />
+                                        <Setter Property="Stroke" Value="#2563EB" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Error">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="#FEE2E2" />
+                                        <Setter Property="Stroke" Value="#DC2626" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateGroupList>
+                    </VisualStateManager.VisualStateGroups>
+                    <Label x:Name="StatusLabel" Text="Idle" TextColor="#0F172A" />
+                </Border>
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Idle" Clicked="OnState" CommandParameter="Idle" />
+                    <Button Text="Busy" Clicked="OnState" CommandParameter="Busy" />
+                    <Button Text="Error" Clicked="OnState" CommandParameter="Error" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- 4. Implicit transitions: any change animates, here driven by plain bindings. -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Implicit transitions — bound values that animate on their own" FontAttributes="Bold" />
+                <BoxView WidthRequest="80" HeightRequest="80" CornerRadius="16" HorizontalOptions="Start"
+                         Color="#0EA5E9"
+                         Opacity="{Binding BoxOpacity}"
+                         Scale="{Binding BoxScale}"
+                         Rotation="{Binding BoxRotation}">
+                    <kf:PropertyTransitions.Transitions>
+                        <kf:PropertyTransition Property="Opacity" Duration="0:0:0.25" />
+                        <kf:PropertyTransition Property="Scale" Duration="0:0:0.6" Easing="spring(0.4, 13)" />
+                        <kf:PropertyTransition Property="Rotation" Duration="0:0:0.5" Easing="EaseInOut" />
+                    </kf:PropertyTransitions.Transitions>
+                </BoxView>
+                <Button Text="Shuffle" HorizontalOptions="Start" Clicked="OnShuffle" />
+            </VerticalStackLayout>
+
+            <!-- 5. Trigger actions: a DataTrigger starts and stops a pulse. -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Trigger actions — BeginAnimation / StopAnimation" FontAttributes="Bold" />
+                <Button Text="{Binding BusyText}" HorizontalOptions="Start" Clicked="OnToggleBusy">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsBusy}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <kf:BeginAnimation Animation="{StaticResource Pulse}" />
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <kf:StopAnimation Animation="{StaticResource Pulse}" />
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </VerticalStackLayout>
+
+            <!-- 6. The spec's KeyFrame/Setter entrance, played from code; the binding stays live after. -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="KeyFrame + Setter, played from code" FontAttributes="Bold" />
+                <Border x:Name="PopCard" Padding="20" BackgroundColor="#FEF3C7" StrokeThickness="0" HorizontalOptions="Start">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="14" />
+                    </Border.StrokeShape>
+                    <Label Text="Popped in" TextColor="#92400E" />
+                </Border>
+                <Button Text="Pop" HorizontalOptions="Start" Clicked="OnPop" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

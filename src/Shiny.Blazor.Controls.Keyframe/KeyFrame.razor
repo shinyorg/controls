@@ -1,0 +1,56 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+@using System.Globalization
+@implements IDisposable
+
+@*
+    The spec style: one moment, with a Setter per property, rather than one Track per property.
+
+        <KeyFrame Cue="60%" Easing="CubicOut">
+            <Setter Property="Opacity" Value="1" />
+        </KeyFrame>
+
+    Folded into one track per property, so the two styles mix freely in one Keyframes.
+*@
+<CascadingValue Value="this" IsFixed="true">@ChildContent</CascadingValue>
+
+@code {
+    [CascadingParameter] ITrackOwner? Owner { get; set; }
+
+    /// <summary>When: <c>60%</c>, <c>0.6</c>, <c>from</c> or <c>to</c>.</summary>
+    [Parameter, EditorRequired] public string Cue { get; set; } = "0";
+
+    /// <summary>The curve for the segment starting here.</summary>
+    [Parameter] public string? Easing { get; set; }
+
+    /// <summary>The Setter children.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    readonly List<Setter> setters = [];
+
+    internal IReadOnlyList<Setter> Setters => this.setters;
+    internal void AddSetter(Setter setter) => this.setters.Add(setter);
+    internal void RemoveSetter(Setter setter) => this.setters.Remove(setter);
+
+    internal double Offset => ParseCue(this.Cue);
+
+    /// <summary>"60%" → 0.6, "0.6" → 0.6, "from" → 0, "to" → 1.</summary>
+    internal static double ParseCue(string? cue)
+    {
+        var text = cue?.Trim() ?? "";
+        if (text.Equals("from", StringComparison.OrdinalIgnoreCase))
+            return 0d;
+        if (text.Equals("to", StringComparison.OrdinalIgnoreCase))
+            return 1d;
+
+        var percent = text.EndsWith('%');
+        var number = percent ? text[..^1] : text;
+        if (!double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            throw new FormatException($"'{cue}' is not a keyframe cue. Use a percentage (\"60%\"), a fraction (\"0.6\"), \"from\" or \"to\".");
+
+        return Math.Clamp(percent ? value / 100d : value, 0d, 1d);
+    }
+
+    protected override void OnInitialized() => this.Owner?.AddFrame(this);
+
+    public void Dispose() => this.Owner?.RemoveFrame(this);
+}

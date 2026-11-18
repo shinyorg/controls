@@ -13,6 +13,13 @@ static partial class PageTransitionInstaller
             return;
 
         PageTransition.IsEnabled = true;
+
+        // Managed transitions cover the heads without a native hook (Windows, macOS AppKit, Mac
+        // Catalyst, Linux GTK4) and the per-call overloads on Android's NavigationPage and modals.
+        // iOS doesn't need it: every navigation there has a native hook.
+#if !IOS
+        ManagedPageTransitions.Install();
+#endif
         InstallPlatform(builder);
     }
 

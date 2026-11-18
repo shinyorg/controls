@@ -63,6 +63,7 @@
         "src/Shiny.Blazor.Controls.MediaElement/Shiny.Blazor.Controls.MediaElement.csproj",
             "src/Shiny.Blazor.Controls.MermaidDiagrams/Shiny.Blazor.Controls.MermaidDiagrams.csproj",
             "src/Shiny.Blazor.Controls.Diagram/Shiny.Blazor.Controls.Diagram.csproj",
+            "src/Shiny.Blazor.Controls.Keyframe/Shiny.Blazor.Controls.Keyframe.csproj",
             "src/Shiny.Blazor.Controls.Gamepad/Shiny.Blazor.Controls.Gamepad.csproj"
         ]
     }

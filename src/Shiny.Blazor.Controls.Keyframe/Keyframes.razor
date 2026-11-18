@@ -1,0 +1,25 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+@inherits KeyframePlayerBase
+
+@*
+    One element and the keyframes that animate it. The tracks are children (they render nothing), so
+    the content to animate sits alongside them:
+
+        <Keyframes Duration="TimeSpan.FromSeconds(1)">
+            <Track Property="Scale"> <Key Offset="0" Value="1" /> <Key Offset="1" Value="1.2" /> </Track>
+            <div class="card">...</div>
+        </Keyframes>
+
+    No wrapper is rendered when it targets another element (Target / TargetId), when it runs inside
+    a StateAnimation (it animates the VisualStates element), or when a parent uses it as a template.
+*@
+@if (RendersWrapper)
+{
+    <div @ref="element" class="@CssClass" style="@Style" @attributes="AdditionalAttributes">
+        <CascadingValue Value="this" IsFixed="true">@ChildContent</CascadingValue>
+    </div>
+}
+else
+{
+    <CascadingValue Value="this" IsFixed="true">@ChildContent</CascadingValue>
+}

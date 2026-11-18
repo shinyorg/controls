@@ -109,6 +109,16 @@ public static class Catalog
             new("tooltip", "Tooltip", "💬", "Themed tooltip that points at any element")
         ]),
 
+        // Shiny.Blazor.Controls.Keyframe: the MAUI keyframe model on the Web Animations API
+        new("Animation", "#FBBF24",
+        [
+            new("keyframes", "Keyframes", "◐", "Keyframes, tracks and keys with a scrubbable player, springs and reduced motion"),
+            new("choreography", "Choreography", "♫", "Storyboards: sequence, parallel stagger and templates applied to children"),
+            new("visualstates", "Visual States", "◑", "Animated state transitions, most-specific match, and animations per state"),
+            new("implicittransitions", "Implicit Transitions", "↝", "Any change to a listed property animates, with its own curve"),
+            new("itemtransitions", "Item Transitions", "☰", "List enter, exit and FLIP moves, with an off switch")
+        ]),
+
         new("Status & Feedback", "#F472B6",
         [
             new("pills", "Pills", "●", "Status badges in a range of tones"),

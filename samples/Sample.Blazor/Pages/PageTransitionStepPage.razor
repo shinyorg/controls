@@ -4,11 +4,11 @@
 <PageTitle>Page @Depth</PageTitle>
 
 @* The whole feature, as far as the page is concerned. *@
-<PageTransition Push="@TransitionType" Direction="@TransitionDirection" />
+<PageTransition Push="@TransitionType" Direction="@TransitionDirection" Custom="@(Type == "Drop" ? "drop" : null)" />
 
 <div class="step-page" style="background:@Palette[Depth % Palette.Length]">
     <Entrance Animation="PageEntranceAnimation.FadeUp">
-        <h1>Arrived with @TransitionType</h1>
+        <h1>Arrived with @(Type == "Drop" ? "drop" : TransitionType.ToString())</h1>
         <div class="transition-buttons">
             @foreach (var type in Enum.GetValues<PageTransitionType>())
             {

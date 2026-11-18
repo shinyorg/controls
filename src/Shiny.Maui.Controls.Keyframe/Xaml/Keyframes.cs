@@ -7,9 +7,18 @@ namespace Shiny.Maui.Controls.Keyframe;
 /// A XAML-authored keyframe animation — the direct analogue of a CSS <c>@keyframes</c> rule
 /// together with the <c>animation-*</c> properties that drive it.
 /// </summary>
-[ContentProperty(nameof(Tracks))]
-public sealed class Keyframes : BindableObject
+/// <remarks>
+/// Two ways to write the same animation: per property, as <see cref="Track"/>s of <see cref="Key"/>s
+/// (the CSS shape), or per instant, as <see cref="KeyFrame"/>s holding ordinary MAUI
+/// <see cref="Setter"/>s (the WinUI/storyboard shape, which reaches any bindable property). Both can
+/// sit in the same <c>Keyframes</c>.
+/// </remarks>
+[ContentProperty(nameof(Content))]
+public sealed class Keyframes : BindableObject, IAnimationDefinition
 {
+    /// <summary>Creates an empty animation.</summary>
+    public Keyframes() => Content = new KeyframesContent(this);
+
     /// <summary>Backing store for <see cref="Duration"/>.</summary>
     public static readonly BindableProperty DurationProperty =
         BindableProperty.Create(nameof(Duration), typeof(TimeSpan), typeof(Keyframes),
@@ -18,6 +27,22 @@ public sealed class Keyframes : BindableObject
     /// <summary>Backing store for <see cref="Delay"/>.</summary>
     public static readonly BindableProperty DelayProperty =
         BindableProperty.Create(nameof(Delay), typeof(TimeSpan), typeof(Keyframes), TimeSpan.Zero);
+
+    /// <summary>Backing store for <see cref="EndDelay"/>.</summary>
+    public static readonly BindableProperty EndDelayProperty =
+        BindableProperty.Create(nameof(EndDelay), typeof(TimeSpan), typeof(Keyframes), TimeSpan.Zero);
+
+    /// <summary>Backing store for <see cref="IterationDelay"/>.</summary>
+    public static readonly BindableProperty IterationDelayProperty =
+        BindableProperty.Create(nameof(IterationDelay), typeof(TimeSpan), typeof(Keyframes), TimeSpan.Zero);
+
+    /// <summary>Backing store for <see cref="ReducedMotion"/>.</summary>
+    public static readonly BindableProperty ReducedMotionProperty =
+        BindableProperty.Create(nameof(ReducedMotion), typeof(ReducedMotionBehavior), typeof(Keyframes), ReducedMotionBehavior.Auto);
+
+    /// <summary>Backing store for <see cref="TargetName"/>.</summary>
+    public static readonly BindableProperty TargetNameProperty =
+        BindableProperty.Create(nameof(TargetName), typeof(string), typeof(Keyframes));
 
     /// <summary>Backing store for <see cref="Iterations"/>.</summary>
     public static readonly BindableProperty IterationsProperty =
@@ -56,6 +81,41 @@ public sealed class Keyframes : BindableObject
     {
         get => (TimeSpan)GetValue(DelayProperty);
         set => SetValue(DelayProperty, value);
+    }
+
+    /// <summary>Pause after the final iteration before the animation reports finished.</summary>
+    public TimeSpan EndDelay
+    {
+        get => (TimeSpan)GetValue(EndDelayProperty);
+        set => SetValue(EndDelayProperty, value);
+    }
+
+    /// <summary>Pause held between iterations, on the end pose of the one that just finished.</summary>
+    public TimeSpan IterationDelay
+    {
+        get => (TimeSpan)GetValue(IterationDelayProperty);
+        set => SetValue(IterationDelayProperty, value);
+    }
+
+    /// <summary>
+    /// What happens under the OS reduced-motion setting. <see cref="ReducedMotionBehavior.Auto"/>
+    /// (the default) jumps straight to the end state; <see cref="ReducedMotionBehavior.Play"/> animates
+    /// anyway, for motion that carries information.
+    /// </summary>
+    public ReducedMotionBehavior ReducedMotion
+    {
+        get => (ReducedMotionBehavior)GetValue(ReducedMotionProperty);
+        set => SetValue(ReducedMotionProperty, value);
+    }
+
+    /// <summary>
+    /// Optional <c>x:Name</c> of the element every track drives by default, instead of the element
+    /// the animation is attached to. A track's own <see cref="Track.TargetName"/> still wins.
+    /// </summary>
+    public string? TargetName
+    {
+        get => (string?)GetValue(TargetNameProperty);
+        set => SetValue(TargetNameProperty, value);
     }
 
     /// <summary>
@@ -104,8 +164,17 @@ public sealed class Keyframes : BindableObject
         set => SetValue(SpeedProperty, value);
     }
 
-    /// <summary>The animated properties.</summary>
+    /// <summary>The animated properties, in the per-property shape.</summary>
     public IList<Track> Tracks { get; } = [];
+
+    /// <summary>The animation in the per-instant shape: frames of setters at cue points.</summary>
+    public IList<KeyFrame> Frames { get; } = [];
+
+    /// <summary>
+    /// The XAML content: <see cref="Track"/> and <see cref="KeyFrame"/> children, routed to
+    /// <see cref="Tracks"/> and <see cref="Frames"/>.
+    /// </summary>
+    public IList<BindableObject> Content { get; }
 
     /// <summary>
     /// Builds a runnable timeline bound to a view. Called by the attached property when the
@@ -117,14 +186,16 @@ public sealed class Keyframes : BindableObject
     {
         ArgumentNullException.ThrowIfNull(target);
 
-        if (Tracks.Count == 0)
+        if (Tracks.Count == 0 && Frames.Count == 0)
             throw new InvalidOperationException(
-                "A Keyframes animation needs at least one Track.");
+                "A Keyframes animation needs at least one Track or KeyFrame.");
 
         var timing = new Timing
         {
             Duration = Duration,
             Delay = Delay,
+            EndDelay = EndDelay,
+            IterationDelay = IterationDelay,
             Iterations = Iterations,
             Direction = Direction,
             Fill = Fill,
@@ -132,23 +203,53 @@ public sealed class Keyframes : BindableObject
         };
 
         var timeline = new Timeline(timing);
+        var defaultTarget = string.IsNullOrWhiteSpace(TargetName) ? target : Resolve(TargetName, resolveTarget);
 
         foreach (var track in Tracks)
         {
-            var element = target;
-
-            if (!string.IsNullOrWhiteSpace(track.TargetName))
-            {
-                element = resolveTarget?.Invoke(track.TargetName)
-                    ?? throw new InvalidOperationException(
-                        $"Could not find an element named '{track.TargetName}'. Check the x:Name, " +
-                        "and note that the name must be in scope from the element the animation is attached to.");
-            }
+            var element = string.IsNullOrWhiteSpace(track.TargetName)
+                ? defaultTarget
+                : Resolve(track.TargetName, resolveTarget);
 
             timeline.Add(track.Build(element));
         }
 
+        if (Frames.Count > 0)
+            timeline.AddRange(KeyFrame.BuildTracks(Frames, defaultTarget, name => Resolve(name, resolveTarget)));
+
         return timeline;
+    }
+
+    IAnimationNode IAnimationDefinition.Build(VisualElement target, Func<string, VisualElement?>? resolveTarget)
+        => Build(target, resolveTarget);
+
+    static VisualElement Resolve(string name, Func<string, VisualElement?>? resolveTarget)
+        => resolveTarget?.Invoke(name)
+            ?? throw new InvalidOperationException(
+                $"Could not find an element named '{name}'. Check the x:Name, " +
+                "and note that the name must be in scope from the element the animation is attached to.");
+
+    sealed class KeyframesContent(Keyframes owner) : System.Collections.ObjectModel.Collection<BindableObject>
+    {
+        protected override void InsertItem(int index, BindableObject item)
+        {
+            switch (item)
+            {
+                case Track track:
+                    owner.Tracks.Add(track);
+                    break;
+
+                case KeyFrame frame:
+                    owner.Frames.Add(frame);
+                    break;
+
+                default:
+                    throw new InvalidOperationException(
+                        $"A Keyframes animation can contain Track and KeyFrame elements, not {item?.GetType().Name ?? "null"}.");
+            }
+
+            base.InsertItem(index, item);
+        }
     }
 }
 

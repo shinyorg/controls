@@ -55,6 +55,7 @@ body:
         - Shiny.Blazor.Controls.Diagram
         - Shiny.Blazor.Controls.FloorPlan
         - Shiny.Blazor.Controls.Gamepad
+        - Shiny.Blazor.Controls.Keyframe
         - Shiny.Blazor.Controls.Markdown
         - Shiny.Blazor.Controls.Agents
         - Shiny.Blazor.Controls.MediaElement

@@ -74,6 +74,7 @@
     <Project Path="src/Shiny.Blazor.Controls.Agents/Shiny.Blazor.Controls.Agents.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.MermaidDiagrams/Shiny.Blazor.Controls.MermaidDiagrams.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Diagram/Shiny.Blazor.Controls.Diagram.csproj" />
+    <Project Path="src/Shiny.Blazor.Controls.Keyframe/Shiny.Blazor.Controls.Keyframe.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Barcodes/Shiny.Blazor.Controls.Barcodes.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Analysis/Shiny.Blazor.Controls.Analysis.csproj" />
     <Project Path="src/Shiny.Blazor.Controls.Camera/Shiny.Blazor.Controls.Camera.csproj" />
@@ -103,8 +104,10 @@
     <Project Path="tests/Shiny.Controls.Gamepad.Tests/Shiny.Controls.Gamepad.Tests.csproj" />
     <Project Path="tests/Shiny.Maui.Controls.Diagram.Tests/Shiny.Maui.Controls.Diagram.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Diagram.Tests/Shiny.Blazor.Controls.Diagram.Tests.csproj" />
+    <Project Path="tests/Shiny.Blazor.Controls.Keyframe.Tests/Shiny.Blazor.Controls.Keyframe.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.FloorPlan.Tests/Shiny.Controls.FloorPlan.Tests.csproj" />
     <Project Path="tests/Shiny.Maui.Controls.Keyframe.Export.Tests/Shiny.Maui.Controls.Keyframe.Export.Tests.csproj" />
+    <Project Path="tests/Shiny.Maui.Controls.Keyframe.Tests/Shiny.Maui.Controls.Keyframe.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Tests/Shiny.Blazor.Controls.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Camera.Tests/Shiny.Blazor.Controls.Camera.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Office.Tests/Shiny.Controls.Office.Tests.csproj" />

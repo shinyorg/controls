@@ -28,4 +28,13 @@ public interface ITrack
 
     /// <summary>Restores the value captured by <see cref="CaptureBaseline"/>.</summary>
     void RestoreBaseline();
+
+    /// <summary>
+    /// Withdraws the track's effect so the target shows its own value again — what CSS does when an
+    /// animation without a forwards fill ends, or is cancelled. Hosts that write through a layer
+    /// above the property's own value (MAUI's animation layer, a browser's animation stack) drop that
+    /// layer here; a track that writes the property directly has nothing to withdraw, so the default
+    /// does nothing and the last value written stays.
+    /// </summary>
+    void Release() { }
 }

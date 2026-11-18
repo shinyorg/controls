@@ -1,0 +1,138 @@
+@page "/choreography"
+@using Shiny.Blazor.Controls.Keyframe
+@using Shiny.Controls.Keyframe
+
+<PageTitle>Choreography</PageTitle>
+
+<h1>Choreography</h1>
+
+<p>
+    The storyboard: Keyframes composed into one animation with one player - in sequence, in parallel with a
+    stagger, or as a template applied to every child element. It seeks, pauses and reverses as one.
+</p>
+
+<section class="demo-section">
+    <h2>Sequence</h2>
+    <p><code>Mode="Sequence"</code> with a 100ms gap: each card starts when the one before it ends. Scrub the whole storyboard.</p>
+
+    <Choreography @ref="sequence" Mode="ChoreographyMode.Sequence" Stagger="TimeSpan.FromMilliseconds(100)" AutoPlay="false">
+        <div class="ch-row">
+            @foreach (var (label, color) in steps)
+            {
+                <Keyframes Duration="TimeSpan.FromMilliseconds(450)" Fill="FillMode.Both">
+                    <PropertyTrack Property="TranslationY">
+                        <Key Offset="0" Value="40" Easing="BackOut" />
+                        <Key Offset="1" Value="0" />
+                    </PropertyTrack>
+                    <PropertyTrack Property="Opacity">
+                        <Key Offset="0" Value="0" />
+                        <Key Offset="0.6" Value="1" />
+                    </PropertyTrack>
+                    <div class="ch-card" style="background:@color">@label</div>
+                </Keyframes>
+            }
+        </div>
+    </Choreography>
+
+    <input type="range" min="0" max="1" step="0.001" @oninput="ScrubAsync" class="ch-slider" aria-label="Storyboard progress" data-testid="storyboard-scrubber" />
+    <div class="ch-buttons">
+        <button type="button" @onclick="PlayAsync">Play</button>
+        <button type="button" @onclick="ReverseAsync">Reverse</button>
+        <button type="button" @onclick="() => sequence!.Stop(restore: true)">Reset</button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>Parallel, staggered</h2>
+    <p><code>Mode="Parallel"</code> with <code>Stagger="60ms"</code>: the same animation starting a beat apart, looping.</p>
+
+    <Choreography Stagger="TimeSpan.FromMilliseconds(60)">
+        <div class="ch-bars">
+            @for (var i = 0; i < 12; i++)
+            {
+                <Keyframes Duration="TimeSpan.FromMilliseconds(700)" Iterations="Keyframes.Infinite" Direction="PlaybackDirection.Alternate" Fill="FillMode.Backwards">
+                    <PropertyTrack Property="ScaleY">
+                        <Key Offset="0" Value="0.2" Easing="SinInOut" />
+                        <Key Offset="1" Value="1" />
+                    </PropertyTrack>
+                    <div class="ch-bar"></div>
+                </Keyframes>
+            }
+        </div>
+    </Choreography>
+</section>
+
+<section class="demo-section">
+    <h2>Template applied to children</h2>
+    <p>
+        <code>ApplyTo="Children"</code>: one Keyframes, played on each child element in turn - the staggered list
+        entrance. <code>Playing</code> drives it from a value.
+    </p>
+
+    <Choreography ApplyTo="ChoreographyApplyTo.Children" Stagger="TimeSpan.FromMilliseconds(70)" Playing="@playing" Class="ch-list">
+        <Keyframes Duration="TimeSpan.FromMilliseconds(500)" Fill="FillMode.Both">
+            <Track Property="TranslationX">
+                <Key Offset="0" Value="-24" Easing="Emphasized" />
+                <Key Offset="1" Value="0" />
+            </Track>
+            <Track Property="Opacity">
+                <Key Offset="0" Value="0" />
+                <Key Offset="1" Value="1" />
+            </Track>
+        </Keyframes>
+        @foreach (var item in items)
+        {
+            <div class="ch-item">@item</div>
+        }
+    </Choreography>
+
+    <div class="ch-buttons">
+        <button type="button" data-testid="replay-list" @onclick="ReplayAsync">Replay</button>
+    </div>
+</section>
+
+<style>
+    .ch-row { display: flex; flex-wrap: wrap; gap: 12px; min-height: 120px; align-items: flex-end; }
+    .ch-card { width: 96px; height: 80px; border-radius: 14px; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .ch-slider { width: 100%; max-width: 320px; margin-top: 12px; }
+    .ch-buttons { display: flex; gap: 8px; margin-top: 8px; }
+    .ch-buttons button { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--shiny-color-outline-variant, #E5E7EB); background: transparent; color: inherit; cursor: pointer; }
+    .ch-bars { display: flex; gap: 6px; height: 80px; align-items: flex-end; }
+    .ch-bar { width: 14px; height: 80px; border-radius: 4px; background: var(--shiny-color-primary, #4F46E5); transform-origin: bottom; }
+    .ch-list { display: flex; flex-direction: column; gap: 6px; max-width: 360px; }
+    .ch-item { padding: 10px 14px; border-radius: 10px; background: var(--shiny-color-surface-container, #F3F4F6); }
+</style>
+
+@code {
+    Choreography? sequence;
+    bool? playing = true;
+
+    static readonly (string, string)[] steps = [("Plan", "#0E7490"), ("Build", "#7C3AED"), ("Ship", "#B45309"), ("Celebrate", "#BE123C")];
+    static readonly string[] items = ["Inbox", "Today", "Upcoming", "Projects", "Archive"];
+
+    async Task ScrubAsync(ChangeEventArgs e)
+    {
+        var p = double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
+        await sequence!.SeekProgress(p);
+    }
+
+    async Task PlayAsync()
+    {
+        await sequence!.SetRate(1);
+        await sequence.Play();
+    }
+
+    async Task ReverseAsync()
+    {
+        await sequence!.SetRate(-sequence.Rate);
+        await sequence.Resume();
+    }
+
+    async Task ReplayAsync()
+    {
+        // false then true: Playing plays from the start each time it becomes true.
+        playing = false;
+        await Task.Delay(30);
+        playing = true;
+    }
+}

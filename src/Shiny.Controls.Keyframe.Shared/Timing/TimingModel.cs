@@ -29,6 +29,7 @@ public sealed class Timing
     TimeSpan duration = TimeSpan.FromMilliseconds(300);
     double iterations = 1d;
     double iterationStart;
+    TimeSpan iterationDelay;
 
     /// <summary>How long a single iteration lasts. Must be positive.</summary>
     public TimeSpan Duration
@@ -47,6 +48,21 @@ public sealed class Timing
 
     /// <summary>Delay applied after the final iteration before the timeline reports as finished.</summary>
     public TimeSpan EndDelay { get; set; }
+
+    /// <summary>
+    /// Pause between consecutive iterations, during which the end pose of the iteration that just
+    /// finished is held. Not applied before the first iteration (that is <see cref="Delay"/>) or
+    /// after the last (that is <see cref="EndDelay"/>).
+    /// </summary>
+    public TimeSpan IterationDelay
+    {
+        get => iterationDelay;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, TimeSpan.Zero);
+            iterationDelay = value;
+        }
+    }
 
     /// <summary>
     /// How many times to repeat. Fractional values are allowed and truncate the final pass;
@@ -94,7 +110,7 @@ public sealed class Timing
     /// excluding <see cref="Delay"/> and <see cref="EndDelay"/>.</summary>
     public TimeSpan ActiveDuration => double.IsPositiveInfinity(Iterations)
         ? TimeSpan.MaxValue
-        : Duration * Iterations;
+        : Duration * Iterations + IterationDelay * Math.Max(0d, Math.Ceiling(Iterations) - 1d);
 
     /// <summary>
     /// Total wall-clock time from being started to reporting finished. Infinite for looping timelines.
@@ -158,12 +174,33 @@ public sealed class Timing
     /// </summary>
     (double Progress, int Iteration) ResolveIterationPosition(TimeSpan active, TimeSpan activeDuration, bool infinite)
     {
-        var overallProgress = active / Duration + IterationStart;
+        // Iteration delays are wall-clock gaps between passes. Fold them out first, so what is left
+        // is time spent actually inside an iteration; a sample inside a gap holds the end of the
+        // pass that just finished.
+        var inGap = false;
+        var iterationTime = active;
+
+        if (IterationDelay > TimeSpan.Zero && active > TimeSpan.Zero)
+        {
+            var cycle = Duration + IterationDelay;
+            var cycles = Math.Floor(active / cycle);
+            var within = active - cycle * cycles;
+
+            if (within > Duration)
+            {
+                inGap = true;
+                within = Duration;
+            }
+
+            iterationTime = Duration * cycles + within;
+        }
+
+        var overallProgress = iterationTime / Duration + IterationStart;
 
         // Landing exactly on an iteration boundary is ambiguous: it is simultaneously the end of
         // one pass and the start of the next. The end of the *final* pass must read as progress 1
         // of the last iteration, otherwise a Forwards fill would snap back to the starting value.
-        var atActiveEnd = !infinite && active >= activeDuration;
+        var atActiveEnd = inGap || (!infinite && active >= activeDuration);
 
         if (atActiveEnd && overallProgress > 0d)
         {
@@ -202,6 +239,7 @@ public sealed class Timing
         duration = duration,
         Delay = Delay,
         EndDelay = EndDelay,
+        iterationDelay = iterationDelay,
         iterations = iterations,
         iterationStart = iterationStart,
         Direction = Direction,

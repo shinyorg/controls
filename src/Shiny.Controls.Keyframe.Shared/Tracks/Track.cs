@@ -23,6 +23,7 @@ public sealed class Track<TTarget, TValue> : ITrack
     readonly Func<TTarget, TValue>? getter;
     readonly IInterpolator<TValue> interpolator;
     readonly Key<TValue>[] keys;
+    readonly Action<TTarget>? release;
 
     TValue? baseline;
     bool hasBaseline;
@@ -36,13 +37,16 @@ public sealed class Track<TTarget, TValue> : ITrack
     /// <param name="getter">Reads the target's current value. Required if any key is implicit or if
     /// <see cref="RestoreBaseline"/> will be used.</param>
     /// <param name="name">Optional label for diagnostics.</param>
+    /// <param name="release">Withdraws the track's effect from the target; see <see cref="ITrack.Release"/>.
+    /// Leave null for a setter that writes the property directly.</param>
     public Track(
         TTarget target,
         Action<TTarget, TValue> setter,
         IEnumerable<Key<TValue>> keys,
         IInterpolator<TValue> interpolator,
         Func<TTarget, TValue>? getter = null,
-        string? name = null)
+        string? name = null,
+        Action<TTarget>? release = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(setter);
@@ -53,6 +57,7 @@ public sealed class Track<TTarget, TValue> : ITrack
         this.setter = setter;
         this.getter = getter;
         this.interpolator = interpolator;
+        this.release = release;
         this.Name = name;
 
         // A stable sort keeps duplicate offsets in author order, which is what makes a hard cut
@@ -91,6 +96,13 @@ public sealed class Track<TTarget, TValue> : ITrack
             return;
 
         setter(instance, baseline!);
+    }
+
+    /// <inheritdoc />
+    public void Release()
+    {
+        if (release is not null && target.TryGetTarget(out var instance))
+            release(instance);
     }
 
     /// <inheritdoc />

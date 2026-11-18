@@ -1,0 +1,13 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+
+@*
+    One element whose look follows State. Each VisualState is a set of CSS declarations (and/or a
+    class); a VisualTransition says how to get from one to another. The change is a CSS transition on
+    exactly the properties the two states touch, so an interrupted transition carries on from the
+    value on screen - the browser retargets from the computed style.
+*@
+<CascadingValue Value="this" IsFixed="true">
+    <div @ref="Element" class="@CssClass" style="@CssStyle" @attributes="AdditionalAttributes">
+        @ChildContent
+    </div>
+</CascadingValue>

@@ -1,0 +1,12 @@
+.shiny-implicit-children > ::deep * {
+    transition: var(--shiny-implicit-transition, none);
+}
+
+/* Auto reduced motion: changes apply at once when the user asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+    .shiny-motion-auto,
+    .shiny-motion-auto.shiny-implicit-children > ::deep * {
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+    }
+}

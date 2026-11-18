@@ -1,0 +1,29 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+@implements IDisposable
+
+@* Renders nothing of its own: one animated property, whose Key children say what it is when. *@
+<CascadingValue Value="this" IsFixed="true">@ChildContent</CascadingValue>
+
+@code {
+    [CascadingParameter] ITrackOwner? Owner { get; set; }
+
+    /// <summary>The property: a MAUI name (Opacity, Scale, TranslationX, Rotation, BackgroundColor, ...) or any CSS property.</summary>
+    [Parameter, EditorRequired] public string Property { get; set; } = "";
+
+    /// <summary>Animate the element with this id instead of the Keyframes' own element (MAUI's TargetName).</summary>
+    [Parameter] public string? TargetId { get; set; }
+
+    /// <summary>The Key children.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    readonly List<Key> keys = [];
+
+    internal void AddKey(Key key) => this.keys.Add(key);
+    internal void RemoveKey(Key key) => this.keys.Remove(key);
+
+    internal Compilation.TrackSpec ToSpec() => new(this.Property, this.keys.Select(k => k.ToSpec()).ToList());
+
+    protected override void OnInitialized() => this.Owner?.AddTrack(this);
+
+    public void Dispose() => this.Owner?.RemoveTrack(this);
+}

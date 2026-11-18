@@ -13,6 +13,11 @@ public static class Easings
     /// discrete properties like visibility or sprite frames.</summary>
     public static readonly EasingFunction StepEnd = t => t >= 1d ? 1d : 0d;
 
+    /// <summary>Holds the segment's starting value for its whole length and lands on the next key
+    /// only when the segment ends. The same curve as <see cref="StepEnd"/>, under the name the
+    /// keyframe authoring tools use for it.</summary>
+    public static readonly EasingFunction Hold = StepEnd;
+
     /// <summary>Snaps to the new value immediately at the start of the segment.</summary>
     public static readonly EasingFunction StepStart = t => t <= 0d ? 0d : 1d;
 
@@ -241,6 +246,15 @@ public static class Easings
             ? 1d
             : 1d - (r2 * Math.Exp(r1 * t) - r1 * Math.Exp(r2 * t)) / (r2 - r1);
     }
+
+    /// <summary>
+    /// Builds a spring from a single "bounce" amount, the way SwiftUI and the design tools express
+    /// one: 0 settles with no overshoot, 0.3 is a gentle settle, 0.7 is very bouncy.
+    /// </summary>
+    /// <param name="bounce">0 to just under 1. Converted to a damping ratio of <c>1 - bounce</c>.</param>
+    /// <param name="frequency">Undamped angular frequency across the segment.</param>
+    public static EasingFunction Bouncy(double bounce, double frequency = 12d)
+        => Spring(1d - Math.Clamp(bounce, 0d, 0.95d), frequency);
 
     /// <summary>Reverses a curve in time: <c>Reverse(f)(t) == 1 - f(1 - t)</c>.</summary>
     public static EasingFunction Reverse(EasingFunction easing)

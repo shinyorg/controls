@@ -51,3 +51,17 @@ public enum PlaybackState
     /// <summary>Reached the end of its active duration.</summary>
     Finished
 }
+
+/// <summary>What stopping a player does to the values its animation wrote.</summary>
+public enum StopBehavior
+{
+    /// <summary>Leave the targets on the last frame written.</summary>
+    Hold,
+
+    /// <summary>Withdraw the animation's effect, so each target shows its own value again —
+    /// whatever its binding, style or visual state says now.</summary>
+    Release,
+
+    /// <summary>Write back the values the targets had when playback began.</summary>
+    Restore
+}

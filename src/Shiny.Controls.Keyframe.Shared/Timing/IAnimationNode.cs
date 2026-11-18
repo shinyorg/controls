@@ -27,4 +27,8 @@ public interface IAnimationNode
 
     /// <summary>Restores every target to the values captured by <see cref="CaptureBaselines"/>.</summary>
     void RestoreBaselines();
+
+    /// <summary>Withdraws every track's effect so targets show their own values again. See
+    /// <see cref="ITrack.Release"/>.</summary>
+    void Release() { }
 }

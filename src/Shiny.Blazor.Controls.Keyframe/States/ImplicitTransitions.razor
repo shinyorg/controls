@@ -1,0 +1,12 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+
+@*
+    Implicit property transitions: list the properties once, and any change to them animates -
+    a re-render, a class swap, script, anything. A CSS transition underneath, with springs and
+    bounces sampled into linear() so they play the same curve as on MAUI.
+*@
+<CascadingValue Value="this" IsFixed="true">
+    <div class="@CssClass" style="@CssStyle" @attributes="AdditionalAttributes">
+        @ChildContent
+    </div>
+</CascadingValue>

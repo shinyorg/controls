@@ -143,6 +143,38 @@ public static class PageTransition
     public static TimeSpan? GetDuration(BindableObject view) => (TimeSpan?)view.GetValue(DurationProperty);
     public static void SetDuration(BindableObject view, TimeSpan? value) => view.SetValue(DurationProperty, value);
 
+    /// <summary>
+    /// How the page is presented and dismissed when it is shown modally (<c>PushModalAsync</c>), in
+    /// place of <see cref="PushProperty"/>/<see cref="PopProperty"/>. Left at
+    /// <see cref="PageTransitionType.Default"/>, a modal uses the page's Push (and Pop) as before.
+    /// </summary>
+    public static readonly BindableProperty ModalProperty = BindableProperty.CreateAttached(
+        "Modal", typeof(PageTransitionType), typeof(PageTransition), PageTransitionType.Default);
+
+    /// <summary>
+    /// A custom transition for this page's push, pop, modal present and dismiss. It wins over the
+    /// page's Push, Pop and Modal types.
+    /// </summary>
+    public static readonly BindableProperty AnimatorProperty = BindableProperty.CreateAttached(
+        "Animator", typeof(IPageTransitionAnimator), typeof(PageTransition), null);
+
+    /// <summary>
+    /// Set on a <see cref="ShellContent"/>, <see cref="ShellSection"/> (Tab) or <see cref="ShellItem"/>:
+    /// the transition used when switching to it, in place of <see cref="ShellItemTransition"/>. The
+    /// most specific one set wins (content, then section, then item).
+    /// </summary>
+    public static readonly BindableProperty TabProperty = BindableProperty.CreateAttached(
+        "Tab", typeof(PageTransitionType), typeof(PageTransition), PageTransitionType.Default);
+
+    public static PageTransitionType GetModal(BindableObject view) => (PageTransitionType)view.GetValue(ModalProperty);
+    public static void SetModal(BindableObject view, PageTransitionType value) => view.SetValue(ModalProperty, value);
+
+    public static IPageTransitionAnimator? GetAnimator(BindableObject view) => (IPageTransitionAnimator?)view.GetValue(AnimatorProperty);
+    public static void SetAnimator(BindableObject view, IPageTransitionAnimator? value) => view.SetValue(AnimatorProperty, value);
+
+    public static PageTransitionType GetTab(BindableObject view) => (PageTransitionType)view.GetValue(TabProperty);
+    public static void SetTab(BindableObject view, PageTransitionType value) => view.SetValue(TabProperty, value);
+
     #endregion
 
     #region Hero
@@ -240,6 +272,33 @@ public static class PageTransition
     /// </summary>
     public static PageTransitionType DefaultTransition { get; set; } = PageTransitionType.Default;
 
+    /// <summary>
+    /// The transition for modal pages that set neither <see cref="ModalProperty"/> nor a Push.
+    /// <see cref="PageTransitionType.Default"/> uses <see cref="DefaultTransition"/>.
+    /// </summary>
+    public static PageTransitionType DefaultModalTransition { get; set; } = PageTransitionType.Default;
+
+    /// <summary>
+    /// A custom transition for every page that sets no transition of its own (no Animator, and no
+    /// Push/Pop/Modal type). It wins over <see cref="DefaultTransition"/>.
+    /// </summary>
+    public static IPageTransitionAnimator? DefaultAnimator { get; set; }
+
+    /// <summary>What transitions do when the OS asks for less motion. Default <see cref="PageTransitionReducedMotion.Crossfade"/>.</summary>
+    public static PageTransitionReducedMotion ReducedMotion { get; set; } = PageTransitionReducedMotion.Crossfade;
+
+    /// <summary>The OS reduced-motion setting; swapped in tests.</summary>
+    internal static Func<bool> IsReducedMotionRequested { get; set; } = () => Shiny.Maui.Controls.ReducedMotion.IsEnabled;
+
+    /// <summary>The crossfade a reduced-motion transition becomes never runs longer than this.</summary>
+    internal static readonly TimeSpan ReducedMotionCrossfade = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>True while reduced motion is changing what transitions run.</summary>
+    internal static bool IsMotionReduced => ReducedMotion != PageTransitionReducedMotion.Ignore && IsReducedMotionRequested();
+
+    /// <summary>Hero flights are motion too; reduced motion drops them.</summary>
+    internal static bool HeroesAllowed => !IsMotionReduced;
+
     /// <summary>How long a transition runs, unless the page sets <see cref="DurationProperty"/>.</summary>
     public static TimeSpan Duration { get; set; } = TimeSpan.FromMilliseconds(320);
 
@@ -288,28 +347,214 @@ public static class PageTransition
 
 
     /// <summary>
-    /// The transition for a navigation between <paramref name="from"/> and <paramref name="to"/>.
+    /// The built-in transition for a navigation between <paramref name="from"/> and
+    /// <paramref name="to"/>: the same as <see cref="ResolveTransition"/>, without a custom animator.
     /// When the pages share a hero and nothing else is set, the pages crossfade so the hero has a
     /// transition to fly over.
     /// </summary>
     public static PageTransitionPlan Resolve(Page? from, Page? to, bool isPop)
-    {
-        var plan = isPop ? ResolvePop(from) : ResolvePush(to);
-        if (plan.Type == PageTransitionType.Default && FindHeroPairs(from, to).Count > 0)
-            plan = plan with { Type = PageTransitionType.Fade };
+        => ResolveTransition(from, to, isPop).Plan;
 
-        return plan;
+
+    /// <summary>
+    /// Everything a navigation between <paramref name="from"/> and <paramref name="to"/> will run.
+    /// </summary>
+    /// <remarks>
+    /// <para>Precedence, highest first, for the page that moves (the incoming page on a push, the
+    /// outgoing one on a pop):</para>
+    /// <list type="number">
+    /// <item>A one-shot transition from a per-call overload (<c>PushAsync(page, type)</c>, <c>GoToAsync(state, animator)</c>, ...).</item>
+    /// <item>The page's <see cref="AnimatorProperty">Animator</see>.</item>
+    /// <item>The page's own type: <see cref="ModalProperty">Modal</see> for a modal, then <see cref="PopProperty">Pop</see> for a pop, then <see cref="PushProperty">Push</see>.</item>
+    /// <item><see cref="DefaultAnimator"/>.</item>
+    /// <item><see cref="DefaultModalTransition"/> for a modal, then <see cref="DefaultTransition"/>.</item>
+    /// <item>The platform's own animation (<see cref="PageTransitionType.Default"/>), or a crossfade when the pages share a hero.</item>
+    /// </list>
+    /// <para>Then reduced motion, unless <see cref="ReducedMotion"/> is <see cref="PageTransitionReducedMotion.Ignore"/>:
+    /// anything set becomes a short crossfade or <see cref="PageTransitionType.None"/>. The platform's own
+    /// animation is left to the platform.</para>
+    /// </remarks>
+    public static PageTransitionResolution ResolveTransition(Page? from, Page? to, bool isPop, bool isModal = false)
+    {
+        var subject = isPop ? from : to;
+        var shot = PageTransitionOverrides.Find(subject);
+
+        var ownType = OwnType(subject, isPop, isModal);
+        var pageAnimator = subject is null ? null : GetAnimator(subject);
+        var direction = shot?.Direction ?? PageTransitionDirection.Default;
+
+        IPageTransitionAnimator? animator;
+        PageTransitionType type;
+        if (shot is not null && (shot.Animator is not null || shot.Type != PageTransitionType.Default))
+        {
+            animator = shot.Animator;
+            type = shot.Type != PageTransitionType.Default ? shot.Type : FallbackType(ownType, isModal);
+        }
+        else if (pageAnimator is not null)
+        {
+            animator = pageAnimator;
+            type = FallbackType(ownType, isModal);
+        }
+        else if (ownType != PageTransitionType.Default)
+        {
+            animator = null;
+            type = ownType;
+        }
+        else
+        {
+            animator = DefaultAnimator;
+            type = FallbackType(ownType, isModal);
+        }
+
+        if (animator is null && type == PageTransitionType.Default && FindHeroPairs(from, to).Count > 0)
+            type = PageTransitionType.Fade;
+
+        var plan = Plan(subject, type, isPop, direction, shot?.Duration);
+        return ApplyReducedMotion(new PageTransitionResolution(plan, animator));
     }
 
 
-    static PageTransitionPlan Plan(Page? page, PageTransitionType type, bool isPop)
+    /// <summary>
+    /// The transition for switching to a Shell tab or flyout item: the most specific
+    /// <see cref="TabProperty">Tab</see> set on its content, section or item, else
+    /// <see cref="ShellItemTransition"/>. <paramref name="forward"/> (moving to a later tab) slides in
+    /// from the right, backward from the left.
+    /// </summary>
+    public static PageTransitionPlan ResolveTab(Element? incoming, bool forward)
     {
-        var direction = page is null ? PageTransitionDirection.Default : GetDirection(page);
+        var type = TabCandidates(incoming)
+            .Where(x => x is not null)
+            .Select(x => GetTab(x!))
+            .FirstOrDefault(x => x != PageTransitionType.Default);
+
+        if (type == PageTransitionType.Default)
+            type = ShellItemTransition;
+
+        var plan = new PageTransitionPlan(
+            type,
+            forward ? PageTransitionDirection.FromRight : PageTransitionDirection.FromLeft,
+            false,
+            Duration
+        );
+        return ApplyReducedMotion(new PageTransitionResolution(plan, null)).Plan;
+    }
+
+
+    static BindableObject?[] TabCandidates(Element? incoming) => incoming switch
+    {
+        ShellContent content => [content, content.Parent, content.Parent?.Parent],
+        ShellSection section => [section.CurrentItem, section, section.Parent],
+        ShellItem item => [item.CurrentItem?.CurrentItem, item.CurrentItem, item],
+        _ => []
+    };
+
+
+    /// <summary>The page's own type for this kind of navigation, or Default when it sets none.</summary>
+    static PageTransitionType OwnType(Page? page, bool isPop, bool isModal)
+    {
+        if (page is null)
+            return PageTransitionType.Default;
+
+        var type = isModal ? GetModal(page) : PageTransitionType.Default;
+        if (type == PageTransitionType.Default && isPop)
+            type = GetPop(page);
+        if (type == PageTransitionType.Default)
+            type = GetPush(page);
+
+        return type;
+    }
+
+
+    /// <summary>The page's type, else the app's default for the kind of navigation.</summary>
+    static PageTransitionType FallbackType(PageTransitionType ownType, bool isModal)
+    {
+        if (ownType != PageTransitionType.Default)
+            return ownType;
+
+        if (isModal && DefaultModalTransition != PageTransitionType.Default)
+            return DefaultModalTransition;
+
+        return DefaultTransition;
+    }
+
+
+    /// <summary>What reduced motion turns a resolved transition into.</summary>
+    internal static PageTransitionResolution ApplyReducedMotion(PageTransitionResolution resolution)
+    {
+        // The platform's own animation follows the platform's own reduced-motion rules, and None is
+        // already as still as it gets.
+        if (!resolution.IsSet || resolution.Plan.Type == PageTransitionType.None || !IsMotionReduced)
+            return resolution;
+
+        var plan = resolution.Plan;
+        plan = ReducedMotion == PageTransitionReducedMotion.None
+            ? plan with { Type = PageTransitionType.None }
+            : plan with
+            {
+                Type = PageTransitionType.Fade,
+                Duration = plan.Duration < ReducedMotionCrossfade ? plan.Duration : ReducedMotionCrossfade
+            };
+
+        return new PageTransitionResolution(plan, null);
+    }
+
+
+    static PageTransitionPlan Plan(Page? page, PageTransitionType type, bool isPop, PageTransitionDirection direction = PageTransitionDirection.Default, TimeSpan? duration = null)
+    {
+        if (direction == PageTransitionDirection.Default && page is not null)
+            direction = GetDirection(page);
         if (direction == PageTransitionDirection.Default)
             direction = type == PageTransitionType.SharedAxisY ? PageTransitionDirection.FromBottom : PageTransitionDirection.FromRight;
 
-        var duration = (page is null ? null : GetDuration(page)) ?? Duration;
-        return new PageTransitionPlan(type, direction, isPop, duration);
+        duration ??= (page is null ? null : GetDuration(page)) ?? Duration;
+        return new PageTransitionPlan(type, direction, isPop, duration.Value);
+    }
+
+
+    /// <summary>
+    /// The element a transition animates for <paramref name="page"/> on this head: the page itself,
+    /// except on Linux (GTK4), whose page views ignore transforms, where it is the page's content.
+    /// </summary>
+    public static VisualElement? GetAnimationSurface(Page? page)
+    {
+        if (page is ContentPage { Content: View content } && OperatingSystem.IsLinux())
+            return content;
+
+        return page;
+    }
+
+
+    /// <summary>The page actually showing inside a container page (a Shell's or NavigationPage's current page).</summary>
+    internal static Page? VisiblePage(Page? page)
+    {
+        for (var depth = 0; depth < 6; depth++)
+        {
+            var inner = page switch
+            {
+                Shell shell => shell.CurrentPage,
+                FlyoutPage flyout => flyout.Detail,
+                IPageContainer<Page> container => container.CurrentPage,
+                _ => null
+            };
+            if (inner is null || ReferenceEquals(inner, page))
+                return page;
+
+            page = inner;
+        }
+        return page;
+    }
+
+
+    /// <summary>
+    /// Runs one of the built-in transitions as property animations on the context's pages, the way
+    /// the managed heads do. A custom <see cref="IPageTransitionAnimator"/> can use it to build on a
+    /// built-in (run a <see cref="PageTransitionType.Fade"/> alongside its own motion, say).
+    /// The caller resets the pages afterwards, as the host does for an animator.
+    /// </summary>
+    public static Task AnimateAsync(PageTransitionContext context, PageTransitionType type, CancellationToken cancellationToken = default)
+    {
+        var plan = new PageTransitionPlan(type, context.Direction, context.IsPop, context.Duration);
+        return ManagedTransitionRunner.RunAsync(plan, context.FromSurface, context.ToSurface, context.Bounds, [], cancellationToken);
     }
 
     #endregion

@@ -60,3 +60,17 @@ public enum PageEntranceAnimation
     SlideIn,
     Scale
 }
+
+
+/// <summary>What a <see cref="PageTransitionHost"/> does when the user prefers reduced motion.</summary>
+public enum PageTransitionReducedMotion
+{
+    /// <summary>Navigate without animation. The default.</summary>
+    Instant,
+
+    /// <summary>A short crossfade instead of the page's transition, and no hero flights: a change of page is still visible, nothing moves.</summary>
+    Crossfade,
+
+    /// <summary>Run the transitions anyway.</summary>
+    Play
+}

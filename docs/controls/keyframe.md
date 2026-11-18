@@ -2,7 +2,7 @@
 
 [← All Shiny Controls](../../README.md)
 
-Declarative keyframe animation for MAUI views — the CSS `@keyframes` model, with the one thing MAUI's own `Animation` class can't do: **seek**. Ships as `Shiny.Maui.Controls.Keyframe` (XAML + views) on top of `Shiny.Controls.Keyframe.Shared` (the host-neutral timing engine), with `Shiny.Maui.Controls.Keyframe.Export` as an optional headless renderer.
+Declarative animation for MAUI and Blazor views — the CSS `@keyframes` model, with the things MAUI's own `Animation` class can't do: **seek**, reverse mid-flight, and animate without breaking bindings. On top of the keyframes sit choreographed storyboards, trigger actions, animated visual-state transitions, implicit property transitions, item transitions and Keyframe page transitions, with reduced motion honoured by default. Together they cover every phase of the MAUI animation spec ([dotnet/maui#40382](https://github.com/dotnet/maui/issues/40382)), on both hosts. Ships as `Shiny.Maui.Controls.Keyframe` (XAML + views) and `Shiny.Blazor.Controls.Keyframe` (the same names over the Web Animations API) on top of `Shiny.Controls.Keyframe.Shared` (the host-neutral timing engine), with `Shiny.Maui.Controls.Keyframe.Export` as an optional headless renderer. Blazor: see [keyframe-blazor.md](keyframe-blazor.md).
 
 ```xml
 xmlns:kf="http://shiny.net/maui/keyframe"
@@ -27,7 +27,7 @@ xmlns:kf="http://shiny.net/maui/keyframe"
 </Border>
 ```
 
-`Easing` takes named curves (`CubicOut`, `BounceOut`, `Emphasized`, …) **and** CSS function syntax, so a curve copied out of a design tool or browser devtools works verbatim: `cubic-bezier(0.34, 1.56, 0.64, 1)`, `steps(8)`, `spring(0.35, 14)`. Omit `Value` on a key and it resolves to the target's **live value when playback starts**, so a re-triggered animation continues from where it is instead of snapping.
+`Easing` takes named curves (`CubicOut`, `BounceOut`, `Emphasized`, `Hold`, …) **and** CSS function syntax, so a curve copied out of a design tool or browser devtools works verbatim: `cubic-bezier(0.34, 1.56, 0.64, 1)`, `steps(8)`, `spring(0.35, 14)`, `bouncy(0.3)`. The syntax is shared with Blazor, where springs become CSS `linear()`. Omit `Value` on a key and it resolves to the target's **live value when playback starts**, so a re-triggered animation continues from where it is instead of snapping.
 
 The same model drives C# timelines and storyboards:
 
@@ -48,6 +48,100 @@ player.Rate = -1;                 // reverse, mid-flight
 player.SeekProgress(0.35);        // scrub from a slider or gesture
 await player.PlayAsync();
 ```
+
+`Keyframes` also takes `EndDelay`, `IterationDelay` (a pause between iterations, holding the end pose), `ReducedMotion` (`Auto` jumps to the end state when the OS asks for less motion; `Play` animates anyway; `Instant` never animates) and `TargetName`.
+
+### The animation layer
+
+Every built-in track writes through `AnimationLayer` — MAUI's top "from handler" value slot — instead of `SetValue`. The animation shows a value without owning the property: bindings, styles, visual states and triggers keep working underneath, any of them writing the property drops the animated value, and a run that ends without a forwards fill (or is stopped with `StopBehavior.Release`) leaves the property showing its own value. `FadeToAsync` writes a local value instead, which masks the binding from then on. `AnimationLayer.GetBaseValue` reads the value without the animation.
+
+**Notes:** a `{DynamicResource}` set directly on the animated property is still detached by the first frame (set it in a `Style` and it stays live); a `TwoWay`-bound property receives the animated values.
+
+### KeyFrame + Setter (the storyboard shape)
+
+```xml
+<kf:Keyframes x:Key="PopIn" Duration="0:0:0.4" Fill="Backwards">
+  <kf:KeyFrame Cue="0%">
+    <Setter Property="VisualElement.Opacity" Value="0" />
+    <Setter Property="VisualElement.Scale" Value="0.9" />
+  </kf:KeyFrame>
+  <kf:KeyFrame Cue="60%" Easing="CubicOut">
+    <Setter Property="VisualElement.Opacity" Value="1" />
+    <Setter Property="VisualElement.Scale" Value="1.05" />
+  </kf:KeyFrame>
+  <kf:KeyFrame Cue="100%" Easing="spring(0.4)">
+    <Setter Property="VisualElement.Scale" Value="1" />
+  </kf:KeyFrame>
+</kf:Keyframes>
+```
+
+Any bindable property animates, blended by type. A frame's `Easing` shapes the segment *arriving* at it (WinUI convention); a `Key`'s shapes the one leaving it (CSS).
+
+### Choreography, playing from code, trigger actions
+
+```xml
+<kf:Animate.Choreography>
+  <kf:Choreography ApplyTo="Children" Stagger="0:0:0.07">
+    <kf:Keyframes Duration="0:0:0.5" Fill="Backwards"> … </kf:Keyframes>
+  </kf:Choreography>
+</kf:Animate.Choreography>
+
+<DataTrigger TargetType="Button" Binding="{Binding IsBusy}" Value="True">
+  <DataTrigger.EnterActions><kf:BeginAnimation Animation="{StaticResource Pulse}" /></DataTrigger.EnterActions>
+  <DataTrigger.ExitActions><kf:StopAnimation Animation="{StaticResource Pulse}" /></DataTrigger.ExitActions>
+</DataTrigger>
+```
+
+```csharp
+await card.PlayAsync(popIn);   // true when it finishes, false when stopped or cancelled
+card.StopAnimations();         // hands every property back to its binding/style/state
+```
+
+`Choreography`: `Mode` (Parallel/Sequence), `Stagger`, `ApplyTo` (Self/Children), `TargetName`, `AutoPlay`, `Speed`, `ReducedMotion`. Actions: `BeginAnimation`, `StopAnimation`, `PauseAnimation`, `ResumeAnimation`, `SkipAnimationToEnd`, `SeekAnimation`.
+
+### Animated visual states
+
+```xml
+<Button Text="Save">
+  <kf:StateTransitions.Transitions>
+    <kf:VisualTransition Duration="0:0:0.15" />
+    <kf:VisualTransition To="Pressed" Duration="0:0:0.08" Easing="CubicOut" />
+    <kf:VisualTransition To="Error" Animation="{StaticResource Shake}" />
+    <kf:StateAnimation State="Busy" Animation="{StaticResource Pulse}" />
+  </kf:StateTransitions.Transitions>
+  <VisualStateManager.VisualStateGroups> … unchanged … </VisualStateManager.VisualStateGroups>
+</Button>
+```
+
+State changes from `GoToState`, state triggers and MAUI's own Pressed/PointerOver/Focused/Disabled animate. The most specific `VisualTransition` wins (Group, then From+To); with none matching, the change snaps. A change interrupted mid-flight continues from the value on screen. `StateTransitions.GoToState(view, name, useTransitions: false)` snaps a single change.
+
+### Implicit transitions
+
+```xml
+<BoxView Opacity="{Binding Fade}">
+  <kf:PropertyTransitions.Transitions>
+    <kf:PropertyTransition Property="Opacity" Duration="0:0:0.2" />
+    <kf:PropertyTransition Property="Scale" Easing="spring(0.4, 13)" Duration="0:0:0.5" />
+  </kf:PropertyTransitions.Transitions>
+</BoxView>
+```
+
+Any change, from any source, animates. The value that was set stays in the property's own source (`AnimationLayer.GetBaseValue` returns it) and only the visible value moves toward it; while it moves, the property getter returns the on-screen value. `Property="All"` covers every registered property; `BindableProperty="{x:Static …}"` reaches any other property.
+
+### Item transitions
+
+```xml
+<CollectionView kf:ItemTransitions.Mode="None"
+                kf:ItemTransitions.Appear="{StaticResource FadeUp}"
+                kf:ItemTransitions.Add="{StaticResource PopIn}"
+                kf:ItemTransitions.Remove="{StaticResource SlideOut}" />
+```
+
+`Mode="None"` switches off the platform's item insert/remove/move animations (Android, iOS, Mac Catalyst, Windows). `Appear` plays once per item, staggered as items appear together; `Add` plays for items added later. A removal can't be intercepted after the fact, so `ItemTransitions.RemoveAsync(list, item, () => Items.Remove(item))` plays `Remove` first.
+
+### Page transitions
+
+`KeyframePageTransition` (`Enter`, `Exit`, `PopEnter`, `PopExit`) plugs into core's page-transition animator seam, so a push, pop or modal can be any Keyframes. See [Page Transitions](page-transitions.md).
 
 …and a drawn scene graph rendered to a canvas, the Lottie-shaped lane:
 
@@ -74,8 +168,10 @@ scene.Animation = TimelineBuilder
 - **Targets are held weakly**, so an infinite animation on a popped page goes inert and gets collected instead of pinning the visual tree.
 - **The XAML property registry is explicit, not reflective** — `Property="Opacity"` resolves through hand-registered delegates in `AnimatableProperties`, because reflection and compiled `Expression` both work in the emulator and break under Native AOT. Register your own with `AnimatableProperties.Register(...)`.
 - **Layout-affecting properties are the perf cliff.** `WidthRequest`, `HeightRequest`, `Margin` and `Padding` run a full measure/arrange every frame; they work, and `AnimatableProperty.InvalidatesLayout` flags them, but prefer transform and opacity where you have the choice.
-- Everything ticks in managed code on the UI thread today. Transform and opacity tracks map 1:1 onto `CAKeyframeAnimation` / `ObjectAnimator` / `ScalarKeyFrameAnimation`, so **native compositor offload** is the design's biggest remaining perf win — but it isn't written yet.
-- **It runs on every head.** Because nothing here touches a platform SDK — the clock is an `IDispatcherTimer`, the view is a `GraphicsView` — the package ships a single `net11.0` target that iOS, Android, Windows, MacCatalyst, macOS AppKit and Linux GTK4 heads all consume.
+- **The clock is vsync.** `CADisplayLink` on iOS and Mac Catalyst (asking for the display's full rate; ProMotion iPhones also need `CADisableMinimumFrameDurationOnPhone` in Info.plist), `Choreographer` on Android, `CompositionTarget.Rendering` on Windows, each with the platform frame timestamp. It never touches MAUI's own ticker, so `FadeTo` and friends are unaffected. The AppKit and GTK heads use the `net11.0` build on a dispatcher timer.
+- **Reduced motion is honoured by default** on every animation, transition and item animation (iOS Reduce Motion, Android "Remove animations", Windows animation setting). Seeking is direct manipulation and is never affected.
+- Everything ticks in managed code on the UI thread. Native compositor offload (`CAKeyframeAnimation` / `ObjectAnimator` / `ScalarKeyFrameAnimation`) isn't written.
+- **It runs on every head.** The engine, XAML and views are platform-neutral; the iOS / Android / Mac Catalyst / Windows builds exist only for the clock, the reduced-motion query and the item-animation off switch.
 
 ## Offscreen export (optional package)
 

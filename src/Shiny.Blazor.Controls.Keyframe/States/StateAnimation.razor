@@ -1,0 +1,30 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+
+@*
+    A Keyframes (or Choreography) that plays on the VisualStates element while State is active, and
+    stops - putting the state's look back - when it is left:
+
+        <StateAnimation State="Busy">
+            <Keyframes Duration="TimeSpan.FromSeconds(1)" Iterations="Keyframes.Infinite"> ... </Keyframes>
+        </StateAnimation>
+*@
+<CascadingValue Value="context">@ChildContent</CascadingValue>
+
+@code {
+    [CascadingParameter] VisualStates? Owner { get; set; }
+
+    /// <summary>The state the animation runs in.</summary>
+    [Parameter, EditorRequired] public string State { get; set; } = "";
+
+    /// <summary>The Keyframes to play.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    StateAnimationContext? context;
+
+    protected override void OnParametersSet()
+    {
+        var playing = this.Owner is not null && string.Equals(this.Owner.State, this.State, StringComparison.OrdinalIgnoreCase);
+        if (this.context is null || this.context.Playing != playing)
+            this.context = this.Owner is null ? null : new StateAnimationContext(this.Owner, playing);
+    }
+}

@@ -38,6 +38,7 @@ public sealed class Timeline : IAnimationNode
 
     int lastIteration = -1;
     bool finishedRaised;
+    bool applied;
 
     /// <summary>Adds a track.</summary>
     public Timeline Add(ITrack track)
@@ -72,6 +73,7 @@ public sealed class Timeline : IAnimationNode
         // replayed timeline must be able to raise Finished a second time.
         lastIteration = -1;
         finishedRaised = false;
+        applied = false;
 
         foreach (var track in tracks)
             track.CaptureBaseline();
@@ -85,14 +87,29 @@ public sealed class Timeline : IAnimationNode
     }
 
     /// <inheritdoc />
+    public void Release()
+    {
+        applied = false;
+        foreach (var track in tracks)
+            track.Release();
+    }
+
+    /// <inheritdoc />
     public bool Evaluate(TimeSpan time)
     {
         var sample = Timing.Sample(time);
 
         if (sample.ShouldApply)
         {
+            applied = true;
             foreach (var track in tracks)
                 track.Apply(sample.Progress);
+        }
+        else if (applied)
+        {
+            // Leaving the active window without a fill: withdraw, so the targets show their own
+            // values again rather than freezing on whatever the last frame happened to write.
+            Release();
         }
 
         if (sample.Iteration != lastIteration)

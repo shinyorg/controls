@@ -1,0 +1,37 @@
+@namespace Shiny.Blazor.Controls.Keyframe
+@typeparam TItem
+@implements IAsyncDisposable
+
+@*
+    Each item is wrapped in an element keyed by Key, so the script can find it to animate it in, pin
+    it in place while it animates out (it stays in the page until then), and FLIP it when it moves.
+*@
+<div @ref="container" class="@CssClass" style="@Style" @attributes="AdditionalAttributes">
+    @foreach (var entry in entries)
+    {
+        <div @key="entry.Key"
+             class="@ItemCssClass"
+             data-shiny-tg-key="@entry.Key"
+             data-shiny-tg-entering="@(entry.Hidden ? "" : null)"
+             aria-hidden="@(entry.Leaving ? "true" : null)">
+            @if (ItemTemplate is not null)
+            {
+                @ItemTemplate(entry.Item)
+            }
+        </div>
+    }
+</div>
+
+@* Template fragments: their Keyframes collect tracks and render nothing. *@
+@if (AppearKeyframes is not null)
+{
+    <CascadingValue TValue="IKeyframeContainer" Value="appearSlot" IsFixed="true">@AppearKeyframes</CascadingValue>
+}
+@if (AddKeyframes is not null)
+{
+    <CascadingValue TValue="IKeyframeContainer" Value="addSlot" IsFixed="true">@AddKeyframes</CascadingValue>
+}
+@if (RemoveKeyframes is not null)
+{
+    <CascadingValue TValue="IKeyframeContainer" Value="removeSlot" IsFixed="true">@RemoveKeyframes</CascadingValue>
+}

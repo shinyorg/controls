@@ -50,6 +50,13 @@ public sealed class TimelineBuilder
         return this;
     }
 
+    /// <summary>Sets a pause held between consecutive iterations.</summary>
+    public TimelineBuilder IterationDelay(TimeSpan value)
+    {
+        timing.IterationDelay = value;
+        return this;
+    }
+
     /// <summary>Repeats a set number of times. Fractional counts truncate the final pass.</summary>
     public TimelineBuilder Repeat(double count)
     {

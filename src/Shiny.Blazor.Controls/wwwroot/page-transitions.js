@@ -24,15 +24,29 @@ document.addEventListener('pointerdown', e => {
 }, { capture: true, passive: true });
 
 
-function supported() {
-    return typeof document.startViewTransition === 'function' &&
-        !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function reducedMotion() {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Whether anything animates. Under reduced motion that is the host's choice: 'instant' (nothing),
+ * 'crossfade' (a fade, nothing moving) or 'play'.
+ */
+function supported(reducedMode) {
+    if (typeof document.startViewTransition !== 'function')
+        return false;
+    return !reducedMotion() || reducedMode === 'crossfade' || reducedMode === 'play';
+}
+
+/** Reduced motion is on and the host asked for a crossfade in its place. */
+function crossfadeOnly(reducedMode) {
+    return reducedMode === 'crossfade' && reducedMotion();
 }
 
 
 /** Captures the current page. Resolves true once the picture exists, false when nothing will animate. */
-export function begin() {
-    if (!supported())
+export function begin(reducedMode) {
+    if (!supported(reducedMode))
         return Promise.resolve(false);
 
     // A navigation that starts before the last one finished: let the old one go at once.
@@ -40,7 +54,8 @@ export function begin() {
         release(pending, false);
 
     namePage();
-    const used = nameHeroes();
+    // Hero flights are motion; a reduced-motion crossfade leaves them out.
+    const used = crossfadeOnly(reducedMode) ? new Set() : nameHeroes();
     const pointer = lastPointer;
 
     return new Promise(captured => {
@@ -83,10 +98,15 @@ export function begin() {
 
 
 /** Runs the transition for the page now rendered. */
-export function finish(type, isPop, x, y, durationMs, sourceUrl, targetUrl) {
+export function finish(type, isPop, x, y, durationMs, sourceUrl, targetUrl, reducedMode) {
     const state = pending;
     if (!state || state.done)
         return;
+
+    if (crossfadeOnly(reducedMode)) {
+        runCrossfade(state, durationMs);
+        return;
+    }
 
     const newHeroes = nameHeroes();
     const sharesHero = [...newHeroes].some(n => state.oldHeroes.has(n));
@@ -159,6 +179,61 @@ export function finish(type, isPop, x, y, durationMs, sourceUrl, targetUrl) {
 }
 
 
+/** The reduced-motion stand-in: the two pages crossfade, nothing moves. */
+function runCrossfade(state, durationMs) {
+    clearHeroes();
+    const root = document.documentElement;
+    root.style.setProperty('--shiny-vt-duration', `${Math.min(durationMs, 200)}ms`);
+    root.style.setProperty('--shiny-vt-old', 'shiny-vt-fade-out');
+    root.style.setProperty('--shiny-vt-new', 'shiny-vt-fade-in');
+    root.removeAttribute('data-shiny-vt-oldtop');
+    root.setAttribute('data-shiny-vt', 'crossfade');
+    release(state, true);
+}
+
+
+/** Adds the @keyframes of a custom transition to the page, once per name. */
+export function defineCustom(name, css) {
+    const id = 'shiny-vt-custom-' + String(name).replace(/[^a-zA-Z0-9_-]/g, '-');
+    let style = document.getElementById(id);
+    if (!style) {
+        style = document.createElement('style');
+        style.id = id;
+        document.head.appendChild(style);
+    }
+    style.textContent = css;
+}
+
+
+/**
+ * Runs a custom transition: the named @keyframes on each picture, each with its own direction (a
+ * pop with no pop animations of its own plays the push backwards).
+ */
+export function finishCustom(isPop, durationMs, oldNames, oldDirection, newNames, newDirection, reducedMode) {
+    const state = pending;
+    if (!state || state.done)
+        return;
+
+    if (crossfadeOnly(reducedMode)) {
+        runCrossfade(state, durationMs);
+        return;
+    }
+
+    nameHeroes();
+    const root = document.documentElement;
+    root.style.setProperty('--shiny-vt-duration', `${durationMs}ms`);
+    root.style.setProperty('--shiny-vt-old', oldNames || 'none');
+    root.style.setProperty('--shiny-vt-new', newNames || 'none');
+    root.style.setProperty('--shiny-vt-old-dir', oldDirection || 'normal');
+    root.style.setProperty('--shiny-vt-new-dir', newDirection || 'normal');
+    // Per-keyframe curves are baked into the @keyframes; the animation itself runs linear.
+    root.style.setProperty('--shiny-vt-ease', 'linear');
+    root.toggleAttribute('data-shiny-vt-oldtop', isPop);
+    root.setAttribute('data-shiny-vt', 'custom');
+    release(state, true);
+}
+
+
 function release(state, animate) {
     if (state.done)
         return;
@@ -178,7 +253,7 @@ function cleanup() {
     const root = document.documentElement;
     root.removeAttribute('data-shiny-vt');
     root.removeAttribute('data-shiny-vt-oldtop');
-    for (const name of ['duration', 'x', 'y', 'old', 'new', 'ax', 'ay', 'zin', 'zout', 'fx', 'fy', 'turn', 'cx', 'cy', 'r'])
+    for (const name of ['duration', 'x', 'y', 'old', 'new', 'ax', 'ay', 'zin', 'zout', 'fx', 'fy', 'turn', 'cx', 'cy', 'r', 'old-dir', 'new-dir', 'ease'])
         root.style.removeProperty(`--shiny-vt-${name}`);
     clearPage();
     clearHeroes();
@@ -281,14 +356,14 @@ function injectStyles() {
 :root[data-shiny-vt]::view-transition-new(shiny-page) {
     animation-name: none;
     animation-duration: var(--shiny-vt-duration, 320ms);
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    animation-timing-function: var(--shiny-vt-ease, cubic-bezier(0.4, 0, 0.2, 1));
     animation-fill-mode: both;
     /* the browser's default crossfade adds the two pictures; a page sliding over another must not glow */
     mix-blend-mode: normal;
 }
 
-:root[data-shiny-vt]::view-transition-old(shiny-page) { animation-name: var(--shiny-vt-old, none); }
-:root[data-shiny-vt]::view-transition-new(shiny-page) { animation-name: var(--shiny-vt-new, none); }
+:root[data-shiny-vt]::view-transition-old(shiny-page) { animation-name: var(--shiny-vt-old, none); animation-direction: var(--shiny-vt-old-dir, normal); }
+:root[data-shiny-vt]::view-transition-new(shiny-page) { animation-name: var(--shiny-vt-new, none); animation-direction: var(--shiny-vt-new-dir, normal); }
 :root[data-shiny-vt][data-shiny-vt-oldtop]::view-transition-old(shiny-page) { z-index: 1; }
 
 @keyframes shiny-vt-fade-in { from { opacity: 0; } }

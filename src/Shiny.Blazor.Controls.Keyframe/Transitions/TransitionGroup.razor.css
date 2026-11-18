@@ -1,0 +1,10 @@
+/* Leaving items are pinned in place with position:absolute, relative to the list. */
+.shiny-transition-group {
+    position: relative;
+}
+
+/* An item added after the list is interactive stays hidden until its enter animation starts, so a
+   Server round trip never shows it at rest for a frame first. */
+[data-shiny-tg-entering] {
+    visibility: hidden;
+}

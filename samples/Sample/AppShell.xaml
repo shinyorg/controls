@@ -1089,7 +1089,9 @@
             <FontImageSource Glyph="&#x25B7;" Size="20"
                              Color="{AppThemeBinding Light=#DB2777, Dark=#F472B6}" />
         </FlyoutItem.FlyoutIcon>
-        <ShellContent ContentTemplate="{DataTemplate keyframe:KeyframePage}" Route="keyframe" />
+        <ShellContent Title="Keyframes" ContentTemplate="{DataTemplate keyframe:KeyframePage}" Route="keyframe" />
+        <ShellContent Title="Motion" ContentTemplate="{DataTemplate keyframe:MotionPage}" Route="keyframe-motion" />
+        <ShellContent Title="Items" ContentTemplate="{DataTemplate keyframe:ItemTransitionsPage}" Route="keyframe-items" />
     </FlyoutItem>
 
     <FlyoutItem Title="Motion Icons">

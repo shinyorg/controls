@@ -38,6 +38,63 @@ public abstract class AnimatableProperty
 
     /// <summary>Builds a track that drives this property on the given view.</summary>
     public abstract ITrack CreateTrack(VisualElement target, IReadOnlyList<RawKey> keys);
+
+    /// <summary>
+    /// The <see cref="BindableProperty"/> behind this name on the given view, when there is one.
+    /// Properties backed by one are written through the <see cref="AnimationLayer"/>, can be
+    /// transitioned implicitly, and release cleanly; delegate-only properties cannot.
+    /// </summary>
+    public virtual BindableProperty? GetBindableProperty(VisualElement target) => null;
+
+    /// <summary>
+    /// Describes any <see cref="BindableProperty"/> as animatable, blending it with
+    /// <see cref="ValueBlending"/>. This is how spec-style <see cref="KeyFrame"/> setters and
+    /// transitions reach properties that were never registered by name.
+    /// </summary>
+    public static AnimatableProperty For(BindableProperty property)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        return new BindableAnimatableProperty(property);
+    }
+}
+
+/// <summary>Any <see cref="BindableProperty"/>, blended by value type and written through the animation layer.</summary>
+sealed class BindableAnimatableProperty(BindableProperty property) : AnimatableProperty
+{
+    public override string Name => property.PropertyName;
+
+    public override Type ValueType => property.ReturnType;
+
+    public override bool InvalidatesLayout => false;
+
+    public override BindableProperty? GetBindableProperty(VisualElement target) => property;
+
+    public override ITrack CreateTrack(VisualElement target, IReadOnlyList<RawKey> keys)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(keys);
+
+        var type = property.ReturnType;
+        var converted = new List<Key<object?>>(keys.Count);
+
+        foreach (var key in keys)
+        {
+            converted.Add(key.Value is null
+                ? Key<object?>.Current(key.Offset, key.Easing)
+                : new Key<object?>(key.Offset, ValueBlending.Parse(type, key.Value), key.Easing));
+        }
+
+        AnimationLayer.Prepare(target, property);
+
+        return new Track<VisualElement, object?>(
+            target,
+            (v, x) => AnimationLayer.Write(v, property, x),
+            converted,
+            new DelegateInterpolator<object?>((a, b, t) => ValueBlending.Blend(type, a, b, t)),
+            v => v.GetValue(property),
+            property.PropertyName,
+            v => AnimationLayer.Release(v, property));
+    }
 }
 
 /// <summary>A strongly typed animatable property.</summary>
@@ -48,6 +105,50 @@ public sealed class AnimatableProperty<TValue> : AnimatableProperty
     readonly Action<VisualElement, TValue> setter;
     readonly IInterpolator<TValue> interpolator;
     readonly Func<object, TValue> parse;
+    readonly Func<VisualElement, BindableProperty?>? bindable;
+
+    /// <summary>
+    /// Describes a property backed by a <see cref="BindableProperty"/>. Writes go through the
+    /// <see cref="AnimationLayer"/>, so the property's binding, style and visual-state values stay live.
+    /// </summary>
+    /// <param name="name">The name used in XAML.</param>
+    /// <param name="property">The property, or a function choosing it per view for a property several
+    /// unrelated types declare (Padding).</param>
+    /// <param name="interpolator">Blends between keyframe values.</param>
+    /// <param name="parse">Converts a raw XAML value to <typeparamref name="TValue"/>.</param>
+    /// <param name="invalidatesLayout">Whether writing forces a measure and arrange pass.</param>
+    public AnimatableProperty(
+        string name,
+        Func<VisualElement, BindableProperty?> property,
+        IInterpolator<TValue> interpolator,
+        Func<object, TValue> parse,
+        bool invalidatesLayout = false)
+        : this(
+            name,
+            v => property(v) is { } bp ? (TValue)v.GetValue(bp) : default!,
+            (v, x) =>
+            {
+                if (property(v) is { } bp)
+                    AnimationLayer.Write(v, bp, x);
+            },
+            interpolator,
+            parse,
+            invalidatesLayout)
+    {
+        bindable = property;
+    }
+
+    /// <summary>Describes a property backed by a single <see cref="BindableProperty"/>.</summary>
+    public AnimatableProperty(
+        string name,
+        BindableProperty property,
+        IInterpolator<TValue> interpolator,
+        Func<object, TValue> parse,
+        bool invalidatesLayout = false)
+        : this(name, _ => property, interpolator, parse, invalidatesLayout)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+    }
 
     /// <summary>Describes a property.</summary>
     /// <param name="name">The name used in XAML.</param>
@@ -62,7 +163,8 @@ public sealed class AnimatableProperty<TValue> : AnimatableProperty
         Action<VisualElement, TValue> setter,
         IInterpolator<TValue> interpolator,
         Func<object, TValue> parse,
-        bool invalidatesLayout = false)
+        bool invalidatesLayout = false,
+        Func<VisualElement, BindableProperty?>? bindable = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(getter);
@@ -75,6 +177,7 @@ public sealed class AnimatableProperty<TValue> : AnimatableProperty
         this.setter = setter;
         this.interpolator = interpolator;
         this.parse = parse;
+        this.bindable = bindable;
         InvalidatesLayout = invalidatesLayout;
     }
 
@@ -86,6 +189,9 @@ public sealed class AnimatableProperty<TValue> : AnimatableProperty
 
     /// <inheritdoc />
     public override bool InvalidatesLayout { get; }
+
+    /// <inheritdoc />
+    public override BindableProperty? GetBindableProperty(VisualElement target) => bindable?.Invoke(target);
 
     /// <inheritdoc />
     public override ITrack CreateTrack(VisualElement target, IReadOnlyList<RawKey> keys)
@@ -108,7 +214,16 @@ public sealed class AnimatableProperty<TValue> : AnimatableProperty
             converted.Add(new Key<TValue>(key.Offset, Parse(key.Value), key.Easing));
         }
 
-        return new Track<VisualElement, TValue>(target, setter, converted, interpolator, getter, Name);
+        var property = GetBindableProperty(target);
+        if (property is null)
+            return new Track<VisualElement, TValue>(target, setter, converted, interpolator, getter, Name);
+
+        // Start tracking the base value now, so a binding update between building and the first
+        // frame is still what a release lands on.
+        AnimationLayer.Prepare(target, property);
+        return new Track<VisualElement, TValue>(
+            target, setter, converted, interpolator, getter, Name,
+            v => AnimationLayer.Release(v, property));
     }
 
     TValue Parse(object value)
@@ -168,30 +283,28 @@ public static class AnimatableProperties
     {
         // --- Transform and opacity. Cheap: these never invalidate layout, and on every platform
         // they map onto a native compositor property. Prefer them wherever a choice exists. ---
-        Add("Opacity", static v => v.Opacity, static (v, x) => v.Opacity = x);
-        Add("Scale", static v => v.Scale, static (v, x) => v.Scale = x);
-        Add("ScaleX", static v => v.ScaleX, static (v, x) => v.ScaleX = x);
-        Add("ScaleY", static v => v.ScaleY, static (v, x) => v.ScaleY = x);
-        Add("TranslationX", static v => v.TranslationX, static (v, x) => v.TranslationX = x);
-        Add("TranslationY", static v => v.TranslationY, static (v, x) => v.TranslationY = x);
-        Add("RotationX", static v => v.RotationX, static (v, x) => v.RotationX = x);
-        Add("RotationY", static v => v.RotationY, static (v, x) => v.RotationY = x);
-        Add("AnchorX", static v => v.AnchorX, static (v, x) => v.AnchorX = x);
-        Add("AnchorY", static v => v.AnchorY, static (v, x) => v.AnchorY = x);
+        Add("Opacity", VisualElement.OpacityProperty);
+        Add("Scale", VisualElement.ScaleProperty);
+        Add("ScaleX", VisualElement.ScaleXProperty);
+        Add("ScaleY", VisualElement.ScaleYProperty);
+        Add("TranslationX", VisualElement.TranslationXProperty);
+        Add("TranslationY", VisualElement.TranslationYProperty);
+        Add("RotationX", VisualElement.RotationXProperty);
+        Add("RotationY", VisualElement.RotationYProperty);
+        Add("AnchorX", VisualElement.AnchorXProperty);
+        Add("AnchorY", VisualElement.AnchorYProperty);
 
         // Rotation takes the shortest arc, so 350 to 10 turns forward through zero. Use "Spin"
         // when you actually want multiple turns.
         Register(new AnimatableProperty<double>(
             "Rotation",
-            static v => v.Rotation,
-            static (v, x) => v.Rotation = x,
+            VisualElement.RotationProperty,
             AngleInterpolator.Degrees,
             ParseDouble));
 
         Register(new AnimatableProperty<double>(
             "Spin",
-            static v => v.Rotation,
-            static (v, x) => v.Rotation = x,
+            VisualElement.RotationProperty,
             DoubleInterpolator.Instance,
             ParseDouble));
 
@@ -199,59 +312,45 @@ public static class AnimatableProperties
         Register(new AnimatableProperty<Microsoft.Maui.Graphics.Color>(
             "BackgroundColor",
             static v => v.BackgroundColor ?? Colors.Transparent,
-            static (v, x) => v.BackgroundColor = x,
+            static (v, x) => AnimationLayer.Write(v, VisualElement.BackgroundColorProperty, x),
             Shiny.Controls.Keyframe.Graphics.ColorInterpolator.Oklab,
-            ParseColor));
+            ParseColor,
+            bindable: static _ => VisualElement.BackgroundColorProperty));
 
         // --- Layout-affecting. Each of these runs measure and arrange on every frame. ---
-        Add("WidthRequest", static v => v.WidthRequest, static (v, x) => v.WidthRequest = x, invalidatesLayout: true);
-        Add("HeightRequest", static v => v.HeightRequest, static (v, x) => v.HeightRequest = x, invalidatesLayout: true);
+        Add("WidthRequest", VisualElement.WidthRequestProperty, invalidatesLayout: true);
+        Add("HeightRequest", VisualElement.HeightRequestProperty, invalidatesLayout: true);
 
         Register(new AnimatableProperty<Thickness>(
             "Margin",
-            static v => v is View view ? view.Margin : default,
-            static (v, x) => { if (v is View view) view.Margin = x; },
+            static v => v is View ? View.MarginProperty : null,
             new DelegateInterpolator<Thickness>(LerpThickness),
             ParseThickness,
             invalidatesLayout: true));
 
         Register(new AnimatableProperty<Thickness>(
             "Padding",
-            static v => v is IPaddingElement element ? element.Padding : default,
-            SetPadding,
+            PaddingProperty,
             new DelegateInterpolator<Thickness>(LerpThickness),
             ParseThickness,
             invalidatesLayout: true));
     }
 
-    // IPaddingElement exposes Padding read-only, so the setter has to go through the concrete
-    // types that declare it. Switching over them keeps this AOT-safe; reflecting for a
-    // "Padding" BindableProperty would not survive trimming.
-    static void SetPadding(VisualElement element, Thickness value)
+    // IPaddingElement exposes Padding read-only and several unrelated types declare their own
+    // PaddingProperty, so pick it by type. Switching over them keeps this AOT-safe; reflecting for
+    // a "PaddingProperty" field would not survive trimming.
+    static BindableProperty? PaddingProperty(VisualElement element) => element switch
     {
-        switch (element)
-        {
-            case Layout layout:
-                layout.Padding = value;
-                break;
+        Layout => Layout.PaddingProperty,
+        Border => Border.PaddingProperty,
+        Page => Page.PaddingProperty,
+        Button => Button.PaddingProperty,
+        _ => null
+    };
 
-            case Border border:
-                border.Padding = value;
-                break;
-
-            case Page page:
-                page.Padding = value;
-                break;
-        }
-    }
-
-    static void Add(
-        string name,
-        Func<VisualElement, double> getter,
-        Action<VisualElement, double> setter,
-        bool invalidatesLayout = false)
+    static void Add(string name, BindableProperty property, bool invalidatesLayout = false)
         => Register(new AnimatableProperty<double>(
-            name, getter, setter, DoubleInterpolator.Instance, ParseDouble, invalidatesLayout));
+            name, property, DoubleInterpolator.Instance, ParseDouble, invalidatesLayout));
 
     static double ParseDouble(object value) => value switch
     {

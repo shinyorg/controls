@@ -26,6 +26,27 @@
 
             <BoxView HeightRequest="1" Color="LightGray" />
 
+            <Label Text="Per call" FontAttributes="Bold" />
+            <Label FontSize="13" TextColor="Gray"
+                   Text="The PushAsync / PopAsync / PushModalAsync / PopModalAsync / GoToAsync overloads take a transition (or a custom IPageTransitionAnimator) for that one navigation, ahead of anything the page sets. The pages pushed here set nothing themselves." />
+            <FlexLayout Wrap="Wrap">
+                <Button Text="PushAsync(page, SharedAxisZ)" AutomationId="PerCallSharedAxisZ" Clicked="OnPerCallSharedAxisZ" Margin="0,0,8,8" Padding="14,6" />
+                <Button Text="PushAsync(page, Cover, FromBottom)" AutomationId="PerCallCover" Clicked="OnPerCallCover" Margin="0,0,8,8" Padding="14,6" />
+                <Button Text="PushModalAsync(page, Zoom)" AutomationId="PerCallModal" Clicked="OnPerCallModal" Margin="0,0,8,8" Padding="14,6" />
+                <Button Text="GoToAsync(route, FadeThrough)" AutomationId="PerCallGoTo" Clicked="OnPerCallGoTo" Margin="0,0,8,8" Padding="14,6" />
+            </FlexLayout>
+
+            <Label Text="Custom animator" FontAttributes="Bold" />
+            <Label FontSize="13" TextColor="Gray"
+                   Text="IPageTransitionAnimator animates the two pages however it likes: here the page swings in from a tilt while the one underneath recedes. Set it per call, on a page (PageTransition.Animator) or app-wide (DefaultAnimator)." />
+            <FlexLayout Wrap="Wrap">
+                <Button Text="PushAsync(page, swing)" AutomationId="CustomAnimatorPush" Clicked="OnCustomAnimatorPush" Margin="0,0,8,8" Padding="14,6" />
+                <Button Text="Page with PageTransition.Animator" AutomationId="CustomAnimatorPage" Clicked="OnCustomAnimatorPage" Margin="0,0,8,8" Padding="14,6" />
+                <Button Text="PushAsync(page, Keyframes drop)" AutomationId="KeyframeAnimatorPush" Clicked="OnKeyframeAnimatorPush" Margin="0,0,8,8" Padding="14,6" />
+            </FlexLayout>
+
+            <BoxView HeightRequest="1" Color="LightGray" />
+
             <Label Text="Hero" FontAttributes="Bold" />
             <Label FontSize="13" TextColor="Gray"
                    Text="Each card and the header on its detail page share a PageTransition.Hero name, so the card flies into place while the pages crossfade. The detail page's content cascades in with PageTransition.Entrance." />

@@ -1,0 +1,75 @@
+@page "/implicittransitions"
+@using Shiny.Blazor.Controls.Keyframe
+@using Shiny.Controls.Keyframe
+
+<PageTitle>Implicit Transitions</PageTitle>
+
+<h1>Implicit Transitions</h1>
+
+<p>
+    Say which properties animate once; from then on any change to them animates - a re-render, a class swap,
+    anything. Each property has its own duration and curve, springs included.
+</p>
+
+<section class="demo-section">
+    <h2>On the element itself</h2>
+    <p>The buttons only change the wrapper's <code>Style</code>. Press them quickly: each change retargets from where the box is.</p>
+
+    <div class="it-stage">
+        <ImplicitTransitions Style="@BoxStyle" Class="it-box" data-testid="it-box">
+            <PropertyTransition Property="TranslationX" Duration="TimeSpan.FromMilliseconds(700)" Easing="spring(0.4, 9)" />
+            <PropertyTransition Property="Scale" Duration="TimeSpan.FromMilliseconds(500)" Easing="bouncy(0.35)" />
+            <PropertyTransition Property="BackgroundColor" Duration="TimeSpan.FromMilliseconds(400)" />
+            <PropertyTransition Property="border-radius" Duration="TimeSpan.FromMilliseconds(400)" Easing="EaseInOut" />
+        </ImplicitTransitions>
+    </div>
+
+    <div class="it-buttons">
+        <button type="button" @onclick="() => x = x == 0 ? 220 : 0">Move</button>
+        <button type="button" @onclick="() => big = !big">Grow</button>
+        <button type="button" @onclick="() => colour = (colour + 1) % colours.Length">Colour</button>
+        <button type="button" @onclick="() => round = !round">Round</button>
+    </div>
+</section>
+
+<section class="demo-section">
+    <h2>On every child</h2>
+    <p><code>ApplyTo="Children"</code>: the bars are re-rendered with new heights and each one eases to it.</p>
+
+    <ImplicitTransitions ApplyTo="ImplicitTransitionTarget.Children" Class="it-chart">
+        <PropertyTransition Property="HeightRequest" Duration="TimeSpan.FromMilliseconds(600)" Easing="Emphasized" />
+        <PropertyTransition Property="BackgroundColor" Duration="TimeSpan.FromMilliseconds(600)" />
+        @foreach (var value in values)
+        {
+            <div class="it-bar" style="height:@(value)px; background-color:@(value > 90 ? "#BE123C" : "#4F46E5")"></div>
+        }
+    </ImplicitTransitions>
+
+    <div class="it-buttons">
+        <button type="button" data-testid="it-shuffle" @onclick="Shuffle">New data</button>
+    </div>
+</section>
+
+<style>
+    .it-stage { height: 120px; display: flex; align-items: center; }
+    .it-box { width: 72px; height: 72px; }
+    .it-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .it-buttons button { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--shiny-color-outline-variant, #E5E7EB); background: transparent; color: inherit; cursor: pointer; }
+    .it-chart { display: flex; align-items: flex-end; gap: 8px; height: 130px; }
+    .it-bar { width: 24px; border-radius: 4px 4px 0 0; }
+</style>
+
+@code {
+    double x;
+    bool big;
+    bool round;
+    int colour;
+    int[] values = [40, 80, 60, 110, 30, 90, 70];
+
+    static readonly string[] colours = ["#0E7490", "#7C3AED", "#B45309", "#15803D"];
+
+    string BoxStyle => System.FormattableString.Invariant(
+        $"translate: {x}px 0; scale: {(big ? 1.4 : 1)}; background-color: {colours[colour]}; border-radius: {(round ? "50%" : "14px")}");
+
+    void Shuffle() => values = values.Select(_ => Random.Shared.Next(20, 121)).ToArray();
+}
