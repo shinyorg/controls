@@ -157,6 +157,8 @@ public sealed class AnimatableProperty<TValue> : AnimatableProperty
     /// <param name="interpolator">Blends between keyframe values.</param>
     /// <param name="parse">Converts a raw XAML value to <typeparamref name="TValue"/>.</param>
     /// <param name="invalidatesLayout">Whether writing forces a measure and arrange pass.</param>
+    /// <param name="bindable">The <see cref="BindableProperty"/> behind the setter, if any, so the
+    /// property can take part in implicit transitions and release. The setter itself decides how it writes.</param>
     public AnimatableProperty(
         string name,
         Func<VisualElement, TValue> getter,

@@ -73,15 +73,34 @@ public static class ItemTransitions
     static readonly TimeSpan StaggerWindow = TimeSpan.FromMilliseconds(80);
     static readonly ConditionalWeakTable<ItemsView, Controller> Controllers = [];
 
+    /// <summary>Gets whether the platform's own item animations run.</summary>
     public static ItemTransitionMode GetMode(BindableObject view) => (ItemTransitionMode)view.GetValue(ModeProperty);
+
+    /// <summary>Sets whether the platform's own item animations run.</summary>
     public static void SetMode(BindableObject view, ItemTransitionMode value) => view.SetValue(ModeProperty, value);
+
+    /// <summary>Gets the animation played on each item the first time a view shows it.</summary>
     public static IAnimationDefinition? GetAppear(BindableObject view) => (IAnimationDefinition?)view.GetValue(AppearProperty);
+
+    /// <summary>Sets the animation played on each item the first time a view shows it.</summary>
     public static void SetAppear(BindableObject view, IAnimationDefinition? value) => view.SetValue(AppearProperty, value);
+
+    /// <summary>Gets the animation played on items added after the view loaded.</summary>
     public static IAnimationDefinition? GetAdd(BindableObject view) => (IAnimationDefinition?)view.GetValue(AddProperty);
+
+    /// <summary>Sets the animation played on items added after the view loaded.</summary>
     public static void SetAdd(BindableObject view, IAnimationDefinition? value) => view.SetValue(AddProperty, value);
+
+    /// <summary>Gets the animation <see cref="RemoveAsync"/> plays before removing an item.</summary>
     public static IAnimationDefinition? GetRemove(BindableObject view) => (IAnimationDefinition?)view.GetValue(RemoveProperty);
+
+    /// <summary>Sets the animation <see cref="RemoveAsync"/> plays before removing an item.</summary>
     public static void SetRemove(BindableObject view, IAnimationDefinition? value) => view.SetValue(RemoveProperty, value);
+
+    /// <summary>Gets the delay between items that appear together.</summary>
     public static TimeSpan GetStagger(BindableObject view) => (TimeSpan)view.GetValue(StaggerProperty);
+
+    /// <summary>Sets the delay between items that appear together.</summary>
     public static void SetStagger(BindableObject view, TimeSpan value) => view.SetValue(StaggerProperty, value);
 
     /// <summary>

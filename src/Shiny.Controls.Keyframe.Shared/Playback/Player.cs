@@ -57,7 +57,7 @@ public sealed class Player : IDisposable
     }
 
     /// <summary>
-    /// When true, <see cref="Stop"/> puts every target back to the value it had when playback began.
+    /// When true, <see cref="Stop()"/> puts every target back to the value it had when playback began.
     /// </summary>
     public bool RestoreOnStop { get; set; }
 
