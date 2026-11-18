@@ -3,6 +3,7 @@
 @using Shiny.Blazor.Controls.Theming
 @inject IShinyThemeService Theme
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 @implements IAsyncDisposable
 
 @* The layout a demo gets when a shinylib.net docs page hosts it in an iframe (?embed=1, see
@@ -53,6 +54,10 @@
     [JSInvokable]
     public Task SetTheme(string mode)
         => this.Theme.SetModeAsync(mode == "dark" ? ShinyThemeMode.Dark : ShinyThemeMode.Light);
+
+    // relative, so it resolves against the base href (/controls/ when deployed)
+    [JSInvokable]
+    public void Navigate(string route) => this.Nav.NavigateTo(route);
 
     public async ValueTask DisposeAsync()
     {

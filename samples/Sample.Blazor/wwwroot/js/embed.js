@@ -2,6 +2,7 @@
 // The docs page hosts a demo in an iframe; the two talk over postMessage:
 //   frame -> docs   { type: 'shiny-embed:size',  height, fill }   whenever the content's height changes
 //   docs  -> frame  { type: 'shiny-embed:theme', mode: 'dark' | 'light' }   when the Starlight theme flips
+//   docs  -> frame  { type: 'shiny-embed:navigate', route }   a docs tab switching demo page in the running app
 // A `.demo-fill` page owns its own scrolling, so it reports fill: true and the docs page keeps the
 // frame at its fixed height instead of growing it to the content - that would be two scrollers on
 // one axis (Jon rule 1).
@@ -66,6 +67,10 @@ export function start(dotnet) {
         const data = e.data;
         if (data?.type === 'shiny-embed:theme' && (data.mode === 'dark' || data.mode === 'light'))
             dotnet.invokeMethodAsync('SetTheme', data.mode);
+
+        // a gallery route only - never a URL, so the frame cannot be pointed off the sample
+        if (data?.type === 'shiny-embed:navigate' && typeof data.route === 'string' && /^[a-z0-9\-\/]*$/i.test(data.route))
+            dotnet.invokeMethodAsync('Navigate', data.route.replace(/^\/+/, ''));
     });
 
     // the content box resizes when the page renders, navigates or a demo expands something; a
