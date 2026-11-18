@@ -1,4 +1,5 @@
 @namespace Sample.Blazor
+@inject NavigationManager Nav
 
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
@@ -6,14 +7,28 @@
            how the source-code panel in the layout knows which page it is under, without reflecting
            over route attributes. *@
         <CascadingValue Value="@routeData.PageType">
-            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <RouteView RouteData="@routeData" DefaultLayout="@pageLayout" />
         </CascadingValue>
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>
         <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
+        <LayoutView Layout="@pageLayout">
             <p role="alert">Sorry, there's nothing at this address.</p>
         </LayoutView>
     </NotFound>
 </Router>
+
+
+@code {
+    // A shinylib.net docs page hosts the demos in an iframe with ?embed=1 - they get the bare
+    // EmbedLayout there and the full gallery shell everywhere else. See Layout/EmbedMode.cs.
+    Type pageLayout = typeof(MainLayout);
+
+    protected override void OnInitialized()
+    {
+        EmbedMode.Detect(this.Nav.Uri);
+        if (EmbedMode.IsActive)
+            this.pageLayout = typeof(EmbedLayout);
+    }
+}

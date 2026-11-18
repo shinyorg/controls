@@ -12,6 +12,16 @@ html, body {
 
 * { box-sizing: border-box; }
 
+/* Embedded in a docs page (Layout/EmbedLayout.razor): the docs page grows the iframe to the content,
+   so the frame itself never scrolls - a scrollbar here would only flash while the height catches up.
+   It is also see-through: the docs page's own background shows around the demo cards instead of a
+   lavender box (the theme follows the docs page's, so the text stays readable on it). */
+html.shiny-embed,
+html.shiny-embed body {
+    overflow: hidden;
+    background: transparent;
+}
+
 h1 {
     font-size: 24px;
     margin: 0 0 16px 0;

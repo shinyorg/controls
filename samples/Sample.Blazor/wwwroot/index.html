@@ -15,6 +15,13 @@
          dotnet.js kept a plain refresh on the previous build for up to ten minutes after a deploy.
          OverrideHtmlAssetPlaceholders (Sample.Blazor.csproj) fills the #[.{fingerprint}] markers and
          this import map at publish, pointing dotnet.js at its fingerprinted file. -->
+    <!-- Hosted in a shinylib.net docs page (?embed=1, see Layout/EmbedLayout.razor): mark it before the
+         first paint, so the splash and the page start see-through instead of flashing the gallery's
+         background until Blazor has started. -->
+    <script>
+        if (/[?&]embed(=(1|true))?(&|$)/i.test(location.search))
+            document.documentElement.classList.add('shiny-embed');
+    </script>
     <script type="importmap"></script>
     <link rel="preload" id="webassembly" />
 </head>

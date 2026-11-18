@@ -1,0 +1,71 @@
+@namespace Sample.Blazor.Layout
+@inherits LayoutComponentBase
+@using Shiny.Blazor.Controls.Theming
+@inject IShinyThemeService Theme
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@* The layout a demo gets when a shinylib.net docs page hosts it in an iframe (?embed=1, see
+   EmbedMode). The docs page is the chrome: no nav, toolbars, tab bar or source panel here, and the
+   page's own <h1> is hidden because the docs page already has a title. Everything the demos need
+   from the shell stays - the theme host and the service hosts toasts, dialogs and the camera draw
+   into. wwwroot/js/embed.js reports the content height so the frame can grow to fit, and takes the
+   docs page's light/dark switch. *@
+<ShinyThemeHost />
+
+<div class="embed-content">
+    <PageTransitionHost>
+        @Body
+    </PageTransitionHost>
+</div>
+
+<ToastHost />
+<ProgressLineHost />
+<DialogHost />
+<QuickEntryHost />
+<FileDropHost />
+<Shiny.Blazor.Controls.Camera.Media.MediaHost />
+<SplashScreenHost />
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    IJSObjectReference? module;
+    DotNetObjectReference<EmbedLayout>? self;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        if (EmbedMode.InitialTheme is { } theme)
+            await this.SetTheme(theme);
+
+        this.self = DotNetObjectReference.Create(this);
+        this.module = await this.JS.InvokeAsync<IJSObjectReference>("import", "./js/embed.js");
+        await this.module.InvokeVoidAsync("start", this.self);
+    }
+
+    [JSInvokable]
+    public Task SetTheme(string mode)
+        => this.Theme.SetModeAsync(mode == "dark" ? ShinyThemeMode.Dark : ShinyThemeMode.Light);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (this.module is not null)
+        {
+            try
+            {
+                await this.module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+        this.self?.Dispose();
+    }
+}

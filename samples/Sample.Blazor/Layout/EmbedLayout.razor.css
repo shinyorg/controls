@@ -1,0 +1,74 @@
+/* The embedded demo sizes to its content and the docs page grows the iframe to match, so nothing in
+   here scrolls - the docs page does. The exception is a .demo-fill page (a chat, an agenda, a dock
+   host), whose control scrolls itself: there the content is exactly the frame's height and the demo
+   takes what the notes leave, the same terms as MainLayout's .content-inner. */
+.embed-content {
+    padding: 16px 4px 4px;
+}
+
+/* the docs page already shows the control's title */
+.embed-content ::deep .shiny-page-transition > h1:first-child,
+.embed-content > ::deep h1:first-child {
+    display: none;
+}
+
+.embed-content:has(.demo-fill) {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+.embed-content:has(.demo-fill) > ::deep * {
+    flex: 0 0 auto;
+}
+
+.embed-content:has(.demo-fill) > ::deep .shiny-page-transition:has(> .demo-fill) {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.embed-content:has(.demo-fill) > ::deep .shiny-page-transition > * {
+    flex: 0 0 auto;
+}
+
+.embed-content:has(.demo-fill) > ::deep .shiny-page-transition > .demo-fill,
+.embed-content:has(.demo-fill) > ::deep .demo-fill {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.embed-content:has(.demo-fill) ::deep .demo-fill > .demo-fill-body {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.embed-content:has(.demo-fill) ::deep .demo-fill > .demo-fill-body > * {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+#blazor-error-ui {
+    display: none;
+    background: #FEE2E2;
+    color: #991B1B;
+    padding: 12px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    font-size: 14px;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 12px;
+    top: 8px;
+}
