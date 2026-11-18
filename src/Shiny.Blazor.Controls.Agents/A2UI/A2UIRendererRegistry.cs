@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
+using Shiny.Controls.AgentUI.A2UI;
 using Shiny.Blazor.Controls.Agents.Renderers;
 
 namespace Shiny.Blazor.Controls.Agents;
@@ -42,6 +43,24 @@ public sealed class A2UIRendererRegistry
             builder.AddAttribute(1, "Context", ctx);
             builder.CloseComponent();
         });
+
+    /// <summary>
+    /// Adds (or replaces) the renderer for a component declared with <see cref="A2UIComponentAttribute"/>.
+    /// Read its properties with <see cref="A2UIModelExtensions.Read{T}"/>.
+    /// </summary>
+    public A2UIRendererRegistry Register<TModel>(RenderFragment<A2UIRenderContext> renderer)
+        where TModel : IA2UIComponentModel<TModel>
+        => Register(TModel.ComponentName, renderer);
+
+    /// <summary>
+    /// Adds (or replaces) a component renderer for a component declared with
+    /// <see cref="A2UIComponentAttribute"/>: <typeparamref name="TComponent"/> gets the
+    /// <see cref="A2UIRenderContext"/> in its <c>Context</c> parameter.
+    /// </summary>
+    public A2UIRendererRegistry Register<TModel, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>()
+        where TModel : IA2UIComponentModel<TModel>
+        where TComponent : IComponent
+        => Register<TComponent>(TModel.ComponentName);
 
     /// <summary>Removes a renderer; returns false when there was none.</summary>
     public bool Remove(string componentType) => renderers.Remove(componentType);

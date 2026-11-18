@@ -29,6 +29,14 @@ public sealed class A2UIRendererRegistry
         return this;
     }
 
+    /// <summary>
+    /// Adds or replaces the renderer for a component declared with <see cref="Shiny.Controls.AgentUI.A2UI.A2UIComponentAttribute"/>.
+    /// Read its properties with <see cref="A2UIModelExtensions.Read{T}"/>.
+    /// </summary>
+    public A2UIRendererRegistry Register<TModel>(Func<A2UIRenderContext, View> renderer)
+        where TModel : Shiny.Controls.AgentUI.A2UI.IA2UIComponentModel<TModel>
+        => this.Register(TModel.ComponentName, renderer);
+
     /// <summary>Removes a component type's renderer, so it draws as unsupported.</summary>
     public bool Remove(string componentType) => this.renderers.Remove(componentType);
 

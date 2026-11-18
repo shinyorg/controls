@@ -48,4 +48,9 @@
         <EmbeddedResource Include="Fixtures\agui\*.sse" LogicalName="AgentRecordings/%(Filename)%(Extension)" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!-- The [A2UIComponent] generator, as an app gets it from the package. -->
+        <ProjectReference Include="..\..\src\Shiny.Controls.AgentUI.SourceGenerators\Shiny.Controls.AgentUI.SourceGenerators.csproj"
+                          OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
 </Project>

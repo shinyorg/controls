@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Roslyn loads generators into the compiler, which is netstandard2.0. It ships inside the
+             AgentUI packages (Shared and both hosts) rather than as a package of its own, so it never
+             reaches NuGet by itself: the release pushes every nupkg the build produces. -->
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IsPackable>false</IsPackable>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);NU1507</NoWarn>
+        <RootNamespace>Shiny.Controls.AgentUI.SourceGenerators</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+    </ItemGroup>
+
+</Project>

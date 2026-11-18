@@ -31,6 +31,7 @@
     <Project Path="src/Shiny.Controls.BarcodeReader.Shared/Shiny.Controls.BarcodeReader.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Gauge.Shared/Shiny.Controls.Gauge.Shared.csproj" />
     <Project Path="src/Shiny.Controls.AgentUI.Shared/Shiny.Controls.AgentUI.Shared.csproj" />
+    <Project Path="src/Shiny.Controls.AgentUI.SourceGenerators/Shiny.Controls.AgentUI.SourceGenerators.csproj" />
     <Project Path="src/Shiny.Controls.Diagram.Shared/Shiny.Controls.Diagram.Shared.csproj" />
     <Project Path="src/Shiny.Controls.Gamepad.Shared/Shiny.Controls.Gamepad.Shared.csproj" />
     <Project Path="src/Shiny.Maui.Controls.Gamepad/Shiny.Maui.Controls.Gamepad.csproj" />
@@ -101,6 +102,7 @@
     <Project Path="tests/Shiny.Controls.Gauge.Tests/Shiny.Controls.Gauge.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Diagram.Tests/Shiny.Controls.Diagram.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.AgentUI.Tests/Shiny.Controls.AgentUI.Tests.csproj" />
+    <Project Path="tests/Shiny.Controls.AgentUI.SourceGenerators.Tests/Shiny.Controls.AgentUI.SourceGenerators.Tests.csproj" />
     <Project Path="tests/Shiny.Controls.Gamepad.Tests/Shiny.Controls.Gamepad.Tests.csproj" />
     <Project Path="tests/Shiny.Maui.Controls.Diagram.Tests/Shiny.Maui.Controls.Diagram.Tests.csproj" />
     <Project Path="tests/Shiny.Blazor.Controls.Diagram.Tests/Shiny.Blazor.Controls.Diagram.Tests.csproj" />

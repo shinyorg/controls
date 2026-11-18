@@ -57,17 +57,129 @@ their bindings.
 
 ## Your own components
 
-Register a renderer, and add the component to a catalog so the agent knows about it and the engine validates it:
+Any MAUI view or Blazor component can be an A2UI component. Declare it as a C# class, register a renderer
+on each host, and hand both to the view. Nothing in your code is JSON or a property name in a string.
+
+### 1. Declare the component as a class
+
+```csharp
+public enum Tone { Neutral, Good, Danger }
+
+/// <summary>A row of stars the user can tap to score something.</summary>
+[A2UIComponent("Rating")]
+public partial class Rating
+{
+    /// <summary>The score. Bind it to receive the user's choice.</summary>
+    public required double Value { get; init; }
+
+    [A2UIProperty(Literal = true, Minimum = 1, Description = "How many stars.")]
+    public int Max { get; init; } = 5;
+
+    public Tone Tone { get; init; } = Tone.Neutral;
+    public string? Label { get; init; }
+    public A2UIActionRef Action { get; init; }
+}
+```
+
+The source generator (it ships inside the Agents packages, so there's nothing to install) turns the class into
+the component's catalog schema and a typed reader:
+
+| C# | A2UI |
+|---|---|
+| `string`, `double`, `float`, `bool`, `IReadOnlyList<string>` / `string[]` | Dynamic: a literal, a `@path` binding or a `@call` function call |
+| `int`, `long`, an enum | Literal; an enum becomes a choice of its camel-cased names |
+| A list of an `[A2UIItem]` class | An array of objects |
+| `A2UIActionRef`, `A2UIChildRef`, `A2UIChildrenRef`, `A2UIBindingRef` | An action, one child, children, a write-back path |
+| `required` | Required |
+| `= 5` | The fallback when the agent leaves it out, and (on a literal) the schema default |
+| XML doc summary, `[Description]`, or `[A2UIProperty(Description = …)]` | The description the agent reads |
+
+JSON names are the property names camel-cased; `[A2UIProperty(Name = "…")]` overrides one. `[A2UIIgnore]`
+leaves a property out. `[A2UIComponent]` also takes `Checkable`, `AllowedParents`, `AllowedChildren` and
+`Weight`. Mistakes are compile errors with a fix in the message, `SHINYA2UI001` to `SHINYA2UI009`: a class
+that isn't partial, a type A2UI can't describe, a `Minimum` on a property that could be bound, and so on.
+
+### 2. Functions are plain static methods
+
+```csharp
+public static partial class MyFunctions
+{
+    /// <summary>The initials of a name.</summary>
+    /// <param name="name">The full name.</param>
+    [A2UIFunction("initials")]
+    public static string Initials(string name, bool lower = false) => ...;
+}
+```
+
+Parameters are `string`, numbers, `bool`, enums or string lists. One with a default value or a nullable type is
+optional. An `A2UIFunctionContext` parameter gets the call's culture and surface and isn't part of the schema.
+The return type is `string`, a number, `bool` or `void`. `AllowedCallers` and `RequiresUserActivation` go on
+the attribute.
+
+### 3. Build the catalog
+
+```csharp
+var catalog = A2UICatalogBuilder
+    .ExtendShiny("https://example.com/a2ui/my-app/v1.json")    // every basic + Shiny component, under your id
+    .Instructions("Use Rating whenever you ask the user to score something.")
+    .Component<Rating>()
+    .Functions(MyFunctions.A2UIFunctions)
+    .Build();
+
+var catalogs = new A2UICatalogRegistry().Add(catalog);
+// Give the agent catalog.Definition, and have it create surfaces with your catalog id.
+```
+
+`ExtendShiny` and `ExtendBasic` keep Row, Column, Text and every built-in function under your id. A surface
+names one catalog, so a catalog holding only your components would leave the agent without them. `Create(id)`
+starts empty.
+
+### 4. Render it
 
 ```csharp
 // MAUI
-renderers.Register("Rating", ctx => new RatingView { Value = ctx.Number("value") ?? 0 });
+var renderers = A2UIRendererRegistry.CreateDefault()          // keep the basic and Shiny renderers
+    .Register<Rating>(ctx =>
+    {
+        var view = new RatingView();
+        ctx.Watch(s =>
+        {
+            var rating = ctx.Read<Rating>(s);                  // typed, bindings evaluated
+            view.Max = rating.Max;
+            view.Value = rating.Value;
+        });
+        view.ValueChanged += (_, v) =>
+        {
+            ctx.Read<Rating>().SetValue(v);                   // writes the bound path
+            ctx.Dispatch(Rating.A2UIProperties.Action);
+        };
+        return view;
+    });
+
 // Blazor
-renderers.Register<MyRating>("Rating");       // a component with an A2UIRenderContext Context parameter
+var renderers = A2UIRendererRegistry.CreateDefault().Register<Rating, MyRating>();
+// MyRating.razor: [Parameter] A2UIRenderContext Context; var rating = Context.Read<Rating>(); rating.SetValue(v);
 ```
 
-`A2UIRenderContext` evaluates properties (`String`, `Number`, `Boolean`, `StringList`, `Value`), writes
-bindings (`Write`), dispatches actions (`Dispatch`), reads checks and accessibility, and renders children.
+- `Read<T>()` evaluates every property: bindings, function calls, items and child references. Call it inside
+  `Watch` with the scope so it re-reads when the data model changes.
+- **`SetX(value)`** exists for each property the agent can bind (string, number, boolean, string list, and
+  `A2UIBindingRef` with an overload per type). It writes through the render context, so the input counts as
+  edited and its check messages show. It returns `false` when the agent gave a literal. Literal-only properties
+  have no setter, so writing one is a compile error.
+- `Rating.A2UIProperties.X` holds each JSON name, for `Dispatch` and `RenderChild`.
+
+Hand both registries to the view: `AgentView` takes `Catalogs` and `Renderers`; a standalone surface takes
+`new A2UISurfaceHost(catalogs)` and `A2UISurfaceView.Renderers`. A component in no catalog is rejected with
+`VALIDATION_FAILED`; one with no renderer draws an "unsupported component" placeholder.
+
+### Without the generator
+
+`A2UICatalogBuilder` can also declare components and functions directly, which is what the generated code
+calls: `.Component("Rating", "…", c => c.Number("value", required: true).Action())`. It has the same property
+vocabulary (`String`, `Number`, `Integer`, `Boolean`, `StringList`, `Value`, `Choice<TEnum>`, `Binding`,
+`Array`, `Child`, `Children`, `Action`, `Checkable()`, `AllowedParents`, `AllowedChildren`, `NoWeight()`) and
+throws on the same mistakes the generator reports at compile time.
 
 ## Rules it enforces (A2UI conformance)
 

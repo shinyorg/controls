@@ -20,10 +20,38 @@ It renders agent-described UI (A2UI v1.0: `createSurface`, `updateComponents`, `
   - `A2UICatalog.ShinyCatalogId` = `https://shinylib.net/a2ui/shiny.controls/v1.json`: basic plus DataGrid, Gauge, ProgressBar, Pill, Avatar, ChipGroup, TagEntry, DateRangePicker, RangeSlider, Timeline, Expander and Markdown.
   - Give the agent `A2UICatalog.CreateShiny().Definition` (the full schema) or the published URL.
 - **Standalone it fills its parent and scrolls** (`IsScrollEnabled=true`). Inside a page that already scrolls, set `IsScrollEnabled=false` so it sizes to its content. Never nest it in a ScrollView while it scrolls itself.
-- **Custom components.**
-  - MAUI: `renderers.Register("Name", ctx => view)`.
-  - Blazor: `renderers.Register<MyComponent>("Name")` (the component has an `A2UIRenderContext Context` parameter) or `Register("Name", fragment)`.
-  - Then add an `A2UIComponentDefinition` to a catalog. An unregistered type renders a placeholder and reports `VALIDATION_FAILED`.
+- **Custom components: declare a class, never JSON.** Never write catalog JSON, `JsonNode.Parse`, `JsonValue.Create`, or a hand-built `A2UIComponentDefinition` for a custom component.
+  ```csharp
+  /// <summary>A row of stars the user can tap.</summary>        // the agent reads doc summaries
+  [A2UIComponent("Rating")]
+  public partial class Rating                                   // must be partial, top-level, no primary ctor
+  {
+      public required double Value { get; init; }              // dynamic; `required` → required
+      [A2UIProperty(Literal = true, Minimum = 1)]
+      public int Max { get; init; } = 5;                        // literal; initializer = default + fallback
+      public Tone Tone { get; init; }                           // enum → choice
+      public A2UIActionRef Action { get; init; }                // also A2UIChildRef, A2UIChildrenRef, A2UIBindingRef
+  }
+
+  public static partial class MyFunctions
+  {
+      [A2UIFunction("initials")]                                // typed params/return; defaults/nullable = optional
+      public static string Initials(string name, bool lower = false) => ...;
+  }
+
+  var catalog = A2UICatalogBuilder.ExtendShiny("https://example.com/a2ui/my-app/v1.json")
+      .Component<Rating>()
+      .Functions(MyFunctions.A2UIFunctions)
+      .Build();                                                 // catalog.Definition = schema for the agent
+  ```
+  - Types: `string`/`double`/`float`/`bool`/string lists are dynamic; `int`/`long`/enums are literal; a list of an `[A2UIItem]` class is an array. Unsupported types are compile errors (`SHINYA2UI005`).
+  - Use `ExtendShiny`/`ExtendBasic`, not `Create`, unless the catalog should hold only your components.
+- **Renderers for a generated component:**
+  - MAUI: `renderers.Register<Rating>(ctx => { ... })`. Blazor: `renderers.Register<Rating, MyRatingComponent>()` or `Register<Rating>(fragment)`.
+  - Read: `var rating = ctx.Read<Rating>(scope)` inside `ctx.Watch(s => ...)`.
+  - Write back: `rating.SetValue(v)` (typed, one per bindable property; returns false for a literal). Never `ctx.Write(..., JsonValue.Create(...))` for a generated component.
+  - Names: `Rating.A2UIProperties.Action` for `ctx.Dispatch(...)` / `ctx.RenderChild(...)`.
+- **Without the generator:** `A2UICatalogBuilder.Component("Name", "desc", c => c.Number(...).Action())` (same vocabulary) and `renderers.Register("Name", ctx => view)`.
 - **Inside a renderer, use `A2UIRenderContext`:**
   - Read properties: `String(prop)`, `Number(prop)`, `Boolean(prop)`, `StringList(prop)`, `Value(prop)`.
   - Two-way bind: `Write(prop, value)`.

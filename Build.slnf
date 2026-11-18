@@ -9,6 +9,7 @@
             "src/Shiny.Controls.BarcodeReader.Shared/Shiny.Controls.BarcodeReader.Shared.csproj",
             "src/Shiny.Controls.Gauge.Shared/Shiny.Controls.Gauge.Shared.csproj",
             "src/Shiny.Controls.AgentUI.Shared/Shiny.Controls.AgentUI.Shared.csproj",
+            "src/Shiny.Controls.AgentUI.SourceGenerators/Shiny.Controls.AgentUI.SourceGenerators.csproj",
             "src/Shiny.Controls.Diagram.Shared/Shiny.Controls.Diagram.Shared.csproj",
             "src/Shiny.Controls.Gamepad.Shared/Shiny.Controls.Gamepad.Shared.csproj",
             "src/Shiny.Controls.FloorPlan.Shared/Shiny.Controls.FloorPlan.Shared.csproj",

@@ -22,4 +22,14 @@
         <ProjectReference Include="..\Shiny.Blazor.Controls.Markdown\Shiny.Blazor.Controls.Markdown.csproj"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <!-- The A2UI model source generator ([A2UIComponent] classes). Built first, and packed into this
+             package's analyzers folder: analyzers of a dependency package don't flow into an app, so
+             every package an app may reference directly carries it. -->
+        <ProjectReference Include="..\Shiny.Controls.AgentUI.SourceGenerators\Shiny.Controls.AgentUI.SourceGenerators.csproj"
+                          ReferenceOutputAssembly="false" PrivateAssets="all" />
+        <None Include="..\Shiny.Controls.AgentUI.SourceGenerators\bin\$(Configuration)\netstandard2.0\Shiny.Controls.AgentUI.SourceGenerators.dll"
+              Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+
 </Project>

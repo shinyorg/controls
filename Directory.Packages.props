@@ -4,6 +4,8 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageVersion Include="Microsoft.Maui.Controls" Version="11.0.10"/>
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0"/>
+        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0"/>
         <PackageVersion Include="Microsoft.Maui.Graphics" Version="11.0.10"/>
         <PackageVersion Include="Microsoft.Maui.Graphics.Skia" Version="11.0.10"/>
         <PackageVersion Include="Markdig" Version="1.3.2"/>
