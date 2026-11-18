@@ -49,7 +49,7 @@ static class TransitionRunner
         ITrack track;
         try
         {
-            track = descriptor.CreateTrack(element, [new RawKey(0d, from, easing), new RawKey(1d, to, null)]);
+            track = descriptor.CreateTrack(element, (RawKey[])[new RawKey(0d, from, easing), new RawKey(1d, to, null)]);
         }
         catch (FormatException)
         {

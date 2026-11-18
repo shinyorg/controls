@@ -31,13 +31,19 @@ public abstract class AnimationTriggerAction : TriggerAction<VisualElement>
     protected abstract void Invoke(VisualElement target, IAnimationDefinition? animation);
 
     /// <summary>The players this action applies to: the named animation's, or every one on the element.</summary>
-    protected static IReadOnlyList<Player> PlayersFor(VisualElement target, IAnimationDefinition? animation)
+    protected static IEnumerable<Player> PlayersFor(VisualElement target, IAnimationDefinition? animation)
     {
+        // An iterator rather than an array or list: on Windows, CsWinRT treats a returned collection as
+        // something that may cross the WinRT ABI and demands unsafe marshalling code for it.
         if (animation is null)
-            return AnimationRuns.FindAll(target);
-
-        var player = AnimationRuns.Find(target, animation);
-        return player is null ? [] : [player];
+        {
+            foreach (var running in AnimationRuns.FindAll(target))
+                yield return running;
+        }
+        else if (AnimationRuns.Find(target, animation) is { } player)
+        {
+            yield return player;
+        }
     }
 }
 
