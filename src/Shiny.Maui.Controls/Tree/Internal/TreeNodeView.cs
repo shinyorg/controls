@@ -183,16 +183,21 @@ internal class TreeNodeView : Grid
 
         for (var d = 0; d < Node.Depth; d++)
         {
-            var line = new BoxView
+            // An empty Grid rather than a BoxView: a BoxView with no HeightRequest asks for MAUI's
+            // 40x40 default, which made every row with guide lines taller than a root row. The Grid
+            // asks for no height and stretches (Fill) to whatever the row is.
+            var line = new Grid
             {
                 WidthRequest = 1,
                 HorizontalOptions = LayoutOptions.Start,
+                VerticalOptions = LayoutOptions.Fill,
+                InputTransparent = true,
                 Margin = new Thickness((d * owner.IndentSize) + (owner.IndentSize / 2), 0, 0, 0)
             };
             if (owner.GuideLineColor is Color gc)
-                line.Color = gc;
+                line.BackgroundColor = gc;
             else
-                line.SetDynamicResource(BoxView.ColorProperty, ShinyThemeKeys.Color.OutlineVariant);
+                line.SetDynamicResource(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.OutlineVariant);
             host.Add(line);
         }
         return host;

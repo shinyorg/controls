@@ -69,6 +69,9 @@ so the rail reads as a progress bar. Do not try to fix that with per-item colour
 That asymmetry is deliberate — do not write `{Binding Item.Title}` in an `ItemTemplate`, and do not
 expect the raw item inside a `MarkerTemplate`. Leave `MarkerTemplate` unset for the default themed dot.
 
+Every row's opposite column takes the widest opposite content's width, so the rail is straight without a
+`WidthRequest` on the opposite template.
+
 ## Rows size to their content
 
 Each node is one row whose height comes from its content, and the rail stretches to fill it. Do **not**

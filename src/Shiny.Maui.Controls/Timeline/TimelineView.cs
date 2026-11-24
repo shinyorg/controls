@@ -40,6 +40,7 @@ public partial class TimelineView : ContentView
 
     readonly VerticalStackLayout stack;
     readonly List<NodeVisual> visuals = new();
+    readonly List<(Grid Row, int Column, View View)> opposites = new();
 
     IDisposable? observed;
     ScrollView? scroller;
@@ -131,6 +132,7 @@ public partial class TimelineView : ContentView
 
         this.stack.Clear();
         this.visuals.Clear();
+        this.opposites.Clear();
 
         var items = this.Items();
 
@@ -194,6 +196,7 @@ public partial class TimelineView : ContentView
 
             row.Add(opposite);
             Grid.SetColumn(opposite, oppositeColumn);
+            this.opposites.Add((row, oppositeColumn, opposite));
         }
 
         // On Command rather than the Tapped event, so the gesture is assertable from a test.
@@ -203,6 +206,29 @@ public partial class TimelineView : ContentView
         });
 
         return row;
+    }
+
+    /// <summary>
+    /// Every row is its own grid, so an Auto opposite column would be as wide as that row's own
+    /// opposite content, and the rail would land at a different x on every row ("09:02" is wider
+    /// than "11:20" in a font with proportional digits). Before each measure, all the opposite
+    /// columns are given the widest one's width.
+    /// </summary>
+    protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
+    {
+        this.ShareOppositeWidth();
+        return base.MeasureOverride(widthConstraint, heightConstraint);
+    }
+
+    void ShareOppositeWidth()
+    {
+        if (this.opposites.Count < 2)
+            return;
+
+        var width = this.opposites.Max(o => ((IView)o.View).Measure(double.PositiveInfinity, double.PositiveInfinity).Width);
+        var length = new GridLength(width);
+        foreach (var (row, column, _) in this.opposites.Where(o => o.Row.ColumnDefinitions[o.Column].Width != length))
+            row.ColumnDefinitions[column].Width = length;
     }
 
     View BuildContent(object item, TimelineNode node)

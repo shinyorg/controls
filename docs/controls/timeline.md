@@ -84,6 +84,9 @@ Left unset, the marker is a themed dot, which is what most timelines want.
 other side with it. `ItemSpacing` is the gap between one node's content and the next — the rail runs
 through it unbroken, because the gap belongs to the row rather than to the space between rows.
 
+The opposite column is as wide as the widest opposite content in the timeline, on every row, so the
+rail stays straight however wide each timestamp turns out to be.
+
 | | Blazor | MAUI |
 |---|---|---|
 | Item-driven with templates | ✅ | ✅ |
