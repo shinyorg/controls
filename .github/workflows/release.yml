@@ -51,7 +51,9 @@ jobs:
       run: dotnet workload install maui macos
 
     - name: Build
-      run: dotnet build Build.slnf /restore -m -property:Configuration=Release -property:Version="$VERSION"
+      # -restore, not /restore: this job runs in Git Bash, whose MSYS path conversion turns /restore into
+      # C:/Program Files/Git/restore, which MSBuild then reads as a second project (MSB1008)
+      run: dotnet build Build.slnf -restore -m -property:Configuration=Release -property:Version="$VERSION"
 
     - name: Post NuGet Artifacts
       uses: actions/upload-artifact@v7
