@@ -208,6 +208,33 @@ public class SchedulerAgendaView : ContentView
     public static readonly BindableProperty DragSnapGuideColorProperty = BindableProperty.Create(
         nameof(DragSnapGuideColor), typeof(Color), typeof(SchedulerAgendaView), null);
 
+    public static readonly BindableProperty ShowLockedIndicatorProperty = BindableProperty.Create(
+        nameof(ShowLockedIndicator), typeof(bool), typeof(SchedulerAgendaView), true,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SchedulerAgendaView), () =>
+            {
+                ((SchedulerAgendaView)b).Rebuild();
+            }));
+
+    public static readonly BindableProperty MinResizableEventHeightProperty = BindableProperty.Create(
+        nameof(MinResizableEventHeight), typeof(double), typeof(SchedulerAgendaView), 48.0,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(SchedulerAgendaView), () =>
+            {
+                ((SchedulerAgendaView)b).Rebuild();
+            }));
+
+    internal static readonly BindablePropertyKey IsEventLockedPropertyKey = BindableProperty.CreateAttachedReadOnly(
+        "IsEventLocked", typeof(bool), typeof(SchedulerAgendaView), false);
+
+    /// <summary>
+    /// Read-only, attached to the root view of each event (the <see cref="EventItemTemplate"/> content
+    /// or the default block). True when <see cref="AllowEventDrag"/> or <see cref="AllowEventResize"/>
+    /// is on and <see cref="ISchedulerEventProvider.CanChangeEvent"/> returned false for that event, so
+    /// a custom template can show its own locked state. Always false while drag/resize is off.
+    /// </summary>
+    public static readonly BindableProperty IsEventLockedProperty = IsEventLockedPropertyKey.BindableProperty;
+
+    public static bool GetIsEventLocked(BindableObject view) => (bool)view.GetValue(IsEventLockedProperty);
+
     public ISchedulerEventProvider? Provider
     {
         get => (ISchedulerEventProvider?)GetValue(ProviderProperty);
@@ -391,6 +418,28 @@ public class SchedulerAgendaView : ContentView
     {
         get => (Color?)GetValue(DragSnapGuideColorProperty);
         set => SetValue(DragSnapGuideColorProperty, value);
+    }
+
+    /// <summary>
+    /// Draws a small lock on the default event block for events the provider locks
+    /// (<see cref="ISchedulerEventProvider.CanChangeEvent"/> returned false). Only applies while
+    /// <see cref="AllowEventDrag"/> or <see cref="AllowEventResize"/> is on, and never to a custom
+    /// <see cref="EventItemTemplate"/> - read <see cref="IsEventLockedProperty"/> there instead.
+    /// </summary>
+    public bool ShowLockedIndicator
+    {
+        get => (bool)GetValue(ShowLockedIndicatorProperty);
+        set => SetValue(ShowLockedIndicatorProperty, value);
+    }
+
+    /// <summary>
+    /// The shortest event block, in device-independent units, that gets resize grips. Anything shorter
+    /// is move-only, so the middle of the block stays grabbable. Defaults to 48 (three 16-unit grips).
+    /// </summary>
+    public double MinResizableEventHeight
+    {
+        get => (double)GetValue(MinResizableEventHeightProperty);
+        set => SetValue(MinResizableEventHeightProperty, value);
     }
 
     /// <summary>
@@ -760,7 +809,12 @@ public class SchedulerAgendaView : ContentView
                 TimeSlotTapped = OnTimeSlotTapped,
                 DragController = dragController,
                 AllowEventDrag = AllowEventDrag,
-                AllowEventResize = AllowEventResize
+                AllowEventResize = AllowEventResize,
+                // Read through the view rather than captured, so a provider swapped after the
+                // panels were built is the one asked.
+                CanChangeEvent = e => Provider?.CanChangeEvent(e) == true,
+                ShowLockedIndicator = ShowLockedIndicator,
+                MinResizableEventHeight = MinResizableEventHeight
             };
             panels.Add(panel);
             var col = timeColumnCount + i;

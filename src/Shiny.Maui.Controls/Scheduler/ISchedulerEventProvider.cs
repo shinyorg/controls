@@ -10,8 +10,11 @@ public interface ISchedulerEventProvider
     bool CanSelectAgendaTime(DateTimeOffset selectedTime);
 
     /// <summary>
-    /// Gates whether this event can be dragged/resized at all. Called once when the gesture arms -
-    /// return false to leave the event fixed (e.g. read-only calendars, past events).
+    /// Gates whether this event can be dragged/resized at all - return false to leave the event fixed
+    /// (e.g. read-only calendars, past events). Asked when the agenda lays out its events (while
+    /// <c>AllowEventDrag</c> or <c>AllowEventResize</c> is on), so a locked event gets no grips, no
+    /// drag cursor and a lock indicator, and asked again when a gesture arms. Keep it cheap, and
+    /// reload the view if the answer for an event changes.
     /// </summary>
     /// <remarks>
     /// Defaults to false, so a provider that ignores drag/drop can never have its events moved even

@@ -265,6 +265,17 @@
 }
 
 .shiny-agenda-event-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Floated so the title still truncates with an ellipsis before the lock, not underneath it.
+   Kept in step with the MAUI lock glyph. */
+.shiny-agenda-event-lock {
+    float: right;
+    margin-left: var(--shiny-spacing-1, 4px);
+    font-size: calc(10px * var(--shiny-type-scale, 1));
+    font-weight: normal;
+    opacity: 0.85;
+    pointer-events: none;
+}
 .shiny-agenda-event-time { font-size: calc(10px * var(--shiny-type-scale, 1)); opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .shiny-agenda-now {
