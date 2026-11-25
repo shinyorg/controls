@@ -80,7 +80,11 @@ public static class MauiProgram
 #if DEBUG
         builder.Logging.SetMinimumLevel(LogLevel.Debug);
         builder.Logging.AddDebug();
-        builder.AddMauiDevFlowAgent();
+        // TODO: drop the option once the DevFlow agents move to 0.1.0-preview.15+. They are held at
+        // preview.14 (whose preview.15 needs Microsoft.Extensions.* 11.0.1, not yet on nuget.org), and the
+        // preview.14 agent's file logging reads FileSystem.CacheDirectory while the builder is still being
+        // configured. On MAUI 11 the AppKit Essentials only reach that static after Build(), so it throws.
+        builder.AddMauiDevFlowAgent(o => o.EnableFileLogging = false);
 #endif
 
         return builder.Build();

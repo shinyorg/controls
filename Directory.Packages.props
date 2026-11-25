@@ -57,17 +57,17 @@
         <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="11.0.0"/>
         <PackageVersion Include="Plugin.Maui.Audio" Version="4.0.0"/>
         <PackageVersion Include="Shiny.Maui.Shell" Version="7.0.1"/>
-        <PackageVersion Include="Microsoft.Maui.Platforms.MacOS" Version="0.1.0-preview.13.26514.2"/>
-        <PackageVersion Include="Microsoft.Maui.Platforms.MacOS.Essentials" Version="0.1.0-preview.13.26514.2"/>
-        <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4" Version="0.1.0-preview.13.26514.2"/>
-        <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4.Essentials" Version="0.1.0-preview.13.26514.2"/>
+        <PackageVersion Include="Microsoft.Maui.Platforms.MacOS" Version="0.1.0-preview.15.26574.3"/>
+        <PackageVersion Include="Microsoft.Maui.Platforms.MacOS.Essentials" Version="0.1.0-preview.15.26574.3"/>
+        <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4" Version="0.1.0-preview.15.26574.3"/>
+        <PackageVersion Include="Microsoft.Maui.Platforms.Linux.Gtk4.Essentials" Version="0.1.0-preview.15.26574.3"/>
     </ItemGroup>
     <ItemGroup>
         <PackageVersion Include="coverlet.collector" Version="10.0.1"/>
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1"/>
-        <PackageVersion Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.13.26514.2"/>
-        <PackageVersion Include="Microsoft.Maui.DevFlow.Agent.Gtk" Version="0.1.0-preview.13.26514.2"/>
-        <PackageVersion Include="Microsoft.Maui.DevFlow.Driver" Version="0.1.0-preview.13.26514.2"/>
+        <PackageVersion Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.14.26573.4"/>
+        <PackageVersion Include="Microsoft.Maui.DevFlow.Agent.Gtk" Version="0.1.0-preview.14.26573.4"/>
+        <PackageVersion Include="Microsoft.Maui.DevFlow.Driver" Version="0.1.0-preview.15.26574.3"/>
         <PackageVersion Include="Shouldly" Version="4.3.0"/>
         <PackageVersion Include="TUnit" Version="1.64.6"/>
         <PackageVersion Include="Microsoft.Playwright" Version="1.62.0"/>

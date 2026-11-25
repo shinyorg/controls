@@ -39,6 +39,8 @@
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Markdown\Shiny.Maui.Controls.Markdown.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Agents\Shiny.Maui.Controls.Agents.csproj" />
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MermaidDiagrams\Shiny.Maui.Controls.MermaidDiagrams.csproj" />
+        <!-- the Page Transitions demo builds one of its transitions from Keyframes -->
+        <ProjectReference Include="..\..\src\Shiny.Maui.Controls.Keyframe\Shiny.Maui.Controls.Keyframe.csproj" />
         <!-- The GTK4 backend is its own package: there is no Linux TFM, so it can't live in the main one. -->
         <ProjectReference Include="..\..\src\Shiny.Maui.Controls.MediaElement.Linux\Shiny.Maui.Controls.MediaElement.Linux.csproj" />
         <!-- SpeechAddins has no plain net11.0 TFM: Shiny.Speech's net11.0 asset only implements the
@@ -54,7 +56,8 @@
         <!-- Linux additionally excludes DrawingCanvas + FloatingPanel feature: they rely on
              Microsoft.Maui.Graphics platform types (PlatformBitmapExportContext) that aren't
              available on plain net11.0.
-             Keyframe is excluded for now — Shiny.Maui.Controls.Keyframe isn't referenced by this head.
+             The Keyframe feature pages are excluded for now; the head references Shiny.Maui.Controls.Keyframe
+             only for the Page Transitions demo.
              FloorPlan and Office are excluded for the same reason SkiaSharp is absent here: SkiaSharp.Views.Maui
              ships no GTK4 asset, so the canvas has no platform view on this head at all. -->
         <Compile Include="..\Sample\**\*.cs"
@@ -66,10 +69,13 @@
     </ItemGroup>
 
     <ItemGroup>
-        <MauiImage Include="..\Sample\Resources\Images\*" Link="Resources\Images\%(Filename)%(Extension)" />
-        <MauiFont Include="..\Sample\Resources\Fonts\*" Link="Resources\Fonts\%(Filename)%(Extension)" />
-        <MauiAsset Include="..\Sample\Resources\Raw\**" Link="Resources\Raw\%(RecursiveDir)%(Filename)%(Extension)" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
-        <MauiAsset Include="..\..\README.md" LogicalName="README.md" />
+        <!-- On net11.0 the GTK4 package runs these through Resizetizer, which takes the resource name from Link
+             (a Resources\Images\ prefix is rejected as an invalid name) and publishes images and fonts flat and
+             assets at their Link. So Link is the published name here, not an IDE folder. -->
+        <MauiImage Include="..\Sample\Resources\Images\*" Link="%(Filename)%(Extension)" />
+        <MauiFont Include="..\Sample\Resources\Fonts\*" Link="%(Filename)%(Extension)" />
+        <MauiAsset Include="..\Sample\Resources\Raw\**" Link="%(RecursiveDir)%(Filename)%(Extension)" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+        <MauiAsset Include="..\..\README.md" Link="README.md" LogicalName="README.md" />
         <!-- ShinyImage's resource:// demo on the Images page; must match the main head's LogicalName. -->
         <EmbeddedResource Include="..\Sample\Assets\embedded-icon.svg" LogicalName="Sample.Assets.embedded-icon.svg" />
         <!-- the agent page's "Recordings" source: the AGUI.Server streams the engine tests replay, linked not copied -->
