@@ -51,8 +51,33 @@ Calendar and agenda views for displaying events and appointments, powered by `IS
 | `DragActivationDelay` | 350 ms | Long-press arming delay for touch; mouse never waits. `Zero` arms immediately. |
 | `AllowCrossDayDrag` | `true` | Only meaningful when `DaysToShow > 1`. |
 | `DragSnapGuideColor` | separator colour | The guide line drawn at the snapped position. |
+| `MinResizableEventHeight` | `48` | Shortest event block (DIPs / px) that gets resize grips; shorter events are move-only. |
+| `ShowLockedIndicator` | `true` | Draws a small 🔒 on the default event block of a locked event. |
 
 On touch the drag arms on a long press, so a vertical swipe still scrolls the timeline; with a mouse it starts immediately. The long press is measured from the touch itself, and arming disables the enclosing scroller natively for that one gesture — a press that arms and then never moves is still a tap, and still selects the event. The change is committed optimistically and reverted if the provider says no. All-day events are not draggable, and timed ↔ all-day conversion is not supported.
+
+**Locked events** - while `AllowEventDrag` or `AllowEventResize` is on, the view asks the provider's `CanChangeEvent` for each event as it lays them out. An event it refuses is *locked*: it gets no grips, no move gesture (MAUI) and no `data-draggable` / grab cursor (Blazor), so nothing suggests it can be dragged - it is still tappable and still selects. The default event view shows a small 🔒 after the title (turn it off with `ShowLockedIndicator="False"`). For a custom `EventItemTemplate` on MAUI, read the read-only attached property `SchedulerAgendaView.IsEventLocked`, which is set on the template's root view; on Blazor, locked events carry the `shiny-agenda-event--locked` CSS class. The answer is re-read whenever the view lays out again (a reload, a date change, a drop), and `CanChangeEvent` is still checked again when a gesture arms. With drag/resize off nothing is asked and nothing is marked.
+
+```csharp
+agenda.EventItemTemplate = new DataTemplate(() =>
+{
+    var title = new Label();
+    title.SetBinding(Label.TextProperty, static (SchedulerEvent e) => e.Title);
+    var badge = new Label { Text = "Read-only", IsVisible = false };
+
+    var root = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) } };
+    root.Add(title, 0);
+    root.Add(badge, 1);
+
+    // Set on the template root once, right after it is created and before it is laid out.
+    root.PropertyChanged += (_, e) =>
+    {
+        if (e.PropertyName == SchedulerAgendaView.IsEventLockedProperty.PropertyName)
+            badge.IsVisible = SchedulerAgendaView.GetIsEventLocked(root);
+    };
+    return root;
+});
+```
 
 **SchedulerCalendarListView** - Scrollable event list grouped by day with infinite scroll loading and sticky day headers (`StickyDayHeaders`, on by default, pins the current day's header to the top while scrolling).
 
@@ -89,7 +114,7 @@ public class MyEventProvider : ISchedulerEventProvider
 }
 ```
 
-`CanChangeEvent` defaults to `false`, so a provider that ignores drag/drop can never have its events moved even if an app sets `AllowEventDrag` - the opt-in is required on both the view and the provider. `SchedulerEventChange` carries the event, its original `Start`/`End`, the proposed (already snapped) `NewStart`/`NewEnd`, and a `Kind` of `Move` / `ResizeStart` / `ResizeEnd`. Returning `false` from `OnEventChanged` reverts; throwing reverts and raises `EventChangeFailed` on the view.
+`CanChangeEvent` defaults to `false`, so a provider that ignores drag/drop can never have its events moved even if an app sets `AllowEventDrag` - the opt-in is required on both the view and the provider (and such a provider's events all show as locked). It is asked at layout time as well as when a gesture arms, so keep it cheap. `SchedulerEventChange` carries the event, its original `Start`/`End`, the proposed (already snapped) `NewStart`/`NewEnd`, and a `Kind` of `Move` / `ResizeStart` / `ResizeEnd`. Returning `false` from `OnEventChanged` reverts; throwing reverts and raises `EventChangeFailed` on the view.
 
 On Blazor, events are matched across the JS boundary by `SchedulerEvent.Identifier` (a `Guid` by default) - duplicate identifiers make a drag a no-op rather than move the wrong event. Blazor also has `DragValidationMode`: `OnCommit` (default, no interop while the pointer moves) or `PerPosition` (`CanChangeEventTo` per snap boundary, which is visibly slower on WASM).
 

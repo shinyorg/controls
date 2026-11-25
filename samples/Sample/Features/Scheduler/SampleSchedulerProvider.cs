@@ -278,7 +278,7 @@ public class SampleSchedulerProvider(IDialogs dialogs) : ISchedulerEventProvider
 
     // ------------- drag / resize -------------
 
-    /// <summary>Lunch is immovable - it demonstrates the per-event gate.</summary>
+    /// <summary>Lunch is immovable - it demonstrates the per-event gate: no grips, and a lock on the block.</summary>
     public bool CanChangeEvent(SchedulerEvent evt) =>
         !evt.IsAllDay && evt.Title != "Lunch Break";
 

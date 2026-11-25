@@ -141,18 +141,22 @@
                     @foreach (var p in PositionedEvents(date))
                     {
                         var captured = p.Event;
-                        <div class="shiny-agenda-event"
+                        var locked = IsEventLocked(p.Event);
+                        <div class="@EventCssClass(locked)"
                              style="top:@(Px(p.Top))px;height:@(Px(p.Height))px;left:@(Px(p.LeftPct))%;width:calc(@(Px(p.WidthPct))% - 4px);background:@(p.Event.Color ?? DefaultEventColor);color:@(ContrastInk.For(p.Event.Color ?? DefaultEventColor));"
                              data-event-id="@p.Event.Identifier"
-                             data-draggable="@(DragEnabled ? "true" : null)"
+                             data-draggable="@(DragEnabled && !locked ? "true" : null)"
                              @onclick:stopPropagation
                              @onclick="() => OnEventTapped(captured)">
-                            @if (AllowEventResize && p.Height >= GripHeight * 3)
+                            @if (ShowsResizeGrips(locked, p.Height))
                             {
                                 <span class="shiny-agenda-grip shiny-agenda-grip--start"></span>
                                 <span class="shiny-agenda-grip shiny-agenda-grip--end"></span>
                             }
-                            <div class="shiny-agenda-event-title">@p.Event.Title</div>
+                            <div class="shiny-agenda-event-title">@if (locked && ShowLockedIndicator)
+                                {
+                                    <span class="shiny-agenda-event-lock" role="img" aria-label="Locked" title="Locked">🔒</span>
+                                }@p.Event.Title</div>
                             <div class="shiny-agenda-event-time">@p.Event.Start.LocalDateTime.ToString(TimeFormat) – @p.Event.End.LocalDateTime.ToString(TimeFormat)</div>
                         </div>
                     }
@@ -234,6 +238,20 @@
     /// <summary>The horizontal guide line drawn at the snapped position while dragging.</summary>
     [Parameter] public string? DragSnapGuideColor { get; set; }
 
+    /// <summary>
+    /// Draws a small lock on events the provider locks (<see cref="ISchedulerEventProvider.CanChangeEvent"/>
+    /// returned false). Only applies while <see cref="AllowEventDrag"/> or <see cref="AllowEventResize"/>
+    /// is on. Locked events also carry the <c>shiny-agenda-event--locked</c> class either way, for
+    /// styling them yourself.
+    /// </summary>
+    [Parameter] public bool ShowLockedIndicator { get; set; } = true;
+
+    /// <summary>
+    /// The shortest event block, in pixels, that gets resize grips. Anything shorter is move-only, so
+    /// the middle of the block stays grabbable. Defaults to 48 (three 16px grips).
+    /// </summary>
+    [Parameter] public double MinResizableEventHeight { get; set; } = GripHeight * 3;
+
     /// <summary>How often the provider is asked to validate the in-flight position.</summary>
     [Parameter] public AgendaDragValidationMode DragValidationMode { get; set; } = AgendaDragValidationMode.OnCommit;
 
@@ -252,6 +270,21 @@
     string? lastDragOptions;
 
     bool DragEnabled => AllowEventDrag || AllowEventResize;
+
+    /// <summary>
+    /// Locked means drag/resize is on and the provider refuses this event. Asked at render time so a
+    /// locked event never gets grips or the drag cursor; <see cref="OnDragArm"/> still re-checks.
+    /// No provider locks everything, same as the arm-time gate.
+    /// </summary>
+    internal bool IsEventLocked(SchedulerEvent evt) => DragEnabled && Provider?.CanChangeEvent(evt) != true;
+
+    /// <summary>Too short to hold two grips and still be grabbable in the middle - move only.</summary>
+    internal bool ShowsResizeGrips(bool locked, double height)
+        => AllowEventResize && !locked && height >= MinResizableEventHeight;
+
+    /// <summary>Exactly <c>shiny-agenda-event</c> when unlocked, so a drag-disabled render is unchanged.</summary>
+    internal static string EventCssClass(bool locked)
+        => locked ? "shiny-agenda-event shiny-agenda-event--locked" : "shiny-agenda-event";
 
     int Days => Math.Clamp(DaysToShow, 1, 7);
     bool ShowTz => ShowAdditionalTimezones && (AdditionalTimezones?.Count ?? 0) > 0;
