@@ -70,6 +70,13 @@ swallow the touch and double-toggle), and rows failing `CanSelectSelector` rende
 | `SelectedBackgroundColor` | `Color` | `#E3F2FD` | Background tint of selected rows |
 | `RowBackgroundColor` | `Color` | `Transparent` | Background of unselected rows |
 
+### Virtualization
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `IsVirtualized` | `bool` | `false` | Build only the rows in and around the viewport (6 rows of overscan each side). Requires a bounded height. |
+| `RowHeight` | `double` | `40` | Fixed height of every row while `IsVirtualized`; ignored otherwise. `RowSpacing` is ignored while virtualized. |
+| `RealizedRowCount` | `int` (read-only) | | Row views that exist right now (diagnostics). |
+
 ### Drag/drop
 | Property | Type | Default | Description |
 |---|---|---|---|
@@ -302,6 +309,16 @@ Drops onto descendants of the source are rejected automatically (no cycles).
 | No built-in keyboard nav | Built-in: ↑/↓ navigate, ←/→ collapse/expand, Enter/Space select, Home/End jump to ends |
 | `CssClass` parameter does not exist | `CssClass` parameter adds a class to the root `<div>` |
 
+### Virtualization (Blazor)
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `Virtualize` | `bool` | `false` | Render rows as a flat list through `<Virtualize>`; only the rows in view reach the DOM |
+| `RowHeight` | `float` | `32` | Fixed row height in pixels (the `ItemSize` given to `<Virtualize>`) |
+| `OverscanCount` | `int` | `6` | Rows rendered above and below the viewport |
+
+The tree root gets `overflow-y:auto` and `height:100%`, so its parent must have a height. Hierarchy is exposed through `aria-level` / `aria-setsize` / `aria-posinset`, and keyboard focus scrolls off-screen rows into view.
+
 ### Public methods (Blazor)
 ```csharp
 await tree.ExpandAsync(item);
@@ -356,6 +373,31 @@ order, renamed on every expand/collapse, for UI tests:
 | Multi-select checkbox | `<id>_CheckBox_<index>` (`ShinyTreeNodeCheckBox` when the tree has no id) |
 | Root loading indicator / load-error label | `<id>_Loading` / `<id>_Error` |
 
+## Large trees: virtualization
+
+Generate virtualization only when the tree can show thousands of rows at once (big `ExpandAll`, flat roots in the thousands). It changes layout rules, so get them right:
+
+```xml
+<!-- MAUI: a * row gives the tree a bounded height. Never wrap a virtualized tree in a ScrollView or StackLayout. -->
+<Grid RowDefinitions="Auto,*,Auto">
+    <HorizontalStackLayout Grid.Row="0">...</HorizontalStackLayout>
+    <shiny:TreeView x:Name="Tree" Grid.Row="1" IsVirtualized="True" RowHeight="36" ShowGuideLines="True" />
+    <Label Grid.Row="2" Text="{Binding Status}" />
+</Grid>
+```
+
+```razor
+@* Blazor: the parent supplies the height; the tree is the only scroller on that axis *@
+<div class="tree-host" style="display:flex;flex-direction:column;height:100%;min-height:0">
+    <TreeView TItem="FileNode" Virtualize="true" RowHeight="30" ItemsSource="roots"
+              ChildrenSelector="@(n => n.Children)" HasChildrenSelector="@(n => n.Children is { Count: > 0 })" />
+</div>
+```
+
+- All rows are one height: keep the `ItemTemplate` to a single line that fits `RowHeight`.
+- Don't place a virtualized tree inside a scrolling page or another scroller (double scrollbars, and every row gets built anyway).
+- Not supported while virtualized: drag auto-scroll near the edges, scroll-to-item from code.
+
 ## When to Use TreeView
 
 - File browsers, folder pickers, category browsers
@@ -376,5 +418,5 @@ order, renamed on every expand/collapse, for UI tests:
 3. **Always handle `LoadFailed`** — without it, a transient failure leaves the user with a retry icon and no context.
 4. **Don't mutate `ItemsSource` from inside `ItemDropped`** without re-binding — the TreeView caches children on `TreeNode` wrappers; rebind `ItemsSource = null; ItemsSource = data;` after a structural change, or call `Tree.Refresh(parent)` for a single subtree.
 5. **Use `Refresh(item)` not `Collapse(item) + Expand(item)`** to force a reload — collapse just hides; refresh drops the cache.
-6. **Keep templates lightweight** — every visible node is a separate `TreeNodeView` and an instance of your `ItemTemplate`. For very large trees, prefer lazy loading over loading all children up-front.
+6. **Keep templates lightweight** — every visible node is a separate `TreeNodeView` and an instance of your `ItemTemplate`. For very large trees, prefer lazy loading over loading all children up-front, and turn on `IsVirtualized` / `Virtualize` when thousands of rows can be visible at once.
 7. **Use `CanSelectSelector` not `IsEnabled` for non-selectable rows** — `CanSelectSelector` keeps them visually present (just non-interactive) and integrates with the keyboard navigation on Blazor.
