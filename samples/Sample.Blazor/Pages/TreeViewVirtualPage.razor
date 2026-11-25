@@ -1,0 +1,62 @@
+@page "/treeview-virtual"
+
+<PageTitle>Tree View · Virtualized</PageTitle>
+
+<h1>Tree View — Virtualized</h1>
+
+<div class="demo-section demo-fill">
+    <div class="tv-toolbar">
+        <button @onclick="ExpandAll">Expand all</button>
+        <button @onclick="CollapseAll">Collapse all</button>
+        <label><input type="checkbox" @bind="multiSelect" /> Multi-select</label>
+        <span class="tv-count">@roots.Count.ToString("N0") folders × @FilesPerFolder files = @((roots.Count * (FilesPerFolder + 1)).ToString("N0")) rows</span>
+    </div>
+
+    <div class="demo-fill-body">
+        <TreeView TItem="DemoNode"
+                  @ref="tree"
+                  Virtualize="true"
+                  RowHeight="30"
+                  ItemsSource="roots"
+                  ChildrenSelector="@(n => n.Children)"
+                  HasChildrenSelector="@(n => n.Children is { Count: > 0 })"
+                  SelectionMode="@(multiSelect ? BlazorTreeSelectionMode.Multiple : BlazorTreeSelectionMode.Single)"
+                  ShowGuideLines="true"
+                  ItemSelected="@(e => status = $"Selected {e.Item.Name}")">
+            <ItemTemplate Context="node">
+                <span>@(node.Children is null ? "📄" : "📁") @node.Name</span>
+            </ItemTemplate>
+        </TreeView>
+    </div>
+
+    <p class="state">@status</p>
+</div>
+
+<style>
+    .tv-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+    .tv-count { font-size:12px; opacity:.7; margin-left:auto; }
+</style>
+
+@code {
+    const int FilesPerFolder = 50;
+    TreeView<DemoNode>? tree;
+    bool multiSelect;
+    string status = "Expand all, then scroll: only the rows in view are in the DOM.";
+
+    record DemoNode(string Name, List<DemoNode>? Children);
+
+    readonly List<DemoNode> roots = Enumerable.Range(1, 1000)
+        .Select(f => new DemoNode(
+            $"Folder {f:0000}",
+            Enumerable.Range(1, FilesPerFolder).Select(i => new DemoNode($"file-{f:0000}-{i:00}.txt", null)).ToList()))
+        .ToList();
+
+    async Task ExpandAll()
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await tree!.ExpandAllAsync();
+        status = $"Expanded {roots.Count * (FilesPerFolder + 1):N0} rows in {sw.ElapsedMilliseconds} ms";
+    }
+
+    void CollapseAll() => tree!.CollapseAll();
+}

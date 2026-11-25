@@ -28,6 +28,7 @@ public partial class TreeView : ContentView
 
     readonly ScrollView scrollView;
     internal readonly VerticalStackLayout rowLayout;
+    internal readonly VirtualRowPanel virtualPanel;
     readonly ActivityIndicator rootLoadingIndicator;
     readonly Label rootErrorLabel;
     readonly Grid root;
@@ -44,7 +45,10 @@ public partial class TreeView : ContentView
     public TreeView()
     {
         rowLayout = new VerticalStackLayout { Spacing = 0 };
+        virtualPanel = new VirtualRowPanel();
         scrollView = new ScrollView { Content = rowLayout };
+        scrollView.Scrolled += (_, _) => OnViewportChanged();
+        scrollView.SizeChanged += (_, _) => OnViewportChanged();
 
         rootLoadingIndicator = new ActivityIndicator
         {
@@ -210,7 +214,24 @@ public partial class TreeView : ContentView
     }
 
     // ------------- Flatten + render -------------
-    internal void Rebuild()
+
+    /// <summary>Rows realized above and below the viewport while <see cref="IsVirtualized"/>.</summary>
+    internal const int VirtualOverscan = 6;
+
+    /// <summary>How many row views exist right now: every visible node, or only the realized window when <see cref="IsVirtualized"/>.</summary>
+    public int RealizedRowCount => nodeViews.Count;
+
+    /// <summary>The rows currently in the tree: every visible node, or only the realized window when virtualized.</summary>
+    internal IEnumerable<TreeNodeView> RowViews =>
+        (IsVirtualized ? virtualPanel.Children : rowLayout.Children).OfType<TreeNodeView>();
+
+    /// <summary>
+    /// Re-flattens the visible nodes and re-renders. <paramref name="keepViews"/> is for changes that
+    /// only move rows (expand / collapse): a virtualized tree then keeps the rows it already built for
+    /// nodes still in range instead of rebuilding them. Anything that changes how a row looks
+    /// (template, indent, selection mode...) rebuilds every row.
+    /// </summary>
+    internal void Rebuild(bool keepViews = false)
     {
         if (isRebuilding)
             return;
@@ -221,6 +242,18 @@ public partial class TreeView : ContentView
             foreach (var n in rootNodes)
                 Flatten(n);
 
+            if (IsVirtualized)
+            {
+                if (!keepViews)
+                    ClearVirtualRows();
+                virtualPanel.RowHeight = RowHeight;
+                virtualPanel.RowCount = flatNodes.Count;
+                RealizeVisibleRows();
+                return;
+            }
+
+            foreach (var view in nodeViews.Values)
+                view.Detach();
             rowLayout.Children.Clear();
             var newViews = new Dictionary<TreeNode, TreeNodeView>();
             for (var i = 0; i < flatNodes.Count; i++)
@@ -241,14 +274,83 @@ public partial class TreeView : ContentView
         }
     }
 
+    void OnIsVirtualizedChanged()
+    {
+        // Each mode owns its own panel; empty the one being left so its rows unhook from their nodes.
+        foreach (var view in nodeViews.Values)
+            view.Detach();
+        nodeViews.Clear();
+        rowLayout.Children.Clear();
+        virtualPanel.Children.Clear();
+
+        scrollView.Content = IsVirtualized ? virtualPanel : rowLayout;
+        Rebuild();
+    }
+
+    void OnViewportChanged()
+    {
+        if (IsVirtualized && !isRebuilding)
+            RealizeVisibleRows();
+    }
+
+    void ClearVirtualRows()
+    {
+        foreach (var view in nodeViews.Values)
+            view.Detach();
+        nodeViews.Clear();
+        virtualPanel.Children.Clear();
+    }
+
+    /// <summary>
+    /// Brings the virtualized panel in line with the viewport: drops rows that left the window
+    /// (plus overscan), builds the ones that entered it, and re-indexes the rows it keeps.
+    /// </summary>
+    internal void RealizeVisibleRows() =>
+        RealizeVisibleRows(scrollView.ScrollY, scrollView.Height);
+
+    internal void RealizeVisibleRows(double scrollY, double viewportHeight)
+    {
+        var (first, last) = VirtualRowPanel.VisibleRange(scrollY, viewportHeight, RowHeight, flatNodes.Count, VirtualOverscan);
+
+        var wanted = new Dictionary<TreeNode, int>();
+        for (var i = first; i <= last; i++)
+            wanted[flatNodes[i]] = i;
+
+        // A row being dragged stays realized even when it scrolls out of range - the pan
+        // gesture belongs to it.
+        var dragging = pointerDragSource?.Node;
+        var stale = nodeViews
+            .Where(kv => !wanted.ContainsKey(kv.Key) && !ReferenceEquals(kv.Key, dragging))
+            .ToList();
+        foreach (var kv in stale)
+        {
+            kv.Value.Detach();
+            virtualPanel.Children.Remove(kv.Value);
+            nodeViews.Remove(kv.Key);
+        }
+
+        foreach (var (node, index) in wanted)
+        {
+            if (nodeViews.TryGetValue(node, out var existing))
+            {
+                existing.ApplyAutomationIds(index);
+            }
+            else
+            {
+                var view = new TreeNodeView(this, node) { HeightRequest = RowHeight };
+                view.ApplyAutomationIds(index);
+                nodeViews[node] = view;
+                virtualPanel.Children.Add(view);
+            }
+        }
+
+        virtualPanel.InvalidateMeasure();
+    }
+
     void NameRows()
     {
-        var i = 0;
-        foreach (var child in rowLayout.Children)
-        {
-            if (child is TreeNodeView row)
-                row.ApplyAutomationIds(i++);
-        }
+        foreach (var row in RowViews)
+            row.ApplyAutomationIds(row.RowIndex);
     }
 
     void Flatten(TreeNode node)
@@ -279,7 +381,7 @@ public partial class TreeView : ContentView
         if (node.IsExpanded)
         {
             node.IsExpanded = false;
-            Rebuild();
+            Rebuild(keepViews: true);
             RaiseCollapsed(node);
             return;
         }
@@ -330,7 +432,7 @@ public partial class TreeView : ContentView
         }
 
         node.IsExpanded = true;
-        Rebuild();
+        Rebuild(keepViews: true);
         RaiseExpanded(node);
     }
 
@@ -485,12 +587,8 @@ public partial class TreeView : ContentView
         zone = TreeDropPosition.Below;
         TreeNodeView? first = null, last = null, hit = null;
 
-        foreach (var child in rowLayout.Children)
+        foreach (var row in RowViews.Where(r => !ReferenceEquals(r, source) && !IsDescendantOf(source.Node, r.Node)))
         {
-            if (child is not TreeNodeView row ||
-                ReferenceEquals(row, source) ||
-                IsDescendantOf(source.Node, row.Node))
-                continue;
 
             first ??= row;
             last = row;

@@ -80,3 +80,15 @@ export function dispose(root) {
         root.removeEventListener(name, fn);
     instances.delete(root);
 }
+
+// Virtualized trees: keep the keyboard-focused row (by index in the flat list) inside the
+// scroller, so <Virtualize> renders it.
+export function scrollRowIntoView(root, index, rowHeight) {
+    if (!root) return;
+    const top = index * rowHeight;
+    const bottom = top + rowHeight;
+    if (top < root.scrollTop)
+        root.scrollTop = top;
+    else if (bottom > root.scrollTop + root.clientHeight)
+        root.scrollTop = bottom - root.clientHeight;
+}

@@ -399,6 +399,14 @@
         <ShellContent ContentTemplate="{DataTemplate treeview:TreeViewPage}" Route="treeview" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Tree View · Virtualized">
+        <FlyoutItem.FlyoutIcon>
+            <FontImageSource Glyph="&#x2387;" Size="20"
+                             Color="{AppThemeBinding Light=#0284C7, Dark=#60A5FA}" />
+        </FlyoutItem.FlyoutIcon>
+        <ShellContent ContentTemplate="{DataTemplate treeview:TreeViewVirtualPage}" Route="treeview-virtual" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Data Grid">
         <FlyoutItem.FlyoutIcon>
             <FontImageSource Glyph="&#x25A6;" Size="20"

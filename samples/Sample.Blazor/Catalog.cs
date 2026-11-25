@@ -40,6 +40,7 @@ public static class Catalog
             new("virtualizedgrid", "Virtualized Grid", "▣", "Windowed grid that stays smooth over huge lists"),
             new("parallaxlist", "Parallax List", "▰", "Collection with a hero that scrolls at half speed"),
             new("treeview", "Tree View", "⎇", "Lazy-loaded hierarchy with drag-reorder"),
+            new("treeview-virtual", "Tree View · Virtualized", "⎇", "51,000 rows, only the visible ones rendered"),
             new("cells", "Cells", "☰", "The 14 cell types behind TableView"),
             new("tableview", "Table View", "☷", "Settings-style sectioned lists with drag & sort"),
             new("datagrid", "Data Grid", "▦", "Sortable, templated columns over tabular data"),

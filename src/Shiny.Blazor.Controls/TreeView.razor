@@ -1,8 +1,10 @@
 @namespace Shiny.Blazor.Controls
 @using Shiny.Blazor.Controls.Theming
+@using Microsoft.AspNetCore.Components.Web.Virtualization
 @typeparam TItem
 
-<div class="shiny-treeview @CssClass" tabindex="0" @ref="rootElement" @onkeydown="OnKeyDown" @attributes="AdditionalAttributes">
+<div class="shiny-treeview @(Virtualize ? "shiny-treeview-virtual" : "") @CssClass" tabindex="0"
+     style="@(Virtualize ? $"--shiny-treeview-row-height:{RowHeight.ToString(System.Globalization.CultureInfo.InvariantCulture)}px;" : null)" @ref="rootElement" @onkeydown="OnKeyDown" @attributes="AdditionalAttributes">
     @if (isLoadingRoot)
     {
         <div class="shiny-treeview-loading">
@@ -23,6 +25,25 @@
             <span class="shiny-treeview-retry">Tap to retry</span>
         </div>
     }
+    else if (Virtualize)
+    {
+        @* Flat rows: the hierarchy is carried by aria-level / setsize / posinset instead of
+           nesting, which is what lets <Virtualize> render only the rows in view. *@
+        <div class="shiny-treeview-list" role="tree" aria-multiselectable="@(SelectionMode == BlazorTreeSelectionMode.Multiple ? "true" : null)">
+            <Virtualize Items="@VisibleRows()" ItemSize="@RowHeight" OverscanCount="@OverscanCount" Context="row">
+                <div class="shiny-treeview-item @(row.IsSelected ? "selected" : "")" role="treeitem"
+                     @key="row"
+                     aria-level="@(row.Depth + 1)"
+                     aria-setsize="@SiblingsOf(row).Count"
+                     aria-posinset="@(SiblingsOf(row).IndexOf(row) + 1)"
+                     aria-expanded="@(HasChildren(row.Item) ? row.IsExpanded.ToString().ToLowerInvariant() : null)"
+                     aria-checked="@(ShowSelectionCheckBoxes && SelectionMode == BlazorTreeSelectionMode.Multiple ? row.IsSelected.ToString().ToLowerInvariant() : null)"
+                     aria-selected="@row.IsSelected.ToString().ToLowerInvariant()">
+                    @RenderRow(row)
+                </div>
+            </Virtualize>
+        </div>
+    }
     else
     {
         <ul class="shiny-treeview-list" role="tree">
@@ -38,16 +59,33 @@
     RenderFragment RenderNode(BlazorTreeNode<TItem> node) => __builder =>
     {
         var hasChildren = HasChildren(node.Item);
-        var canExpand = CanExpand(node.Item);
-        var canSelect = CanSelect(node.Item);
-        var indent = $"padding-left: {node.Depth * IndentSize}px;";
-
         var showCheck = ShowSelectionCheckBoxes && SelectionMode == BlazorTreeSelectionMode.Multiple;
 
         <li class="shiny-treeview-item @(node.IsSelected ? "selected" : "")" role="treeitem"
             aria-expanded="@(hasChildren ? node.IsExpanded.ToString().ToLowerInvariant() : null)"
             aria-checked="@(showCheck ? node.IsSelected.ToString().ToLowerInvariant() : null)"
             aria-selected="@node.IsSelected.ToString().ToLowerInvariant()">
+            @RenderRow(node)
+            @if (node.IsExpanded && node.Children is not null)
+            {
+                <ul class="shiny-treeview-list" role="group">
+                    @foreach (var child in node.Children)
+                    {
+                        @RenderNode(child)
+                    }
+                </ul>
+            }
+        </li>
+    };
+
+    RenderFragment RenderRow(BlazorTreeNode<TItem> node) => __builder =>
+    {
+        var hasChildren = HasChildren(node.Item);
+        var canExpand = CanExpand(node.Item);
+        var canSelect = CanSelect(node.Item);
+        var indent = $"padding-left: {node.Depth * IndentSize}px;";
+        var showCheck = ShowSelectionCheckBoxes && SelectionMode == BlazorTreeSelectionMode.Multiple;
+
             @* drag/drop is wired natively in tree-view.js — Blazor's synthetic drag
                events can't call dataTransfer.setData(), which Safari/Firefox require *@
             <div class="shiny-treeview-row @(node == focusedNode ? "focused" : "")"
@@ -133,15 +171,5 @@
                     }
                 </div>
             </div>
-            @if (node.IsExpanded && node.Children is not null)
-            {
-                <ul class="shiny-treeview-list" role="group">
-                    @foreach (var child in node.Children)
-                    {
-                        @RenderNode(child)
-                    }
-                </ul>
-            }
-        </li>
     };
 }

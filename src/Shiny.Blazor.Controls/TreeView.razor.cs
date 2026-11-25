@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Web.Virtualization;
 using Microsoft.JSInterop;
 
 using Shiny.Blazor.Controls.Theming;
@@ -19,6 +20,7 @@ public partial class TreeView<TItem> : IAsyncDisposable
     bool isLoadingRoot;
     bool rootLoaderInvoked;
     Exception? rootError;
+    int? pendingScrollIndex;
 
     [Inject] IJSRuntime JS { get; set; } = null!;
 
@@ -69,6 +71,21 @@ public partial class TreeView<TItem> : IAsyncDisposable
     [Parameter] public bool ShowGuideLines { get; set; } = false;
     [Parameter] public bool EnableDragDrop { get; set; } = false;
     [Parameter] public string? CssClass { get; set; }
+
+    // ------------- Virtualization -------------
+    /// <summary>
+    /// Render only the rows in and around the viewport. Rows become a flat list (the hierarchy is
+    /// announced with aria-level / aria-setsize / aria-posinset), every row is <see cref="RowHeight"/>
+    /// tall, and the tree becomes its own scroller: give it a bounded height (fill a sized parent)
+    /// rather than putting it inside a scrolling page.
+    /// </summary>
+    [Parameter] public bool Virtualize { get; set; }
+
+    /// <summary>The fixed row height, in pixels, while <see cref="Virtualize"/> is on.</summary>
+    [Parameter] public float RowHeight { get; set; } = 32;
+
+    /// <summary>Rows rendered above and below the viewport while <see cref="Virtualize"/> is on.</summary>
+    [Parameter] public int OverscanCount { get; set; } = 6;
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IDictionary<string, object>? AdditionalAttributes { get; set; }
@@ -198,6 +215,26 @@ public partial class TreeView<TItem> : IAsyncDisposable
                 node.IsSelected = true;
         }
     }
+
+    // ------------- Flattened rows (virtualized mode) -------------
+    /// <summary>The visible rows in display order: roots, plus the children of every expanded node.</summary>
+    internal List<BlazorTreeNode<TItem>> VisibleRows()
+    {
+        var rows = new List<BlazorTreeNode<TItem>>();
+        foreach (var n in rootNodes)
+            AddVisible(n, rows);
+        return rows;
+    }
+
+    static void AddVisible(BlazorTreeNode<TItem> node, List<BlazorTreeNode<TItem>> rows)
+    {
+        rows.Add(node);
+        if (node.IsExpanded && node.Children != null)
+            foreach (var c in node.Children)
+                AddVisible(c, rows);
+    }
+
+    List<BlazorTreeNode<TItem>> SiblingsOf(BlazorTreeNode<TItem> node) => node.Parent?.Children ?? rootNodes;
 
     // ------------- Predicates -------------
     bool HasChildren(TItem item)
@@ -518,7 +555,26 @@ public partial class TreeView<TItem> : IAsyncDisposable
     // start a drag at all) and report the finished drop back here.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (EnableDragDrop && dragModule == null && !disposed)
+        await EnsureModuleAsync();
+
+        // Keyboard focus can move to a row <Virtualize> hasn't rendered; scroll it into view and
+        // the virtualizer renders it.
+        if (pendingScrollIndex is int index && dragModule != null && !disposed)
+        {
+            pendingScrollIndex = null;
+            try
+            {
+                await dragModule.InvokeVoidAsync("scrollRowIntoView", rootElement, index, RowHeight);
+            }
+            catch (JSDisconnectedException) { }
+            catch (ObjectDisposedException) { }
+            catch (TaskCanceledException) { }
+        }
+    }
+
+    async Task EnsureModuleAsync()
+    {
+        if ((EnableDragDrop || Virtualize) && dragModule == null && !disposed)
         {
             try
             {
@@ -534,7 +590,8 @@ public partial class TreeView<TItem> : IAsyncDisposable
                     return;
                 }
                 dragModule = module;
-                await dragModule.InvokeVoidAsync("init", rootElement, localRef);
+                if (EnableDragDrop)
+                    await dragModule.InvokeVoidAsync("init", rootElement, localRef);
             }
             catch (ObjectDisposedException) { }
             catch (JSDisconnectedException) { }
@@ -634,6 +691,13 @@ public partial class TreeView<TItem> : IAsyncDisposable
             case "End":
                 if (flat.Count > 0) { focusedNode = flat[^1]; StateHasChanged(); }
                 break;
+        }
+
+        if (Virtualize && focusedNode != null)
+        {
+            var focusIndex = VisibleRows().IndexOf(focusedNode);
+            if (focusIndex >= 0)
+                pendingScrollIndex = focusIndex;
         }
     }
 

@@ -278,6 +278,40 @@ public partial class TreeView
         set => SetValue(IndentSizeProperty, value);
     }
 
+    // ------------- Virtualization -------------
+    public static readonly BindableProperty IsVirtualizedProperty = BindableProperty.Create(
+        nameof(IsVirtualized), typeof(bool), typeof(TreeView), false,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(TreeView), () =>
+            {
+                ((TreeView)b).OnIsVirtualizedChanged();
+            }));
+
+    /// <summary>
+    /// Only build the rows in and around the viewport. Every row is then <see cref="RowHeight"/>
+    /// tall (and <see cref="RowSpacing"/> is ignored), and the tree must be given a bounded height
+    /// - a <c>*</c> grid row, not a <see cref="ScrollView"/> or <see cref="VerticalStackLayout"/>,
+    /// which would let it grow to its full height and realize every row anyway.
+    /// </summary>
+    public bool IsVirtualized
+    {
+        get => (bool)GetValue(IsVirtualizedProperty);
+        set => SetValue(IsVirtualizedProperty, value);
+    }
+
+    public static readonly BindableProperty RowHeightProperty = BindableProperty.Create(
+        nameof(RowHeight), typeof(double), typeof(TreeView), 40d,
+        propertyChanged: (b, _, _) => StyleGuard.WhenReady(b, typeof(TreeView), () =>
+            {
+                ((TreeView)b).Rebuild();
+            }));
+
+    /// <summary>The fixed height of every row while <see cref="IsVirtualized"/>. Ignored otherwise.</summary>
+    public double RowHeight
+    {
+        get => (double)GetValue(RowHeightProperty);
+        set => SetValue(RowHeightProperty, value);
+    }
+
     public static readonly BindableProperty RowSpacingProperty = BindableProperty.Create(
         nameof(RowSpacing), typeof(double), typeof(TreeView), 0d,
         propertyChanged: (b, _, n) => StyleGuard.WhenReady(b, typeof(TreeView), () =>

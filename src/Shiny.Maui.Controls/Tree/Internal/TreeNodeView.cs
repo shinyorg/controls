@@ -160,9 +160,13 @@ internal class TreeNodeView : Grid
 
     public TreeNode Node { get; }
 
+    /// <summary>This row's index in the visible (flattened) order; the virtualized panel places the row by it.</summary>
+    internal int RowIndex { get; private set; }
+
     /// <summary>Names this row's parts after the tree, at <paramref name="index"/> in the visible (flattened) order.</summary>
     internal void ApplyAutomationIds(int index)
     {
+        RowIndex = index;
         AutomationIds.Set(background, AutomationIds.For(owner, TreeView.NodeAutomationIdSuffix, index));
         AutomationIds.Set(chevronHost, AutomationIds.For(owner, TreeView.ExpandAutomationIdSuffix, index));
         if (checkBox != null)
@@ -348,21 +352,27 @@ internal class TreeNodeView : Grid
         owner.HandleRowTapped(Node);
     }
 
-    void HookNodeChanges()
+    void HookNodeChanges() => Node.PropertyChanged += OnNodePropertyChanged;
+
+    /// <summary>
+    /// Unhooks this row from its node. The node outlives the row (it holds the tree's state), so a
+    /// row that is thrown away - a rebuild, or a virtualized row scrolled out of range - would
+    /// otherwise stay alive, and keep refreshing, for as long as the node does.
+    /// </summary>
+    internal void Detach() => Node.PropertyChanged -= OnNodePropertyChanged;
+
+    void OnNodePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        Node.PropertyChanged += (_, args) =>
+        switch (args.PropertyName)
         {
-            switch (args.PropertyName)
-            {
-                case nameof(TreeNode.IsExpanded):
-                case nameof(TreeNode.LoadState):
-                    RefreshChevron();
-                    break;
-                case nameof(TreeNode.IsSelected):
-                    RefreshSelection();
-                    break;
-            }
-        };
+            case nameof(TreeNode.IsExpanded):
+            case nameof(TreeNode.LoadState):
+                RefreshChevron();
+                break;
+            case nameof(TreeNode.IsSelected):
+                RefreshSelection();
+                break;
+        }
     }
 
     // ------------- Drag/drop -------------

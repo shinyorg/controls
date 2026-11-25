@@ -143,3 +143,25 @@
     margin-top: 4px;
     display: inline-block;
 }
+
+/* Virtualized: the tree is its own (only) scroller and every row is one fixed height, which is
+   what <Virtualize ItemSize> assumes. Fill a sized parent: height:100% / flex:1 + min-height:0. */
+.shiny-treeview-virtual {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.shiny-treeview-virtual .shiny-treeview-row {
+    box-sizing: border-box;
+    height: var(--shiny-treeview-row-height, 32px);
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.shiny-treeview-virtual .shiny-treeview-content {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
