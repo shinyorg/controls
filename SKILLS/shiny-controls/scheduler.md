@@ -16,7 +16,9 @@ public interface ISchedulerEventProvider
 
     // ---- drag/resize on SchedulerAgendaView (default interface methods - override only what you need) ----
 
-    // Gates whether this event can be dragged/resized at all. Called once when the gesture arms.
+    // Gates whether this event can be dragged/resized at all. Asked when the agenda lays out events
+    // (while drag/resize is on - a false hides the grips/drag affordance and marks the event locked)
+    // and again when a gesture arms. Keep it cheap.
     // DEFAULTS TO FALSE: opting in requires both AllowEventDrag on the view AND this override.
     bool CanChangeEvent(SchedulerEvent evt) => false;
 
@@ -209,6 +211,9 @@ Day/multi-day timeline with overlap detection, Apple Calendar-style date picker,
 | `DragActivationDelay` | `TimeSpan` | 350 ms |
 | `AllowCrossDayDrag` | `bool` | `true` |
 | `DragSnapGuideColor` | `Color?` | `null` (separator colour) |
+| `MinResizableEventHeight` | `double` | `48` (shorter blocks are move-only) |
+| `ShowLockedIndicator` | `bool` | `true` (🔒 on the default event view of a locked event) |
+| `IsEventLocked` (attached, read-only) | `bool` | set on each event's root view - see Locked events |
 
 `EventChangeFailed` is an `EventHandler<SchedulerEventChangeFailure>` on the view.
 
@@ -266,7 +271,44 @@ Behaviour to know:
 - Times are computed in **wall-clock** space, so a drag across a DST transition lands where the finger
   was rather than an hour off.
 - All-day events are not draggable, and timed ↔ all-day conversion is not supported.
+- Resize grips only appear on blocks at least `MinResizableEventHeight` tall (default 48); shorter
+  events are move-only so the middle stays grabbable.
 - `SchedulerCalendarView` (month grid) and `SchedulerCalendarListView` have no drag editing.
+
+### Locked events
+
+While `AllowEventDrag` or `AllowEventResize` is on, an event whose `CanChangeEvent` returns false is
+**locked**: no grips, no pan (MAUI), no `data-draggable` / grab cursor (Blazor). It is still tappable.
+The default event view draws a small 🔒 after the title (`ShowLockedIndicator="False"` hides it).
+Lock state is re-read on every layout (reload, date change, drop). With drag/resize off nothing is
+asked and nothing is marked.
+
+For a custom `EventItemTemplate` on MAUI, react to the read-only attached property
+`SchedulerAgendaView.IsEventLocked`, set once on the template's root view right after it is created
+(AOT-safe - no string binding):
+
+```csharp
+agenda.EventItemTemplate = new DataTemplate(() =>
+{
+    var title = new Label();
+    title.SetBinding(Label.TextProperty, static (SchedulerEvent e) => e.Title);
+    var badge = new Label { Text = "Read-only", IsVisible = false };
+
+    var root = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) } };
+    root.Add(title, 0);
+    root.Add(badge, 1);
+
+    root.PropertyChanged += (_, e) =>
+    {
+        if (e.PropertyName == SchedulerAgendaView.IsEventLockedProperty.PropertyName)
+            badge.IsVisible = SchedulerAgendaView.GetIsEventLocked(root);
+    };
+    return root;
+});
+```
+
+On Blazor, locked events carry the `shiny-agenda-event--locked` class (the built-in lock is a
+`.shiny-agenda-event-lock` span inside the title).
 
 ## SchedulerCalendarListView
 
@@ -474,7 +516,7 @@ own outer border.
 
 Blazor agenda drag/resize mirrors MAUI - `AllowEventDrag`, `AllowEventResize`, `DragSnapMinutes`,
 `MinEventDuration`, `DragActivationDelay`, `AllowCrossDayDrag`, `DragSnapGuideColor` (a CSS colour
-string), plus `EventChangeFailed` as an `EventCallback<SchedulerEventChangeFailure>` and one
+string), `MinResizableEventHeight` (px, default 48), `ShowLockedIndicator` (default true), plus `EventChangeFailed` as an `EventCallback<SchedulerEventChangeFailure>` and one
 Blazor-only parameter:
 
 | Parameter | Type | Default | Notes |

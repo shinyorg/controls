@@ -30,6 +30,19 @@ class AgendaTimelinePanel : ContentView
     public bool AllowEventDrag { get; set; }
     public bool AllowEventResize { get; set; }
 
+    /// <summary>
+    /// The provider's <see cref="ISchedulerEventProvider.CanChangeEvent"/>, asked at build time so a
+    /// locked event never gets a grip or a pan. Null (no provider) locks every event, which is what
+    /// the drag controller's own arm-time check does too.
+    /// </summary>
+    public Func<SchedulerEvent, bool>? CanChangeEvent { get; set; }
+
+    /// <summary>Draws the lock glyph on the default event view of a locked event.</summary>
+    public bool ShowLockedIndicator { get; set; } = true;
+
+    /// <summary>The shortest block that gets resize grips; anything shorter is move-only.</summary>
+    public double MinResizableEventHeight { get; set; } = DefaultMinResizableEventHeight;
+
     /// <summary>The absolute layer the drag controller repositions the dragged view inside.</summary>
     public AbsoluteLayout EventsLayer => eventsLayer;
 
@@ -227,6 +240,9 @@ class AgendaTimelinePanel : ContentView
             var y = AgendaGeometry.MinutesToY(startMinutes, timeSlotHeight);
             var h = AgendaGeometry.MinutesToY(duration, timeSlotHeight);
 
+            // Only asked when drag/resize is on, so a drag-disabled view never calls the provider here.
+            var locked = DragEnabled && CanChangeEvent?.Invoke(evt) != true;
+
             View eventView;
             if (eventTemplate != null)
             {
@@ -235,8 +251,12 @@ class AgendaTimelinePanel : ContentView
             }
             else
             {
-                eventView = CreateDefaultEventView(evt);
+                eventView = CreateDefaultEventView(evt, locked && ShowLockedIndicator);
             }
+
+            // Set before the view is placed, so a template's bindings to it resolve on first layout.
+            if (locked)
+                eventView.SetValue(SchedulerAgendaView.IsEventLockedPropertyKey, true);
 
             var tap = new TapGestureRecognizer();
             var captured = evt;
@@ -253,7 +273,8 @@ class AgendaTimelinePanel : ContentView
 
             // When neither flag is on, the tree below is byte-for-byte what it has always been:
             // the templated view goes straight into the layer with no wrapper and no recognizers.
-            var placed = DragEnabled ? WrapForDrag(eventView, captured, h) : eventView;
+            // A locked event is placed the same way - nothing on it suggests it can be dragged.
+            var placed = DragEnabled && !locked ? WrapForDrag(eventView, captured, h) : eventView;
 
             AbsoluteLayout.SetLayoutBounds(placed, new Rect(
                 (double)column / totalColumns, y, 1.0 / totalColumns, h));
@@ -317,6 +338,7 @@ class AgendaTimelinePanel : ContentView
     // ------------- drag / resize -------------
 
     const double GripHeight = 16;
+    internal const double DefaultMinResizableEventHeight = GripHeight * 3;
 
     bool DragEnabled => DragController != null && (AllowEventDrag || AllowEventResize);
 
@@ -337,7 +359,7 @@ class AgendaTimelinePanel : ContentView
             AttachDrag(eventView, host, evt, SchedulerEventChangeKind.Move);
 
         // Too short to hold two grips and still be grabbable in the middle - move only.
-        if (AllowEventResize && height >= GripHeight * 3)
+        if (AllowEventResize && height >= MinResizableEventHeight)
         {
             host.Add(CreateGrip(host, evt, true));
             host.Add(CreateGrip(host, evt, false));
@@ -459,7 +481,7 @@ class AgendaTimelinePanel : ContentView
     }
 
 
-    View CreateDefaultEventView(SchedulerEvent evt)
+    View CreateDefaultEventView(SchedulerEvent evt, bool showLock)
     {
         var border = new Border
         {
@@ -501,9 +523,45 @@ class AgendaTimelinePanel : ContentView
             when.TextColor = Color.FromRgba(255, 255, 255, 200);
         }
 
-        border.Content = new VerticalStackLayout { Children = { title, when } };
+        border.Content = new VerticalStackLayout { Children = { showLock ? WithLock(title, fill) : title, when } };
         return border;
     }
+
+    /// <summary>
+    /// The title row of a locked event: the title keeps its truncation and the lock sits at the end,
+    /// in the title's colour so it reads on whatever the block is filled with.
+    /// </summary>
+    static View WithLock(Label title, Color? fill)
+    {
+        var glyph = new Label
+        {
+            Text = LockGlyph,
+            FontSize = 10,
+            Margin = new Thickness(4, 0, 0, 0),
+            VerticalOptions = LayoutOptions.Center,
+            Opacity = 0.85,
+            InputTransparent = true
+        };
+        if (fill is null)
+            glyph.SetDynamicResource(Label.TextColorProperty, ShinyThemeKeys.Color.OnPrimary);
+        else
+            glyph.TextColor = Colors.White;
+        SemanticProperties.SetDescription(glyph, "Locked");
+
+        var row = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            }
+        };
+        row.Add(title, 0);
+        row.Add(glyph, 1);
+        return row;
+    }
+
+    internal const string LockGlyph = "🔒";
 
     static List<(SchedulerEvent Event, int Column, int TotalColumns)> DetectOverlaps(IReadOnlyList<SchedulerEvent> events)
     {
