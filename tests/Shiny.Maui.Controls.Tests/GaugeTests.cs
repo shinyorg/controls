@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Internals;
 using Microsoft.Maui.Graphics;
 using Shiny.Controls.Gauge;
 using Shouldly;
@@ -158,6 +159,39 @@ public class GaugeTests
         gauge.Ranges.Add(range);
 
         range.BindingContext.ShouldBe(context);
+    }
+
+
+    [Fact]
+    public void ADynamicResourceOnARangeColourResolvesAndFollowsChanges()
+    {
+        var gauge = new Gauge();
+        gauge.Resources["Band"] = Colors.Green;
+
+        // What XAML does for Color="{DynamicResource Band}", in its order: the band's properties are
+        // set before it is added to Ranges.
+        var range = new GaugeRange { Start = 0, End = 50 };
+        ((IDynamicResourceHandler)range).SetDynamicResource(GaugeRange.ColorProperty, "Band");
+        gauge.Ranges.Add(range);
+
+        range.Color.ShouldBe(Colors.Green);
+
+        gauge.Resources["Band"] = Colors.Blue;
+        range.Color.ShouldBe(Colors.Blue);
+    }
+
+
+    [Fact]
+    public void ClearedRangesAreReleased()
+    {
+        var gauge = new Gauge();
+        var range = new GaugeRange();
+        gauge.Ranges.Add(range);
+        ((Element)(object)range).Parent.ShouldBe(gauge);
+
+        gauge.Ranges.Clear();
+
+        ((Element)(object)range).Parent.ShouldBeNull();
     }
 
 

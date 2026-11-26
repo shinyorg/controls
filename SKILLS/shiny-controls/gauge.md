@@ -38,7 +38,7 @@ A dial gauge (speedometer, tachometer, fuel, temperature, or a needle-less ring 
 </shiny:Gauge>
 ```
 
-`Ranges` items are `BindableObject`s and inherit the gauge's `BindingContext`, so `Start="{Binding Redline}"` works. Methods: `Sweep()`, `ResetPeak()`. Read-only: `PeakValue` (bindable), `NeedleValue`, `IsNeedleMoving`. Event: `NeedleSettled`. Colours are `Color?`; null follows the theme token.
+`Ranges` items are `Element`s the gauge adopts as logical children: they inherit its `BindingContext` and resources, so `Start="{Binding Redline}"` and `Color="{DynamicResource Warning}"` work (theme switches redraw the bands). Methods: `Sweep()`, `ResetPeak()`. Read-only: `PeakValue` (bindable), `NeedleValue`, `IsNeedleMoving`. Event: `NeedleSettled`. Colours are `Color?`; null follows the theme token.
 
 ## Blazor
 
