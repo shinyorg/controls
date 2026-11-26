@@ -8,8 +8,13 @@ namespace Shiny.Maui.Controls;
 /// Bands are drawn just inside the track. With <see cref="Gauge.ColorValueArcByRange"/> on, the
 /// value arc also takes the colour of whichever band the needle is in, so the whole arc turns red
 /// as the needle crosses into the redline.
+/// <para>
+/// A band is an <see cref="Element"/> and the gauge adopts it as a logical child, so it inherits the
+/// gauge's resources and <see cref="BindableObject.BindingContext"/>: <c>Color="{DynamicResource Warning}"</c>
+/// and <c>Start="{Binding Redline}"</c> both work, and follow theme switches.
+/// </para>
 /// </remarks>
-public class GaugeRange : BindableObject
+public class GaugeRange : Element
 {
     /// <summary>The value the band starts at.</summary>
     public static readonly BindableProperty StartProperty = BindableProperty.Create(

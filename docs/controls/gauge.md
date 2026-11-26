@@ -74,7 +74,7 @@ The readout sits opposite the middle of the arc, and the title sits toward it.
 | TrackColor | Color?/string | SurfaceContainerHighest | Unfilled track |
 | ShowValueArc / ValueArcColor | bool / Color?/string | true / Primary | Fill from the minimum to the needle |
 | ColorValueArcByRange | bool | true | The value arc takes the colour of the range the needle is in |
-| Ranges | `GaugeRange` list | empty | Coloured bands (`Start`, `End`, `Color`), drawn just inside the track |
+| Ranges | `GaugeRange` list | empty | Coloured bands (`Start`, `End`, `Color`), drawn just inside the track. **MAUI**: bands inherit the gauge's resources and `BindingContext`, so `{DynamicResource}` and `{Binding}` work on them |
 | RangeThickness | double | 4 | Band thickness. 0 hides the bands but keeps the arc colouring |
 | ShowTicks / ShowTickLabels | bool | true | Tick marks and their numbers |
 | MajorTickInterval | double | 0 | 0 picks a 1-2-5 step that gives about ten labels (0-240 gets 20) |

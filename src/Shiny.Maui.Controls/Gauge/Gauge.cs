@@ -28,6 +28,7 @@ public partial class Gauge : GraphicsView
 {
     readonly NeedleMotion motion = new();
     readonly ObservableCollection<GaugeRange> ranges = [];
+    readonly List<GaugeRange> adopted = [];
     IReadOnlyList<GaugeTick>? ticks;
     MotionTicker? ticker;
     bool isSubscribed;
@@ -161,8 +162,8 @@ public partial class Gauge : GraphicsView
     {
         base.OnBindingContextChanged();
 
-        // The bands are not children of the gauge, so they inherit nothing on their own and a
-        // binding on one would resolve against null.
+        // Kept explicit: the bands are logical children, but the gauge's own BindingContext is what
+        // a binding on a band has to resolve against, whatever the base class propagates.
         foreach (var range in this.ranges)
             SetInheritedBindingContext(range, this.BindingContext);
     }
@@ -243,19 +244,30 @@ public partial class Gauge : GraphicsView
 
     void OnRangesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.OldItems is not null)
+        // Diffed against what is adopted rather than read from e.OldItems: Clear() raises Reset
+        // with no OldItems, which left the cleared bands subscribed and parented.
+        for (var i = this.adopted.Count - 1; i >= 0; i--)
         {
-            foreach (GaugeRange range in e.OldItems)
-                range.PropertyChanged -= this.OnRangePropertyChanged;
+            var range = this.adopted[i];
+            if (this.ranges.Contains(range))
+                continue;
+
+            range.PropertyChanged -= this.OnRangePropertyChanged;
+            this.RemoveLogicalChild(range);
+            this.adopted.RemoveAt(i);
         }
 
-        if (e.NewItems is not null)
+        foreach (var range in this.ranges)
         {
-            foreach (GaugeRange range in e.NewItems)
-            {
-                range.PropertyChanged += this.OnRangePropertyChanged;
-                SetInheritedBindingContext(range, this.BindingContext);
-            }
+            if (this.adopted.Contains(range))
+                continue;
+
+            // A logical child, so the band gets the gauge's resources: without a parent a
+            // {DynamicResource} on its Color never resolved and every band drew in the default red.
+            this.adopted.Add(range);
+            this.AddLogicalChild(range);
+            range.PropertyChanged += this.OnRangePropertyChanged;
+            SetInheritedBindingContext(range, this.BindingContext);
         }
 
         this.Invalidate();
