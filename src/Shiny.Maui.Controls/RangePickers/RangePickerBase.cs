@@ -258,7 +258,7 @@ public abstract partial class RangePickerBase : ContentView
             // One scroll owner per axis. Content that scrolls itself (the time picker's two columns) is
             // given the room instead; wrapping it in a card scroller too meant that on a short or
             // landscape screen both scrolled, and a flick in a column ran the card at its end.
-            Content = this.PopupContentScrolls ? stack : new ScrollView { Content = stack }
+            Content = this.PopupContentScrolls ? stack : HugContent(stack)
         }
         .WithStrokeThickness(ShinyThemeKeys.Border.Thin)
         .WithElevation(ShinyThemeKeys.Elevation.Level3);
@@ -316,6 +316,40 @@ public abstract partial class RangePickerBase : ContentView
         var room = overlay.Height - card.Margin.VerticalThickness - chrome;
         if (room > 0)
             this.OnPopupContentRoom(room);
+    }
+
+
+    /// <summary>
+    /// The card's scroller for content that does not scroll itself, no taller than its content wants.
+    /// </summary>
+    static ScrollView HugContent(View content) => new HuggingScrollView { Content = content };
+
+
+    /// <summary>
+    /// A vertical ScrollView that reports its content's desired height when that is less than the
+    /// height it was offered.
+    /// </summary>
+    /// <remarks>
+    /// On Android the native measure of a vertical ScrollView returns the whole height it is offered,
+    /// not its content's, so the centred card grew to nearly the page with the calendar at the top and
+    /// empty card below it (DateRangePicker on a Galaxy S21: the stack wants 400 dp, the scroller
+    /// reported 712). The content's own height is no use as a cap - it is arranged to the scroller's
+    /// height, so it is 712 as well - but its DesiredSize after the measure is the 400. On a screen too
+    /// short for the content the offered height is the smaller one and the card scrolls as before.
+    /// </remarks>
+    sealed class HuggingScrollView : ScrollView
+    {
+        protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
+        {
+            var measured = base.MeasureOverride(widthConstraint, heightConstraint);
+            if (this.Content is IView content)
+            {
+                var wanted = content.DesiredSize.Height + this.Padding.VerticalThickness;
+                if (wanted > 0 && wanted < measured.Height)
+                    return new Size(measured.Width, wanted);
+            }
+            return measured;
+        }
     }
 
 
