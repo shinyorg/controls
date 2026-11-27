@@ -54,6 +54,74 @@ public class ChatHistoryPagingTests
     }
 
 
+    static void Invoke(ChatView chat, string name, params object?[] args) => typeof(ChatView)
+        .GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!
+        .Invoke(chat, args);
+
+    static void SetField(ChatView chat, string name, object value) => typeof(ChatView)
+        .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!
+        .SetValue(chat, value);
+
+
+    /// <summary>
+    /// The chat often opened in the middle of the conversation. Before the opening scroll to the newest
+    /// message had landed, the list reported the position it was drawn at - the top of the first page -
+    /// and that report paged in older history, re-anchored on it, and dropped auto-follow.
+    /// </summary>
+    [Fact]
+    public void AScrollReportedWhileTheOpeningScrollLandsDoesNotPageOrDropAutoFollow()
+    {
+        var session = new PagingSession("a", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8");
+        var chat = new ChatView { Provider = new Provider(session), SessionId = "a" };
+        Field<bool>(chat, "isSettlingScroll").ShouldBeFalse("the opening scroll must settle, not leave the flag up");
+
+        // as it is while the retries are still running on a real dispatcher
+        SetField(chat, "isSettlingScroll", true);
+        Invoke(chat, "OnCollectionViewScrolled", null, new ItemsViewScrolledEventArgs { FirstVisibleItemIndex = 0, LastVisibleItemIndex = 3 });
+
+        session.OlderRequestCount.ShouldBe(0, "the top-of-list report came from the unsettled layout");
+        Field<bool>(chat, "isNearBottom").ShouldBeTrue();
+        chat.Items.Select(m => m.MessageId).Last().ShouldBe("a8");
+
+        // the scroll lands at the newest message; settling evaluates where it ended up
+        Invoke(chat, "OnCollectionViewScrolled", null, new ItemsViewScrolledEventArgs { FirstVisibleItemIndex = 4, LastVisibleItemIndex = 7 });
+        Invoke(chat, "EndSettle");
+
+        Field<bool>(chat, "isSettlingScroll").ShouldBeFalse();
+        Field<bool>(chat, "isNearBottom").ShouldBeTrue();
+        session.OlderRequestCount.ShouldBe(0);
+    }
+
+
+    [Fact]
+    public void ASettleWithNoScrollReportKeepsAutoFollow()
+    {
+        // everything fits on screen, so the list never moves and never reports a position
+        var session = new PagingSession("a", "a1", "a2", "a3");
+        var chat = new ChatView { Provider = new Provider(session), SessionId = "a" };
+
+        SetField(chat, "isSettlingScroll", true);
+        SetField(chat, "lastVisibleIndex", -1);
+        Invoke(chat, "EndSettle");
+
+        Field<bool>(chat, "isNearBottom").ShouldBeTrue("no report is not the same as being scrolled away");
+        session.OlderRequestCount.ShouldBe(0);
+    }
+
+
+    [Fact]
+    public void OnceSettledAScrollToTheTopStillPagesOlderHistory()
+    {
+        var session = new PagingSession("a", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8");
+        var chat = new ChatView { Provider = new Provider(session), SessionId = "a" };
+
+        Invoke(chat, "OnCollectionViewScrolled", null, new ItemsViewScrolledEventArgs { FirstVisibleItemIndex = 0, LastVisibleItemIndex = 3 });
+
+        session.OlderRequestCount.ShouldBe(1);
+        Field<bool>(chat, "isNearBottom").ShouldBeFalse();
+    }
+
+
     /// <summary>
     /// Answers the first (cursor-less) page at once and holds every older-history page until the test
     /// releases it.

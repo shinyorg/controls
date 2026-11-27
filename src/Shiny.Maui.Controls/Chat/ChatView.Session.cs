@@ -116,6 +116,10 @@ public partial class ChatView
         this.markReadRequested.Clear();
         this.unreadCount = 0;
         this.isNearBottom = true;
+        this.isSettlingScroll = false;
+        this.scrollGeneration++;
+        this.firstVisibleIndex = -1;
+        this.lastVisibleIndex = -1;
         this.hasMoreOlder = true;
         this.editingMessageId = null;
         this.inputBar.ExitEditMode();
@@ -314,7 +318,7 @@ public partial class ChatView
             // was reading slides down by however much history arrived. Re-anchor on what used to be the
             // first row.
             if (insertAt > 0)
-                this.ScrollWhenMeasured(insertAt, ScrollToPosition.Start, animate: false);
+                this.ScrollWhenMeasured(insertAt, ScrollToPosition.Start, animate: false, settle: false);
         }
         catch (TaskCanceledException) { }
         catch (ChatSessionException) { }

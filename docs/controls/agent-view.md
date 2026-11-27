@@ -75,6 +75,7 @@ The view fills its parent and owns the vertical scroll. Give it a real height (a
 | `PlaceholderText` | `string` | The composer's placeholder |
 | `SendOnEnter` | `bool` | MAUI: Enter in the composer sends (default **true** on the Desktop idiom, **false** on phones and tablets, where Enter adds a line and Send sends). Pasted multi-line text is always kept |
 | `Suggestions` | `IEnumerable<string>` | Chips shown while the conversation is empty |
+| `AdjustForKeyboard` | `bool` | MAUI: keeps the composer above the on-screen keyboard (default **true**). On Android the window switches to `adjustResize` while the view is on screen, and the app's own mode comes back when it leaves; iOS already scrolls the focused composer into view. Set false when the page handles the keyboard itself |
 | `State` | `JsonNode?` | The agent's shared state (AG-UI `STATE_SNAPSHOT` / `STATE_DELTA`). Writes from the app go out with the next run |
 
 **Templates** (MAUI `DataTemplate` / Blazor `RenderFragment<T>`):

@@ -11,6 +11,26 @@ public sealed class AgentTemplateDictionary : Dictionary<string, DataTemplate>
 
 public partial class AgentView
 {
+    // ── keyboard ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Keeps the composer above the on-screen keyboard. On Android the window switches to
+    /// <c>adjustResize</c> while the view is on screen (the app's own mode comes back when it leaves) and
+    /// the composer rises with the keyboard; without it the system pans the whole window and can leave
+    /// the composer half under the keyboard. iOS already scrolls the focused composer into view. Set it to
+    /// false when the page handles the keyboard itself.
+    /// </summary>
+    public static readonly BindableProperty AdjustForKeyboardProperty = BindableProperty.Create(
+        nameof(AdjustForKeyboard), typeof(bool), typeof(AgentView), true,
+        propertyChanged: (b, _, _) => ((AgentView)b).SyncKeyboardScope());
+
+    /// <inheritdoc cref="AdjustForKeyboardProperty"/>
+    public bool AdjustForKeyboard
+    {
+        get => (bool)this.GetValue(AdjustForKeyboardProperty);
+        set => this.SetValue(AdjustForKeyboardProperty, value);
+    }
+
     // ── connection ───────────────────────────────────────────────────────────────
 
     /// <summary>The agent to talk to. The view creates (and owns) an <see cref="AgentRunner"/> over it.</summary>

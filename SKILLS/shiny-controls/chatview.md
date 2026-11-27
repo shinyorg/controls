@@ -239,7 +239,7 @@ A *transient* failure (no exception of this type) → `MessageStatus.Failed` + r
 | `MessageTemplate` | `DataTemplate?` | `null` | Single template for all message content (MAUI only) |
 | `MessageTemplateSelector` | `DataTemplateSelector?` | `null` | Per-type template selector (MAUI only) |
 | `UseFeedback` | `bool` | `true` | Haptic feedback on interactions (MAUI only) |
-| `AdjustForKeyboard` | `bool` | `true` | iOS-only keyboard padding. **Leave it on inside a FloatingPanel** — once `ExpandOnInputFocus` has taken the panel to its top detent, this padding is the only thing lifting the composer clear of the keyboard. The panel already guards against the competing height animation that used to drop keystrokes. (MAUI only) |
+| `AdjustForKeyboard` | `bool` | `true` | Keeps the composer above the on-screen keyboard: iOS pads the chat by the keyboard overlap; Android switches the window to `adjustResize` while the chat is on screen (the app's own mode comes back when it leaves) so the composer rises with the keyboard instead of the window panning it half under. **Leave it on inside a FloatingPanel** — once `ExpandOnInputFocus` has taken the panel to its top detent, this padding is the only thing lifting the composer clear of the keyboard. The panel already guards against the competing height animation that used to drop keystrokes. (MAUI only) |
 
 ## Methods (MAUI only)
 
@@ -336,6 +336,7 @@ AI-composer convention). Blazor sends on Enter and inserts a newline on Shift+En
 
 - **Optimistic send:** generates `ClientMessageId`, shows a `Sending` bubble, reconciles with the echo. `ChatSendRejectedException` → `Rejected` + reason (no retry); other failure → `Failed` + retry (`ResendMessageAsync`). No offline queue — send is only attempted while `Connected`.
 - **Cursor paging:** initial `GetMessagesAsync(null, Older, PageSize)`; loads older on scroll-to-top using the oldest `MessageId`; stops when `HasMore` is false.
+- **Live-edge scrolling:** opens at the newest message (or the first unread with `ScrollToFirstUnread`) and keeps new messages in view while the reader is at the bottom, re-pinning when a photo or custom bubble grows after it loads. Scrolled up into history, new messages wait behind an "N New Messages" pill on both hosts (Blazor: `.shiny-chat-newmessages`). The list re-pins when the keyboard opens or the composer grows. Don't set the Android `WindowSoftInputMode` for a chat page - ChatView switches to `adjustResize` itself while on screen. AppKit limits: no scroll events (no paging-on-scroll, no pill) and photos sit in a fixed 250×166 box. There is no `ScrollToLast`/auto-follow property to set - don't generate one; call `ScrollToEnd()` to jump back programmatically.
 - **Reactions:** picker filtered to `Info.PermittedEmojis`; `null` falls back to the built-in default set (👍 👎 ❤️ 😂 😮 😢 😡 🔥 👏 🙏 💯 🎉); empty array = no reactions.
 - **Read receipts:** marks only visible, not-mine, unread ids; ignores inbound `ReadReceiptChanged` for the current user (no loops).
 - **Typing:** debounces `ToggleTypingAsync`; expires stale inbound typing indicators.

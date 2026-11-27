@@ -7,8 +7,41 @@
     font-family: var(--shiny-type-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
+/* The list's frame: holds the "new messages" pill over the list without adding to its scroll height. */
+.shiny-chat-messages-host {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.shiny-chat-newmessages {
+    position: absolute;
+    left: 50%;
+    bottom: var(--shiny-spacing-3, 12px);
+    transform: translateX(-50%);
+    border: none;
+    border-radius: var(--shiny-shape-corner-large, 16px);
+    padding: calc(8px * var(--shiny-density-scale, 1)) var(--shiny-spacing-4, 16px);
+    background: var(--shiny-color-primary, #0055D9);
+    color: var(--shiny-color-on-primary, #FFFFFF);
+    font: inherit;
+    font-size: calc(13px * var(--shiny-type-scale, 1));
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    z-index: 2;
+}
+
+.shiny-chat-newmessages:focus-visible {
+    outline: 2px solid var(--shiny-color-on-primary, #FFFFFF);
+    outline-offset: -4px;
+}
+
 .shiny-chat-messages {
     flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     padding: var(--shiny-spacing-3, 12px);
     display: flex;

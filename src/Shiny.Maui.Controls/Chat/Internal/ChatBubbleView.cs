@@ -81,6 +81,14 @@ partial class ChatBubbleView : ContentView
             MaximumWidthRequest = 250,
             IsVisible = false
         };
+#if !ANDROID && !IOS && !MACCATALYST && !WINDOWS
+        // An image measures 0x0 until its picture arrives. iOS, Android and Windows re-measure the row
+        // when it does. The AppKit CollectionView measures a row once, when it is realized - before the
+        // download finishes - so the photo sat invisible in a row sized for nothing (the GTK head shares
+        // this build). Give it a definite box up front; AspectFit shows the whole picture inside it.
+        this.imageView.WidthRequest = 250;
+        this.imageView.HeightRequest = 166;
+#endif
         var imageTap = new TapGestureRecognizer();
         imageTap.Tapped += this.OnImageTapped;
         this.imageView.GestureRecognizers.Add(imageTap);
@@ -189,6 +197,20 @@ partial class ChatBubbleView : ContentView
     {
         this.automationTracking?.Dispose();
         this.automationTracking = null;
+    }
+
+    double allocatedHeight = -1;
+
+    // A photo or a custom template that finishes loading grows the row after it was first laid out;
+    // the chat re-pins to the newest message when that row is at the live edge.
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+
+        var changed = Math.Abs(height - this.allocatedHeight) > 0.5;
+        this.allocatedHeight = height;
+        if (changed && height > 0)
+            this.chatView.OnBubbleResized(this.BindingContext as ChatMessage);
     }
 
     protected override void OnBindingContextChanged()

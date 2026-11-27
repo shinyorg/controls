@@ -46,6 +46,7 @@ Agent.StateChanged += (_, _) => Refresh(Agent.State);
   - `ErrorTemplate`: `AgentErrorItem`; retry with `RetryCommand`.
   - `SubagentTemplate`: `AgentSubagent` (`Name`, `Status`, `Description`, `Error`). Replaces the whole sub-agent group; `AgentSubagent` isn't observable, so the view re-sets the binding context when it changes.
 - The composer is a multi-line `Editor` (grows to ~5 lines, then scrolls). `SendOnEnter` (default true on Desktop idiom, false on phone/tablet): Enter sends; pasted multi-line text is kept. Don't wrap the view to add your own composer border.
+- Keyboard (MAUI): `AdjustForKeyboard` (default true) keeps the composer above the on-screen keyboard. On Android the view switches the window to `adjustResize` while it is on screen and restores the app's mode when it leaves, so don't set `WindowSoftInputMode` for an agent page; set `AdjustForKeyboard="False"` only when the page handles the keyboard itself.
 - Methods: `SendAsync`, `Cancel`, `Clear`, `RetryAsync`. `IsBusy` is read-only.
 
 ## Blazor

@@ -174,7 +174,50 @@ public partial class AgentView : ContentView
         this.root.Themed(VisualElement.BackgroundColorProperty, ShinyThemeKeys.Color.Surface);
 
         this.Content = this.root;
-        this.Unloaded += (_, _) => this.flushTimer?.Stop();
+        this.Loaded += (_, _) => this.SetOnScreen(true);
+        this.Unloaded += (_, _) =>
+        {
+            this.flushTimer?.Stop();
+            this.SetOnScreen(false);
+        };
+    }
+
+#if ANDROID
+    bool isOnScreen;
+    Shiny.Maui.Controls.Infrastructure.KeyboardResizeScope? keyboardScope;
+#endif
+
+    void SetOnScreen(bool onScreen)
+    {
+#if ANDROID
+        this.isOnScreen = onScreen;
+#endif
+        this.SyncKeyboardScope();
+    }
+
+    /// <summary>
+    /// On Android, holds the window in adjustResize and opts the view into MAUI's keyboard inset while
+    /// it is on screen with <see cref="AdjustForKeyboard"/> on. See KeyboardResizeScope in the core package.
+    /// </summary>
+    void SyncKeyboardScope()
+    {
+#if ANDROID
+        var wanted = this.isOnScreen && this.AdjustForKeyboard;
+        if (wanted)
+            this.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.None, SafeAreaRegions.None, SafeAreaRegions.SoftInput);
+        else
+            this.ClearValue(SafeAreaEdgesProperty);
+
+        if (wanted)
+        {
+            this.keyboardScope ??= Shiny.Maui.Controls.Infrastructure.KeyboardResizeScope.Enter();
+        }
+        else
+        {
+            this.keyboardScope?.Dispose();
+            this.keyboardScope = null;
+        }
+#endif
     }
 
     /// <summary>Re-runs the last turn (what an error row's Retry does).</summary>

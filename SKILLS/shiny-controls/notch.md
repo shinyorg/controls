@@ -99,6 +99,20 @@ notchWindow.PointerExited += (_, _) => Collapse();   // also bool notchWindow.Is
 #endif
 ```
 
+**Several displays:** `INotchWindowService` is the primary display's notch. For a notch on other displays (or several at once) inject `INotchWindowFactory` (also registered by `UseShinyDesktop()`): `GetDisplays()` returns `NotchDisplay(Id, Name, IsPrimary, HardwareNotchSize)` records, primary first, and `Create(displayId)` returns a new `INotchWindowService` on that display (null = primary; an unplugged id falls back to the primary). The caller owns it, since `INotchWindowService : IDisposable`, and disposes it when the display goes. Save `NotchDisplay.Id` to remember a choice, because it survives relaunches. Each notch reads its own display's camera cut-out, so a notched MacBook display and a plain monitor side by side each get the right shape. `INotchWindowService.DisplayId` says which display a notch is on, and `Window` is its MAUI window (null before the first show), which tells its file-drop events from other windows'.
+
+```csharp
+#if !ANDROID && !IOS && !MACCATALYST
+// INotchWindowFactory, injected (UseShinyDesktop registers it next to INotchWindowService)
+foreach (var display in factory.GetDisplays())   // the primary first
+{
+    // display.Id survives relaunches: save it to remember the user's choice
+    var notch = factory.Create(display.Id);        // you own it: Dispose() closes its window
+    await notch.ShowAsync(new Label { Text = display.Name, TextColor = Colors.White });
+}
+#endif
+```
+
 `NotchWindowOptions`: `UseHardwareNotch` (true, macOS only), `TopMargin` (8, floating island only — below the menu bar / a top taskbar / a top panel; `0` + `Shape = Notch` hangs it from the top edge), `CoverMenuBar` (false, macOS only — measure `TopMargin` from the screen's top edge, over the menu bar, instead of below it), `MaxWidth` (640), `MaxHeight` (480), `MorphDuration` (300ms), `JoinAllSpaces` (true; macOS Spaces, Linux X11 workspaces, ignored on Windows), `Configure` (`Action<NotchView>`, runs after the service's own geometry so it wins). With a hardware notch the service sets `Shape = Notch`, sizes the empty notch to the cut-out, and pads the top by the cut-out's height so content sits below the camera. The window never takes keyboard focus, so content should be for glancing and clicking, not text entry. Every `SetContentAsync` on a showing window animates as an open/close: the new content fades in over the morph, and on macOS the old content is frozen into an image that collapses (or grows) with the window and fades out — so expand/collapse is just swapping content; no extra animation code is needed.
 
 Platform differences to respect when generating code: on **Windows** the window is clipped to the outline with a window region (WinUI can't be transparent), so edges are aliased and a `Stroke` is clipped away — don't rely on a stroke there. Under **Linux Wayland** the compositor places the window and it isn't kept on top; X11 behaves like Windows/macOS. A page section that uses it goes behind `#if !ANDROID && !IOS && !MACCATALYST` (not `#if MACOS`, which would hide it on Windows and Linux).

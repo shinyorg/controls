@@ -438,11 +438,15 @@ public partial class ChatView
     }
 
     /// <summary>
-    /// When true, the chat view pads its bottom edge by the on-screen keyboard height so the
-    /// input bar is never covered. iOS only (Android resizes via WindowSoftInputMode).
+    /// Keeps the composer above the on-screen keyboard. On iOS the chat pads its bottom edge by the
+    /// keyboard's overlap. On Android the window switches to <c>adjustResize</c> while the chat is on
+    /// screen (the app's own mode comes back when it leaves) and the composer rises with the keyboard;
+    /// without it the system pans the whole window and leaves the composer half under the keyboard.
+    /// Set it to false when the page handles the keyboard itself.
     /// </summary>
     public static readonly BindableProperty AdjustForKeyboardProperty = BindableProperty.Create(
-        nameof(AdjustForKeyboard), typeof(bool), typeof(ChatView), true);
+        nameof(AdjustForKeyboard), typeof(bool), typeof(ChatView), true,
+        propertyChanged: (b, _, _) => ((ChatView)b).OnAdjustForKeyboardChanged());
 
     public bool AdjustForKeyboard
     {

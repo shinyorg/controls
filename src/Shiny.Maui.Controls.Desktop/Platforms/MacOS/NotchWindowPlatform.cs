@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
@@ -14,7 +15,7 @@ namespace Shiny.Maui.Controls.Desktop.Notch;
 /// the title-bar trick that one relies on buys nothing — and a titled window is constrained to sit below
 /// the menu bar, which is exactly where the camera notch is not.
 /// </remarks>
-static class NotchWindowPlatform
+static partial class NotchWindowPlatform
 {
     /// <summary>The window animates its own frame (see <see cref="Place"/>), so the service hands it the whole morph.</summary>
     public static bool AnimatesFrame => true;
@@ -22,18 +23,36 @@ static class NotchWindowPlatform
     /// <summary>A clear, non-opaque NSWindow shows the notch's own rounded outline, so nothing has to clip it.</summary>
     public static bool IsTransparent => true;
 
+    /// <summary>Every screen, the primary (menu bar) one first, as AppKit lists them.</summary>
+    public static IReadOnlyList<NotchDisplay> GetDisplays() => MacMainThread.Invoke(() =>
+    {
+        var screens = NSScreen.Screens;
+        var ids = DisplayIds(screens);
+        var displays = new List<NotchDisplay>(screens.Length);
+        for (var i = 0; i < screens.Length; i++)
+        {
+            var g = GeometryOf(screens[i]);
+            var name = OperatingSystem.IsMacOSVersionAtLeast(10, 15) ? screens[i].LocalizedName : null;
+            displays.Add(new NotchDisplay(
+                ids[i],
+                string.IsNullOrWhiteSpace(name) ? $"Display {i + 1}" : name,
+                i == 0,
+                g.HasNotch ? new Size(g.Width, g.Height) : Size.Zero
+            ));
+        }
+        return (IReadOnlyList<NotchDisplay>)displays;
+    });
+
     /// <summary>
-    /// The notch on the primary display, if it has one (the built-in display, undocked), measured from the
-    /// menu-bar areas either side of it. Falls back to <see cref="NotchGeometry.None"/> when it has none
-    /// and on macOS before 12, which predates the API.
+    /// The notch on a display, if it has one, measured from the menu-bar areas either side of it: the
+    /// display with that id, or the primary display for null (or an id no longer connected). Falls back to
+    /// <see cref="NotchGeometry.None"/> without one and on macOS before 12, which predates the API.
     /// </summary>
-    public static NotchGeometry GetGeometry() => MacMainThread.Invoke(() =>
+    public static NotchGeometry GetGeometry(string? displayId) => MacMainThread.Invoke(() => GeometryOf(ScreenFor(displayId)));
+
+    static NotchGeometry GeometryOf(NSScreen screen)
     {
         if (!OperatingSystem.IsMacOSVersionAtLeast(12))
-            return NotchGeometry.None;
-
-        var screen = NotchScreen();
-        if (screen == null)
             return NotchGeometry.None;
 
         var top = screen.SafeAreaInsets.Top;
@@ -44,7 +63,7 @@ static class NotchWindowPlatform
         var right = screen.AuxiliaryTopRightArea;
         var width = screen.Frame.Width - left.Width - right.Width;
         return width > 0 ? new NotchGeometry(true, width, top) : NotchGeometry.None;
-    });
+    }
 
     public static void Initialize(object platformWindow, NotchWindowOptions options)
     {
@@ -150,14 +169,14 @@ static class NotchWindowPlatform
 
     static readonly CAMediaTimingFunction MorphTiming = CAMediaTimingFunction.FromControlPoints(1f / 3f, 1.3f, 2f / 3f, 1f);
 
-    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, bool coverMenuBar, double durationMs)
+    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, bool coverMenuBar, double durationMs, string? displayId, double position)
     {
         if (platformWindow is not NSWindow window)
             return;
 
         MacMainThread.Invoke(() =>
         {
-            var frame = FrameFor(width, height, hugNotch, topMargin, coverMenuBar);
+            var frame = FrameFor(width, height, hugNotch, topMargin, coverMenuBar, displayId, position);
             Frozen.TryGetValue(window.Handle, out var frozen);
             if (durationMs <= 0 || !window.IsVisible)
             {
@@ -343,6 +362,57 @@ static class NotchWindowPlatform
         });
     }
 
+    /// <summary>
+    /// Reports the button going down on the window, the pointer moving with it held and the button coming
+    /// up, for dragging the notch along the top of its screen. The pointer is a fraction of that screen's
+    /// width, with the width in points. A local monitor sees the press (it is on our window); the drag and
+    /// the release go to a global one too, in case the app isn't the one receiving them.
+    /// </summary>
+    public static IDisposable TrackDrag(object platformWindow, string? displayId, Action<NotchDragPhase, double, double> changed)
+    {
+        if (platformWindow is not NSWindow window)
+            return new PointerTracking(null, null);
+
+        var down = false;
+
+        void Report(NotchDragPhase phase)
+        {
+            var frame = ScreenFor(displayId).Frame;
+            var x = NSEvent.CurrentMouseLocation.X;
+            changed(phase, frame.Width > 0 ? (double)((x - frame.X) / frame.Width) : 0.5, (double)frame.Width);
+        }
+
+        void Handle(NSEvent e, bool local)
+        {
+            switch (e.Type)
+            {
+                case NSEventType.LeftMouseDown when local && e.Window == window:
+                    down = true;
+                    Report(NotchDragPhase.Pressed);
+                    break;
+                case NSEventType.LeftMouseDragged when down:
+                    Report(NotchDragPhase.Moved);
+                    break;
+                case NSEventType.LeftMouseUp when down:
+                    down = false;
+                    Report(NotchDragPhase.Released);
+                    break;
+            }
+        }
+
+        const NSEventMask mask = NSEventMask.LeftMouseDown | NSEventMask.LeftMouseDragged | NSEventMask.LeftMouseUp;
+        return MacMainThread.Invoke(() =>
+        {
+            var global = NSEvent.AddGlobalMonitorForEventsMatchingMask(mask, e => MacMainThread.Invoke(() => Handle(e, false)));
+            var local = NSEvent.AddLocalMonitorForEventsMatchingMask(mask, e =>
+            {
+                Handle(e, true);
+                return e;
+            });
+            return new PointerTracking(global, local);
+        });
+    }
+
     sealed class PointerTracking(NSObject? global, NSObject? local) : IDisposable
     {
         public void Dispose() => MacMainThread.Invoke(() =>
@@ -355,17 +425,20 @@ static class NotchWindowPlatform
     }
 
     /// <summary>
-    /// Top-centre of the notch screen. Hugging the notch, the top edge is the screen's own top edge —
+    /// The top of the notch's screen: centred on the camera when hugging the notch, else centred at
+    /// <paramref name="position"/> (a fraction of the screen's width) and kept on screen. Hugging the notch,
+    /// the top edge is the screen's own top edge —
     /// over the menu bar, inside the cut-out; otherwise it sits <paramref name="topMargin"/> below the
     /// menu bar, or below the screen's top edge (over the menu bar) with <paramref name="coverMenuBar"/>.
     /// AppKit's origin is bottom-left, so the y is the top minus the height.
     /// </summary>
-    static CGRect FrameFor(double width, double height, bool hugNotch, double topMargin, bool coverMenuBar)
+    static CGRect FrameFor(double width, double height, bool hugNotch, double topMargin, bool coverMenuBar, string? displayId, double position)
     {
-        var screen = (hugNotch ? NotchScreen() : null) ?? PrimaryScreen();
+        var screen = ScreenFor(displayId);
         var w = (nfloat)width;
         var h = (nfloat)height;
-        var x = screen.Frame.X + ((screen.Frame.Width - w) / 2);
+        var centre = hugNotch ? 0.5 : position;
+        var x = screen.Frame.X + (nfloat)Math.Clamp((screen.Frame.Width * centre) - (w / 2), 0, Math.Max(0, screen.Frame.Width - w));
         var top = hugNotch
             ? screen.Frame.Y + screen.Frame.Height
             : coverMenuBar
@@ -383,13 +456,49 @@ static class NotchWindowPlatform
     static NSScreen PrimaryScreen() => NSScreen.Screens.FirstOrDefault() ?? NSScreen.MainScreen!;
 
     /// <summary>
-    /// The primary display, if it has a camera notch. A notched built-in display that isn't primary (the
-    /// lid open beside a main monitor) is passed over, so the notch stays on the main display.
+    /// The screen with this id, or the primary display for null or an id that isn't connected. A notched
+    /// built-in display that isn't primary (the lid open beside a main monitor) only gets a notch when it
+    /// is asked for by id, so the default notch stays on the main display.
     /// </summary>
-    static NSScreen? NotchScreen()
+    static NSScreen ScreenFor(string? displayId)
     {
-        if (OperatingSystem.IsMacOSVersionAtLeast(12) && NSScreen.Screens.FirstOrDefault() is { } primary && primary.SafeAreaInsets.Top > 0)
-            return primary;
-        return null;
+        if (displayId == null)
+            return PrimaryScreen();
+
+        var screens = NSScreen.Screens;
+        var ids = DisplayIds(screens);
+        var index = Array.IndexOf(ids, displayId);
+        return index >= 0 ? screens[index] : PrimaryScreen();
     }
+
+    /// <summary>
+    /// An id per screen that survives relaunches and replugging, unlike the CGDirectDisplayID: the
+    /// display's vendor, model and serial number. Two displays alike down to the serial (some report 0)
+    /// are told apart by their order.
+    /// </summary>
+    static string[] DisplayIds(NSScreen[] screens)
+    {
+        var ids = new string[screens.Length];
+        var seen = new Dictionary<string, int>();
+        for (var i = 0; i < screens.Length; i++)
+        {
+            var number = screens[i].DeviceDescription["NSScreenNumber"] as NSNumber;
+            var display = number?.UInt32Value ?? 0;
+            var id = $"{CGDisplayVendorNumber(display):x}-{CGDisplayModelNumber(display):x}-{CGDisplaySerialNumber(display):x}";
+            seen[id] = seen.TryGetValue(id, out var count) ? count + 1 : 1;
+            ids[i] = seen[id] == 1 ? id : $"{id}-{seen[id]}";
+        }
+        return ids;
+    }
+
+    const string CoreGraphicsLibrary = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
+
+    [LibraryImport(CoreGraphicsLibrary)]
+    private static partial uint CGDisplayVendorNumber(uint display);
+
+    [LibraryImport(CoreGraphicsLibrary)]
+    private static partial uint CGDisplayModelNumber(uint display);
+
+    [LibraryImport(CoreGraphicsLibrary)]
+    private static partial uint CGDisplaySerialNumber(uint display);
 }

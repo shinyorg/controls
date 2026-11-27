@@ -11,6 +11,7 @@
         <div class="shiny-chat-banner">@ConnectionBannerText</div>
     }
 
+    <div class="shiny-chat-messages-host">
     <div class="shiny-chat-messages" @ref="messagesEl">
         @if (loading)
         {
@@ -188,6 +189,15 @@
                 </div>
             }
         }
+    </div>
+
+    @* Overlays the list rather than living in it, so it never adds to the scroll height. *@
+    @if (unreadCount > 0)
+    {
+        <button type="button" class="shiny-chat-newmessages" aria-live="polite" @onclick="OnNewMessagesClicked">
+            @(unreadCount == 1 ? "1 New Message" : $"{unreadCount} New Messages")
+        </button>
+    }
     </div>
 
     @if (ShowTypingIndicator && BuildTypingText() is { } typingText)

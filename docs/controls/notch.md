@@ -87,6 +87,20 @@ await notchWindow.SetContentAsync(new NowPlayingView());
 #endif
 ```
 
+**More than one display.** `INotchWindowService` is the primary display's notch. `INotchWindowFactory` lists the displays (`GetDisplays()`, the primary first) and makes a notch for any one of them (`Create(displayId)`), so an app can show a notch on several displays at once. Each `NotchDisplay` has an `Id` that survives relaunches (vendor, model and serial on macOS, the device name on Windows, the connector on Linux), a `Name` to show the user, `IsPrimary` and its own `HardwareNotchSize`. Each notch works out its own display's geometry: with a MacBook open beside an external monitor, the built-in display's notch grows out of the camera and the monitor's has no cut-out. You own a notch from `Create` and dispose it when its display goes; a display that isn't connected falls back to the primary.
+
+```csharp
+#if !ANDROID && !IOS && !MACCATALYST
+// INotchWindowFactory, injected (UseShinyDesktop registers it next to INotchWindowService)
+foreach (var display in factory.GetDisplays())   // the primary first
+{
+    // display.Id survives relaunches: save it to remember the user's choice
+    var notch = factory.Create(display.Id);        // you own it: Dispose() closes its window
+    await notch.ShowAsync(new Label { Text = display.Name, TextColor = Colors.White });
+}
+#endif
+```
+
 **Platform notes**
 
 - macOS (AppKit), Windows and Linux (GTK4) only. `UseShinyDesktop()` registers `INotchWindowService` wherever it exists, with no `#if`. The service, `NotchWindowOptions` and `cfg.ConfigureNotch` don't exist on Android, iOS or Mac Catalyst, so guard the code that uses them with `#if !ANDROID && !IOS && !MACCATALYST`.

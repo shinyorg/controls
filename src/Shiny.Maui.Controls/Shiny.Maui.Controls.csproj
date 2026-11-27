@@ -60,6 +60,9 @@
 		<!-- FoldPosture.SetSource(isDefault: true), so the Foldables add-on's built-in providers fill the
 		     posture slot without overriding a source the app registered itself. -->
 		<InternalsVisibleTo Include="Shiny.Maui.Controls.Foldables" />
+		<!-- KeyboardResizeScope, so AgentView's composer stays above the Android keyboard the same way
+		     ChatView's does. -->
+		<InternalsVisibleTo Include="Shiny.Maui.Controls.Agents" />
 	</ItemGroup>
 
 	<ItemGroup>

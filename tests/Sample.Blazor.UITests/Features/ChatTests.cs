@@ -93,6 +93,73 @@ public class ChatTests : BlazorTest
         await AssertClean();
     }
 
+    ILocator Messages => Page.Locator(".shiny-chat-messages");
+    ILocator NewMessagesPill => Page.Locator(".shiny-chat-newmessages");
+
+    Task<double> GapFromBottom() => Messages.EvaluateAsync<double>("el => el.scrollHeight - el.scrollTop - el.clientHeight");
+
+    // the pill scrolls smoothly, so the list reaches the bottom a little after the click
+    async Task WaitForBottom()
+    {
+        var gap = await GapFromBottom();
+        for (var i = 0; i < 40 && gap >= 2; i++)
+        {
+            await Page.WaitForTimeoutAsync(100);
+            gap = await GapFromBottom();
+        }
+        await Assert.That(gap).IsLessThan(2);
+    }
+
+    [Test]
+    public async Task Opens_At_The_Newest_Message()
+    {
+        await OpenChat();
+        await Page.WaitForTimeoutAsync(1500);
+
+        await Assert.That(await GapFromBottom()).IsLessThan(2);
+        await Expect(NewMessagesPill).ToHaveCountAsync(0);
+        await AssertClean();
+    }
+
+    [Test]
+    public async Task A_Reply_While_Scrolled_Up_Waits_Behind_The_New_Messages_Pill()
+    {
+        await OpenChat();
+        var others = await Others.CountAsync();
+
+        await Input.FillAsync(Unique("then scroll away"));
+        await SendButton.ClickAsync();
+        await Page.WaitForTimeoutAsync(400);
+        await Messages.EvaluateAsync("el => el.scrollTop = el.scrollHeight / 2");
+
+        await Expect(Others).ToHaveCountAsync(others + 1, new() { Timeout = 10_000 });
+        await Expect(NewMessagesPill).ToHaveTextAsync("1 New Message");
+        await Assert.That(await GapFromBottom()).IsGreaterThan(100);
+
+        await NewMessagesPill.ClickAsync();
+        await Expect(NewMessagesPill).ToHaveCountAsync(0);
+        await WaitForBottom();
+        await AssertClean();
+    }
+
+    [Test]
+    public async Task Scrolling_Back_Down_Clears_The_New_Messages_Pill()
+    {
+        await OpenChat();
+        var others = await Others.CountAsync();
+
+        await Input.FillAsync(Unique("scroll back yourself"));
+        await SendButton.ClickAsync();
+        await Page.WaitForTimeoutAsync(400);
+        await Messages.EvaluateAsync("el => el.scrollTop = el.scrollHeight / 2");
+        await Expect(Others).ToHaveCountAsync(others + 1, new() { Timeout = 10_000 });
+        await Expect(NewMessagesPill).ToBeVisibleAsync();
+
+        await Messages.EvaluateAsync("el => el.scrollTop = el.scrollHeight");
+        await Expect(NewMessagesPill).ToHaveCountAsync(0);
+        await AssertClean();
+    }
+
     [Test]
     public async Task Own_Message_Can_Be_Deleted_From_Its_Actions()
     {

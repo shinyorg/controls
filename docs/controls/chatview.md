@@ -61,7 +61,7 @@ public interface IChatSessionProvider
 | MessageTemplate | DataTemplate? | null | Single template for all message content (MAUI only) |
 | MessageTemplateSelector | DataTemplateSelector? | null | Per-type template selector (MAUI only) |
 | UseFeedback | bool | true | Haptic feedback on interactions (MAUI only) |
-| AdjustForKeyboard | bool | true | iOS keyboard padding. Leave on inside a `FloatingPanel` — the panel's `ExpandOnInputFocus` raises the sheet, but only this padding lifts the composer clear of the keyboard once the panel is at its top detent. Set false only when something else already handles the overlap (MAUI only) |
+| AdjustForKeyboard | bool | true | Keeps the composer above the on-screen keyboard: iOS pads the chat by the keyboard overlap; Android switches the window to `adjustResize` while the chat is on screen (the app's own mode comes back when it leaves) so the composer rises with the keyboard instead of the window panning it half under. Leave on inside a `FloatingPanel` — the panel's `ExpandOnInputFocus` raises the sheet, but only this padding lifts the composer clear of the keyboard once the panel is at its top detent. Set false only when something else already handles the overlap (MAUI only) |
 
 **Methods (MAUI):** `ScrollToEnd(bool animate)`, `ScrollToMessage(string messageId, bool animate)`, `SubmitEntry()`, `EntryText` (get/set), `MessageTapped` event (non-image bubble taps).
 
@@ -148,6 +148,7 @@ composer; the rounded outline is the edge.
 - Chat bubbles with left/right alignment (by `CurrentUserId`) and per-user colors/avatars
 - Visual grouping by sender and minute; timestamps on last message in each group
 - Typing indicators with animated dots and a scroll-aware toast pill (debounced + auto-expiring)
+- Opens at the newest message and follows the live edge: new messages scroll into view while you are at the bottom (including a photo or custom bubble that grows after it loads); once you scroll up into history they wait behind an "N New Messages" pill instead (tap it, or scroll back down, to clear it). On the macOS AppKit head the list raises no scroll events, so the chat can't tell you scrolled up there: older history doesn't page in on scroll and the pill doesn't appear. The list also stays on the newest message when the keyboard opens or the composer grows, and on AppKit a photo gets a fixed 250×166 box, because that list measures a row only once (the GTK head shares the build and gets the same box) `ScrollToFirstUnread` opens at the first unread message instead
 - Reactions (emoji badges grouped by glyph), gated by `CanReactToMessages` + `PermittedEmojis`
 - Per-user read receipts; per-message edit/delete gated by permission + ownership
 - Optimistic send with `Sending`/`Failed`/`Rejected` states and retry

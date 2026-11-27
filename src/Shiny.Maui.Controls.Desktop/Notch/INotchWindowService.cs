@@ -24,9 +24,18 @@ namespace Shiny.Maui.Controls.Desktop.Notch;
 /// controls, a timer, a progress readout — not for typing.
 /// </para>
 /// </remarks>
-public interface INotchWindowService
+public interface INotchWindowService : IDisposable
 {
-    /// <summary>True when the screen the notch is shown on has a camera notch. Only ever true on macOS.</summary>
+    /// <summary>
+    /// The <see cref="NotchDisplay.Id"/> of the display this notch is on, or null for the primary display
+    /// (see <see cref="INotchWindowFactory"/>).
+    /// </summary>
+    string? DisplayId { get; }
+
+    /// <summary>The notch's own window once it has been shown; null before. Tells a notch window's events from the app's other windows.</summary>
+    Window? Window { get; }
+
+    /// <summary>True when the display the notch is shown on has a camera notch. Only ever true on macOS.</summary>
     bool HasHardwareNotch { get; }
 
     /// <summary>
@@ -35,6 +44,30 @@ public interface INotchWindowService
     /// itself out around this width at this height.
     /// </summary>
     Size HardwareNotchSize { get; }
+
+    /// <summary>
+    /// Where along the top of its display the notch sits, as the fraction of the display's width at its
+    /// centre: 0.5 (the default) is centred. Near an edge the notch is kept on screen. Ignored on a display
+    /// with a camera notch, where the notch always hugs the camera. Setting it moves the notch straight away.
+    /// </summary>
+    double HorizontalPosition { get; set; }
+
+    /// <summary>
+    /// Pressing on the notch and dragging slides it along the top of its display, changing
+    /// <see cref="HorizontalPosition"/>. Off by default, and never on a display with a camera notch. A drag
+    /// doesn't count as a click, so it raises no <see cref="Tapped"/>. Not under a Linux Wayland session,
+    /// where the compositor places the window.
+    /// </summary>
+    bool IsDraggable { get; set; }
+
+    /// <summary>A drag is moving the notch right now.</summary>
+    bool IsDragging { get; }
+
+    /// <summary>A drag began moving the notch: the pointer went down on it and moved past a few points.</summary>
+    event EventHandler? DragStarted;
+
+    /// <summary>A drag ended, with the notch at its new <see cref="HorizontalPosition"/>, which is the time to save it.</summary>
+    event EventHandler? DragCompleted;
 
     /// <summary>Whether the mouse pointer is over the notch window right now.</summary>
     bool IsPointerOver { get; }

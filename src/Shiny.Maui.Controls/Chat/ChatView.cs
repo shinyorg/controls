@@ -94,6 +94,11 @@ public partial class ChatView : ContentView
     // scroll / unread
     bool isNearBottom = true;
     int unreadCount;
+    int firstVisibleIndex = -1;
+    int lastVisibleIndex = -1;
+    bool isSettlingScroll;   // an opening/re-source scroll is still landing - see OnCollectionViewScrolled
+    int scrollGeneration;    // bumped per scroll request so an older retry loop stops
+    bool repinQueued;
 
     // paging
     bool isLoadingOlder;
@@ -130,6 +135,7 @@ public partial class ChatView : ContentView
             ItemsUpdatingScrollMode = ItemsUpdatingScrollMode.KeepLastItemInView
         };
         this.collectionView.Scrolled += this.OnCollectionViewScrolled;
+        this.collectionView.SizeChanged += this.OnCollectionViewSizeChanged;
 
         // Shared toast pill — new messages on top, typing below
         this.toastNewMessagesLabel = new Label
@@ -373,7 +379,7 @@ public partial class ChatView : ContentView
 
             // Re-sourcing drops the scroll offset, so put the reader back where they were.
             if (wasNearBottom)
-                this.ScrollToEnd();
+                this.ScrollToEnd(false, settle: true);
         });
     }
 
@@ -483,6 +489,14 @@ public partial class ChatView : ContentView
 
     partial void HookKeyboard();
     partial void UnhookKeyboard();
+
+    void OnAdjustForKeyboardChanged()
+    {
+        // re-evaluated against the new value; both are no-ops off screen
+        this.UnhookKeyboard();
+        if (this.Handler is not null && this.IsLoaded)
+            this.HookKeyboard();
+    }
 
     protected override void OnHandlerChanging(HandlerChangingEventArgs args)
     {

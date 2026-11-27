@@ -40,6 +40,7 @@ public partial class ChatView : IAsyncDisposable
     CancellationTokenSource? olderCts;   // the in-flight LoadOlder - cancelled when the session changes
     bool hasMoreOlder;
     bool pendingScrollToEnd;
+    int unreadCount;                 // messages that arrived while the reader was scrolled up
     bool initialized;
     bool typingSent;
 
@@ -202,6 +203,7 @@ public partial class ChatView : IAsyncDisposable
         }
 
         messages.Clear();
+        unreadCount = 0;
         hasMoreOlder = false;
         errorMessage = null;
         typingSent = false;
@@ -244,9 +246,20 @@ public partial class ChatView : IAsyncDisposable
                 ? await module.InvokeAsync<bool>("isNearBottom", messagesEl)
                 : true;
 
+            var isNew = messages.FindIndex(x => x.MessageId == m.MessageId) < 0
+                && (string.IsNullOrEmpty(m.ClientMessageId) || messages.FindIndex(x => x.ClientMessageId == m.ClientMessageId) < 0);
+
             Merge(m);
             if (mine || nearBottom)
+            {
                 pendingScrollToEnd = true;
+                unreadCount = 0;
+            }
+            else if (isNew)
+            {
+                // The reader is back in history: leave the view where it is and count what arrived.
+                unreadCount++;
+            }
             StateHasChanged();
         });
 
@@ -363,6 +376,24 @@ public partial class ChatView : IAsyncDisposable
 
     [JSInvokable]
     public Task OnScrolledToTop() => LoadOlderAsync();
+
+    /// <summary>The reader scrolled back down to the newest message, which reads whatever had queued.</summary>
+    [JSInvokable]
+    public void OnScrolledToBottom()
+    {
+        if (unreadCount == 0)
+            return;
+
+        unreadCount = 0;
+        StateHasChanged();
+    }
+
+    async Task OnNewMessagesClicked()
+    {
+        unreadCount = 0;
+        if (module is not null)
+            await module.InvokeVoidAsync("scrollToEnd", messagesEl, true);
+    }
 
     async Task LoadOlderAsync()
     {

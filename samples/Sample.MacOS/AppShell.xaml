@@ -3,7 +3,7 @@
     Mirrors the main Sample gallery's menu, so the two do not drift. Every page that
     compiles into this head is reachable from here.
 
-    Omitted, because the csproj excludes them from this head: CameraPage, ChatPage, ChatTemplatePage, DocumentSessionPage.
+    Omitted, because the csproj excludes them from this head: CameraPage, DocumentSessionPage.
 
     The flyout is the native AppKit source-list sidebar (MacOSShell.UseNativeSidebar): each section is one
     titled FlyoutItem, which the sidebar shows as a collapsible group, and every page carries an SF Symbol
@@ -23,6 +23,7 @@
        xmlns:btngroup="clr-namespace:Sample.Features.ButtonGroups;assembly=Sample.MacOS"
        xmlns:tags="clr-namespace:Sample.Features.Tags;assembly=Sample.MacOS"
        xmlns:chips="clr-namespace:Sample.Features.Chips;assembly=Sample.MacOS"
+       xmlns:chat="clr-namespace:Sample.Features.Chat;assembly=Sample.MacOS"
        xmlns:carouselgallery="clr-namespace:Sample.Features.CarouselGallery;assembly=Sample.MacOS"
        xmlns:coverflow="clr-namespace:Sample.Features.CoverFlow;assembly=Sample.MacOS"
        xmlns:expanders="clr-namespace:Sample.Features.Expanders;assembly=Sample.MacOS"
@@ -279,6 +280,10 @@
     </FlyoutItem>
 
     <FlyoutItem Title="AI &amp; Agents" FlyoutDisplayOptions="AsMultipleItems">
+        <ShellContent Title="Chat" Route="chat" ContentTemplate="{DataTemplate chat:ChatPage}"
+                      macos:MacOSShell.SystemImage="bubble.left.and.bubble.right" />
+        <ShellContent Title="Chat Templates" Route="chattemplates" ContentTemplate="{DataTemplate chat:ChatTemplatePage}"
+                      macos:MacOSShell.SystemImage="bubble.left.and.text.bubble.right" />
         <ShellContent Title="Agent View" Route="agent-view" ContentTemplate="{DataTemplate agents:AgentViewPage}"
                       macos:MacOSShell.SystemImage="brain" />
         <ShellContent Title="A2UI Gallery" Route="a2ui-gallery" ContentTemplate="{DataTemplate agents:A2UIGalleryPage}"

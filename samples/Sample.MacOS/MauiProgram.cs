@@ -62,6 +62,7 @@ public static class MauiProgram
         // Sample's MauiProgram; this head has its own and needs it too.
         builder.Services.AddSpeechServices();
         builder.Services.AddSingleton<global::Sample.AppSettings>();
+        builder.Services.AddSingleton<global::Sample.Features.Chat.InMemoryChatSessionProvider>();
 
         // Pages and services the shared feature pages resolve from DI. The Catalyst head registers
         // these in Sample's MauiProgram; this head has its own and needs the same set - a page whose

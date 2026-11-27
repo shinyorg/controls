@@ -11,9 +11,9 @@ using WinUIWindow = Microsoft.UI.Xaml.Window;
 namespace Shiny.Maui.Controls.Desktop.Notch;
 
 /// <summary>
-/// WinUI 3 backing for the notch window: a borderless popup pinned topmost at the top-centre of the
-/// primary monitor, kept out of the taskbar and Alt+Tab, and never activated — clicking it does not
-/// take focus from the app you are using.
+/// WinUI 3 backing for the notch window: a borderless popup pinned topmost at the top-centre of its
+/// monitor (the primary one unless another is asked for), kept out of the taskbar and Alt+Tab, and never
+/// activated — clicking it does not take focus from the app you are using.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,14 +28,24 @@ namespace Shiny.Maui.Controls.Desktop.Notch;
 /// </para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
-static class NotchWindowPlatform
+static unsafe class NotchWindowPlatform
 {
     /// <summary>Windows has no animated window resize to hand the morph to; the service steps it frame by frame.</summary>
     public static bool AnimatesFrame => false;
 
     public static bool IsTransparent => false;
 
-    public static NotchGeometry GetGeometry() => NotchGeometry.None;
+    public static NotchGeometry GetGeometry(string? displayId) => NotchGeometry.None;
+
+    /// <summary>Every monitor, the primary first, by device name (<c>\\.\DISPLAY1</c>) and the monitor's own name.</summary>
+    public static IReadOnlyList<NotchDisplay> GetDisplays()
+    {
+        var displays = Monitors()
+            .Select((m, i) => new NotchDisplay(m.Device, MonitorName(m.Device, i), m.IsPrimary, Size.Zero))
+            .OrderByDescending(d => d.IsPrimary)
+            .ToList();
+        return displays;
+    }
 
     public static void Initialize(object platformWindow, NotchWindowOptions options)
     {
@@ -91,7 +101,7 @@ static class NotchWindowPlatform
         Win32.ShowWindow(hwnd, Win32.SW_HIDE);
     }
 
-    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, bool coverMenuBar, double durationMs)
+    public static void Place(object platformWindow, double width, double height, CornerRadius corners, bool hugNotch, double topMargin, bool coverMenuBar, double durationMs, string? displayId, double position)
     {
         if (platformWindow is not WinUIWindow window)
             return;
@@ -100,14 +110,18 @@ static class NotchWindowPlatform
         {
             var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
 
-            // Window positions are physical pixels; the notch measures in DIPs.
-            var dpi = Win32.GetDpiForWindow(hwnd);
+            // Window positions are physical pixels; the notch measures in DIPs. The scale is the target
+            // monitor's, not the window's: on its way to another monitor the window still has the old one's.
+            var (monitor, work) = WorkArea(displayId);
+            var dpi = monitor != IntPtr.Zero && NotchInterop.GetDpiForMonitor(monitor, NotchInterop.MDT_EFFECTIVE_DPI, out var dpiX, out _) == 0
+                ? dpiX
+                : Win32.GetDpiForWindow(hwnd);
             var scale = dpi <= 0 ? 1d : dpi / 96d;
             var w = Math.Max(1, (int)Math.Round(width * scale));
             var h = Math.Max(1, (int)Math.Round(height * scale));
 
-            var work = PrimaryWorkArea();
-            var x = work.Left + ((work.Right - work.Left - w) / 2);
+            var workWidth = work.Right - work.Left;
+            var x = work.Left + (int)Math.Round(Math.Clamp((workWidth * position) - (w / 2d), 0, Math.Max(0, workWidth - w)));
             var y = work.Top + (int)Math.Round(topMargin * scale);
 
             Win32.SetWindowPos(hwnd, Win32.HWND_TOPMOST, x, y, w, h, Win32.SWP_NOACTIVATE);
@@ -186,6 +200,61 @@ static class NotchWindowPlatform
         return new PointerPoll(timer);
     }
 
+    /// <summary>
+    /// Reports the left button going down on the window, the cursor moving with it held, and it coming up,
+    /// for dragging the notch along the top of its monitor. A poll, like the pointer's: the window never
+    /// activates and every content swap builds a new page, so there's no one XAML element to hook. The cursor
+    /// is a fraction of the monitor's work area, with that width in DIPs.
+    /// </summary>
+    public static IDisposable TrackDrag(object platformWindow, string? displayId, Action<NotchDragPhase, double, double> changed)
+    {
+        if (platformWindow is not WinUIWindow window || Application.Current?.Dispatcher is not { } dispatcher)
+            return new PointerPoll(null);
+
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+        var wasDown = false;
+        var dragging = false;
+
+        void Report(NotchDragPhase phase, Win32.POINT cursor)
+        {
+            var (monitor, work) = WorkArea(displayId);
+            var dpi = monitor != IntPtr.Zero && NotchInterop.GetDpiForMonitor(monitor, NotchInterop.MDT_EFFECTIVE_DPI, out var dpiX, out _) == 0 ? dpiX : 96u;
+            var widthPx = work.Right - work.Left;
+            var fraction = widthPx > 0 ? (cursor.X - work.Left) / (double)widthPx : 0.5;
+            changed(phase, fraction, widthPx * 96d / Math.Max(1, dpi));
+        }
+
+        var timer = dispatcher.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(16);
+        timer.IsRepeating = true;
+        timer.Tick += (_, _) =>
+        {
+            var down = (NotchInterop.GetAsyncKeyState(NotchInterop.VK_LBUTTON) & 0x8000) != 0;
+            if (!Win32.GetCursorPos(out var p))
+                return;
+
+            // Pressed on the window: only a press that starts over it, not one dragged onto it.
+            if (down && !wasDown && NotchInterop.IsWindowVisible(hwnd) && NotchInterop.GetWindowRect(hwnd, out var r)
+                && p.X >= r.Left && p.X < r.Right && p.Y >= r.Top - 2 && p.Y < r.Bottom)
+            {
+                dragging = true;
+                Report(NotchDragPhase.Pressed, p);
+            }
+            else if (down && dragging)
+            {
+                Report(NotchDragPhase.Moved, p);
+            }
+            else if (!down && dragging)
+            {
+                dragging = false;
+                Report(NotchDragPhase.Released, p);
+            }
+            wasDown = down;
+        };
+        timer.Start();
+        return new PointerPoll(timer);
+    }
+
     sealed class PointerPoll(IDispatcherTimer? timer) : IDisposable
     {
         public void Dispose() => timer?.Stop();
@@ -245,14 +314,65 @@ static class NotchWindowPlatform
         _ => null
     };
 
-    static Win32.RECT PrimaryWorkArea()
+    /// <summary>The monitor with this device name and its work area; the primary monitor's for null or a monitor that's gone.</summary>
+    static (IntPtr Monitor, Win32.RECT Work) WorkArea(string? displayId)
     {
+        var chosen = Monitors().Where(m => displayId != null && m.Device == displayId).Select(m => (MonitorEntry?)m).FirstOrDefault();
+        if (chosen is { } found)
+            return (found.Handle, found.Work);
+
         var monitor = Win32.MonitorFromPoint(default, NotchInterop.MONITOR_DEFAULTTOPRIMARY);
         var info = new Win32.MONITORINFO { cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<Win32.MONITORINFO>() };
         if (monitor != IntPtr.Zero && Win32.GetMonitorInfo(monitor, ref info))
-            return info.rcWork;
+            return (monitor, info.rcWork);
 
-        return new Win32.RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1080 };
+        return (IntPtr.Zero, new Win32.RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1080 });
+    }
+
+    readonly record struct MonitorEntry(IntPtr Handle, string Device, Win32.RECT Work, bool IsPrimary);
+
+    /// <summary>The monitors in the order Windows enumerates them. UI thread only, like every caller.</summary>
+    static List<MonitorEntry> Monitors()
+    {
+        var found = new List<MonitorEntry>();
+        var handle = System.Runtime.InteropServices.GCHandle.Alloc(found);
+        try
+        {
+            NotchInterop.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, &OnMonitor, System.Runtime.InteropServices.GCHandle.ToIntPtr(handle));
+        }
+        finally
+        {
+            handle.Free();
+        }
+        return found;
+    }
+
+    [System.Runtime.InteropServices.UnmanagedCallersOnly]
+    static int OnMonitor(IntPtr monitor, IntPtr hdc, Win32.RECT* rect, IntPtr data)
+    {
+        try
+        {
+            var found = (List<MonitorEntry>)System.Runtime.InteropServices.GCHandle.FromIntPtr(data).Target!;
+            var info = new NotchInterop.MONITORINFOEX { cbSize = (uint)sizeof(NotchInterop.MONITORINFOEX) };
+            if (NotchInterop.GetMonitorInfo(monitor, ref info))
+            {
+                var device = new string(info.szDevice);
+                found.Add(new MonitorEntry(monitor, device.TrimEnd('\0'), info.rcWork, (info.dwFlags & NotchInterop.MONITORINFOF_PRIMARY) != 0));
+            }
+        }
+        catch
+        {
+            // A managed exception must not cross back into user32.
+        }
+        return 1;
+    }
+
+    /// <summary>The monitor's own name ("DELL U2720Q"), or "Display n" when Windows only knows it as generic.</summary>
+    static string MonitorName(string device, int index)
+    {
+        var info = new NotchInterop.DISPLAY_DEVICE { cb = (uint)sizeof(NotchInterop.DISPLAY_DEVICE) };
+        var name = NotchInterop.EnumDisplayDevices(device, 0, ref info, 0) ? new string(info.DeviceString).TrimEnd('\0') : "";
+        return string.IsNullOrWhiteSpace(name) ? $"Display {index + 1}" : name;
     }
 
     static AppWindow? GetAppWindow(WinUIWindow window, IntPtr hwnd)

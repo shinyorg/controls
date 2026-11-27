@@ -12,7 +12,12 @@ export function init(messagesEl, dotnetRef) {
 
     messagesEl.addEventListener('scroll', () => {
         const { scrollTop, scrollHeight, clientHeight } = messagesEl;
+        const wasFollowing = state.autoScroll;
         state.autoScroll = scrollHeight - scrollTop - clientHeight < 50;
+
+        // Back at the newest message: whatever queued behind the "new messages" pill is now read.
+        if (state.autoScroll && !wasFollowing && state.dotnet)
+            state.dotnet.invokeMethodAsync('OnScrolledToBottom');
 
         // Fire a single load-older callback while near the top; re-arm once scrolled away.
         if (scrollTop < 60) {

@@ -4,7 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace Shiny.Maui.Controls.Desktop.Notch;
 
 /// <summary>
-/// Hosts a <see cref="NotchView"/> in a borderless OS window pinned to the top-centre of the screen.
+/// Hosts a <see cref="NotchView"/> in a borderless OS window pinned to the top-centre of a display: the
+/// primary one, or the one <see cref="INotchWindowFactory.Create"/> was given.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -36,37 +37,71 @@ sealed class DesktopNotchWindowService : INotchWindowService, IDisposable
     readonly ILogger<DesktopNotchWindowService>? logger;
     readonly SemaphoreSlim gate = new(1, 1);
     readonly NotchFrameAnimator frames;
+    readonly string? displayId;
 
     /// <summary>One display frame: the new content's first layout pass happens in it.</summary>
     static readonly TimeSpan LayoutFrame = TimeSpan.FromMilliseconds(16);
     /// <summary>Waiting longer than this for new content to load, the morph goes ahead regardless.</summary>
     static readonly TimeSpan LoadTimeout = TimeSpan.FromMilliseconds(500);
+    /// <summary>How far, in points, the pointer moves with the button down before it's a drag rather than a click.</summary>
+    const double DragThreshold = 4;
+    /// <summary>A click this soon after a drag ended is the drag's own mouse-up, not a click.</summary>
+    static readonly TimeSpan ClickAfterDragGuard = TimeSpan.FromMilliseconds(400);
 
     Window? window;
     object? platformWindow;
     NotchView? notch;
     NotchGeometry geometry = NotchGeometry.None;
     IDisposable? pointerTracking;
+    IDisposable? dragTracking;
+    double horizontalPosition = 0.5;
+    /// <summary>The button went down on the notch: where the pointer and the notch were, as fractions of the display's width.</summary>
+    (double Pointer, double Position)? pressed;
+    DateTimeOffset dragEndedAt = DateTimeOffset.MinValue;
     /// <summary>A swap is waiting for its new content to be laid out before the window morphs.</summary>
     bool settling;
 
-    public DesktopNotchWindowService(NotchWindowOptions options, ILogger<DesktopNotchWindowService>? logger = null)
+    public DesktopNotchWindowService(NotchWindowOptions options, ILogger<DesktopNotchWindowService>? logger = null, string? displayId = null)
     {
         this.options = options;
         this.logger = logger;
+        this.displayId = displayId;
         this.frames = new NotchFrameAnimator(NotchView.DefaultEasing.Ease, size => this.PlaceFrame(size, 0));
     }
 
-    public bool HasHardwareNotch => NotchWindowPlatform.GetGeometry().HasNotch;
+    public string? DisplayId => this.displayId;
+
+    public Window? Window => this.window;
+
+    public bool HasHardwareNotch => NotchWindowPlatform.GetGeometry(this.displayId).HasNotch;
 
     public Size HardwareNotchSize
     {
         get
         {
-            var g = NotchWindowPlatform.GetGeometry();
+            var g = NotchWindowPlatform.GetGeometry(this.displayId);
             return g.HasNotch ? new Size(g.Width, g.Height) : Size.Zero;
         }
     }
+
+    public double HorizontalPosition
+    {
+        get => this.horizontalPosition;
+        set
+        {
+            this.horizontalPosition = Math.Clamp(value, 0, 1);
+            if (this.IsVisible && this.notch != null)
+                this.Place(this.notch.NotchSize, animate: false);
+        }
+    }
+
+    public bool IsDraggable { get; set; }
+
+    public bool IsDragging { get; private set; }
+
+    public event EventHandler? DragStarted;
+
+    public event EventHandler? DragCompleted;
 
     public bool IsPointerOver { get; private set; }
 
@@ -92,6 +127,7 @@ sealed class DesktopNotchWindowService : INotchWindowService, IDisposable
         NotchWindowPlatform.Show(this.platformWindow);
         this.IsVisible = true;
         this.pointerTracking ??= NotchWindowPlatform.TrackPointer(this.platformWindow, this.OnPointerChanged);
+        this.dragTracking ??= NotchWindowPlatform.TrackDrag(this.platformWindow, this.displayId, this.OnDrag);
     }
 
     public async Task SetContentAsync(View? content, Action<NotchView>? configure = null)
@@ -115,7 +151,7 @@ sealed class DesktopNotchWindowService : INotchWindowService, IDisposable
             }
 
             this.Content = content;
-            this.geometry = this.options.UseHardwareNotch ? NotchWindowPlatform.GetGeometry() : NotchGeometry.None;
+            this.geometry = this.options.UseHardwareNotch ? NotchWindowPlatform.GetGeometry(this.displayId) : NotchGeometry.None;
             this.notch = this.CreateNotch(content, configure, fadeIn: swapping);
 
             var page = new ContentPage
@@ -169,7 +205,59 @@ sealed class DesktopNotchWindowService : INotchWindowService, IDisposable
 
         this.pointerTracking?.Dispose();
         this.pointerTracking = null;
+        this.dragTracking?.Dispose();
+        this.dragTracking = null;
+        this.EndDrag();
         this.OnPointerChanged(false);
+    }
+
+    /// <summary>
+    /// The button went down on the notch, the pointer moved with it held, or it came up. The platform reports
+    /// the pointer as a fraction of the display's width, and that width in points.
+    /// </summary>
+    void OnDrag(NotchDragPhase phase, double pointer, double displayWidth)
+    {
+        switch (phase)
+        {
+            case NotchDragPhase.Pressed:
+                this.pressed = this.IsDraggable && !this.geometry.HasNotch && displayWidth > 0
+                    ? (pointer, this.horizontalPosition)
+                    : null;
+                break;
+
+            case NotchDragPhase.Moved when this.pressed is { } start && this.notch != null:
+                var delta = pointer - start.Pointer;
+                if (!this.IsDragging && Math.Abs(delta * displayWidth) < DragThreshold)
+                    break;
+
+                if (!this.IsDragging)
+                {
+                    this.IsDragging = true;
+                    this.DragStarted?.Invoke(this, EventArgs.Empty);
+                }
+
+                // Kept where the notch can follow the pointer: past this it would only be held at the edge,
+                // and dragging back would do nothing until the pointer caught up with it.
+                var half = Math.Min(0.5, this.notch.NotchSize.Width / 2 / displayWidth);
+                this.horizontalPosition = Math.Clamp(start.Position + delta, half, 1 - half);
+                this.Place(this.notch.NotchSize, animate: false);
+                break;
+
+            case NotchDragPhase.Released:
+                this.EndDrag();
+                break;
+        }
+    }
+
+    void EndDrag()
+    {
+        this.pressed = null;
+        if (!this.IsDragging)
+            return;
+
+        this.IsDragging = false;
+        this.dragEndedAt = DateTimeOffset.UtcNow;
+        this.DragCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     void OnPointerChanged(bool over)
@@ -294,7 +382,13 @@ sealed class DesktopNotchWindowService : INotchWindowService, IDisposable
         await Task.Delay(LayoutFrame).ConfigureAwait(true);
     }
 
-    void OnNotchTapped(object? sender, EventArgs e) => this.Tapped?.Invoke(this, EventArgs.Empty);
+    void OnNotchTapped(object? sender, EventArgs e)
+    {
+        // The mouse-up that ended a drag isn't a click.
+        if (this.IsDragging || DateTimeOffset.UtcNow - this.dragEndedAt < ClickAfterDragGuard)
+            return;
+        this.Tapped?.Invoke(this, EventArgs.Empty);
+    }
 
     void Place(Size size, bool animate)
     {
@@ -323,7 +417,9 @@ sealed class DesktopNotchWindowService : INotchWindowService, IDisposable
             this.geometry.HasNotch,
             this.options.TopMargin,
             this.options.CoverMenuBar,
-            durationMs
+            durationMs,
+            this.displayId,
+            this.horizontalPosition
         );
     }
 
@@ -342,6 +438,8 @@ sealed class DesktopNotchWindowService : INotchWindowService, IDisposable
         this.frames.Dispose();
         this.pointerTracking?.Dispose();
         this.pointerTracking = null;
+        this.dragTracking?.Dispose();
+        this.dragTracking = null;
 
         var native = this.platformWindow;
         this.platformWindow = null;

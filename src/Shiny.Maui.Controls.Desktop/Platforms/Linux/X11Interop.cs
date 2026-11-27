@@ -85,6 +85,13 @@ static partial class X11Interop
     [LibraryImport(X11, EntryPoint = "XInternAtom", StringMarshalling = StringMarshalling.Utf8)]
     public static partial IntPtr InternAtom(IntPtr display, string name, [MarshalAs(UnmanagedType.I4)] int onlyIfExists);
 
+    /// <summary>Button 1 (the left button) is down, in <see cref="QueryPointer"/>'s mask.</summary>
+    public const uint Button1Mask = 1 << 8;
+
+    [LibraryImport(X11, EntryPoint = "XQueryPointer")]
+    [return: MarshalAs(UnmanagedType.I4)]
+    public static partial int QueryPointer(IntPtr display, IntPtr window, out IntPtr root, out IntPtr child, out int rootX, out int rootY, out int windowX, out int windowY, out uint mask);
+
     [LibraryImport(X11, EntryPoint = "XMoveResizeWindow")]
     public static partial int MoveResizeWindow(IntPtr display, IntPtr window, int x, int y, uint width, uint height);
 

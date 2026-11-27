@@ -138,6 +138,24 @@ static partial class Gtk4Interop
     [LibraryImport(Gtk, EntryPoint = "gdk_x11_monitor_get_workarea")]
     public static partial void X11MonitorGetWorkarea(IntPtr monitor, out GdkRectangle workarea);
 
+    [LibraryImport(Gtk, EntryPoint = "gdk_display_get_default")]
+    public static partial IntPtr DisplayGetDefault();
+
+    /// <summary>The connector, such as "HDMI-1". Transfer none; may be null.</summary>
+    [LibraryImport(Gtk, EntryPoint = "gdk_monitor_get_connector")]
+    public static partial IntPtr MonitorGetConnector(IntPtr monitor);
+
+    /// <summary>GTK 4.10 and later: a name for the monitor to show the user. Transfer none; may be null.</summary>
+    [LibraryImport(Gtk, EntryPoint = "gdk_monitor_get_description")]
+    public static partial IntPtr MonitorGetDescription(IntPtr monitor);
+
+    /// <summary>The monitor's model. Transfer none; may be null.</summary>
+    [LibraryImport(Gtk, EntryPoint = "gdk_monitor_get_model")]
+    public static partial IntPtr MonitorGetModel(IntPtr monitor);
+
+    [LibraryImport("libgio-2.0.so.0", EntryPoint = "g_list_model_get_n_items")]
+    public static partial uint ListModelGetNItems(IntPtr list);
+
     /// <summary>Transfer full: the caller unrefs the item.</summary>
     [LibraryImport("libgio-2.0.so.0", EntryPoint = "g_list_model_get_item")]
     public static partial IntPtr ListModelGetItem(IntPtr list, uint position);

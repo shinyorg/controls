@@ -169,6 +169,23 @@ sealed class InMemoryChatStore
             ));
         }
 
+        // Older history - enough that the first page (PageSize 30) does not hold it all, so opening the
+        // chat exercises paging as well as the initial scroll to the newest message.
+        string[] senders = ["alice", "bob", MeId];
+        string[] chatter =
+        [
+            "Morning all ☕",
+            "Did the build go green overnight?",
+            "Yep, all platforms passed.",
+            "Nice. I'm looking at the DataGrid sorting today.",
+            "Ping me if you need a second pair of eyes.",
+            "Will do!",
+            "Anyone tried it on the foldable yet?",
+            "Not yet - mine is still charging \U0001F605"
+        ];
+        for (var i = 0; i < 40; i++)
+            Add(senders[i % senders.Length], chatter[i % chatter.Length], null, -2000 + (i * 30));
+
         Add("alice", "Hey everyone! Has anyone tried the new controls library?", null, -240);
         Add("bob", "Yes! The TableView is really nice.", null, -239);
         Add(MeId, "I agree, the styling system is great.", null, -238,

@@ -63,6 +63,7 @@ public static class DesktopMauiAppBuilderExtensions
             sp.GetRequiredService<NotchWindowOptions>(),
             sp.GetService<ILogger<DesktopNotchWindowService>>()
         ));
+        builder.Services.TryAddSingleton<INotchWindowFactory>(sp => new DesktopNotchWindowFactory(sp.GetRequiredService<NotchWindowOptions>(), sp));
 #endif
         return builder;
     }
